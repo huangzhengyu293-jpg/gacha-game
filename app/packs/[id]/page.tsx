@@ -1,12 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { useI18n } from "../../components/I18nProvider";
+import GachaWheel, { GachaWheelHandle } from "../../components/GachaWheel";
 
 export default function PackDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { t } = useI18n();
   const goBack = () => router.back();
+  const wheelRef = useRef<GachaWheelHandle>(null);
+  const [isFastMode, setIsFastMode] = useState(false);
+
+  // 单按钮：根据快速模式选择正常或快速抽奖
+  const handleOneButton = () => {
+    if (isFastMode) {
+      wheelRef.current?.spinDemoFast?.();
+    } else {
+      wheelRef.current?.spinDemo?.();
+    }
+  };
+
   return (
     <div className="w-full px-4 sm:px-6 md:px-8" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
       <div className="flex w-full max-w-screen-xl mx-auto px-0 -mb-6 justify-between items-center">
@@ -27,8 +41,33 @@ export default function PackDetailPage({ params }: { params: { id: string } }) {
         <div className="flex gap-2 w-[113.5px]" />
       </div>
 
-      {/* 占位：礼包详情内容将在此处添加 */}
-      <div className="mt-8 text-white text-center">Pack ID: {params.id}</div>
+      {/* 柏青哥转轮 */}
+      <div className="mt-8">
+        <GachaWheel ref={wheelRef} />
+      </div>
+
+      {/* 抽奖控制 */}
+      <div className="flex flex-col items-center gap-4 mt-8">
+        {/* 快速模式开关 */}
+        <button
+          onClick={() => setIsFastMode(!isFastMode)}
+          className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-200 ${
+            isFastMode
+              ? "bg-amber-500 hover:bg-amber-600 text-white"
+              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+          }`}
+        >
+          {isFastMode ? "快速抽奖已开启" : "正常速度"}
+        </button>
+
+        {/* 开始抽奖按钮 */}
+        <button
+          onClick={handleOneButton}
+          className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
+        >
+          开始抽奖 {isFastMode && "（快速）"}
+        </button>
+      </div>
 
     </div>
   );
