@@ -24,3 +24,130 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Background image (borrowed style) */
+body {
+  background-color: #0B0C0E !important;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;
+}
+
+html { overflow-x: hidden; scrollbar-gutter: stable both-edges; }
+
+/* Fixed full-viewport background layer (mobile-safe, no background-attachment issues) */
+.global-bg { display: none; }
+
+/* Side floaters (pumpkins) */
+.theme-floaters { display: none; }
+.theme-floater { display: none; }
+.theme-floater.left { left: -40px; }
+.theme-floater.right { right: -40px; transform: translateY(-50%) scaleX(-1); }
+
+/* Different floater images */
+.floater-one { background-image: url('https://packdraw.com/theme/fall/floaters/one.png'); }
+.floater-two { background-image: url('https://packdraw.com/theme/fall/floaters/two.png'); }
+.floater-three { background-image: url('https://packdraw.com/theme/fall/floaters/three.png'); }
+.floater-four { background-image: url('https://packdraw.com/theme/fall/floaters/four.png'); }
+.floater-five { background-image: url('https://packdraw.com/theme/fall/floaters/five.png'); }
+
+/* Size variants */
+.floater-sm { width: 140px; height: 140px; }
+.floater-md { width: 180px; height: 180px; }
+.floater-lg { width: 260px; height: 260px; }
+
+/* Responsive: reduce floaters on very small screens */
+@media (max-width: 480px) {
+  .theme-floater { opacity: 0.3; }
+  .floater-sm { width: 110px; height: 110px; }
+  .floater-md { width: 140px; height: 140px; }
+  .floater-lg { width: 180px; height: 180px; }
+}
+
+@keyframes floater-bob {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(calc(-50% - 8px)) translateX(2px); }
+}
+
+/* Banner background images */
+.bg-new-player-battle-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.bg-new-player-packs-banner {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.bg-new-player-deal-banner {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* Hover animation for live feed cards */
+.live-feed [data-component^="LiveFeedElement-"] .relative.h-\[180px\] {
+  position: relative;
+}
+
+/* target the main product image inside BaseProductCard */
+.live-feed [data-component^="LiveFeedElement-"] [data-component="BaseProductCard"] img[data-nimg="fill"] {
+  transition: transform 300ms ease, opacity 300ms ease;
+  will-change: transform, opacity;
+}
+
+/* the hidden pack image wrapper that follows each item */
+.live-feed > div + div img,
+.live-feed > div + div + div img {
+  transition: transform 300ms ease, opacity 300ms ease;
+  will-change: transform, opacity;
+}
+
+/* default states */
+.live-feed [data-component^="LiveFeedElement-"] [data-component="BaseProductCard"] img[data-nimg="fill"] {
+  transform: translateY(0%);
+  opacity: 1;
+}
+
+/* we can't easily pair siblings with pure CSS in this DOM, but we can at least animate the hovered card's image */
+.live-feed [data-component^="LiveFeedElement-"]:hover [data-component="BaseProductCard"] img[data-nimg="fill"] {
+  transform: translateY(25%);
+  opacity: 0;
+}
+
+/* LiveFeedCard hover image swap with bounce */
+/* LiveFeedCard 双向切换：顶层整体下移隐藏，底部层自下而上弹出 */
+.lf-card { position: relative; }
+.lf-card .lf-top,
+.lf-card .lf-reveal {
+  transition: transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1), opacity 260ms ease;
+  will-change: transform, opacity;
+}
+/* 轻微呼吸的环境光，让未悬停时也可见 */
+.lf-card .lf-ambient {
+  animation: lf-breathe 3.2s ease-in-out infinite;
+}
+@keyframes lf-breathe {
+  0%, 100% { opacity: 0.88; filter: blur(34px); }
+  50% { opacity: 1; filter: blur(38px); }
+}
+
+/* 新卡弹出动效：轻微上移 + 轻弹缩放 */
+/* 移除卡片缩放弹性动画，保留位置与透明度过渡 */
+/* 初始：顶层在位，底部层位于容器下方且透明（完全隐藏在视口外） */
+.lf-card .lf-top { transform: translateY(0%); opacity: 1; }
+.lf-card .lf-reveal { transform: translateY(100%); opacity: 0; }
+/* 悬停：顶层整体下移完全离开视口；底部层上移至仅露出 2/3 高度 */
+.lf-card:hover .lf-top { transform: translateY(100%); opacity: 0; }
+.lf-card:hover .lf-reveal { transform: translateY(33.333%); opacity: 1; }
+
+/* Showcase wheel utilities */
+@keyframes spin-slower {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slower { animation: spin-slower 18s linear infinite; }
+.bg-spin-blur-829DBB {
+  background-image: radial-gradient(closest-side, rgba(130,157,187,0.35), rgba(130,157,187,0.12) 60%, rgba(0,0,0,0));
+  filter: blur(2px);
+}
+.bg-spin-blur-E4AE33 {
+  background-image: radial-gradient(closest-side, rgba(228,174,51,0.35), rgba(228,174,51,0.12) 60%, rgba(0,0,0,0));
+  filter: blur(2px);
+}

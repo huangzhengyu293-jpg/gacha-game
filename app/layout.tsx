@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { I18nProvider } from "./components/I18nProvider";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import { LiveFeedProvider } from "./components/live-feed/LiveFeedProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +27,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+    <html lang="zh" data-theme="dark">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <I18nProvider>
+          {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
+          <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
+            <div className="flex flex-col min-h-screen" style={{ overflowX: 'hidden' }}>
+              <Navbar />
+              <div className="flex-1 pt-[80px] lg:pt-[96px]">
+                {children}
+              </div>
+              <Footer />
+            </div>
+          </LiveFeedProvider>
+        </I18nProvider>
       </body>
     </html>
   );
