@@ -3,6 +3,14 @@
 import { useRef, useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import gsap from "gsap";
 
+if (typeof window !== 'undefined') {
+  gsap.config({ 
+    force3D: true,
+    nullTargetWarn: false,
+  });
+  gsap.ticker.lagSmoothing(0);
+}
+
 const ITEM_SIZE_PX = 195;
 
 interface GachaItem {
@@ -33,6 +41,7 @@ const DEFAULT_ITEMS: GachaItem[] = [
 interface GachaWheelProps {
   items?: GachaItem[];
   highSpeedDuration?: number;
+  bounceDirection?: 'auto' | 'left' | 'right';
 }
 
 export interface GachaWheelHandle {
@@ -45,7 +54,7 @@ export interface GachaWheelHandle {
 }
 
 const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
-  ({ items = DEFAULT_ITEMS, highSpeedDuration = 0.62 }, ref) => {
+  ({ items = DEFAULT_ITEMS, highSpeedDuration = 0.62, bounceDirection = 'auto' }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollOffsetRef = useRef(0);
     const slotSizeRef = useRef(ITEM_SIZE_PX);
@@ -67,6 +76,14 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
   const countdownTimeoutsRef = useRef<number[]>([]);
   const inFinalSnapRef = useRef(false);
   const isScrollingRef = useRef(false);
+  const currentBounceDirectionRef = useRef<'left' | 'right'>('right');
+  const lastStepTimeRef = useRef(0);
+  const currentStepIdxRef = useRef(-1);
+  const stepIntervalRef = useRef(0.20)
+  const stepStartTimeRef = useRef<number | null>(null);
+  const stepTimesRef = useRef<number[] | null>(null);
+  const nextStepIdxRef = useRef<number>(0);
+  const countdownWindowStartedRef = useRef(false);
 
   const clearCountdown = () => {
     for (const id of countdownTimeoutsRef.current) {
@@ -117,15 +134,20 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         liveSelectActiveRef.current = false;
         clearCountdown();
         inFinalSnapRef.current = false;
-        inFinalSnapRef.current = false;
         isScrollingRef.current = false;
+        lastStepTimeRef.current = -1e9;
+        currentStepIdxRef.current = -1;
+        stepStartTimeRef.current = null;
+        stepTimesRef.current = null;
+        nextStepIdxRef.current = 0;
+        countdownWindowStartedRef.current = false;
 
         const SLOT = slotSizeRef.current;
         const MAX_SPEED = SLOT * 30;
         const velObj = { v: velocityRef.current } as { v: number };
         gsap.to(velObj, {
           v: MAX_SPEED,
-          duration: 0.35,
+          duration: 0.23,
           ease: "power4.out",
           onUpdate: () => {
             velocityRef.current = velObj.v;
@@ -207,7 +229,7 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
 
         tl.to(scrollOffsetRef, {
           current: finalPosition,
-          duration: 0.6,
+          duration: 0.2,
           ease: "back.out(1.3)",
           onComplete: () => {
             scrollOffsetRef.current = finalPosition;
@@ -251,6 +273,12 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         clearCountdown();
         inFinalSnapRef.current = false;
         isScrollingRef.current = false;
+        lastStepTimeRef.current = -1e9;
+        currentStepIdxRef.current = -1;
+        stepStartTimeRef.current = null;
+        stepTimesRef.current = null;
+        nextStepIdxRef.current = 0;
+        countdownWindowStartedRef.current = false;
 
         const tl = gsap.timeline({ onUpdate: () => forceUpdate((n) => n + 1) });
         timelineRef.current = tl;
@@ -258,21 +286,20 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         const startPos = scrollOffsetRef.current;
         const SLOT = slotSizeRef.current;
         
+        // 快速模式：0.35s 加速 + 0.5s 高速匀速
         tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * 5,
-          duration: 0.15,
+          current: startPos + SLOT * 8,
+          duration: 0.23,
           ease: "power3.in",
           onUpdate: () => {
-            const progress = (scrollOffsetRef.current - startPos) / (SLOT * 5);
-            if (progress > 0.3) {
-              isScrollingRef.current = true;
-            }
+            const progress = (scrollOffsetRef.current - startPos) / (SLOT * 8);
+            if (progress > 0.3) isScrollingRef.current = true;
           },
         });
 
         tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * (5 + 15),
-          duration: 0.2,
+          current: scrollOffsetRef.current + SLOT * 24,
+          duration: 0.33,
           ease: "none",
           onComplete: () => {
             const targetIndex = Math.floor(Math.random() * Math.max(1, total));
@@ -285,40 +312,75 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
             const finalPosition = targetItemIdx * SLOT;
 
             const overshootPx = 4 + Math.random() * 4;
-            const overshootPosition = finalPosition + overshootPx;
-
             targetGlobalIndexRef.current = targetItemIdx;
 
+            // 按方向决定超/欠冲方向，并记录当前方向
+            let shouldBounceFromRight = true;
+            if (bounceDirection === 'left') shouldBounceFromRight = false;
+            else if (bounceDirection === 'right') shouldBounceFromRight = true;
+            else shouldBounceFromRight = Math.random() > 0.5;
+            currentBounceDirectionRef.current = shouldBounceFromRight ? 'right' : 'left';
+
+            const halfSlotFast = SLOT * 0.5;
+            const withinHalfOffsetFast = Math.random() * halfSlotFast;
+            const travelPosition = shouldBounceFromRight
+              ? finalPosition + withinHalfOffsetFast + overshootPx
+              : finalPosition - withinHalfOffsetFast - overshootPx;
+
             tl.to(scrollOffsetRef, {
-              current: overshootPosition,
-              duration: 0.55,
+              current: travelPosition,
+              duration: 0.37,
               ease: "expo.out",
               onStart: () => {
                 selectedGlowActiveRef.current = true;
               },
-              onUpdate: () => {
+              onUpdate: function(this: gsap.core.Tween) {
                 const SLOT = slotSizeRef.current;
-                const currentCenterGlobal = Math.floor(scrollOffsetRef.current / SLOT);
+                const centerFloat = scrollOffsetRef.current / SLOT;
                 const target = targetGlobalIndexRef.current ?? 0;
-                const diff = target - currentCenterGlobal;
+                const diffFloat = target - centerFloat;
+                const now = this.totalTime();
+                const remain = this.totalDuration() - this.totalTime();
 
-                let newFocus = countdownFocusGlobalIndexRef.current;
-                if (diff <= 1 && diff > 0) newFocus = target - 1;
-                else if (diff <= 0) newFocus = target;
+                if (!inFinalSnapRef.current) inFinalSnapRef.current = true;
 
-                if (newFocus !== null && newFocus !== countdownFocusGlobalIndexRef.current) {
-                  countdownFocusGlobalIndexRef.current = newFocus;
-                  liveSelectActiveRef.current = false;
-                  inFinalSnapRef.current = true;
-                  forceUpdate((n) => n + 1);
+                // 方向化：右→左更早选中奖品
+                let intended = Math.max(0, Math.min(1, Math.floor(1 - diffFloat))); // 仅两步：-1, target
+                if (diffFloat <= 0.6) intended = 2; // target
+                const lead = currentBounceDirectionRef.current === 'right' ? 0.25 : 0.35;
+                if (intended === 2 && remain > lead) intended = 1;
+
+                // 速度化：右→左最后一步更快
+                const base = Math.max(0.06, stepIntervalRef.current * 0.4);
+                const faster = currentBounceDirectionRef.current === 'right' && intended === 2 ? base * 0.6 : base;
+                if (now - lastStepTimeRef.current >= faster) {
+                  const focus = intended === 0 ? target - 1 : target;
+                  if (countdownFocusGlobalIndexRef.current !== focus) {
+                    countdownFocusGlobalIndexRef.current = focus;
+                    lastStepTimeRef.current = now;
+                    liveSelectActiveRef.current = false;
+                    forceUpdate((n) => n + 1);
+                  }
                 }
               },
             });
 
+            // 高速情况下的回正更平滑：先接近再回正
+            const approachOffset = SLOT * 0.12;
+            const approachPos = shouldBounceFromRight
+              ? finalPosition - approachOffset
+              : finalPosition + approachOffset;
+
+            tl.to(scrollOffsetRef, {
+              current: approachPos,
+              duration: 0.09,
+              ease: "power1.out",
+            });
+
             tl.to(scrollOffsetRef, {
               current: finalPosition,
-              duration: 0.1,
-              ease: "back.out(1.15)",
+              duration: 0.18,
+              ease: "circ.out",
               onComplete: () => {
                 scrollOffsetRef.current = finalPosition;
                 stoppedRef.current = true;
@@ -350,86 +412,203 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         liveSelectActiveRef.current = false;
         clearCountdown();
         isScrollingRef.current = false;
+        lastStepTimeRef.current = -1e9;
+        currentStepIdxRef.current = -1;
+        stepStartTimeRef.current = null;
+        stepTimesRef.current = null;
+        nextStepIdxRef.current = 0;
+        countdownWindowStartedRef.current = false;
 
         const tl = gsap.timeline({ onUpdate: () => forceUpdate((n) => n + 1) });
         timelineRef.current = tl;
 
         const startPos = scrollOffsetRef.current;
         const SLOT = slotSizeRef.current;
-        tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * 5,
-          duration: 0.25,
-          ease: "power3.in",
-          onUpdate: () => {
-            const progress = (scrollOffsetRef.current - startPos) / (SLOT * 5);
-            if (progress > 0.3) {
-              isScrollingRef.current = true;
-              liveSelectActiveRef.current = true;
-            }
-          },
-        });
-
-        tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * (5 + 18),
-          duration: highSpeedDuration,
-          ease: "none",
-        });
 
         const targetIndex = Math.floor(Math.random() * Math.max(1, total));
-        const currentPos = startPos + SLOT * (5 + 18);
+        const BRIDGE_DUR = 0.5;
+        const v0 = Math.max(0, velocityRef.current);
+        const minDist = SLOT * 14//高速段：最少推进约6格（更慢）
+        const maxDist = SLOT * 24//约12格
+        const bridgeDist = Math.max(minDist, Math.min(maxDist, v0 * BRIDGE_DUR));
+        const currentPos = scrollOffsetRef.current + bridgeDist;
         const currentItemIdx = Math.floor(currentPos / SLOT);
         const loops = 5;
         const targetItemIdx =
           currentItemIdx + loops * total + ((targetIndex - (currentItemIdx % total) + total) % total);
         const finalPosition = targetItemIdx * SLOT;
-        const overshootPx = 8 + Math.random() * 10;
-        const overshootPosition = finalPosition + overshootPx;
-
+        let shouldBounceFromRight = true;
+        if (bounceDirection === 'left') shouldBounceFromRight = false;
+        else if (bounceDirection === 'right') shouldBounceFromRight = true;
+        else shouldBounceFromRight = Math.random() > 0.5;
+        
         targetGlobalIndexRef.current = targetItemIdx;
+        const halfSlot = SLOT * 0.5;
+        const extraBounce = 10 + Math.random() * 20;
 
-        tl.to(scrollOffsetRef, {
-          current: overshootPosition,
-          duration: 4.5,
-          ease: "expo.out",
-          onStart: () => {
-            selectedGlowActiveRef.current = true;
-          },
-          onUpdate: () => {
-            const SLOT = slotSizeRef.current;
-            const currentCenterGlobal = Math.floor(scrollOffsetRef.current / SLOT);
-            const target = targetGlobalIndexRef.current ?? 0;
-            const diff = target - currentCenterGlobal;
+        if (shouldBounceFromRight) {
+          currentBounceDirectionRef.current = 'right';
+          const withinHalfOffset = Math.random() * halfSlot; // 半个卡片宽度以内
+          const overshootPosition = finalPosition + withinHalfOffset + extraBounce;
 
-            let newFocus = countdownFocusGlobalIndexRef.current;
-            if (diff <= 3 && diff > 2) newFocus = target - 3;
-            else if (diff <= 2 && diff > 1) newFocus = target - 2;
-            else if (diff <= 1 && diff > 0) newFocus = target - 1;
-            else if (diff <= 0) newFocus = target;
+          // 高速→减速过渡桥（0.5s 匀速，高速保持连续）
+          tl.to(scrollOffsetRef, {
+            current: scrollOffsetRef.current + bridgeDist,
+            duration: BRIDGE_DUR,
+            ease: "none",
+            onStart: () => { isScrollingRef.current = true; },
+          });
 
-            if (newFocus !== null && newFocus !== countdownFocusGlobalIndexRef.current) {
-              countdownFocusGlobalIndexRef.current = newFocus;
-              liveSelectActiveRef.current = false;
-              inFinalSnapRef.current = true;
+          tl.to(scrollOffsetRef, {
+            current: overshootPosition,
+            duration: 4.5,
+            ease: "expo.out",
+            onStart: () => {
+              selectedGlowActiveRef.current = true;
+              // 预排均匀节拍（最后一步与前面相同，整体稍放慢）
+              const lastStepLead = 0.85; // 回正前 0.85s 选中奖品
+              const stepInterval = 0.16; // 每步间隔（稍慢一点点）
+              const steps = 6; // -5,-4,-3,-2,-1, target
+              const tweenDur = 4.5;
+              const times: number[] = [];
+              for (let i = 0; i < steps; i++) {
+                const remainAtStep = lastStepLead + (steps - 1 - i) * stepInterval;
+                const t = Math.max(0, tweenDur - remainAtStep);
+                times.push(t);
+              }
+              stepTimesRef.current = times;
+              nextStepIdxRef.current = 0;
+              lastStepTimeRef.current = -1e9;
+              currentStepIdxRef.current = -1;
+              stepStartTimeRef.current = null;
+            },
+            onUpdate: function(this: gsap.core.Tween) {
+              const SLOT = slotSizeRef.current;
+              const centerFloat = scrollOffsetRef.current / SLOT;
+              const target = targetGlobalIndexRef.current ?? 0;
+              const diffFloat = target - centerFloat;
+              const now = this.totalTime();
+              const remain = this.totalDuration() - this.totalTime();
+
+              if (!inFinalSnapRef.current) inFinalSnapRef.current = true;
+
+              // 基于位置的逐格推进：diff 从 8→0 递减
+              let intended = Math.max(0, Math.min(7, Math.floor(8 - diffFloat)));
+              if (diffFloat <= 0.6) intended = 8; // 奖品
+              // 奖品步在回正前 lead 秒内才允许触发（左→右更早）
+              const lead = currentBounceDirectionRef.current === 'left' ? 1.5 : 1.0;
+              if (intended === 8 && remain > lead) intended = 7;
+
+              if (intended > currentStepIdxRef.current) {
+                // 控制最小步进间隔，防止过快连跳
+                if (now - lastStepTimeRef.current >= Math.max(0.08, stepIntervalRef.current * 0.6)) {
+                  countdownFocusGlobalIndexRef.current = (target - 8) + intended;
+                  currentStepIdxRef.current = intended;
+                  lastStepTimeRef.current = now;
+                  liveSelectActiveRef.current = false;
+                  forceUpdate((n) => n + 1);
+                }
+              }
+            },
+            onComplete: () => {
+              const target = targetGlobalIndexRef.current ?? null;
+              if (target !== null) {
+                countdownFocusGlobalIndexRef.current = target;
+                inFinalSnapRef.current = true;
+                forceUpdate((n) => n + 1);
+              }
+            },
+          });
+
+          tl.to(scrollOffsetRef, {
+            current: finalPosition,
+            duration: 0.2,
+            ease: "back.out(1.3)",
+            onComplete: () => {
+              scrollOffsetRef.current = finalPosition;
+              stoppedRef.current = true;
+              isScrollingRef.current = false;
+              setCenterIndex(targetIndex);
+              winnerScaleRef.current = 1.5;
+              clearCountdown();
+              inFinalSnapRef.current = false;
               forceUpdate((n) => n + 1);
-            }
-          },
-        });
+            },
+          });
+        } else {
+          currentBounceDirectionRef.current = 'left';
+          const withinHalfOffsetL = Math.random() * halfSlot; // 半个卡片宽度以内
+          const undershootPosition = finalPosition - withinHalfOffsetL - extraBounce;
 
-        tl.to(scrollOffsetRef, {
-          current: finalPosition,
-          duration: 0.6,
-          ease: "back.out(1.3)",
-          onComplete: () => {
-            scrollOffsetRef.current = finalPosition;
-            stoppedRef.current = true;
-            isScrollingRef.current = false;
-            setCenterIndex(targetIndex);
-            winnerScaleRef.current = 1.5;
-            clearCountdown();
-            inFinalSnapRef.current = false;
-            forceUpdate((n) => n + 1);
-          },
-        });
+          // 高速→减速过渡桥（0.5s 匀速，高速保持连续）
+          tl.to(scrollOffsetRef, {
+            current: scrollOffsetRef.current + bridgeDist,
+            duration: BRIDGE_DUR,
+            ease: "none",
+            onStart: () => { isScrollingRef.current = true; },
+          });
+
+          tl.to(scrollOffsetRef, {
+            current: undershootPosition,
+            duration: 4.5,
+            ease: "expo.out",
+            onStart: () => {
+              selectedGlowActiveRef.current = true;
+              lastStepTimeRef.current = -1e9;
+              currentStepIdxRef.current = -1;
+              stepStartTimeRef.current = null;
+            },
+            onUpdate: function(this: gsap.core.Tween) {
+              const SLOT = slotSizeRef.current;
+              const centerFloat = scrollOffsetRef.current / SLOT;
+              const target = targetGlobalIndexRef.current ?? 0;
+              const diffFloat = target - centerFloat;
+              const now = this.totalTime();
+              const remain = this.totalDuration() - this.totalTime();
+
+              if (!inFinalSnapRef.current) inFinalSnapRef.current = true;
+
+              let intended = Math.max(0, Math.min(7, Math.floor(8 - diffFloat)));
+              if (diffFloat <= 0.6) intended = 8;
+              const lead = currentBounceDirectionRef.current === 'left' ? 1.5 : 1.0;
+              if (intended === 8 && remain > lead) intended = 7;
+
+              if (intended > currentStepIdxRef.current) {
+                if (now - lastStepTimeRef.current >= Math.max(0.08, stepIntervalRef.current * 0.6)) {
+                  countdownFocusGlobalIndexRef.current = (target - 8) + intended;
+                  currentStepIdxRef.current = intended;
+                  lastStepTimeRef.current = now;
+                  liveSelectActiveRef.current = false;
+                  forceUpdate((n) => n + 1);
+                }
+              }
+            },
+            onComplete: () => {
+              const target = targetGlobalIndexRef.current ?? null;
+              if (target !== null) {
+                countdownFocusGlobalIndexRef.current = target;
+                inFinalSnapRef.current = true;
+                forceUpdate((n) => n + 1);
+              }
+            },
+          });
+
+          tl.to(scrollOffsetRef, {
+            current: finalPosition,
+            duration: 0.2,
+            ease: "back.out(1.3)",
+            onComplete: () => {
+              scrollOffsetRef.current = finalPosition;
+              stoppedRef.current = true;
+              isScrollingRef.current = false;
+              setCenterIndex(targetIndex);
+              winnerScaleRef.current = 1.5;
+              clearCountdown();
+              inFinalSnapRef.current = false;
+              forceUpdate((n) => n + 1);
+            },
+          });
+        }
       },
     }));
 
@@ -450,6 +629,7 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
       glowSize: number;
       spinClass: string;
       key: string;
+      showInfo: boolean;
     }>;
     for (let i = 0; i < TOTAL_SLOTS; i++) {
       const k = i - (Math.floor(VISIBLE_SLOTS / 2) + OVERSCAN);
@@ -472,27 +652,16 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
       const FOCUS_SCALE = 1.4;
       const LIVE_SCROLL_SCALE = 1.4;
       
-      const leftOneSlotX = -1 * SLOT;
-      const leftOneEPS = SLOT * 0.6;
-      const isLeftOneSlot = Math.abs(x - leftOneSlotX) <= leftOneEPS;
-      
-      const isInDecelerationPhase = selectedGlowActiveRef.current && !inFinalSnapRef.current;
-      const shouldShowLeftOneMagnify = isScrollingRef.current && (liveSelectActiveRef.current || isInDecelerationPhase) && isLeftOneSlot;
-      
       let scale = 1;
       if (shouldMagnifyFinal) {
         scale = FOCUS_SCALE;
       } else if (isCountdownFocus) {
         scale = FOCUS_SCALE;
-      } else if (shouldShowLeftOneMagnify) {
-        scale = LIVE_SCROLL_SCALE;
       }
       
       let glowSize = 50;
       if (shouldMagnifyFinal || isCountdownFocus) {
         glowSize = 85;
-      } else if (shouldShowLeftOneMagnify) {
-        glowSize = 100;
       }
 
       const spinClass =
@@ -507,6 +676,7 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         glowSize,
         spinClass,
         key: `slot-${i}`,
+        showInfo: shouldMagnifyFinal,
       });
     }
 
@@ -560,16 +730,18 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
                   </div>
 
                   <div
-                    className="flex absolute flex-col items-center bg-gray-700/40 px-2 rounded-md transition-opacity duration-200 opacity-0 hover:opacity-100"
+                    className={`flex absolute flex-col items-center bg-gray-700/40 px-2 py-1 mx-2 rounded-md transition-opacity duration-200 ${
+                      slot.showInfo ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+                    }`}
                     style={{
-                      transform: "translate(0px, 78px)",
-                      maxWidth: SLOT,
+                      transform: "translate(0px, 65px)",
+                      maxWidth: SLOT - 16,
                     }}
                   >
-                    <p className="text-white font-black text-base whitespace-nowrap max-w-full overflow-hidden text-ellipsis">
+                    <p className="text-white font-bold text-xs whitespace-nowrap max-w-full overflow-hidden text-ellipsis">
                       {slot.item.name}
                     </p>
-                    <p className="text-white font-black text-base">
+                    <p className="text-white font-bold text-xs">
                       {slot.item.price}
                     </p>
                   </div>
@@ -578,11 +750,7 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
             </div>
           </div>
         </div>
-        {centerIndex !== null && items[centerIndex] && (
-          <div className="mt-4 text-center text-white font-bold">
-            中奖：{items[centerIndex].name}
-          </div>
-        )}
+      
       </div>
     );
   }

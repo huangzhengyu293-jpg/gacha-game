@@ -9,15 +9,17 @@ export default function PackDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { t } = useI18n();
   const goBack = () => router.back();
-  const wheelRef = useRef<GachaWheelHandle>(null);
+  const wheelLeftRef = useRef<GachaWheelHandle>(null);
+  const wheelRightRef = useRef<GachaWheelHandle>(null);
   const [isFastMode, setIsFastMode] = useState(false);
-  const [speedDuration, setSpeedDuration] = useState(0.62);
 
   const handleOneButton = () => {
     if (isFastMode) {
-      wheelRef.current?.spinDemoFast?.();
+      wheelLeftRef.current?.spinDemoFast?.();
+      wheelRightRef.current?.spinDemoFast?.();
     } else {
-      wheelRef.current?.spinDemo?.();
+      wheelLeftRef.current?.spinDemo?.();
+      wheelRightRef.current?.spinDemo?.();
     }
   };
 
@@ -41,27 +43,25 @@ export default function PackDetailPage({ params }: { params: { id: string } }) {
         <div className="flex gap-2 w-[113.5px]" />
       </div>
 
-      {/* 柏青哥转轮 */}
+      {/* 柏青哥转轮 - 上行：从左往右回正 */}
       <div className="mt-8">
-        <GachaWheel ref={wheelRef} highSpeedDuration={speedDuration} />
+        <GachaWheel ref={wheelLeftRef} highSpeedDuration={0.62} bounceDirection={'left'} />
+      </div>
+
+      {/* 柏青哥转轮 - 下行：从右往左回正 */}
+      <div className="mt-8">
+        <GachaWheel ref={wheelRightRef} highSpeedDuration={0.62} bounceDirection={'right'} />
       </div>
 
       {/* 抽奖控制 */}
       <div className="flex flex-col items-center gap-4 mt-8">
-        {/* 速度调节器 */}
-        <div className="flex items-center gap-3 bg-gray-700/50 px-4 py-2 rounded-lg">
-          <label className="text-white text-sm font-bold">高速时长:</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0.1"
-            max="2.0"
-            value={speedDuration}
-            onChange={(e) => setSpeedDuration(parseFloat(e.target.value) || 0.62)}
-            className="w-20 px-2 py-1 bg-gray-800 text-white font-mono text-sm rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-          />
-          <span className="text-gray-400 text-xs">秒</span>
+        {/* 方向说明（已固定：上行左→右，下行右→左） */}
+        <div className="flex items-center gap-3 bg-gray-700/50 px-4 py-2 rounded-lg text-sm text-gray-300">
+          <span>上行：从左往右回正</span>
+          <span>下行：从右往左回正</span>
         </div>
+
+        {/* 已固定高速时长为 0.62s（全局一致） */}
 
         {/* 快速模式开关 */}
         <button
