@@ -32,6 +32,7 @@ const DEFAULT_ITEMS: GachaItem[] = [
 
 interface GachaWheelProps {
   items?: GachaItem[];
+  highSpeedDuration?: number;
 }
 
 export interface GachaWheelHandle {
@@ -44,7 +45,7 @@ export interface GachaWheelHandle {
 }
 
 const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
-  ({ items = DEFAULT_ITEMS }, ref) => {
+  ({ items = DEFAULT_ITEMS, highSpeedDuration = 0.62 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollOffsetRef = useRef(0);
     const slotSizeRef = useRef(ITEM_SIZE_PX);
@@ -356,11 +357,11 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         const startPos = scrollOffsetRef.current;
         const SLOT = slotSizeRef.current;
         tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * 12,
-          duration: 0.4,
+          current: startPos + SLOT * 5,
+          duration: 0.25,
           ease: "power3.in",
           onUpdate: () => {
-            const progress = (scrollOffsetRef.current - startPos) / (SLOT * 12);
+            const progress = (scrollOffsetRef.current - startPos) / (SLOT * 5);
             if (progress > 0.3) {
               isScrollingRef.current = true;
               liveSelectActiveRef.current = true;
@@ -369,67 +370,64 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         });
 
         tl.to(scrollOffsetRef, {
-          current: startPos + SLOT * (12 + 48),
-          duration: 1.6,
+          current: startPos + SLOT * (5 + 18),
+          duration: highSpeedDuration,
           ease: "none",
+        });
+
+        const targetIndex = Math.floor(Math.random() * Math.max(1, total));
+        const currentPos = startPos + SLOT * (5 + 18);
+        const currentItemIdx = Math.floor(currentPos / SLOT);
+        const loops = 5;
+        const targetItemIdx =
+          currentItemIdx + loops * total + ((targetIndex - (currentItemIdx % total) + total) % total);
+        const finalPosition = targetItemIdx * SLOT;
+        const overshootPx = 8 + Math.random() * 10;
+        const overshootPosition = finalPosition + overshootPx;
+
+        targetGlobalIndexRef.current = targetItemIdx;
+
+        tl.to(scrollOffsetRef, {
+          current: overshootPosition,
+          duration: 4.5,
+          ease: "expo.out",
+          onStart: () => {
+            selectedGlowActiveRef.current = true;
+          },
+          onUpdate: () => {
+            const SLOT = slotSizeRef.current;
+            const currentCenterGlobal = Math.floor(scrollOffsetRef.current / SLOT);
+            const target = targetGlobalIndexRef.current ?? 0;
+            const diff = target - currentCenterGlobal;
+
+            let newFocus = countdownFocusGlobalIndexRef.current;
+            if (diff <= 3 && diff > 2) newFocus = target - 3;
+            else if (diff <= 2 && diff > 1) newFocus = target - 2;
+            else if (diff <= 1 && diff > 0) newFocus = target - 1;
+            else if (diff <= 0) newFocus = target;
+
+            if (newFocus !== null && newFocus !== countdownFocusGlobalIndexRef.current) {
+              countdownFocusGlobalIndexRef.current = newFocus;
+              liveSelectActiveRef.current = false;
+              inFinalSnapRef.current = true;
+              forceUpdate((n) => n + 1);
+            }
+          },
+        });
+
+        tl.to(scrollOffsetRef, {
+          current: finalPosition,
+          duration: 0.6,
+          ease: "back.out(1.3)",
           onComplete: () => {
-            const targetIndex = Math.floor(Math.random() * Math.max(1, total));
-
-            const currentPos = scrollOffsetRef.current;
-            const currentItemIdx = Math.floor(currentPos / SLOT);
-            const loops = 5;
-            const targetItemIdx =
-              currentItemIdx + loops * total + ((targetIndex - (currentItemIdx % total) + total) % total);
-            const finalPosition = targetItemIdx * SLOT;
-
-            const overshootPx = 8 + Math.random() * 10;
-            const overshootPosition = finalPosition + overshootPx;
-
-            targetGlobalIndexRef.current = targetItemIdx;
-
-            tl.to(scrollOffsetRef, {
-              current: overshootPosition,
-              duration: 3.0,
-              ease: "expo.out",
-              onStart: () => {
-                selectedGlowActiveRef.current = true;
-              },
-              onUpdate: () => {
-                const SLOT = slotSizeRef.current;
-                const currentCenterGlobal = Math.floor(scrollOffsetRef.current / SLOT);
-                const target = targetGlobalIndexRef.current ?? 0;
-                const diff = target - currentCenterGlobal;
-
-                let newFocus = countdownFocusGlobalIndexRef.current;
-                if (diff <= 3 && diff > 2) newFocus = target - 3;
-                else if (diff <= 2 && diff > 1) newFocus = target - 2;
-                else if (diff <= 1 && diff > 0) newFocus = target - 1;
-                else if (diff <= 0) newFocus = target;
-
-                if (newFocus !== null && newFocus !== countdownFocusGlobalIndexRef.current) {
-                  countdownFocusGlobalIndexRef.current = newFocus;
-                  liveSelectActiveRef.current = false;
-                  inFinalSnapRef.current = true;
-                  forceUpdate((n) => n + 1);
-                }
-              },
-            });
-
-            tl.to(scrollOffsetRef, {
-              current: finalPosition,
-              duration: 0.6,
-              ease: "back.out(1.3)",
-              onComplete: () => {
-                scrollOffsetRef.current = finalPosition;
-                stoppedRef.current = true;
-                isScrollingRef.current = false;
-                setCenterIndex(targetIndex);
-                winnerScaleRef.current = 1.5;
-                clearCountdown();
-                inFinalSnapRef.current = false;
-                forceUpdate((n) => n + 1);
-              },
-            });
+            scrollOffsetRef.current = finalPosition;
+            stoppedRef.current = true;
+            isScrollingRef.current = false;
+            setCenterIndex(targetIndex);
+            winnerScaleRef.current = 1.5;
+            clearCountdown();
+            inFinalSnapRef.current = false;
+            forceUpdate((n) => n + 1);
           },
         });
       },
@@ -471,8 +469,8 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
       const isCountdownFocus = inFinalSnapRef.current && countdownFocusGlobalIndexRef.current !== null && thisGlobalIndex === countdownFocusGlobalIndexRef.current;
 
       const shouldMagnifyFinal = stoppedRef.current && isCenterSlot && isWinnerItem;
-      const FOCUS_SCALE = 1.5;
-      const LIVE_SCROLL_SCALE = 1.6;
+      const FOCUS_SCALE = 1.4;
+      const LIVE_SCROLL_SCALE = 1.4;
       
       const leftOneSlotX = -1 * SLOT;
       const leftOneEPS = SLOT * 0.6;
@@ -490,11 +488,11 @@ const GachaWheel = forwardRef<GachaWheelHandle, GachaWheelProps>(
         scale = LIVE_SCROLL_SCALE;
       }
       
-      let glowSize = 60;
+      let glowSize = 50;
       if (shouldMagnifyFinal || isCountdownFocus) {
-        glowSize = 100;
+        glowSize = 85;
       } else if (shouldShowLeftOneMagnify) {
-        glowSize = 120;
+        glowSize = 100;
       }
 
       const spinClass =

@@ -11,8 +11,8 @@ export default function PackDetailPage({ params }: { params: { id: string } }) {
   const goBack = () => router.back();
   const wheelRef = useRef<GachaWheelHandle>(null);
   const [isFastMode, setIsFastMode] = useState(false);
+  const [speedDuration, setSpeedDuration] = useState(0.62);
 
-  // 单按钮：根据快速模式选择正常或快速抽奖
   const handleOneButton = () => {
     if (isFastMode) {
       wheelRef.current?.spinDemoFast?.();
@@ -43,11 +43,26 @@ export default function PackDetailPage({ params }: { params: { id: string } }) {
 
       {/* 柏青哥转轮 */}
       <div className="mt-8">
-        <GachaWheel ref={wheelRef} />
+        <GachaWheel ref={wheelRef} highSpeedDuration={speedDuration} />
       </div>
 
       {/* 抽奖控制 */}
       <div className="flex flex-col items-center gap-4 mt-8">
+        {/* 速度调节器 */}
+        <div className="flex items-center gap-3 bg-gray-700/50 px-4 py-2 rounded-lg">
+          <label className="text-white text-sm font-bold">高速时长:</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.1"
+            max="2.0"
+            value={speedDuration}
+            onChange={(e) => setSpeedDuration(parseFloat(e.target.value) || 0.62)}
+            className="w-20 px-2 py-1 bg-gray-800 text-white font-mono text-sm rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+          />
+          <span className="text-gray-400 text-xs">秒</span>
+        </div>
+
         {/* 快速模式开关 */}
         <button
           onClick={() => setIsFastMode(!isFastMode)}
