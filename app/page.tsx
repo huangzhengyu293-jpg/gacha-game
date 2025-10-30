@@ -11,7 +11,7 @@ import TradeHighlights from './components/TradeHighlights';
 export default function Home() {
   const { t } = useI18n();
   return (
-    <div className="flex flex-col min-h-screen" style={{ overflowX: 'hidden' }}>
+    <div className="flex flex-col min-h-screen" >
       <div className="flex-1 min-h-screen pt-0">
         <div
           className="w-full px-4 sm:px-6 md:px-8 pb-12"

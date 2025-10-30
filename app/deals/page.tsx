@@ -1,13 +1,29 @@
 'use client';
-import { useI18n } from '../components/I18nProvider';
 
+import DealsTopSection, { SelectedProduct } from "../components/DealsTopSection";
+import DealsSearchToolbar from "../components/DealsSearchToolbar";
+import DealsProductGridSection, { ProductItem } from "../components/DealsProductGridSection";
+import { useState } from "react";
 export default function DealsPage() {
-  const { t } = useI18n();
+  const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
+  const reselectSelected = () => {
+    if (!selectedProduct) return;
+    const p = selectedProduct;
+    setSelectedProduct({ id: p.id, name: p.name, image: p.image, price: p.price, percent: p.percent });
+  };
   return (
-    <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
-      <div className="max-w-[1248px] mx-auto">
-        <h2 className="text-2xl text-white font-bold">{t('deals')}</h2>
-        <p className="text-gray-400 mt-3">这里是交易频道页面（占位）。</p>
+    <div className="w-full">
+      <div className="mx-auto w-full max-w-[1280px] px-4">
+        <DealsTopSection selectedProduct={selectedProduct} onReselectSelectedProduct={reselectSelected} />
+        <div className="mt-6">
+          <DealsSearchToolbar />
+        </div>
+        <DealsProductGridSection
+          onSelectProduct={(p: ProductItem) =>
+            setSelectedProduct((prev) => (prev?.id === p.id ? null : { id: p.id, name: p.name, image: p.image, price: p.price, percent: p.percent }))
+          }
+          selectedId={selectedProduct?.id}
+        />
       </div>
     </div>
   );

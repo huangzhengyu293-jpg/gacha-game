@@ -19,6 +19,9 @@
   }
 }
 
+/* Reset default page margins to avoid unintended left gap */
+html, body { margin: 0; padding: 0; }
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -27,12 +30,11 @@ body {
 
 /* Background image (borrowed style) */
 body {
-  background-color: #0B0C0E !important;
+  background-color: #1A1B1E !important;
   overflow-x: hidden;
-  scrollbar-gutter: stable both-edges;
 }
 
-html { overflow-x: hidden; scrollbar-gutter: stable both-edges; }
+html { overflow-x: hidden; }
 
 /* Fixed full-viewport background layer (mobile-safe, no background-attachment issues) */
 .global-bg { display: none; }
