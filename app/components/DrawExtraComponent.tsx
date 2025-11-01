@@ -368,11 +368,11 @@ export default function DrawExtraComponent() {
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         /* 翻牌 */
-        .flip-card { perspective: 1000px; }
-        .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 600ms ease; }
-        .flip-inner.flipped { transform: rotateY(180deg); }
-        .flip-face { position: absolute; inset: 0; backface-visibility: hidden; }
-        .flip-back { transform: rotateY(180deg); }
+        .flip-card { perspective: 1000px; -webkit-perspective: 1000px; overflow: hidden; }
+        .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; transition: transform 600ms ease; will-change: transform; }
+        .flip-inner.flipped { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
+        .flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform, opacity; }
+        .flip-back { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
       `}</style>
