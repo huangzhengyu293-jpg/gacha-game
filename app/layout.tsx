@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh" data-theme="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} style={{ backgroundColor: '#1F2937' }}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} style={{ backgroundColor: '#1F2937', fontFamily: 'Urbanist, sans-serif' }}>
         <I18nProvider>
           {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
           <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
