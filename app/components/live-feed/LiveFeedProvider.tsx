@@ -49,6 +49,7 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
   const timerRef = useRef<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number>(0);
+  const MAX_BACKLOG = 5; // 隐藏期间最多保留的待播条数
 
   const startPrepend = useCallback((newItem: FeedItem) => {
     setEnteringId(newItem.id);
@@ -66,7 +67,15 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
   useEffect(() => {
     const onVis = () => {
       visibleRef.current = typeof document !== 'undefined' ? !document.hidden : true;
-      if (visibleRef.current && !timerRef.current) timerRef.current = window.setTimeout(tick, intervalMs);
+      // 隐藏：清掉定时器，避免离开期间积压节拍；显示：重新启动一个节拍
+      if (!visibleRef.current) {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      } else {
+        if (!timerRef.current) timerRef.current = window.setTimeout(tick, Math.min(400, intervalMs));
+      }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
@@ -74,8 +83,15 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
 
   const push = useCallback((item: Omit<FeedItem, "id">) => {
     const newItem: FeedItem = { id: `push-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...item };
-    if (enteringId) queueRef.current.push(newItem);
-    else startPrepend(newItem);
+    // 页面隐藏或当前动画未完成：放入队列（有限背压，保留最新的 MAX_BACKLOG 条）
+    if (!visibleRef.current || enteringId) {
+      queueRef.current.push(newItem);
+      if (queueRef.current.length > MAX_BACKLOG) {
+        queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+      }
+    } else {
+      startPrepend(newItem);
+    }
   }, [enteringId, startPrepend]);
 
   const tick = useCallback(() => {
@@ -83,8 +99,14 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
     if (visibleRef.current) {
       const base = makeMockItem();
       const newItem: FeedItem = { id: `mock-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...base };
-      if (enteringId) queueRef.current.push(newItem);
-      else startPrepend(newItem);
+      if (enteringId) {
+        queueRef.current.push(newItem);
+        if (queueRef.current.length > MAX_BACKLOG) {
+          queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+        }
+      } else {
+        startPrepend(newItem);
+      }
     }
     timerRef.current = window.setTimeout(tick, intervalMs);
   }, [intervalMs, enteringId, startPrepend]);

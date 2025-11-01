@@ -17,6 +17,63 @@ export default function Navbar() {
 
   const [hoveredMobileKey, setHoveredMobileKey] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState('');
+  const [showRegister, setShowRegister] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [regPass, setRegPass] = useState('');
+  const [showStrength, setShowStrength] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [regEmail, setRegEmail] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginShowPass, setLoginShowPass] = useState(false);
+  const [loginRemember, setLoginRemember] = useState(true);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
+  const loginEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail);
+  const hasLower = /[a-z]/.test(regPass);
+  const hasUpper = /[A-Z]/.test(regPass);
+  const hasDigit = /\d/.test(regPass);
+  const hasSymbol = /[^A-Za-z0-9]/.test(regPass);
+  const passLenOK = regPass.length >= 8;
+  // 至少包含大小写和数字，长度>=8 判定为有效
+  const passwordValid = passLenOK && hasLower && hasUpper && hasDigit;
+  const canRegister = emailValid && passwordValid;
+  const loginCanSubmit = loginEmailValid && loginPass.length > 0;
+  const forgotEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail);
+  const passwordScore = (() => {
+    let s = 0;
+    if (passLenOK) s++;
+    if (hasLower) s++;
+    if (hasUpper) s++;
+    if (hasDigit) s++;
+    if (hasSymbol) s++;
+    return s; // 0..5
+  })();
+
+  // 统一滚动锁定（任一弹框打开）
+  useEffect(() => {
+    const anyOpen = showRegister || showLogin || showForgot || showTerms;
+    if (anyOpen) {
+      document.body.style.overflow = 'hidden';
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          if (showTerms) setShowTerms(false);
+          else if (showForgot) setShowForgot(false);
+          else if (showLogin) setShowLogin(false);
+          else if (showRegister) setShowRegister(false);
+        }
+      };
+      window.addEventListener('keydown', onKey);
+      return () => {
+        window.removeEventListener('keydown', onKey);
+        document.body.style.overflow = '';
+      };
+    }
+  }, [showRegister, showLogin, showForgot, showTerms]);
 
   useEffect(() => {
     if (activeIndex < 0) {
@@ -97,102 +154,106 @@ export default function Navbar() {
 
   return (
     <div className="flex flex-col fixed z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
+      <style>{`
+        @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+      `}</style>
       <div className="w-full">
         <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 h-12 min-h-12 lg:h-16 lg:min-h-16 overflow-visible">
           {/* Left (Logo + Desktop Nav) */}
           <div className="flex items-center gap-2 lg:gap-4">
-            {/* Logo */}
+        {/* Logo */}
             <Link href="/" className="flex items-center h-[3rem] xs:h-[4rem] mr-5 lg:mr-10 cursor-pointer shrink-0" onClick={() => setIsMenuOpen(false)}>
-              <div className="w-6 h-6 mr-2 text-white shrink-0 block">
-                <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor"></path>
+          <div className="w-6 h-6 mr-2 text-white shrink-0 block">
+            <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor"></path>
                   <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.9310 2.50898 31.7219 2.51810L27.8220 2.53420L35.8047 22.5693Z" fill="currentColor"></path>
-                  <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
-                </svg>
-              </div>
-              <h1 className="text-xl text-white font-black whitespace-nowrap">PackDraw</h1>
-            </Link>
+              <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
+            </svg>
+          </div>
+          <h1 className="text-xl text-white font-black whitespace-nowrap">PackDraw</h1>
+        </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex relative items-center h-[4rem] gap-2 overflow-clip px-[1px]">
-              <div className="flex gap-0 xl:gap-2 relative" ref={containerRef}>
-                {navigationItems.map((item, index) => (
-                  <div key={index} className="relative z-10">
-                    <Link href={item.href} className="block">
-                      <div
-                        ref={assignItemRef(index)}
-                        className="flex relative justify-center items-center px-3 h-9 gap-1 text-gray-400 hover:text-white cursor-pointer"
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onMouseLeave={() => setActiveIndex(-1)}
-                      >
-                        <div className="mb-[2px] size-5">
-                          {getIcon(item.icon)}
-                        </div>
-                        <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
-                      </div>
-                    </Link>
+        {/* Desktop Navigation */}
+        <div className="hidden lg:flex relative items-center h-[4rem] gap-2 overflow-clip px-[1px]">
+          <div className="flex gap-0 xl:gap-2 relative" ref={containerRef}>
+            {navigationItems.map((item, index) => (
+              <div key={index} className="relative z-10">
+                <Link href={item.href} className="block">
+                  <div
+                    ref={assignItemRef(index)}
+                    className="flex relative justify-center items-center px-3 h-9 gap-1 text-gray-400 hover:text-white cursor-pointer"
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onMouseLeave={() => setActiveIndex(-1)}
+                  >
+                    <div className="mb-[2px] size-5">
+                      {getIcon(item.icon)}
+                    </div>
+                    <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
                   </div>
-                ))}
-                <div
+                </Link>
+              </div>
+            ))}
+            <div
                   className="absolute rounded-md h-9 transition-[left,width,opacity] duration-300 ease-out"
-                  style={{
-                    left: `${highlightStyle.left}px`,
-                    width: `${highlightStyle.width}px`,
+              style={{
+                left: `${highlightStyle.left}px`,
+                width: `${highlightStyle.width}px`,
                     opacity: highlightStyle.visible ? 1 : 0,
                     backgroundColor: 'rgba(107,114,128,0.30)'
-                  }}
-                ></div>
+              }}
+            ></div>
               </div>
-            </div>
+          </div>
+        </div>
+
+        <div className="flex-grow"></div>
+
+        {/* Right side buttons */}
+        <div className="flex flex-row gap-3 items-center lg:-ml-[20px]">
+          {/* Sound button */}
+            <div className="flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
+            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
+                <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+                <path d="M16 9a5 5 0 0 1 0 6"></path>
+                <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+              </svg>
+            </button>
+            <div className="flex h-5 w-[1px] bg-gray-600"></div>
           </div>
 
-          <div className="flex-grow"></div>
+          {/* Login/Register buttons */}
+          <div className="hidden sm:flex gap-2">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowLogin(true)}>
+              <p className="text-sm">{t('login')}</p>
+            </button>
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowRegister(true)}>
+              <p className="text-sm">{t('register')}</p>
+            </button>
+          </div>
 
-          {/* Right side buttons */}
-          <div className="flex flex-row gap-3 items-center lg:-ml-[20px]">
-            {/* Sound button */}
-            <div className="flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
-                  <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
-                  <path d="M16 9a5 5 0 0 1 0 6"></path>
-                  <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
-                </svg>
-              </button>
-              <div className="flex h-5 w-[1px] bg-gray-600"></div>
-            </div>
-
-            {/* Login/Register buttons */}
-            <div className="hidden sm:flex gap-2">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24">
-                <p className="text-sm">{t('login')}</p>
-              </button>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-6 h-8 sm:h-9 w-24">
-                <p className="text-sm">{t('register')}</p>
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="flex lg:hidden relative">
-              <div className="flex justify-center items-center">
+          {/* Mobile menu button */}
+          <div className="flex lg:hidden relative">
+            <div className="flex justify-center items-center">
                 {!isMenuOpen ? (
-                  <svg
+              <svg 
                     onClick={() => setIsMenuOpen(true)}
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"
-                  >
-                    <line x1="4" x2="20" y1="12" y2="12"></line>
-                    <line x1="4" x2="20" y1="6" y2="6"></line>
-                    <line x1="4" x2="20" y1="18" y2="18"></line>
-                  </svg>
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="1.8" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"
+              >
+                <line x1="4" x2="20" y1="12" y2="12"></line>
+                <line x1="4" x2="20" y1="6" y2="6"></line>
+                <line x1="4" x2="20" y1="18" y2="18"></line>
+              </svg>
                 ) : (
                   <svg
                     onClick={() => setIsMenuOpen(false)}
@@ -221,10 +282,10 @@ export default function Navbar() {
       {isMenuOpen && (
         <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ backgroundColor: '#1D2125' }}>
           <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ backgroundColor: '#1D2125' }}>
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => setIsMenuOpen(false)}>
+            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
               <p className="text-lg text-white font-bold">{t('login')}</p>
             </button>
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => setIsMenuOpen(false)}>
+            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
               <p className="text-lg text-white font-bold">{t('register')}</p>
             </button>
           </div>
@@ -241,7 +302,205 @@ export default function Navbar() {
         </div>
       )}
 
-      <div className="flex z-10 self-stretch h-[1px]" style={{ backgroundColor: '#4B5563', display: isMenuOpen ? 'none' : undefined }}></div>
+      {/* 单一遮罩（Auth） */}
+      {(showRegister || showLogin || showForgot) && (
+        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { setShowRegister(false); setShowLogin(false); setShowForgot(false); }} />
+      )}
+
+      {/* Register Modal 内容 */}
+      {showRegister && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 sm:rounded-lg"
+            style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
+          >
+            <div className="flex flex-col justify-center items-center pt-2 pb-1">
+              <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎来到 PackDraw</h2>
+              <p className="text-md" style={{ color: '#9CA3AF' }}>注册以开始</p>
+            </div>
+            <div className="flex flex-col justify-center px-2 md:px-10">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6" style={{ backgroundColor: '#34383C', cursor: 'not-allowed', opacity: 0.8 }} disabled>
+                <div className="mr-3" style={{ width: 16, height: 16 }}>
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
+                </div>
+                <p style={{ color: agreed ? '#FFFFFF' : '#9CA3AF' }}>使用 Google 登录</p>
+              </button>
+              <form className="flex flex-col">
+                <div className="space-y-2">
+                  <div className="flex justify-start items-center gap-2 mt-2">
+                    <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
+                    <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="agree">
+                      <span>通过访问网站，我确认我已年满 18 岁并同意</span>
+                      <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
+                      <span>。</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex items-center my-4">
+                  <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
+                  <p className="text-base px-3" style={{ color: '#33363A' }}>或</p>
+                  <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-base font-medium" htmlFor="reg-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                    <input id="reg-email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-base font-medium" htmlFor="reg-pass" style={{ color: '#FFFFFF' }}>密码</label>
+                    <div className="relative">
+                      <input id="reg-pass" type={showPass ? 'text' : 'password'} autoComplete="new-password" value={regPass} onChange={(e) => setRegPass(e.target.value)} onFocus={() => setShowStrength(true)} onBlur={(e) => { if (!e.target.value) setShowStrength(false); }} className="flex h-10 w-full rounded-md pr-10 px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} />
+                      <button type="button" onClick={() => setShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: showPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={showPass ? '隐藏密码' : '显示密码'}>
+                        {showPass ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.58-1.36 1.55-2.73 2.82-3.88M9.9 4.24A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8-1.05 2.47-2.92 4.57-5.06 5.74"></path><path d="M1 1l22 22"></path></svg>
+                        )}
+                      </button>
+                    </div>
+                    {showStrength || regPass ? (
+                      <div className="mt-2">
+                        <p className="text-sm" style={{ color: '#7A8084' }}>
+                          {passwordScore >= 5 ? '这个密码看起来很好！' : passwordScore >= 4 ? '这个密码看起来很好！' : passwordScore >= 3 ? '这个密码看起来不错。' : '选择一个强密码。'}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          {(() => {
+                            const colors = ['#EF4444', '#F59E0B', '#FBBF24', '#34D399', '#10B981'];
+                            return Array.from({ length: 5 }).map((_, idx) => (
+                              <div key={idx} className="flex flex-1 h-2 rounded" style={{ backgroundColor: idx < passwordScore ? colors[idx] : '#33363A' }} />
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="space-y-2 mt-3">
+                  <div className="flex justify-start items-center gap-2">
+                    <input id="agree2" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
+                    <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="agree2">
+                      <span>通过访问网站，我确认我已年满 18 岁并同意</span>
+                      <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
+                      <span>。</span>
+                    </label>
+                  </div>
+                </div>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: canRegister ? 'pointer' : 'not-allowed', opacity: canRegister ? 1 : 0.8 }} disabled={!canRegister}>注册</button>
+              </form>
+              <div className="flex flex-row justify-center py-2 gap-1">
+                <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
+                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowRegister(false); setShowLogin(true); }}>登录</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Terms Modal */}
+      {showTerms && (
+        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowTerms(false)}>
+          <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-50 grid w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease', maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>服务条款</h3>
+              <button className="w-8 h-8 rounded" style={{ color: '#9CA3AF' }} onClick={() => setShowTerms(false)} aria-label="关闭">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <div className="text-sm" style={{ color: '#CBD5E0' }}>
+              <p>这是示例的服务条款内容。您可以在此处放置您的 HTML 文本，包括列表、段落和链接等。</p>
+              <p>访问和使用本网站即表示您同意遵守这些条款。请仔细阅读并定期查看更新。</p>
+              <ul style={{ paddingLeft: '1.25rem', listStyle: 'disc' }}>
+                <li>用户需年满 18 岁。</li>
+                <li>不得进行欺诈或违法行为。</li>
+                <li>平台保留对内容和服务的解释权。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Modal 内容 */}
+      {showLogin && (
+          <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
+            <div className="flex flex-col justify-center items-center pt-2 pb-1">
+              <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎回来</h2>
+              <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
+            </div>
+            <div className="flex flex-col justify-center px-2 md:px-10">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6 mt-4 mb-2" style={{ backgroundColor: '#34383C', cursor: 'not-allowed', opacity: 0.8 }} disabled>
+                <div className="mr-3" style={{ width: 16, height: 16 }}>
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
+                </div>
+                <p style={{ color: agreed ? '#FFFFFF' : '#9CA3AF' }}>使用 Google 登录</p>
+              </button>
+              <div className="flex justify-start items-center gap-2">
+                <input id="login-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
+                <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="login-agree">
+                  <span>通过访问网站，我确认我已年满 18 岁并同意</span>
+                  <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
+                  <span>。</span>
+                </label>
+              </div>
+              <div className="flex items-center my-4">
+                <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
+                <p className="text-base px-3 italic" style={{ color: '#33363A' }}>或</p>
+                <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
+              </div>
+              <form className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                  <input id="login-email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="login-pass" style={{ color: '#FFFFFF' }}>密码</label>
+                  <div className="relative">
+                    <input id="login-pass" type={loginShowPass ? 'text' : 'password'} autoComplete="current-password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="flex h-10 w-full rounded-md pr-10 px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} />
+                    <button type="button" onClick={() => setLoginShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: loginShowPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={loginShowPass ? '隐藏密码' : '显示密码'}>
+                      {loginShowPass ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.58-1.36 1.55-2.73 2.82-3.88M9.9 4.24A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8-1.05 2.47-2.92 4.57-5.06 5.74"></path><path d="M1 1l22 22"></path></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={loginRemember} onChange={(e) => setLoginRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
+                    <span className="text-base" style={{ color: '#FFFFFF' }}>保持登录</span>
+                  </label>
+                  <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>忘记密码？</span>
+                </div>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: loginCanSubmit ? 'pointer' : 'not-allowed', opacity: loginCanSubmit ? 1 : 0.8 }} disabled={!loginCanSubmit}>登录</button>
+              </form>
+            </div>
+            <div className="flex flex-row justify-center py-2 gap-1">
+              <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowRegister(true); }}>注册</span>
+            </div>
+          </div>
+        )}
+
+      {/* Forgot Password 内容 */}
+      {showForgot && (
+        <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
+          <div className="flex flex-col justify-center items-center pt-2 pb-1">
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>忘记密码？</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>请求密码重置说明</p>
+          </div>
+          <div className="flex flex-col justify-center px-2 md:px-10">
+            <div className="flex flex-col gap-2">
+              <label className="text-base font-medium" htmlFor="forgot-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+              <input id="forgot-email" type="email" inputMode="email" autoComplete="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
+            </div>
+            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-4" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: forgotEmailValid ? 'pointer' : 'not-allowed', opacity: forgotEmailValid ? 1 : 0.8 }} disabled={!forgotEmailValid}>重置密码</button>
+          </div>
+          <div className="flex flex-row justify-center py-2 gap-1">
+            <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
+            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>注册</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
