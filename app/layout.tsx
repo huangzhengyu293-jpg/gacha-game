@@ -5,6 +5,7 @@ import { I18nProvider } from "./components/I18nProvider";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { LiveFeedProvider } from "./components/live-feed/LiveFeedProvider";
+import Providers from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,16 +31,18 @@ export default function RootLayout({
     <html lang="zh" data-theme="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} style={{ backgroundColor: '#1F2937', fontFamily: 'Urbanist, sans-serif' }}>
         <I18nProvider>
-          {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
-          <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
-            <div className="flex flex-col min-h-screen" style={{ overflowX: 'hidden' }}>
-              <Navbar />
-              <div className="flex-1 pt-[80px] lg:pt-[96px]">
-                {children}
+          <Providers>
+            {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
+            <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
+              <div className="flex flex-col min-h-screen" style={{ overflowX: 'hidden' }}>
+                <Navbar />
+                <div className="flex-1 pt-[80px] lg:pt-[96px]">
+                  {children}
+                </div>
+                <Footer />
               </div>
-              <Footer />
-            </div>
-          </LiveFeedProvider>
+            </LiveFeedProvider>
+          </Providers>
         </I18nProvider>
       </body>
     </html>

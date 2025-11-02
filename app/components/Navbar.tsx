@@ -3,9 +3,13 @@
 import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
+import { signIn, useSession, signOut } from 'next-auth/react';
+  
 
 export default function Navbar() {
   const { t } = useI18n();
+  const { data: session, status } = useSession();
+  const enableDevLogin = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === 'true';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number; visible: boolean }>({ left: 0, width: 0, visible: false });
@@ -31,6 +35,19 @@ export default function Navbar() {
   const [loginRemember, setLoginRemember] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+
+  // 登录后在控制台打印用户信息
+  useEffect(() => {
+    if (typeof window !== 'undefined' && status === 'authenticated') {
+      // eslint-disable-next-line no-console
+      console.log('[Auth] 当前用户', {
+        name: session?.user?.name,
+        email: session?.user?.email,
+        image: (session?.user as any)?.image,
+        role: (session?.user as any)?.role,
+      });
+    }
+  }, [status, session]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
   const loginEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail);
@@ -223,7 +240,17 @@ export default function Navbar() {
             <div className="flex h-5 w-[1px] bg-gray-600"></div>
           </div>
 
-          {/* Login/Register buttons */}
+          {/* Auth buttons */}
+          {status === 'authenticated' ? (
+            <div className="hidden sm:flex gap-2">
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 select-none px-6 h-8 sm:h-9 w-24"
+                onClick={() => signOut({ callbackUrl: '/' })}
+              >
+                <p className="text-sm">退出</p>
+              </button>
+            </div>
+          ) : (
           <div className="hidden sm:flex gap-2">
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowLogin(true)}>
               <p className="text-sm">{t('login')}</p>
@@ -232,6 +259,7 @@ export default function Navbar() {
               <p className="text-sm">{t('register')}</p>
             </button>
           </div>
+          )}
 
           {/* Mobile menu button */}
           <div className="flex lg:hidden relative">
@@ -282,12 +310,20 @@ export default function Navbar() {
       {isMenuOpen && (
         <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ backgroundColor: '#1D2125' }}>
           <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ backgroundColor: '#1D2125' }}>
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
+            {status === 'authenticated' ? (
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => signOut({ callbackUrl: '/' })}>
+                <p className="text-lg text-white font-bold">退出</p>
+              </button>
+            ) : (
+              <>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
               <p className="text-lg text-white font-bold">{t('login')}</p>
             </button>
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
               <p className="text-lg text-white font-bold">{t('register')}</p>
             </button>
+              </>
+            )}
           </div>
           <div className="flex flex-col px-6">
             {navigationItems.map((item, index) => (
@@ -320,7 +356,19 @@ export default function Navbar() {
               <p className="text-md" style={{ color: '#9CA3AF' }}>注册以开始</p>
             </div>
             <div className="flex flex-col justify-center px-2 md:px-10">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6" style={{ backgroundColor: '#34383C', cursor: 'not-allowed', opacity: 0.8 }} disabled>
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6"
+                style={{ backgroundColor: '#34383C', cursor: agreed ? 'pointer' : 'not-allowed', opacity: agreed ? 1 : 0.8 }}
+                disabled={!agreed}
+                onClick={() => {
+                  if (!agreed) return;
+                  if (enableDevLogin) {
+                    signIn('credentials', { email: 'demo@local.test', name: 'Demo User', callbackUrl: '/' });
+                  } else {
+                    signIn('google', { callbackUrl: '/' });
+                  }
+                }}
+              >
                 <div className="mr-3" style={{ width: 16, height: 16 }}>
                   <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
                 </div>
@@ -427,7 +475,19 @@ export default function Navbar() {
               <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
             </div>
             <div className="flex flex-col justify-center px-2 md:px-10">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6 mt-4 mb-2" style={{ backgroundColor: '#34383C', cursor: 'not-allowed', opacity: 0.8 }} disabled>
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6 mt-4 mb-2"
+                style={{ backgroundColor: '#34383C', cursor: agreed ? 'pointer' : 'not-allowed', opacity: agreed ? 1 : 0.8 }}
+                disabled={!agreed}
+                onClick={() => {
+                  if (!agreed) return;
+                  if (enableDevLogin) {
+                    signIn('credentials', { email: 'demo@local.test', name: 'Demo User', callbackUrl: '/' });
+                  } else {
+                    signIn('google', { callbackUrl: '/' });
+                  }
+                }}
+              >
                 <div className="mr-3" style={{ width: 16, height: 16 }}>
                   <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
                 </div>
