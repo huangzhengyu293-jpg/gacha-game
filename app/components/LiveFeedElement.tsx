@@ -22,13 +22,14 @@ export default function LiveFeedElement({
   packImageUrl,
   title,
   priceLabel,
-  glowColor = "#E4AE33",
+  glowColor = "#FACC15",
   className = ""
 }: LiveFeedElementProps) {
   const content = (
     <div
       data-component={`LiveFeedElement-${index}`}
-      className={`group lf-card relative overflow-hidden rounded-lg w-full h-[180px] min-h-[180px] cursor-pointer bg-[#1A1B1E] hover:bg-[#1A1B1E] transition-colors duration-200 ease-in-out ${className}`}
+      className={`group lf-card relative overflow-hidden rounded-lg w-[224px] h-[180px] min-h-[180px] cursor-pointer transition-colors duration-200 ease-in-out ${className}`}
+      style={{ backgroundColor: '#22272B' }}
     >
       {/* 顶层内容：头像 + 文案 + 发光 + 主内容图（整体随 hover 下移隐藏） */}
       <div className="lf-top absolute inset-0">
@@ -112,9 +113,9 @@ export default function LiveFeedElement({
 
           {/* 标题与价格 */}
           <div className="flex flex-col w-full gap-0.5">
-            <p className="font-semibold truncate max-w-full text-gray-400 text-center text-base">{title}</p>
+            <p className="font-semibold truncate max-w-full text-center text-base" style={{ color: '#7A8084' }}>{title}</p>
             <div className="flex justify-center">
-              <p className="font-extrabold text-base">{priceLabel}</p>
+              <p className="font-extrabold text-base" style={{ color: '#FFFFFF' }}>{priceLabel}</p>
             </div>
           </div>
         </div>

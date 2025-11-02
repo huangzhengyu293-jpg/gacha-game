@@ -46,13 +46,18 @@ function ModeCard({ mode }: { mode: Mode }) {
   const { t } = useI18n();
   return (
     <div className="cursor-pointer">
-      <div className="flex relative flex-col md:flex-row items-center p-4 rounded-lg cursor-pointer min-w-0" style={{ backgroundColor: '#1A1B1E' }}>
+      <div
+        className="flex relative flex-col md:flex-row items-center p-4 rounded-lg cursor-pointer min-w-0 transition-colors"
+        style={{ backgroundColor: '#22272B' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#2A2D35'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#22272B'; }}
+      >
         <div className="absolute top-0 left-[35%] md:left-0 h-1.5 md:h-full w-[30%] md:w-1.5 rounded-b-lg md:rounded-r-none md:rounded-l-lg" style={{ backgroundColor: mode.accentColor }}></div>
 
         {/* 左侧信息列 */}
         <div className="flex flex-col items-center gap-2 w-full md:w-[21rem] min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-base text-gray-400 font-extrabold">{mode.title}</p>
+            <p className="text-base font-extrabold" style={{ color: '#7A8084' }}>{mode.title}</p>
           </div>
 
           <div className="flex items-center gap-1">
@@ -75,7 +80,7 @@ function ModeCard({ mode }: { mode: Mode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <p className="text-sm text-gray-400 font-extrabold">{t('cost')}：</p>
+            <p className="text-sm font-extrabold" style={{ color: '#7A8084' }}>{t('cost')}：</p>
             <p className="text-sm text-white font-extrabold">{mode.cost}</p>
           </div>
         </div>
@@ -84,8 +89,8 @@ function ModeCard({ mode }: { mode: Mode }) {
         <div className="flex flex-1 min-w-0 self-stretch md:self-center py-1">
           <div className="flex relative w-full rounded-lg overflow-hidden" style={{ backgroundColor: '#0F1012' }}>
             <Gallery items={mode.gallery} />
-            <div className="flex absolute justify-center items-center top-0 right-0 gap-1 py-[2.5px] px-1 m-1 rounded" style={{ backgroundColor: '#232529' }}>
-              <div className="size-3">
+            <div className="flex absolute justify-center items-center top-0 right-0 gap-1 py-[2.5px] px-1 m-1 rounded" style={{ backgroundColor: '#232529', color: '#FFFFFF' }}>
+              <div className="size-3 text-white">
                 <svg viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.155 15.8964V2.37359C13.155 1.06143 12.0936 0 10.7814 0H2.37359C1.06143 0 0 1.06143 0 2.37359V15.8964C0 17.2085 1.06143 18.27 2.37359 18.27H10.7814C12.0936 18.27 13.155 17.2085 13.155 15.8964Z" fill="currentColor"></path><path d="M15.5286 2.00584L13.9908 1.72168C14.0326 1.93062 14.0577 2.15628 14.0577 2.37358V15.8964C14.0577 17.7016 12.5867 19.1726 10.7814 19.1726H7.95654L12.1688 19.9582C13.4559 20.2006 14.6929 19.3481 14.9352 18.061L17.4175 4.76388C17.6598 3.4768 16.8074 2.23986 15.5203 1.99748L15.5286 2.00584Z" fill="currentColor"></path></svg>
               </div>
               <p className="text-sm text-white font-bold">{mode.rightBadgeCount}</p>
@@ -96,9 +101,14 @@ function ModeCard({ mode }: { mode: Mode }) {
         {/* 右侧按钮列 */}
         <div className="flex flex-col items-center gap-2 w-full md:w-[12rem] overflow-hidden min-w-0">
           <div className="overflow-hidden max-w-full px-4">
-            <p className="text-base text-gray-400 font-bold text-center truncate">{t('opened')}：$60,921.00</p>
+            <p className="text-base font-bold text-center truncate" style={{ color: '#7A8084' }}>{t('opened')}：$60,921.00</p>
           </div>
-          <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none h-10 px-6 w-40 m-[1px] hover:brightness-110" style={{ backgroundColor: '#232529' }}>
+          <button
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none h-10 px-6 w-40 m-[1px]"
+            style={{ backgroundColor: '#34383C' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+          >
             {t('viewResults')}
           </button>
         </div>

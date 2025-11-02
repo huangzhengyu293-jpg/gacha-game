@@ -4,11 +4,13 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { signIn, useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
   
 
 export default function Navbar() {
   const { t } = useI18n();
   const { data: session, status } = useSession();
+  const router = useRouter();
   const enableDevLogin = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === 'true';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -21,6 +23,8 @@ export default function Navbar() {
 
   const [hoveredMobileKey, setHoveredMobileKey] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [showRegister, setShowRegister] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -35,6 +39,54 @@ export default function Navbar() {
   const [loginRemember, setLoginRemember] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  // 中屏（>=640 && <1024）右上角弹框
+  const [isMidViewport, setIsMidViewport] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const w = window.innerWidth;
+    return w >= 640 && w < 1024;
+  });
+  const [isSmall, setIsSmall] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 640;
+  });
+
+  // isOpaque 放到 return 前计算
+  const [showMidMenu, setShowMidMenu] = useState(false);
+  const midMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const compute = () => {
+      if (typeof window === 'undefined') return;
+      const w = window.innerWidth;
+      const mid = w >= 640 && w < 1024;
+      setIsMidViewport(mid);
+      setIsSmall(w < 640);
+      if (!mid) setShowMidMenu(false);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!showMidMenu) return;
+      const target = e.target as Node;
+      if (midMenuRef.current && !midMenuRef.current.contains(target)) {
+        setShowMidMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showMidMenu]);
+
+  // ESC 关闭中屏弹窗
+  useEffect(() => {
+    if (!showMidMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowMidMenu(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showMidMenu]);
 
   // 登录后在控制台打印用户信息
   useEffect(() => {
@@ -48,6 +100,19 @@ export default function Navbar() {
       });
     }
   }, [status, session]);
+
+  // 头像下拉 - 点击外部关闭
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!showUserMenu) return;
+      const target = e.target as Node;
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showUserMenu]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
   const loginEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail);
@@ -169,14 +234,18 @@ export default function Navbar() {
     return icons[iconName as keyof typeof icons] || null;
   };
 
+  const isOpaque = (isSmall || isMidViewport || isMenuOpen || showMidMenu || showUserMenu || showRegister || showLogin || showForgot || showTerms);
+
   return (
     <div className="flex flex-col fixed z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+        .promo-input::placeholder { color: #7A8084; opacity: 1; }
+        .menu-item:hover { background-color: transparent; }
       `}</style>
-      <div className="w-full">
-        <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 h-12 min-h-12 lg:h-16 lg:min-h-16 overflow-visible">
+      <div className="w-full" style={{ borderBottom: '2px solid #34383C', backgroundColor: '#1D2125' }}>
+        <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">
           {/* Left (Logo + Desktop Nav) */}
           <div className="flex items-center gap-2 lg:gap-4">
         {/* Logo */}
@@ -203,9 +272,7 @@ export default function Navbar() {
                     onMouseEnter={() => setActiveIndex(index)}
                     onMouseLeave={() => setActiveIndex(-1)}
                   >
-                    <div className="mb-[2px] size-5">
-                      {getIcon(item.icon)}
-                    </div>
+                        <div className="mb-[2px] size-5">{getIcon(item.icon)}</div>
                     <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
                   </div>
                 </Link>
@@ -219,17 +286,15 @@ export default function Navbar() {
                     opacity: highlightStyle.visible ? 1 : 0,
                     backgroundColor: 'rgba(107,114,128,0.30)'
               }}
-            ></div>
+                />
               </div>
+            </div>
           </div>
-        </div>
-
-        <div className="flex-grow"></div>
 
         {/* Right side buttons */}
-        <div className="flex flex-row gap-3 items-center lg:-ml-[20px]">
-          {/* Sound button */}
-            <div className="flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
+          <div className="flex flex-row gap-3 items-center lg:-ml-[20px] relative">
+            {/* Sound button (>=sm) */}
+          <div className="hidden sm:flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
             <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
                 <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
@@ -240,67 +305,254 @@ export default function Navbar() {
             <div className="flex h-5 w-[1px] bg-gray-600"></div>
           </div>
 
-          {/* Auth buttons */}
-          {status === 'authenticated' ? (
-            <div className="hidden sm:flex gap-2">
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 select-none px-6 h-8 sm:h-9 w-24"
-                onClick={() => signOut({ callbackUrl: '/' })}
-              >
-                <p className="text-sm">退出</p>
-              </button>
-            </div>
-          ) : (
+            {/* 桌面/中屏：登录状态 */}
+            {status === 'authenticated' ? (
+              <div className="hidden sm:flex gap-2 items-center">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9">
+                  <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
+                    <p className="text-sm text-white font-bold">购物车</p>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
+                </button>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24">
+                  <p className="text-sm text-white font-bold">存款</p>
+                </button>
+                <div className="flex relative" ref={userMenuRef}>
+                  <div className="flex justify-center items-center">
+                    <div className="hidden lg:flex">
+                      <button onClick={() => setShowUserMenu((v) => !v)} className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }} aria-label="用户菜单">
+                        <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
+                          {session?.user && (session.user as any).image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                          ) : (
+                            <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                              <mask id="avt-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                                <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                              </mask>
+                              <g mask="url(#avt-mask)">
+                                <rect width="36" height="36" fill="#EDD75A"></rect>
+                                <rect x="0" y="0" width="36" height="36" transform="translate(-4 8) rotate(188 18 18) scale(1.2)" fill="#333333" rx="36"></rect>
+                                <g transform="translate(-4 4) rotate(-8 18 18)">
+                                  <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                                  <rect x="11" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                  <rect x="23" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                </g>
+                              </g>
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                  {/* Dropdown */}
+                  <div className={`${showUserMenu ? 'flex opacity-100' : 'hidden opacity-0'} shadow-menu flex-col z-20 w-60 items-stretch absolute right-0 top-full mt-5 rounded-lg`} style={{ transition: 'opacity 160ms ease', backgroundColor: '#22272B' }}>
+                    <div className="flex flex-col px-2 py-1.5 gap-2">
+                      <div className="flex items-center gap-4 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowUserMenu(false); router.push('/account'); }}>
+                        <div className="relative size-8">
+                          <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
+                            <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
+                              {session?.user && (session.user as any).image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                                  <mask id="avt-mask2" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                                    <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                                  </mask>
+                                  <g mask="url(#avt-mask2)">
+                                    <rect width="36" height="36" fill="#EDD75A"></rect>
+                                    <rect x="0" y="0" width="36" height="36" transform="translate(-4 8) rotate(188 18 18) scale(1.2)" fill="#333333" rx="36"></rect>
+                                    <g transform="translate(-4 4) rotate(-8 18 18)">
+                                      <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                                      <rect x="11" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                      <rect x="23" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                    </g>
+                                  </g>
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                    <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
+                            <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                          <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+                    <div className="flex flex-col px-2 py-1.5 gap-2">
+                      <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowUserMenu(false); signOut({ callbackUrl: '/' }); }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+                        <p className="text-base text-white">注销</p>
+                      </div>
+                    </div>
+                    <form onSubmit={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }}>
+                      <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+                      <div className="flex relative items-center px-3 py-4">
+                      <input className="promo-input flex h-10 w-full rounded-md px-3 py-2 text-base border-0 focus:outline-none" placeholder="促销码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
+                        <button type="submit" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none min-h-8 min-w-8 max-h-8 max-w-8 absolute right-4 size-8">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check size-4 min-w-4 min-h-4"><path d="M20 6 9 17l-5-5"></path></svg>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            ) : (
           <div className="hidden sm:flex gap-2">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowLogin(true)}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowLogin(true)}>
               <p className="text-sm">{t('login')}</p>
             </button>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowRegister(true)}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowRegister(true)}>
               <p className="text-sm">{t('register')}</p>
             </button>
           </div>
-          )}
+            )}
 
-          {/* Mobile menu button */}
-          <div className="flex lg:hidden relative">
+            {/* 小屏右侧组件（登录） */}
+            {status === 'authenticated' && (
+              <div className="flex sm:hidden flex-row gap-3 items-center">
+                <div className="flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center">
+                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+                  </button>
+                  <div className="flex h-5 w-[1px] bg-gray-600"></div>
+                </div>
+                <div className="flex">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 xs:h-9">
+                    <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
+                      <p className="text-sm text-white font-bold">购物车</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
+                  </button>
+                </div>
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-3 h-8 xs:h-9 min-w-24">
+                  <p className="text-sm text-white font-bold">存款</p>
+                </button>
+                <div className="flex relative">
+                  <div className="flex justify-center items-center">
+                    {!(isMenuOpen || showMidMenu) ? (
+                      <svg onClick={() => { if (isMidViewport) setShowMidMenu(true); else setIsMenuOpen(true); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>
+                    ) : (
+                      <svg onClick={() => { if (isMidViewport) setShowMidMenu(false); else setIsMenuOpen(false); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 小屏右侧：未登录时显示菜单开关 */}
+            {status !== 'authenticated' && (
+              <div className="flex sm:hidden items-center">
+                <div className="flex relative">
+                  <div className="flex justify-center items-center">
+                    {!(isMenuOpen || showMidMenu) ? (
+                      <svg onClick={() => { if (isMidViewport) setShowMidMenu(true); else setIsMenuOpen(true); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>
+                    ) : (
+                      <svg onClick={() => { if (isMidViewport) setShowMidMenu(false); else setIsMenuOpen(false); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 中屏独立菜单按钮（仅 >=sm <lg） */}
+            <div className="hidden sm:flex lg:hidden relative">
             <div className="flex justify-center items-center">
-                {!isMenuOpen ? (
-              <svg 
-                    onClick={() => setIsMenuOpen(true)}
-                xmlns="http://www.w3.org/2000/svg" 
-                width="24" 
-                height="24" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="1.8" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"
-              >
-                <line x1="4" x2="20" y1="12" y2="12"></line>
-                <line x1="4" x2="20" y1="6" y2="6"></line>
-                <line x1="4" x2="20" y1="18" y2="18"></line>
-              </svg>
+                {!(isMenuOpen || showMidMenu) ? (
+                  <svg onClick={() => { if (isMidViewport) setShowMidMenu(true); else setIsMenuOpen(true); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>
                 ) : (
-                  <svg
-                    onClick={() => setIsMenuOpen(false)}
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-x flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"
-                  >
-                    <path d="M18 6 6 18"></path>
-                    <path d="m6 6 12 12"></path>
-                  </svg>
+                  <svg onClick={() => { if (isMidViewport) setShowMidMenu(false); else setIsMenuOpen(false); }} onMouseDown={(e) => e.stopPropagation()} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x flex lg:hidden size-6 min-h-6 min-w-6 text-white cursor-pointer"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
                 )}
               </div>
+
+            {/* 中屏下拉菜单和遮罩 */}
+            {isMidViewport && showMidMenu && (
+              <>
+                {/* 遮罩 */}
+                <div className="flex fixed inset-0 z-50" onMouseDown={() => setShowMidMenu(false)} />
+                {/* 下拉 */}
+                <div
+                  ref={midMenuRef}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="flex flex-col shadow-menu w-60 items-stretch absolute right-0 top-full mt-5 rounded-lg"
+                  style={{ backgroundColor: '#22272B', zIndex: 60 }}
+                >
+                  {/* 顶部用户卡或登录注册 */}
+                  {status === 'authenticated' ? (
+                    <div className="flex flex-col px-2 py-1.5 gap-2">
+                      <div className="flex items-center gap-4 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowMidMenu(false); router.push('/account'); }}>
+                        <div className="relative size-8">
+                          <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
+                            <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
+                              {session?.user && (session.user as any).image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                                  <mask id="mid-avt-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
+                                  <g mask="url(#mid-avt-mask)"><rect width="36" height="36" fill="#EDD75A"></rect><rect x="0" y="0" width="36" height="36" transform="translate(-4 8) rotate(188 18 18) scale(1.2)" fill="#333333" rx="36"></rect><g transform="translate(-4 4) rotate(-8 18 18)"><path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path><rect x="11" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect><rect x="23" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect></g></g>
+              </svg>
+                              )}
+                            </div>
+                          </div>
+                          <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
+                            <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                          <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col px-2 py-2 gap-2">
+                      <button className="menu-item px-3 py-2 rounded-lg text-white text-base font-semibold text-left" onClick={() => { setShowMidMenu(false); setShowLogin(true); }}>{t('login')}</button>
+                      <button className="menu-item px-3 py-2 rounded-lg text-white text-base font-semibold text-left" onClick={() => { setShowMidMenu(false); setShowRegister(true); }}>{t('register')}</button>
+                    </div>
+                  )}
+
+                  <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+
+                  {/* 导航项 */}
+                  <div className="flex flex-col px-2 py-1.5 gap-1">
+                    {navigationItems.map((item, idx) => (
+                      <Link key={idx} href={item.href} className="flex items-center gap-2 menu-item px-3 py-2 rounded-lg" onClick={() => setShowMidMenu(false)}>
+                        <div className="size-4 text-white">{getIcon(item.icon)}</div>
+                        <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
+                      </Link>
+                    ))}
+                  </div>
+
+                  <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+
+                  {/* 登录状态下的注销与促销码 */}
+                  {status === 'authenticated' ? (
+                    <>
+                      <div className="flex flex-col px-2 py-1.5 gap-2">
+                        <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg" onClick={() => { setShowMidMenu(false); signOut({ callbackUrl: '/' }); }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+                          <p className="text-base text-white">注销</p>
+                        </div>
+                      </div>
+                      <form onSubmit={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }}>
+                        <div className="flex relative items-center px-3 py-4">
+                          <input className="promo-input flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 px-3 py-2 text-base" placeholder="促销码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
+                          <button type="submit" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none min-h-8 min-w-8 max-h-8 max-w-8 absolute right-4 size-8">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check size-4 min-w-4 min-h-4"><path d="M20 6 9 17l-5-5"></path></svg>
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  ) : null}
+                </div>
+              </>
+            )}
             </div>
           </div>
         </div>
@@ -309,30 +561,79 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ backgroundColor: '#1D2125' }}>
-          <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ backgroundColor: '#1D2125' }}>
-            {status === 'authenticated' ? (
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => signOut({ callbackUrl: '/' })}>
-                <p className="text-lg text-white font-bold">退出</p>
-              </button>
-            ) : (
-              <>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
+          {status === 'authenticated' ? (
+            <div className="flex flex-col rounded-lg m-4 mb-6 mt-6" style={{ backgroundColor: '#22272B' }}>
+              <div className="flex gap-4 p-4 cursor-pointer" style={{ borderBottom: '1px solid #34383C' }} onClick={() => { setIsMenuOpen(false); router.push('/account'); }}>
+                 <div className="relative size-8">
+                   <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
+                     <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
+                       {session?.user && (session.user as any).image ? (
+                         // eslint-disable-next-line @next/next/no-img-element
+                         <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                       ) : (
+                         <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                           <mask id="avt-mask-mm" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                             <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                           </mask>
+                           <g mask="url(#avt-mask-mm)">
+                             <rect width="36" height="36" fill="#EDD75A"></rect>
+                             <rect x="0" y="0" width="36" height="36" transform="translate(-4 8) rotate(188 18 18) scale(1.2)" fill="#333333" rx="36"></rect>
+                             <g transform="translate(-4 4) rotate(-8 18 18)">
+                               <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                               <rect x="11" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                               <rect x="23" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                             </g>
+                           </g>
+                         </svg>
+                       )}
+                     </div>
+                   </div>
+                  <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
+                    <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                  </div>
+                 </div>
+                 <div className="flex flex-1 flex-col">
+                   <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                   <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                 </div>
+               </div>
+               <div className="flex flex-col p-4 gap-4">
+                <div className="flex items-center gap-2 cursor-pointer" onClick={() => signOut({ callbackUrl: '/' })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+                  <p className="text-lg text-white font-semibold">登出</p>
+                </div>
+                <div className="flex relative items-center">
+                  <input className="promo-input flex w-full rounded-md px-3 py-2 h-14 text-lg border-0 focus:outline-none" placeholder="促销代码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
+                  <button disabled={!promoCode.trim()} onClick={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10 absolute right-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </button>
+                </div>
+                {/* 移除下方分割线以符合设计 */}
+              </div>
+             </div>
+          ) : (
+            <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ backgroundColor: '#1D2125' }}>
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
               <p className="text-lg text-white font-bold">{t('login')}</p>
             </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
               <p className="text-lg text-white font-bold">{t('register')}</p>
             </button>
-              </>
-            )}
           </div>
+          )}
           <div className="flex flex-col px-6">
             {navigationItems.map((item, index) => (
-              <div key={index} className="flex items-center gap-2 py-3">
+              <Link
+                key={index}
+                href={item.href}
+                className="flex items-center gap-2 py-3 rounded-lg w-full menu-item"
+                onClick={() => setIsMenuOpen(false)}
+              >
                 <div className="size-5 text-gray-400">
                   {getIcon(item.icon)}
                 </div>
-                <Link href={item.href} className="text-lg text-white font-bold" onClick={() => setIsMenuOpen(false)}>{t((item as any).labelKey)}</Link>
-              </div>
+                <span className="text-lg text-white font-bold">{t((item as any).labelKey)}</span>
+              </Link>
             ))}
           </div>
         </div>

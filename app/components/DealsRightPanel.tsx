@@ -59,7 +59,7 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
   }, [quickViewOpen]);
 
   return (
-    <div className="col-span-1 relative hidden xl:flex order-3 overflow-hidden min-w-0 h-full">
+    <div className="col-span-1 relative hidden lg:flex order-3 overflow-hidden min-w-0 h-full">
       {!inactive && product && (
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 z-10 absolute top-2 right-2"

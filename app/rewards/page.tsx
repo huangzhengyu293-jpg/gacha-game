@@ -12,8 +12,8 @@ export default function RewardsPage() {
           <h2 className="text-2xl text-white font-bold">{t('rewards')}</h2>
           <p className="text-gray-400 mt-3">这里是奖励频道页面（占位）。</p>
         </div>
-        <div className="hidden xl:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-4 pb-4 pt-0 h-fit" >
+        <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -49,7 +49,7 @@ export default function RewardsPage() {
                 packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
                 title="Limited Edition Pack"
                 priceLabel="$2.99"
-                glowColor="#6EE7B7"
+                glowColor="#FACC15"
               />
               <LiveFeedElement
                 index={2}
@@ -59,11 +59,11 @@ export default function RewardsPage() {
                 packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
                 title="Special Drop"
                 priceLabel="$5.00"
-                glowColor="#60A5FA"
+                glowColor="#FACC15"
               />
             </div>
           </div>
-          <div className="rounded-lg px-4 pb-4 pt-0 h-fit mt-6" >
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>

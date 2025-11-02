@@ -9,14 +9,14 @@ export default function BattlesPage() {
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
       <div className="flex gap-8 max-w-[1248px] mx-auto">
-        <div className="flex-1 xl:max-w-[992px]">
+        <div className="flex-1 xl:max-w-[992px] min-w-0">
           <h2 className="text-2xl text-white font-bold">{t('battles')}</h2>
           <div className="mt-6">
             <BattleModes />
           </div>
         </div>
-        <div className="hidden xl:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-4 pb-4 pt-0 h-fit" >
+        <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,7 +44,7 @@ export default function BattlesPage() {
                 title="Audemars Piguet Stainless Steel USA Edition"
                 priceLabel="$65,000.00"
               />
-              <LiveFeedElement
+            <LiveFeedElement
                 index={1}
                 href="/packs/2"
                 avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
@@ -52,9 +52,9 @@ export default function BattlesPage() {
                 packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
                 title="Limited Edition Pack"
                 priceLabel="$2.99"
-                glowColor="#6EE7B7"
+              glowColor="#FACC15"
               />
-              <LiveFeedElement
+            <LiveFeedElement
                 index={2}
                 href="/packs/3"
                 avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
@@ -62,11 +62,11 @@ export default function BattlesPage() {
                 packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
                 title="Special Drop"
                 priceLabel="$5.00"
-                glowColor="#60A5FA"
+              glowColor="#FACC15"
               />
             </div>
           </div>
-          <div className="rounded-lg px-4 pb-4 pt-0 h-fit mt-6" >
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>

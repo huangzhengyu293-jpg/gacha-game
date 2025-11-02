@@ -7,6 +7,7 @@ import LiveFeedElement from './components/LiveFeedElement';
 import LiveFeedTicker from './components/LiveFeedTicker';
 import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
+import HowItWorks from './components/HowItWorks';
 
 export default function Home() {
   const { t } = useI18n();
@@ -23,7 +24,7 @@ export default function Home() {
           {/* Main Content Layout */}
           <div className="flex gap-8 max-w-[1248px] mx-auto">
             {/* Left Content Area - 992px wide on large screens, full width on smaller screens */}
-            <div className="flex-1 xl:max-w-[992px]">
+            <div className="flex-1 xl:max-w-[992px] min-w-0">
               {/* Banner Section */}
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
@@ -86,42 +87,67 @@ export default function Home() {
               
 
               {/* Interactive Cards Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 self-stretch">
-                <InteractiveCard
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 self-stretch min-w-0">
+                <div className="relative flex flex-col items-stretch w-full">
+                  <InteractiveCard
                   imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=q-50,w-640,c-at_max"
                   alt="Pack card 1"
                   width={200}
                   height={304}
                   href="/zh/cmh2lqffk001al10paqslua2f"
                 />
-                <InteractiveCard
+                  <div className="flex justify-center pt-3">
+                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$20,507.39</p>
+                  </div>
+                </div>
+                <div className="relative flex flex-col items-stretch w-full">
+                  <InteractiveCard
                   imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=q-50,w-640,c-at_max"
                   alt="Pack card 2"
                   width={200}
                   height={304}
                   href="/zh/cmh2lqffk001al10paqslua2f"
                 />
-                <InteractiveCard
+                  <div className="flex justify-center pt-3">
+                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$2.99</p>
+                  </div>
+                </div>
+                <div className="relative flex flex-col items-stretch w-full">
+                  <InteractiveCard
                   imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=q-50,w-640,c-at_max"
                   alt="Pack card 3"
                   width={200}
                   height={304}
                   href="/zh/cmh2lqffk001al10paqslua2f"
                 />
-                <InteractiveCard
+                  <div className="flex justify-center pt-3">
+                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$5.00</p>
+                  </div>
+                </div>
+                <div className="relative flex flex-col items-stretch w-full">
+                  <InteractiveCard
                   imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmum72x0000k30grhv2wirb_2135691__sXf7GAAU6?tr=q-50,w-640,c-at_max"
                   alt="Pack card 4"
                   width={200}
                   height={304}
                   href="/zh/cmh2lqffk001al10paqslua2f"
                 />
-                <InteractiveCard
+                  <div className="flex justify-center pt-3">
+                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$49.99</p>
+                  </div>
+                </div>
+                <div className="relative flex flex-col items-stretch w-full">
+                  <InteractiveCard
                   imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=q-50,w-640,c-at_max"
                   alt="Pack card 5"
                   width={200}
                   height={304}
                   href="/zh/cmh2lqffk001al10paqslua2f"
                 />
+                  <div className="flex justify-center pt-3">
+                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$12.99</p>
+                  </div>
+                </div>
               </div>
               <SectionHeader
                 title={t('battleHighlights')}
@@ -162,16 +188,20 @@ export default function Home() {
                  viewAllText={t('viewAll')}
                 className="mt-12 mb-3"
               />
-               <div className="mt-6">
+              <div className="mt-6">
                 <TradeHighlights />
+              </div>
+
+              <div className="mt-10">
+                <HowItWorks />
               </div>
 
               
             </div>
 
             {/* Right Sidebar - 224px wide, hidden on screens smaller than 1024px */}
-            <div className="hidden xl:block flex-shrink-0" style={{ width: '224px' }}>
-              <div className="rounded-lg px-4 pb-4 pt-0 h-fit" >
+            <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
+              <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
                 <div className="flex pb-4 gap-2 items-center">
                   <div className="flex size-4 text-yellow-400">
                     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -207,7 +237,7 @@ export default function Home() {
                     packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
                     title="Limited Edition Pack"
                     priceLabel="$2.99"
-                    glowColor="#6EE7B7"
+                    glowColor="#FACC15"
                   />
                   <LiveFeedElement
                     index={2}
@@ -217,11 +247,11 @@ export default function Home() {
                     packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
                     title="Special Drop"
                     priceLabel="$5.00"
-                    glowColor="#60A5FA"
+                    glowColor="#FACC15"
                   />
                 </div>
               </div>
-              <div className="rounded-lg px-4 pb-4 pt-0 h-fit mt-6" >
+              <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
                 <div className="flex pb-4 gap-2 items-center">
                   <div className="flex size-4 text-yellow-400">
                     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>

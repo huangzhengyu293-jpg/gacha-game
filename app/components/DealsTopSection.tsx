@@ -76,7 +76,7 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             productPrice={selectedProduct?.price ?? null}
           />
         </div>
-        <div className="hidden xl:block xl:w-[339.44px] xl:order-2">
+        <div className="hidden lg:block lg:w-[339.44px] lg:order-2">
           <DealsRightPanel percent={percent} inactive={inactive} product={selectedProduct ? { name: selectedProduct.name, image: selectedProduct.image, price: selectedProduct.price } : null} />
         </div>
       </div>

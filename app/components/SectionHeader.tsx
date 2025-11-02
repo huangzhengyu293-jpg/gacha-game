@@ -24,12 +24,16 @@ export default function SectionHeader({
         <h3 className="text-xl font-bold text-white">{title}</h3>
       </div>
       {onViewAll && (
-        <div 
-          className="hover:bg-gray-600 text-white rounded-md text-sm font-extrabold py-2 px-4 cursor-pointer select-none"
+        <button
+          type="button"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-sm font-bold select-none py-2 px-4 cursor-pointer"
+          style={{ backgroundColor: 'transparent', color: '#FFFFFF' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
           onClick={onViewAll}
         >
           {viewAllText}
-        </div>
+        </button>
       )}
     </div>
   );

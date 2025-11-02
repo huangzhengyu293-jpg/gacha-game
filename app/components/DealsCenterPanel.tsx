@@ -346,7 +346,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         <p className="text-white text-lg font-black">PackDraw</p>
       </div>
 
-      <p className="text-xl select-none font-extrabold mb-0 xl:hidden text-white">{percent.toFixed(2)}%</p>
+      <p className="text-xl select-none font-extrabold mb-0 lg:hidden text-white">{percent.toFixed(2)}%</p>
 
       <div className="relative select-none touch-none" style={{ width: 320, height: 320 }}>
         <div>
@@ -492,7 +492,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         )}
 
       <div className="absolute flex flex-col items-center justify-center p-14 pointer-events-none" style={{ transform: 'translate(0px, -320px)', height: 320, width: 320 }}>
-          <div className="flex flex-1 flex-col w-full items-stretch xl:hidden">
+          <div className="flex flex-1 flex-col w-full items-stretch lg:hidden">
             <div className="flex w-full h-full items-center justify-center">
             <div className="flex relative w-[50%] h-[50%]">
               {(!inactive && productImage) ? (
@@ -515,7 +515,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
             </div>
             </div>
           </div>
-        <p className="hidden xl:block text-xl select-none font-extrabold text-white">{inactive ? '0.00%' : percent.toFixed(2) + '%'}</p>
+        <p className="hidden lg:block text-xl select-none font-extrabold text-white">{inactive ? '0.00%' : percent.toFixed(2) + '%'}</p>
         </div>
 
         {/* 端点白点（两个独立 SVG），按绝对定位覆盖在主 SVG 之上 */}
@@ -525,7 +525,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       </div>
 
       {!inactive && (
-        <div className="flex flex-col max-w-full items-center xl:hidden mt-0">
+        <div className="flex flex-col max-w-full items-center lg:hidden mt-0">
           <p className="text-sm font-extrabold max-w-full select-none overflow-hidden text-ellipsis whitespace-nowrap px-4 text-white">{productTitle || ''}</p>
           <p className="text-lg front-extrabold text-gray-400 select-none">{'$'}{(productPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-lg font-extrabold select-none text-yellow-400">x{(percent > 0 ? ( (92.59 - ((percent - 1) / (80 - 1)) * (92.59 - 1.16))).toFixed(2) : '0.00')}</p>
