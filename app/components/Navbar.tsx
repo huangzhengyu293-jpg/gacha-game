@@ -245,7 +245,7 @@ export default function Navbar() {
         .menu-item:hover { background-color: transparent; }
       `}</style>
       <div className="w-full" style={{ borderBottom: '2px solid #34383C', backgroundColor: '#1D2125' }}>
-        <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">
+        <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 safe-x h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">
           {/* Left (Logo + Desktop Nav) */}
           <div className="flex items-center gap-2 lg:gap-4">
         {/* Logo */}

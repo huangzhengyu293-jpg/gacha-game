@@ -28,6 +28,30 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Mobile-friendly viewport height & text rendering */
+html { height: -webkit-fill-available; }
+body { min-height: 100vh; }
+@supports (min-height: 100dvh) {
+  body { min-height: 100dvh; }
+}
+@supports not (min-height: 100dvh) {
+  body { min-height: -webkit-fill-available; }
+}
+body { -webkit-text-size-adjust: 100%; }
+* { -webkit-tap-highlight-color: rgba(0,0,0,0); }
+
+/* Safe-area helpers (iOS notch devices) */
+.safe-x {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+/* Dynamic-viewport min height utility to replace 100vh jitter on mobile */
+.min-h-mobile { min-height: 100vh; }
+@supports (min-height: 100dvh) {
+  .min-h-mobile { min-height: 100dvh; }
+}
+
 /* Background image (borrowed style) */
 body {
   background-color: #1D2125 !important;
