@@ -243,6 +243,7 @@ export default function Navbar() {
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         .promo-input::placeholder { color: #7A8084; opacity: 1; }
         .menu-item:hover { background-color: transparent; }
+        @media (max-width: 390px) { .nav-vol { display: none !important; } }
       `}</style>
       <div className="w-full" style={{ borderBottom: '2px solid #34383C', backgroundColor: '#1D2125' }}>
         <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 safe-x h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">
@@ -416,7 +417,7 @@ export default function Navbar() {
             {/* 小屏右侧组件（登录） */}
             {status === 'authenticated' && (
               <div className="flex sm:hidden flex-row gap-3 items-center">
-                <div className="flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center">
+                <div className="nav-vol flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center max-[390px]:hidden">
                   <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
                   </button>

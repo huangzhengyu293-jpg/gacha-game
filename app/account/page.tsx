@@ -74,12 +74,12 @@ export default function AccountPage() {
             <div className="flex flex-col items-stretch w-full p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>
               <h3 className="text-xl text-white font-bold pb-4">基本信息</h3>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
-            <div className="flex flex-row items-start py-6">
+            <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
                 <div className="flex min-w-40 items-center">
                   <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="profilePicture">个人头像</label>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-help cursor-pointer size-4 text-white ml-2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
                 </div>
-                <div className="flex flex-row gap-4 items-start flex-1 justify-between">
+                <div className="flex flex-col gap-4 lg:flex-1 lg:flex-row lg:justify-between items-start">
                   <div className="flex gap-4">
                     <div className="flex relative rounded-full overflow-clip items-end cursor-pointer">
                       <div className="overflow-hidden rounded-full" style={{ borderWidth: 0 }}>
@@ -103,7 +103,7 @@ export default function AccountPage() {
                 </div>
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
-              <div className="flex flex-row items-start pt-6">
+              <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
                 <div className="flex min-w-40 items-center mt-0 xs:mt-2"><label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="username">用户名</label><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-help cursor-pointer size-4 text-white ml-2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg></div>
                 <div className="flex w-full max-w-[540px] flex-col gap-6"><input className="acct-input flex h-10 w-full rounded-md border-0 px-3 py-2 text-base" id="username" maxLength={20} placeholder="您的用户名" type="text" defaultValue="mortified_panda" style={{ backgroundColor: '#292F34', color: '#FFFFFF' }} /><button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36">保存</button></div>
               </div>
@@ -114,18 +114,18 @@ export default function AccountPage() {
                 您可能需要在将来提供一种或多种形式的个人身份证明。您提供的信息应与您的身份证件上的信息一致。您可能无法在将来更改此信息。请在提交前仔细检查。
               </p>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
-              <div className="flex flex-row items-center py-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40" htmlFor="legalName">全名</label>
+              <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="legalName">全名</label>
                 <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="legalName" maxLength={50} placeholder="名字和姓氏" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
-              <div className="flex flex-row items-center py-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40" htmlFor="dOb">出生日期</label>
+              <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="dOb">出生日期</label>
                 <DatePickerField id="dOb" defaultValue="2025-11-02" />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
-              <div className="flex flex-row items-start pt-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40" htmlFor="address">居住地址</label>
+              <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="address">居住地址</label>
                 <div className="flex w-full max-w-[540px] flex-col gap-4">
                   <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address1" maxLength={50} placeholder="地址行 1" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
                   <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address2" maxLength={50} placeholder="地址行 2" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
