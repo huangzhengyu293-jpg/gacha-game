@@ -41,14 +41,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh" data-theme="dark">
-      <body className={`${urbanist.className} ${geistSans.variable} ${geistMono.variable} antialiased`} style={{ backgroundColor: '#1D2125' }}>
+      <body className={`${urbanist.className} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
         <I18nProvider>
           <Providers>
             {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
             <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
               <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
                 <Navbar />
-                <div className="flex-1 pt-[80px] lg:pt-[96px]">
+                <div className="flex-1 pt-8">
                   {children}
                 </div>
                 <Footer />

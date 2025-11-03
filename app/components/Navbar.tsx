@@ -237,13 +237,13 @@ export default function Navbar() {
   const isOpaque = (isSmall || isMidViewport || isMenuOpen || showMidMenu || showUserMenu || showRegister || showLogin || showForgot || showTerms);
 
   return (
-    <div className="flex flex-col fixed z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
+    <div className="flex flex-col sticky z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         .promo-input::placeholder { color: #7A8084; opacity: 1; }
         .menu-item:hover { background-color: transparent; }
-        @media (max-width: 390px) { .nav-vol { display: none !important; } }
+        @media (max-width: 639px) { .nav-vol { display: none !important; } }
       `}</style>
       <div className="w-full" style={{ borderBottom: '2px solid #34383C', backgroundColor: '#1D2125' }}>
         <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 safe-x h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">

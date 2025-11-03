@@ -1,92 +1,86 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
+import InlineSelect from "./InlineSelect";
 import { useI18n } from "./I18nProvider";
+
+// Hoisted accordion to avoid remounts on Footer re-renders
+const MobileAccordionBase = ({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode; }) => {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(defaultOpen);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [hasCalculated, setHasCalculated] = useState(false);
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    const calc = () => {
+      if (contentRef.current) {
+        setContentHeight(contentRef.current.scrollHeight);
+        setHasCalculated(true);
+      }
+    };
+    if (open && !hasCalculated) setTimeout(calc, 0);
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [open, hasCalculated]);
+
+  useEffect(() => { if (!open) setHasCalculated(false); }, [open]);
+
+  const handleToggle = () => {
+    setAnimate(true);
+    setTimeout(() => setAnimate(false), 360);
+    setOpen(v => !v);
+    setTimeout(() => setAnimate(false), 400);
+  };
+
+  return (
+    <div className="rounded-lg px-0 bg-black">
+      <h3 className="flex">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={handleToggle}
+          className={`flex flex-1 items-center justify-between transition-all text-left font-extrabold text-base py-2`}
+          style={{ color: '#FFFFFF' }}
+        >
+          {title}
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide lucide-chevron-down h-4 w-4 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} style={{ color: '#FFFFFF' }}><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+      </h3>
+      <div
+        style={{ maxHeight: open ? `${contentHeight}px` : '0px', transition: animate ? 'max-height 300ms ease' : 'none', willChange: 'max-height' }}
+        className="overflow-hidden"
+      >
+        <div
+          ref={contentRef}
+          style={{ opacity: open ? 1 : 0, transition: animate ? 'opacity 250ms ease 50ms' : 'none' }}
+          className="pt-0"
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MobileAccordionMemo = memo(MobileAccordionBase, (prev, next) => prev.title === next.title && prev.defaultOpen === next.defaultOpen);
 
 export default function Footer() {
   const { lang, setLang, t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [gamesOpen, setGamesOpen] = useState(true);
-  const [legalOpen, setLegalOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
-  const langRef = useRef<HTMLDivElement | null>(null);
+  // 保留初始展开偏好，具体开合由子组件自管理，避免父级重渲染干扰动画
+  const gamesDefaultOpen = true;
+  const legalDefaultOpen = false;
   
-  function MobileAccordion({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode; }) {
-    const contentRef = useRef<HTMLDivElement | null>(null);
-    const [contentHeight, setContentHeight] = useState(0);
-    const [hasCalculated, setHasCalculated] = useState(false);
-
-    useEffect(() => {
-      const calc = () => {
-        if (contentRef.current) {
-          setContentHeight(contentRef.current.scrollHeight);
-          setHasCalculated(true);
-        }
-      };
-      
-      if (open && !hasCalculated) {
-        setTimeout(calc, 0);
-      }
-      
-      window.addEventListener('resize', calc);
-      return () => window.removeEventListener('resize', calc);
-    }, [open, hasCalculated]);
-
-    useEffect(() => {
-      if (!open) {
-        setHasCalculated(false);
-      }
-    }, [open]);
-
-    return (
-      <div className="rounded-lg px-0 bg-black">
-        <h3 className="flex">
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={onToggle}
-            className={`flex flex-1 items-center justify-between transition-all text-left font-extrabold text-base py-2`}
-            style={{ color: '#FFFFFF' }}
-          >
-            {title}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide lucide-chevron-down h-4 w-4 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} style={{ color: '#FFFFFF' }}><path d="m6 9 6 6 6-6"></path></svg>
-          </button>
-        </h3>
-        <div
-          style={{ maxHeight: open ? `${contentHeight}px` : '0px', transition: 'max-height 300ms ease', willChange: 'max-height' }}
-          className="overflow-hidden"
-        >
-          <div
-            ref={contentRef}
-            style={{ opacity: open ? 1 : 0, transition: 'opacity 250ms ease 50ms' }}
-            className="pt-0"
-          >
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // MobileAccordion hoisted at module scope (see top of file)
   
   const communityBtnBase = { backgroundColor: '#2A2D35', color: '#FFFFFF', cursor: 'pointer' as const };
   const onEnter = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; };
   const onLeave = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; };
 
-  // language option hover handlers to set bg and text color
-  const onOptEnter = (e: React.MouseEvent<HTMLButtonElement>) => { const el = e.currentTarget as HTMLButtonElement; el.style.backgroundColor = '#34383C'; el.style.color = '#FFFFFF'; };
-  const onOptLeave = (e: React.MouseEvent<HTMLButtonElement>) => { const el = e.currentTarget as HTMLButtonElement; el.style.backgroundColor = 'transparent'; el.style.color = '#7A8084'; };
+  // language options handled by InlineSelect
 
-  // outside click to close language dropdown
-  useEffect(() => {
-    const onDocClick = (ev: MouseEvent) => {
-      if (!open) return;
-      const target = ev.target as Node;
-      if (langRef.current && !langRef.current.contains(target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
+  // (language dropdown now uses InlineSelect; no global click handler needed)
+
+  // no-op: accordion is self-controlled; no parent toggles required
 
   return (
     <div className="flex flex-col w-full items-center bg-black">
@@ -107,7 +101,7 @@ export default function Footer() {
 
         {/* Mobile accordion */}
         <div className="flex flex-col gap-3 md:hidden">
-          <MobileAccordion title={t("games")} open={gamesOpen} onToggle={() => setGamesOpen(!gamesOpen)}>
+          <MobileAccordionMemo title={t("games")} defaultOpen={gamesDefaultOpen}>
             <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("packs")}</p>
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("battles")}</p>
@@ -115,15 +109,15 @@ export default function Footer() {
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("events")}</p>
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("rewards")}</p>
             </div>
-          </MobileAccordion>
+          </MobileAccordionMemo>
 
-          <MobileAccordion title={t("legal")} open={legalOpen} onToggle={() => setLegalOpen(!legalOpen)}>
+          <MobileAccordionMemo title={t("legal")} defaultOpen={legalDefaultOpen}>
             <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("fairness")}</p>
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("privacy")}</p>
               <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("terms")}</p>
             </div>
-          </MobileAccordion>
+          </MobileAccordionMemo>
 
           <div className="flex flex-col gap-2">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
@@ -142,21 +136,19 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 mt-2" ref={langRef}>
+          <div className="flex flex-col gap-2 mt-2">
             <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
-            <div className="relative w-auto min-w-52">
-              <button onClick={() => setOpen(!open)} className="flex h-10 w-full items-center justify-between rounded-md border px-3 py-2" style={{ borderColor: '#374151', backgroundColor: '#22272B', color: '#FFFFFF' }}>
-                <span>{lang === "zh" ? "中文" : lang === "en" ? "English" : lang === "ko" ? "한국어" : "日本語"}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50" aria-hidden="true" style={{ color: '#FFFFFF' }}><path d="m6 9 6 6 6-6"></path></svg>
-              </button>
-              {open && (
-                <div className="absolute left-0 right-0 mt-1 rounded-md border text-white shadow-lg z-10" style={{ borderColor: '#374151', backgroundColor: '#22272B' }}>
-                  <button onClick={() => { setLang("zh"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>中文</button>
-                  <button onClick={() => { setLang("en"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>English</button>
-                  <button onClick={() => { setLang("ko"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>한국어</button>
-                  <button onClick={() => { setLang("ja"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>日本語</button>
-                </div>
-              )}
+            <div className="w-auto min-w-52">
+              <InlineSelect
+                value={lang}
+                onChange={(v) => setLang(v as any)}
+                options={[
+                  { label: '中文', value: 'zh' },
+                  { label: 'English', value: 'en' },
+                  { label: '한국어', value: 'ko' },
+                  { label: '日本語', value: 'ja' },
+                ]}
+              />
             </div>
           </div>
 
@@ -199,21 +191,19 @@ export default function Footer() {
             </div>
           </div>
           <div className="flex flex-col min-w-44 gap-6">
-            <div className="flex flex-col" ref={langRef}>
+            <div className="flex flex-col">
               <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
-              <div className="relative w-auto min-w-52">
-                <button onClick={() => setOpen(!open)} className="flex h-10 w-full items-center justify-between rounded-md border px-3 py-2" style={{ borderColor: '#374151', backgroundColor: '#22272B', color: '#FFFFFF' }}>
-                  <span>{lang === "zh" ? "中文" : lang === "en" ? "English" : lang === "ko" ? "한국어" : "日本語"}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50" aria-hidden="true" style={{ color: '#FFFFFF' }}><path d="m6 9 6 6 6-6"></path></svg>
-                </button>
-                {open && (
-                  <div className="absolute left-0 right-0 mt-1 rounded-md border text-white shadow-lg z-10" style={{ borderColor: '#374151', backgroundColor: '#22272B' }}>
-                    <button onClick={() => { setLang("zh"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>中文</button>
-                    <button onClick={() => { setLang("en"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>English</button>
-                    <button onClick={() => { setLang("ko"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>한국어</button>
-                    <button onClick={() => { setLang("ja"); setOpen(false); }} className="w-full text-left px-3 py-2" style={{ color: '#7A8084' }} onMouseEnter={onOptEnter} onMouseLeave={onOptLeave}>日本語</button>
-                  </div>
-                )}
+              <div className="w-auto min-w-52">
+                <InlineSelect
+                  value={lang}
+                  onChange={(v) => setLang(v as any)}
+                  options={[
+                    { label: '中文', value: 'zh' },
+                    { label: 'English', value: 'en' },
+                    { label: '한국어', value: 'ko' },
+                    { label: '日本語', value: 'ja' },
+                  ]}
+                />
               </div>
             </div>
             <div className="flex flex-col">
