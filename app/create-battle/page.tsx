@@ -1,29 +1,39 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useMemo, useState } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useState } from 'react';
 import InlineSelect from '../components/InlineSelect';
 
 export default function CreateBattlePage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-
-  const type = (searchParams.get('type') === 'team' ? 'team' : 'solo') as 'solo' | 'team';
-  const playersInSolo = useMemo(() => {
-    const n = Number(searchParams.get('playersInSolo') || '1');
-    return Number.isFinite(n) && n >= 1 && n <= 4 ? String(n) : '1';
-  }, [searchParams]);
-  const gameMode = searchParams.get('gameMode') || 'classic';
-  const fastBattle = (searchParams.get('fastBattle') ?? 'true') === 'true';
-  const [selectedMode, setSelectedMode] = useState<'classic' | 'share' | 'sprint' | 'jackpot' | 'elimination'>(
-    (gameMode as any) || 'classic'
-  );
-  const [playersCount, setPlayersCount] = useState<string>(playersInSolo);
-  const [typeState, setTypeState] = useState<'solo' | 'team'>(type);
-  const [optFastBattle, setOptFastBattle] = useState<boolean>(fastBattle);
-  const [optLastChance, setOptLastChance] = useState<boolean>(false);
-  const [optInverted, setOptInverted] = useState<boolean>(false);
+  const [typeState, setTypeState] = useState<'solo' | 'team'>(() => {
+    if (typeof window === 'undefined') return 'solo';
+    const p = new URLSearchParams(window.location.search).get('type');
+    return p === 'team' ? 'team' : 'solo';
+  });
+  const [playersCount, setPlayersCount] = useState<string>(() => {
+    if (typeof window === 'undefined') return '1';
+    const n = Number(new URLSearchParams(window.location.search).get('playersInSolo') || '1');
+    return Number.isFinite(n) && n >= 1 && n <= 6 ? String(n) : '1';
+  });
+  const [selectedMode, setSelectedMode] = useState<'classic' | 'share' | 'sprint' | 'jackpot' | 'elimination'>(() => {
+    if (typeof window === 'undefined') return 'classic';
+    const gm = new URLSearchParams(window.location.search).get('gameMode');
+    return (gm === 'share' || gm === 'sprint' || gm === 'jackpot' || gm === 'elimination') ? (gm as any) : 'classic';
+  });
+  const [optFastBattle, setOptFastBattle] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const v = new URLSearchParams(window.location.search).get('fastBattle');
+    return v === 'true';
+  });
+  const [optLastChance, setOptLastChance] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const v = new URLSearchParams(window.location.search).get('lastChance');
+    return v === 'true';
+  });
+  const [optInverted, setOptInverted] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const v = new URLSearchParams(window.location.search).get('upsideDown');
+    return v === 'true';
+  });
 
   const replaceUrl = (updates: Record<string, string | undefined>) => {
     if (typeof window === 'undefined') return;
@@ -33,6 +43,7 @@ export default function CreateBattlePage() {
       else params.set(k, String(v));
     });
     const qs = params.toString();
+    const pathname = window.location.pathname || '/create-battle';
     const url = qs ? `${pathname}?${qs}` : pathname;
     window.history.replaceState(null, '', url);
   };
