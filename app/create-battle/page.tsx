@@ -1,17 +1,8 @@
 'use client';
-
-import { Suspense, useMemo, useState } from 'react';
+export const dynamic = 'force-dynamic';
+import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import InlineSelect from '../components/InlineSelect';
-
-function buildQueryString(base: URLSearchParams, updates: Record<string, string | undefined>) {
-  const params = new URLSearchParams(base.toString());
-  Object.entries(updates).forEach(([k, v]) => {
-    if (v === undefined || v === null) params.delete(k);
-    else params.set(k, String(v));
-  });
-  return params.toString();
-}
 
 export default function CreateBattlePage() {
   const router = useRouter();
@@ -47,10 +38,9 @@ export default function CreateBattlePage() {
   };
 
   return (
-    <Suspense fallback={null}>
-      <div className="flex flex-col flex-1 items-stretch relative">
-        <div className="w-full max-w-[1280px] mx-auto px-4 pt-6 space-y-10 md:space-y-12">
-          <div className="w-full space-y-12 pb-8 flex flex-col items-center">
+    <div className="flex flex-col flex-1 items-stretch relative">
+      <div className="w-full max-w-[1280px] mx-auto px-4 pt-6 space-y-10 md:space-y-12">
+        <div className="w-full space-y-12 pb-8 flex flex-col items-center">
           {/* 顶部：模式下拉与玩家数量 */}
           <div className="flex flex-col items-stretch gap-12">
             <div className="flex justify-center w-full">
@@ -451,12 +441,11 @@ export default function CreateBattlePage() {
           <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus select-none px-8 w-full h-16 sticky bottom-2 !mt-0" disabled style={{ backgroundColor: '#48BB78', color: '#2F855A', fontFamily: 'var(--font-urbanist)' }}>
             创建对战 for $0.00
           </button>
-          </div>
-        
-        
         </div>
+
+      
       </div>
-    </Suspense>
+    </div>
   );
 }
 
