@@ -60,36 +60,49 @@ export default function LiveFeedElement({
             {/* 中心发光（白色柔光 + 主题色光晕） */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
               <div
-                className="lf-glow transition-opacity duration-300"
                 style={{
                   width: '58%',
                   height: '58%',
-                  borderRadius: '9999px',
-                  background: 'radial-gradient(closest-side, rgba(255,255,255,0.28), rgba(255,255,255,0) 58%)',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(255,255,255,0.28), rgba(255,255,255,0) 58%)',
                   filter: 'blur(14px)',
-                  opacity: 1
+                  opacity: 1,
+                  transition: 'opacity 300ms ease',
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)'
                 }}
               />
               <div
-                className="lf-glow transition-opacity duration-300"
                 style={{
                   width: '26%',
                   height: '26%',
-                  borderRadius: '9999px',
-                  background: 'radial-gradient(closest-side, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)',
                   filter: 'blur(10px)',
-                  opacity: 0.95
+                  opacity: 0.95,
+                  transition: 'opacity 300ms ease',
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)'
                 }}
               />
               <div
-                className="lf-glow lf-ambient transition-opacity duration-300"
                 style={{
                   width: '92%',
                   height: '92%',
-                  borderRadius: '9999px',
-                  background: `radial-gradient(closest-side, ${glowColor}AA, rgba(0,0,0,0) 72%)`,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${glowColor}AA, rgba(0,0,0,0) 72%)`,
                   filter: 'blur(36px)',
-                  opacity: 0.95
+                  opacity: 0.95,
+                  transition: 'opacity 300ms ease',
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  animation: 'lf-breathe 3.2s ease-in-out infinite'
                 }}
               />
             </div>
@@ -126,14 +139,18 @@ export default function LiveFeedElement({
         {/* 悬停态的背景光（更弱，避免盖过图片） */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
           <div
-            className="lf-glow transition-opacity duration-300"
             style={{
               width: '86%',
               height: '86%',
-              borderRadius: '9999px',
-              background: `radial-gradient(closest-side, ${glowColor}99, rgba(0,0,0,0) 70%)`,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, ${glowColor}99, rgba(0,0,0,0) 70%)`,
               filter: 'blur(30px)',
-              opacity: 0.85
+              opacity: 0.85,
+              transition: 'opacity 300ms ease',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
             }}
           />
         </div>

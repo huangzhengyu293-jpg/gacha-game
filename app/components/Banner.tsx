@@ -16,9 +16,10 @@ export default function Banner({ title, icon, bgClass, href, className = "" }: B
   return (
     <a 
       href={href}
-      className={`rounded-lg flex-1 p-3 flex flex-col justify-between items-start h-[123px] min-h-[123px] overflow-hidden bg-gray-700 hover:bg-gray-650 transition-colors duration-200 relative cursor-pointer ${className}`}
+      className={`rounded-lg flex-1 p-3 flex flex-col justify-between items-start h-[123px] min-h-[123px] overflow-hidden transition-colors duration-200 relative cursor-pointer ${className}`}
+      style={{ backgroundColor: '#22272b' }}
     >
-      <div className={`bg-auto bg-no-repeat bg-right absolute h-full w-full top-0 left-0 ${bgClass}`}></div>
+      <div className={`absolute h-full w-full top-0 left-0 ${bgClass}`}></div>
       <div className="flex flex-col justify-between h-full z-10">
         <div className="text-gray-600 size-10">
           {icon}

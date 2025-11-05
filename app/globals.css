@@ -96,15 +96,24 @@ html { overflow-x: hidden; }
 
 /* Banner background images */
 .bg-new-player-battle-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-image: url('https://packdraw.com/_next/static/media/new-player-battle-bg.60b03717.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .bg-new-player-packs-banner {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background-image: url('https://packdraw.com/_next/static/media/new-player-packs-bg.857f32bb.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .bg-new-player-deal-banner {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background-image: url('https://packdraw.com/_next/static/media/new-player-deals-bg.ffe56834.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Hover animation for live feed cards */
@@ -176,4 +185,56 @@ html { overflow-x: hidden; }
 .bg-spin-blur-E4AE33 {
   background-image: radial-gradient(closest-side, rgba(228,174,51,0.35), rgba(228,174,51,0.12) 60%, rgba(0,0,0,0));
   filter: blur(2px);
+}
+
+/* Responsive text size */
+@media (min-width: 768px) {
+  .md\:text-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+@media (min-width: 1280px) {
+  .xl\:text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* 排行榜排名标签颜色 */
+.text-placement-first {
+  color: #FFD700; /* 金色 - 第一名 */
+}
+.text-placement-second {
+  color: #C0C0C0; /* 银色 - 第二名 */
+}
+.text-placement-third {
+  color: #CD7F32; /* 铜色 - 第三名 */
+}
+
+/* 排行榜头像边框颜色 */
+.border-placement-first {
+  border-color: #FFD700; /* 金色边框 - 第一名 */
+}
+.border-placement-second {
+  border-color: #C0C0C0; /* 银色边框 - 第二名 */
+}
+.border-placement-third {
+  border-color: #CD7F32; /* 铜色边框 - 第三名 */
+}
+
+/* 背景色工具类 */
+.bg-gray-650 {
+  background-color: #1d2125;
+}
+
+/* Changa One 字体 */
+.font-changa {
+  font-family: 'Changa One', sans-serif;
+  font-weight: bold;
+}
+
+/* 奖励卡片高亮背景 */
+.bg-reward-card-highlight {
+  background-image: radial-gradient(circle at top center, #3A4249 0, transparent 50%);
 }

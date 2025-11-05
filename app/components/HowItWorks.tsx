@@ -95,9 +95,9 @@ export default function HowItWorks() {
 
       {/* 三步卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <HowItWorksCard step="01" title="开启礼包" desc="找到您的完美礼包并体验在线兴奋！" imgAlt="Open Packs" imgSrc="https://ik.imagekit.io/hr727kunx/products/clz6bu1a200a3j6tytj07f05i_9242856__ybcfUleP5?tr=w-1080,c-at_max" imgWidth={189} imgHeight={126} />
-        <HowItWorksCard step="02" title="赢取物品" desc="每个礼包都会发现一个您熟悉和喜爱的顶级品牌产品！" imgAlt="Win Items" imgSrc="https://ik.imagekit.io/hr727kunx/products/clz6bu1a200a3j6tytj07f05i_9242856__ybcfUleP5?tr=w-1080,c-at_max" imgWidth={268} imgHeight={163} />
-        <HowItWorksCard step="03" title="现金或领取" desc="出售不需要的物品，提取现金或等待发货！" imgAlt="Cash or Claim" imgSrc="https://ik.imagekit.io/hr727kunx/products/clz6bu1a200a3j6tytj07f05i_9242856__ybcfUleP5?tr=w-1080,c-at_max" imgWidth={236} imgHeight={153} />
+        <HowItWorksCard step="01" title="开启礼包" desc="找到您的完美礼包并体验在线兴奋！" imgAlt="Open Packs" imgSrc="https://packdraw.com/images/openPacks.png" imgWidth={189} imgHeight={126} />
+        <HowItWorksCard step="02" title="赢取物品" desc="每个礼包都会发现一个您熟悉和喜爱的顶级品牌产品！" imgAlt="Win Items" imgSrc="https://packdraw.com/images/winItems.png" imgWidth={268} imgHeight={163} />
+        <HowItWorksCard step="03" title="现金或领取" desc="出售不需要的物品，提取现金或等待发货！" imgAlt="Cash or Claim" imgSrc="https://packdraw.com/images/cashOrClaim.png" imgWidth={236} imgHeight={153} />
       </div>
 
       {/* FAQ */}
