@@ -8,6 +8,7 @@ import LiveFeedTicker from './components/LiveFeedTicker';
 import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
+import { packs as mockPacks } from './lib/packs';
 
 export default function Home() {
   const { t } = useI18n();
@@ -86,68 +87,24 @@ export default function Home() {
               />
               
 
-              {/* Interactive Cards Grid */}
+              {/* Interactive Cards Grid (from mock packs) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 self-stretch min-w-0">
-                <div className="relative flex flex-col items-stretch w-full">
-                  <InteractiveCard
-                  imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=q-50,w-640,c-at_max"
-                  alt="Pack card 1"
-                  width={200}
-                  height={304}
-                  href="/zh/cmh2lqffk001al10paqslua2f"
-                />
-                  <div className="flex justify-center pt-3">
-                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$20,507.39</p>
+                {mockPacks.map((pack) => (
+                  <div className="relative flex flex-col items-stretch w-full" key={pack.id}>
+                    <InteractiveCard
+                      imageUrl={`${pack.image}?tr=q-50,w-640,c-at_max`}
+                      alt={pack.title}
+                      width={200}
+                      height={304}
+                      href={`/packs/${pack.id}`}
+                    />
+                    <div className="flex justify-center pt-3">
+                      <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>
+                        {`$${pack.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="relative flex flex-col items-stretch w-full">
-                  <InteractiveCard
-                  imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=q-50,w-640,c-at_max"
-                  alt="Pack card 2"
-                  width={200}
-                  height={304}
-                  href="/zh/cmh2lqffk001al10paqslua2f"
-                />
-                  <div className="flex justify-center pt-3">
-                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$2.99</p>
-                  </div>
-                </div>
-                <div className="relative flex flex-col items-stretch w-full">
-                  <InteractiveCard
-                  imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=q-50,w-640,c-at_max"
-                  alt="Pack card 3"
-                  width={200}
-                  height={304}
-                  href="/zh/cmh2lqffk001al10paqslua2f"
-                />
-                  <div className="flex justify-center pt-3">
-                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$5.00</p>
-                  </div>
-                </div>
-                <div className="relative flex flex-col items-stretch w-full">
-                  <InteractiveCard
-                  imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmum72x0000k30grhv2wirb_2135691__sXf7GAAU6?tr=q-50,w-640,c-at_max"
-                  alt="Pack card 4"
-                  width={200}
-                  height={304}
-                  href="/zh/cmh2lqffk001al10paqslua2f"
-                />
-                  <div className="flex justify-center pt-3">
-                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$49.99</p>
-                  </div>
-                </div>
-                <div className="relative flex flex-col items-stretch w-full">
-                  <InteractiveCard
-                  imageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=q-50,w-640,c-at_max"
-                  alt="Pack card 5"
-                  width={200}
-                  height={304}
-                  href="/zh/cmh2lqffk001al10paqslua2f"
-                />
-                  <div className="flex justify-center pt-3">
-                    <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>$12.99</p>
-                  </div>
-                </div>
+                ))}
               </div>
               <SectionHeader
                 title={t('battleHighlights')}

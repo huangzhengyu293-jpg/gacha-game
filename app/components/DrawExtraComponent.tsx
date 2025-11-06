@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { products as packProducts } from '../lib/packs';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -35,16 +36,8 @@ const ROUND_PRICES: number[] = [
   0.55, 0.72, 0.94, 1.38, 2.22, 3.61, 5.55, 11.11, 27.77, 83.33,
 ];
 
-// 参考产品（名字/图片/价格），来自产品列表
-const SOURCE_PRODUCTS = [
-  { name: 'Patek Philippe Nautilus "Tsavorite"', image: 'https://ik.imagekit.io/hr727kunx/products/cmbgtrk6e0000l90q9zfvj8sl_4878254__nuUcuawh9?tr=w-3840,c-at_max', price: 296700 },
-  { name: 'Rolex Submariner Date Black', image: 'https://ik.imagekit.io/hr727kunx/products/clx9sj9li0e6avt0rujn84efn_3494765__wvEd6x0CE?tr=w-3840,c-at_max', price: 13950 },
-  { name: 'Audemars Piguet Royal Oak Blue', image: 'https://ik.imagekit.io/hr727kunx/products/cmgfhf9f70003jv0f7er3xd2i_7023932__ZEXymgSV1?tr=w-3840,c-at_max', price: 85900 },
-  { name: 'Richard Mille RM 011 Flyback', image: 'https://ik.imagekit.io/hr727kunx/products/cmbtzvnse0000ju0g32ipzs5k_9421879__aRi1D-0RN?tr=w-3840,c-at_max', price: 218000 },
-  { name: 'Omega Speedmaster Moonwatch', image: 'https://ik.imagekit.io/hr727kunx/products/cmbik4l3d0000kv0ghfkrs31d_2021066__LG2uUje8-8?tr=w-3840,c-at_max', price: 7350 },
-  { name: 'Cartier Santos Large', image: 'https://ik.imagekit.io/hr727kunx/products/cmbgtuxhc0000jx0m8z7t4fmm_5266610__MF9J_ygvx?tr=w-3840,c-at_max', price: 7450 },
-  { name: 'Vacheron Constantin Overseas Blue', image: 'https://ik.imagekit.io/hr727kunx/products/clu8pi7xw010xld14gtecbtqp_939678__Sb_t7_ZCz?tr=w-3840,c-at_max', price: 33900 },
-];
+// 参考产品（名字/图片/价格），改为使用你在 app/lib/packs.ts 写的 products
+const SOURCE_PRODUCTS = packProducts.map(p => ({ name: p.name, image: p.image, price: p.price }));
 
 function getRoundProduct(roundIdx: number) {
   const p = SOURCE_PRODUCTS[roundIdx % SOURCE_PRODUCTS.length];
@@ -89,8 +82,10 @@ export default function DrawExtraComponent() {
   // 每一面对应的高亮颜色索引（与倍数颜色绑定），仅在该面内容设置时记录，翻到该面时才生效
   const [faceGlowIdxFront, setFaceGlowIdxFront] = useState<(number | null)[]>(Array(9).fill(null));
   const [faceGlowIdxBack, setFaceGlowIdxBack] = useState<(number | null)[]>(Array(9).fill(null));
-  // 复位到初始时关闭翻牌过渡，避免出现“多翻一次”的视觉
+  // 复位到初始时关闭翻牌过渡，避免出现"多翻一次"的视觉
   const [suppressFlipTransition, setSuppressFlipTransition] = useState<boolean>(false);
+  // 每张背面卡片的hover状态
+  const [backCardHovered, setBackCardHovered] = useState<boolean[]>(Array(9).fill(false));
 
   function hexToRgba(hex: string, alpha: number) {
     const h = hex.replace('#', '');
@@ -245,6 +240,39 @@ export default function DrawExtraComponent() {
   const setMin = () => setAmount(formatCurrency(5));
   const setMax = () => setAmount(formatCurrency(50000));
 
+  // 计算中奖卡牌的总金额
+  const calculateTotalPrize = () => {
+    let total = 0;
+    for (let i = 0; i < 9; i++) {
+      if (cardWonRound[i] >= 0) {
+        // 确定当前显示的是正面还是背面
+        const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
+        if (currentRound !== null) {
+          const product = getRoundProduct(currentRound);
+          total += product.price;
+        }
+      }
+    }
+    return total;
+  };
+
+  // 处理卡片hover的通用函数
+  const handleCardMouseEnter = (idx: number) => {
+    if (cardWonRound[idx] >= 0) {
+      const newHovered = [...backCardHovered];
+      newHovered[idx] = true;
+      setBackCardHovered(newHovered);
+    }
+  };
+
+  const handleCardMouseLeave = (idx: number) => {
+    if (cardWonRound[idx] >= 0) {
+      const newHovered = [...backCardHovered];
+      newHovered[idx] = false;
+      setBackCardHovered(newHovered);
+    }
+  };
+
   const startGame = () => {
     // 先固定容器高度，立即切换按钮面板
     const h = setupPanelRef.current?.offsetHeight;
@@ -314,6 +342,8 @@ export default function DrawExtraComponent() {
       }
     }
     setRoundIndex(nextRound);
+    // 重置hover状态
+    setBackCardHovered(Array(9).fill(false));
     // 触发动画
     setTimeout(() => {
       setCardWonRound(newWon);
@@ -368,7 +398,7 @@ export default function DrawExtraComponent() {
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         /* 翻牌 */
-        .flip-card { perspective: 1000px; -webkit-perspective: 1000px; overflow: hidden; }
+        .flip-card { perspective: 1000px; -webkit-perspective: 1000px; }
         .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; transition: transform 600ms ease; will-change: transform; }
         .flip-inner.flipped { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
         .flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform, opacity; }
@@ -466,18 +496,18 @@ export default function DrawExtraComponent() {
       {/* 顶部与内容分割线 */}
 
       {/* 内容区（组件内切换，不影响父级） */}
-      <div className="flex flex-col items-center p-4 md:py-8 sm:px-10 md:px-16 rounded-b-lg" style={{ backgroundColor: '#161A1D' }}>
+      <div className="flex flex-col items-center p-4 md:py-8 sm:px-10 md:px-16 rounded-b-lg" style={{ backgroundColor: '#161A1D', overflow: 'visible' }}>
         {/* 3列网格卡片（静态） */}
-        <div className="grid grid-cols-3 gap-4 w-full">
+        <div className="grid grid-cols-3 gap-4 w-full" style={{ overflow: 'visible' }}>
           {Array.from({ length: 9 }).map((_, idx) => (
-            <div key={idx} className="flex relative aspect-square w-full h-full">
-              <div className="flex absolute w-full h-full">
-                <div className="aspect-square w-full rounded-lg">
-                  <div className="flip-card w-full h-full">
+            <div key={idx} className="flex relative aspect-square w-full h-full" style={{ overflow: 'visible' }}>
+              <div className="flex absolute w-full h-full" style={{ overflow: 'visible' }}>
+                <div className="aspect-square w-full rounded-lg" style={{ overflow: 'visible' }}>
+                  <div className="flip-card w-full h-full" style={{ overflow: 'visible' }}>
                     <div className={`flip-inner`} style={{ transform: `rotateY(${cardBack[idx] ? 180 : 0}deg)`, transition: suppressFlipTransition ? 'none' as any : undefined }}>
                       {/* 正面 */}
-                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: '2px solid #34383C', borderRadius: '0.5rem', overflow: 'hidden' }}>
-                        <div className="flex relative w-full h-full justify-center items-center select-none">
+                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: frontRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: frontRound[idx] === null ? '#161a1d' : '#1d2125' }}>
+                        <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const fr = frontRound[idx];
                             if (fr === null) {
@@ -490,40 +520,62 @@ export default function DrawExtraComponent() {
                                       <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor" />
                                     </svg>
                                   </div>
-                                  <p className="font-black text-xs md:text-sm" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>PackDraw</p>
+                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>PackDraw</p>
                                 </div>
                               );
                             }
                             const prod = getRoundProduct(fr);
                             const glowIdx = faceGlowIdxFront[idx];
-                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : null;
-                            const strongColor = glowHex ? hexToRgba(glowHex, 0.9) : cardGlowStrong;
-                            const imgShadow = glowHex ? `drop-shadow(0 0 10px ${hexToRgba(glowHex, 0.6)}) drop-shadow(0 0 4px ${hexToRgba(glowHex, 0.35)})` : imageDropShadow;
+                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
+                            const isWon = cardWonRound[idx] >= 0;
+                            const isHovered = isWon && backCardHovered[idx];
                             return (
-                              <div className="absolute inset-x-0 flex flex-col items-center justify-center" style={{ zIndex: 1, top: '50%', transform: isSmall ? 'translateY(calc(-50% + 8px)) scale(0.85)' : 'translateY(calc(-50% + 8px))', transformOrigin: 'center center', padding: '0 8px 8px', boxSizing: 'border-box', width: '100%' }}>
-                                <div className="relative" style={{ width: '3rem', height: '3rem' }}>
-                                  <div
-                                    className="absolute inset-0 rounded-full pointer-events-none"
-                                    style={{
-                                      backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${strongColor} 0%, ${strongColor} 55%, rgba(0,0,0,0) 80%)`,
-                                      filter: 'blur(16px)',
-                                      opacity: 0.9,
-                                      transform: 'scale(1.2)',
-                                      zIndex: 0,
-                                    }}
+                              <div 
+                                data-component="ProductDisplayCard" 
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                style={{ backgroundColor: isHovered ? '#22272b' : '#1d2125' }}
+                                onMouseEnter={() => handleCardMouseEnter(idx)}
+                                onMouseLeave={() => handleCardMouseLeave(idx)}
+                              >
+                                <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
+                                  <div style={{ 
+                                    position: 'absolute', 
+                                    top: '50%', 
+                                    left: '50%', 
+                                    transform: 'translate(-50%, -50%)', 
+                                    aspectRatio: '1 / 1', 
+                                    transition: 'opacity 200ms', 
+                                    height: '50%', 
+                                    width: '50%',
+                                    borderRadius: '50%', 
+                                    filter: 'blur(25px)', 
+                                    backgroundColor: glowHex, 
+                                    opacity: isHovered ? 0.9 :  0.4
+                                  }}></div>
+                                  <img 
+                                    alt={prod.name} 
+                                    loading="lazy" 
+                                    decoding="async" 
+                                    data-nimg="fill" 
+                                    className="pointer-events-none" 
+                                    sizes="(min-width: 0px) 100px" 
+                                    srcSet={`${prod.image}?tr=w-16,c-at_max 16w, ${prod.image}?tr=w-32,c-at_max 32w, ${prod.image}?tr=w-48,c-at_max 48w, ${prod.image}?tr=w-64,c-at_max 64w, ${prod.image}?tr=w-96,c-at_max 96w, ${prod.image}?tr=w-128,c-at_max 128w, ${prod.image}?tr=w-256,c-at_max 256w, ${prod.image}?tr=w-384,c-at_max 384w, ${prod.image}?tr=w-640,c-at_max 640w, ${prod.image}?tr=w-750,c-at_max 750w, ${prod.image}?tr=w-828,c-at_max 828w, ${prod.image}?tr=w-1080,c-at_max 1080w, ${prod.image}?tr=w-1200,c-at_max 1200w, ${prod.image}?tr=w-1920,c-at_max 1920w, ${prod.image}?tr=w-2048,c-at_max 2048w, ${prod.image}?tr=w-3840,c-at_max 3840w`} 
+                                    src={`${prod.image}?tr=w-3840,c-at_max`} 
+                                    style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
-                                  <img alt={prod.name} src={prod.image} style={{ position: 'relative', zIndex: 1, width: '3.75rem', height: '3.75rem', objectFit: 'contain', filter: imgShadow }} />
                                 </div>
-                                <p className="text-sm font-bold text-center" style={{ color: '#7A8084', marginTop: '12px', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '12px' }}>{prod.name}</p>
-                                <p className="text-[12px] md:text-[13px] font-extrabold" style={{ color: '#FFFFFF' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <div className="flex flex-col">
+                                  <p className="text-xxs sm:text-xs truncate max-w-[100px] xs:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
+                                  <p className="text-xxs sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
                               </div>
                             );
                           })()}
                         </div>
                       </div>
                       {/* 背面（结果样式，类似产品卡简化） */}
-                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: '2px solid #34383C', borderRadius: '0.5rem', overflow: 'hidden' }}>
-                        <div className="flex flex-col items-center justify-center gap-2 w-full h-full" style={{ backgroundColor: 'transparent' }}>
+                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: backRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: backRound[idx] === null ? '#161a1d' : '#1d2125' }}>
+                        <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const br = backRound[idx];
                             if (br === null) {
@@ -536,32 +588,54 @@ export default function DrawExtraComponent() {
                                       <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor" />
                                     </svg>
                                   </div>
-                                  <p className="font-black text-xs md:text-sm" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>PackDraw</p>
+                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>PackDraw</p>
                                 </div>
                               );
                             }
                             const prod = getRoundProduct(br);
                             const glowIdx = faceGlowIdxBack[idx];
-                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : null;
-                            const strongColor = glowHex ? hexToRgba(glowHex, 0.9) : cardGlowStrong;
-                            const imgShadow = glowHex ? `drop-shadow(0 0 10px ${hexToRgba(glowHex, 0.6)}) drop-shadow(0 0 4px ${hexToRgba(glowHex, 0.35)})` : imageDropShadow;
+                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
+                            const isWon = cardWonRound[idx] >= 0;
+                            const isHovered = isWon && backCardHovered[idx];
                             return (
-                              <div className="absolute inset-x-0 flex flex-col items-center justify-center" style={{ zIndex: 1, top: '50%', transform: isSmall ? 'translateY(calc(-50% + 8px)) scale(0.85)' : 'translateY(calc(-50% + 8px))', transformOrigin: 'center center', padding: '0 8px 8px', boxSizing: 'border-box', width: '100%' }}>
-                                <div className="relative" style={{ width: '3rem', height: '3rem' }}>
-                                  <div
-                                    className="absolute inset-0 rounded-full pointer-events-none"
-                                    style={{
-                                      backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${strongColor} 0%, ${strongColor} 55%, rgba(0,0,0,0) 80%)`,
-                                      filter: 'blur(16px)',
-                                      opacity: 0.9,
-                                      transform: 'scale(1.2)',
-                                      zIndex: 0,
-                                    }}
+                              <div 
+                                data-component="ProductDisplayCard" 
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                style={{ backgroundColor: isHovered ? '#22272b' : '#1d2125' }}
+                                onMouseEnter={() => handleCardMouseEnter(idx)}
+                                onMouseLeave={() => handleCardMouseLeave(idx)}
+                              >
+                                <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
+                                  <div style={{ 
+                                    position: 'absolute', 
+                                    top: '50%', 
+                                    left: '50%', 
+                                    transform: 'translate(-50%, -50%)', 
+                                    aspectRatio: '1 / 1', 
+                                    transition: 'opacity 200ms', 
+                                    height: '70%', 
+                                    width: '70%',
+                                    borderRadius: '50%', 
+                                    filter: 'blur(25px)', 
+                                    backgroundColor: glowHex, 
+                                    opacity: isHovered ? 0.9 : 0.4
+                                  }}></div>
+                                  <img 
+                                    alt={prod.name} 
+                                    loading="lazy" 
+                                    decoding="async" 
+                                    data-nimg="fill" 
+                                    className="pointer-events-none" 
+                                    sizes="(min-width: 0px) 100px" 
+                                    srcSet={`${prod.image}?tr=w-16,c-at_max 16w, ${prod.image}?tr=w-32,c-at_max 32w, ${prod.image}?tr=w-48,c-at_max 48w, ${prod.image}?tr=w-64,c-at_max 64w, ${prod.image}?tr=w-96,c-at_max 96w, ${prod.image}?tr=w-128,c-at_max 128w, ${prod.image}?tr=w-256,c-at_max 256w, ${prod.image}?tr=w-384,c-at_max 384w, ${prod.image}?tr=w-640,c-at_max 640w, ${prod.image}?tr=w-750,c-at_max 750w, ${prod.image}?tr=w-828,c-at_max 828w, ${prod.image}?tr=w-1080,c-at_max 1080w, ${prod.image}?tr=w-1200,c-at_max 1200w, ${prod.image}?tr=w-1920,c-at_max 1920w, ${prod.image}?tr=w-2048,c-at_max 2048w, ${prod.image}?tr=w-3840,c-at_max 3840w`} 
+                                    src={`${prod.image}?tr=w-3840,c-at_max`} 
+                                    style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
-                                  <img alt={prod.name} src={prod.image} style={{ position: 'relative', zIndex: 1, width: '3.75rem', height: '3.75rem', objectFit: 'contain', filter: imgShadow }} />
                                 </div>
-                                <p className="text-sm font-bold text-center" style={{ color: '#7A8084', marginTop: '12px', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '12px' }}>{prod.name}</p>
-                                <p className="text-[12px] md:text-[13px] font-extrabold" style={{ color: '#FFFFFF' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <div className="flex flex-col">
+                                  <p className="text-xxs sm:text-xs truncate max-w-[100px] xs:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
+                                  <p className="text-xxs sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
                               </div>
                             );
                           })()}
@@ -690,7 +764,9 @@ export default function DrawExtraComponent() {
                   '抽奖'
                 )}
               </button>
-              <button type="button" className="h-14 px-8 text-base font-bold rounded-md" style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}>allin</button>
+              <button type="button" className="h-14 px-8 text-base font-bold rounded-md" style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}>
+                全部领取 ${formatCurrency(calculateTotalPrize())}
+              </button>
             </div>
           </div>
         </div>

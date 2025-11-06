@@ -4,6 +4,7 @@ import LiveFeedElement from '../components/LiveFeedElement';
 import LiveFeedTicker from '../components/LiveFeedTicker';
 import PacksToolbar from '../components/PacksToolbar';
 import PacksGrid from '../components/PacksGrid';
+import { packs as mockPacks } from '../lib/packs';
 
 export default function PacksPage() {
   const { t } = useI18n();
@@ -15,7 +16,13 @@ export default function PacksPage() {
             <PacksToolbar />
           </div>
           <div className="mt-6">
-            <PacksGrid />
+            <PacksGrid
+              items={mockPacks.map(p => ({
+                id: p.id,
+                coverSrc: `${p.image}?tr=q-50,w-640,c-at_max`,
+                price: `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              }))}
+            />
           </div>
         </div>
         <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>

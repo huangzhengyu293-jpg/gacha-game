@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { signIn, useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import CartModal from './CartModal';
   
 
 export default function Navbar() {
@@ -39,6 +40,7 @@ export default function Navbar() {
   const [loginRemember, setLoginRemember] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  const [showCart, setShowCart] = useState(false);
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -267,12 +269,12 @@ export default function Navbar() {
             {navigationItems.map((item, index) => (
               <div key={index} className="relative z-10">
                 <Link href={item.href} className="block">
-                  <div
-                    ref={assignItemRef(index)}
-                    className="flex relative justify-center items-center px-3 h-9 gap-1 text-gray-400 hover:text-white cursor-pointer"
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onMouseLeave={() => setActiveIndex(-1)}
-                  >
+                <div
+                  ref={assignItemRef(index)}
+                  className="flex relative justify-center items-center px-3 h-9 gap-1 text-gray-400 hover:text-white cursor-pointer"
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onMouseLeave={() => setActiveIndex(-1)}
+                >
                         <div className="mb-[2px] size-5">{getIcon(item.icon)}</div>
                     <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
                   </div>
@@ -309,7 +311,7 @@ export default function Navbar() {
             {/* 桌面/中屏：登录状态 */}
             {status === 'authenticated' ? (
               <div className="hidden sm:flex gap-2 items-center">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9" onClick={() => setShowCart(true)}>
                   <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
                     <p className="text-sm text-white font-bold">购物车</p>
                   </div>
@@ -424,7 +426,7 @@ export default function Navbar() {
                   <div className="flex h-5 w-[1px] bg-gray-600"></div>
                 </div>
                 <div className="flex">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 xs:h-9">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 xs:h-9" onClick={() => setShowCart(true)}>
                     <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
                       <p className="text-sm text-white font-bold">购物车</p>
                     </div>
@@ -863,6 +865,7 @@ export default function Navbar() {
           </div>
         </div>
       )}
+      <CartModal isOpen={showCart} onClose={() => setShowCart(false)} totalPrice={1.38} />
     </div>
   );
 }
