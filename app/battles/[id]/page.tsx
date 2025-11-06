@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useI18n } from '../../components/I18nProvider';
+import SlotMachine, { SlotMachineHandle, SlotMachineItem } from '../../components/SlotMachine';
 
 type PackItem = {
   id: string;
@@ -16,6 +17,7 @@ export default function BattleDetailPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
+  const slotMachineRef = useRef<SlotMachineHandle>(null);
   const params = useParams()
   // Mock data - replace with actual API call
   const battleData = {
@@ -53,6 +55,133 @@ export default function BattleDetailPage() {
     });
   };
 
+  const mockData: SlotMachineItem[][] = [[
+    {
+      id: "pack1",
+      name: "Risk It",
+      price: "$5.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63ef0321ad08243a658b6c4e.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack2",
+      name: "Dream Big",
+      price: "$10.00",
+      image: "https://ik.imagekit.io/hr727kunx/products/clpftf47j004nl318fvjwefhs_21802__mPXHHhVq5?tr=w-256,c-at_max",
+    },
+    {
+      id: "pack3",
+      name: "In Your Dreams",
+      price: "$15.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63effbafd44f6f713a4e2878.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack4",
+      name: "SAM JUNIOR LOTTERY",
+      price: "$20.00",
+      image: "https://ik.imagekit.io/hr727kunx/community_packs/clvdfjglo0cv1tifavesc88ai/packs/clvdfjglo0cv1tifavesc88ai_SB9eZCMpia.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack5",
+      name: "Supreme Luck",
+      price: "$25.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/clv1sxy710mbyxgevju8tbksw_4674415__RS4oFmQBi?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack6",
+      name: "Hot",
+      price: "$30.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/cljq2gkz10qkooo5c9jgir4z3_9573877__26T-fv3Hb?tr=q-50,w-256,c-at_max",
+    },
+  ],[
+    {
+      id: "pack1",
+      name: "Risk It",
+      price: "$5.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63ef0321ad08243a658b6c4e.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack2",
+      name: "Dream Big",
+      price: "$10.00",
+      image: "https://ik.imagekit.io/hr727kunx/products/clpftf47j004nl318fvjwefhs_21802__mPXHHhVq5?tr=w-256,c-at_max",
+    },
+    {
+      id: "pack3",
+      name: "In Your Dreams",
+      price: "$15.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63effbafd44f6f713a4e2878.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack4",
+      name: "SAM JUNIOR LOTTERY",
+      price: "$20.00",
+      image: "https://ik.imagekit.io/hr727kunx/community_packs/clvdfjglo0cv1tifavesc88ai/packs/clvdfjglo0cv1tifavesc88ai_SB9eZCMpia.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack5",
+      name: "Supreme Luck",
+      price: "$25.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/clv1sxy710mbyxgevju8tbksw_4674415__RS4oFmQBi?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack6",
+      name: "Hot",
+      price: "$30.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/cljq2gkz10qkooo5c9jgir4z3_9573877__26T-fv3Hb?tr=q-50,w-256,c-at_max",
+    },
+  ],[
+    {
+      id: "pack1",
+      name: "Risk It",
+      price: "$5.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63ef0321ad08243a658b6c4e.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack2",
+      name: "Dream Big",
+      price: "$10.00",
+      image: "https://ik.imagekit.io/hr727kunx/products/clpftf47j004nl318fvjwefhs_21802__mPXHHhVq5?tr=w-256,c-at_max",
+    },
+    {
+      id: "pack3",
+      name: "In Your Dreams",
+      price: "$15.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/63effbafd44f6f713a4e2878.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack4",
+      name: "SAM JUNIOR LOTTERY",
+      price: "$20.00",
+      image: "https://ik.imagekit.io/hr727kunx/community_packs/clvdfjglo0cv1tifavesc88ai/packs/clvdfjglo0cv1tifavesc88ai_SB9eZCMpia.png?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack5",
+      name: "Supreme Luck",
+      price: "$25.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/clv1sxy710mbyxgevju8tbksw_4674415__RS4oFmQBi?tr=q-50,w-256,c-at_max",
+    },
+    {
+      id: "pack6",
+      name: "Hot",
+      price: "$30.00",
+      image: "https://ik.imagekit.io/hr727kunx/packs/cljq2gkz10qkooo5c9jgir4z3_9573877__26T-fv3Hb?tr=q-50,w-256,c-at_max",
+    },
+  ]];
+
+  // 随机选择每个列的一个 id
+  const getRandomStopIds = (): string[] => {
+    return mockData.map((column) => {
+      const randomIndex = Math.floor(Math.random() * column.length);
+      return column[randomIndex].id;
+    });
+  };
+
+  // 处理开始抽奖
+  const handleStartDraw = () => {
+    const randomIds = getRandomStopIds();
+    slotMachineRef.current?.start(randomIds);
+  };
+  
 
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
@@ -117,6 +246,36 @@ export default function BattleDetailPage() {
               <p className="text-lg font-extrabold text-white">{battleData.packs.length}</p>
             </div>
           </div>
+        </div>
+
+        {/* Slot Machine Section */}
+        <div className="flex flex-col gap-4 p-4 md:p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-extrabold text-white">抽奖结果</h2>
+            <button
+              onClick={handleStartDraw}
+              className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors"
+              style={{ backgroundColor: '#3B82F6' }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2563EB';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3B82F6';
+              }}
+            >
+              开始抽奖
+            </button>
+          </div>
+          <SlotMachine
+            ref={slotMachineRef}
+            columns={mockData}
+            itemHeight={80}
+            visibleItems={5.625}
+            duration={3.5}
+            onComplete={() => {
+              console.log('抽奖完成！');
+            }}
+          />
         </div>
 
         {/* Participants Section */}
