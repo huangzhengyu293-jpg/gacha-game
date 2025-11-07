@@ -71,9 +71,9 @@ function FaqAccordion({ items }: { items: FaqItem[] }) {
 
 export default function HowItWorks() {
   const faqLeft: FaqItem[] = [
-    { q: '什么是 PackDraw？', a: 'PackDraw 通过其游戏化的购物方式革新了在线购物，提供包含您熟悉和喜爱的顶级品牌多样化产品的数字礼包。所有礼包在开启前都会显示价格、产品范围和获胜机会，确保安全、透明和令人兴奋的购物体验。' },
-    { q: 'PackDraw 安全公平吗？', a: '' },
-    { q: 'PackDraw 值得信赖吗？', a: '' },
+    { q: '什么是 FlameDraw', a: 'FlameDraw 通过其游戏化的购物方式革新了在线购物，提供包含您熟悉和喜爱的顶级品牌多样化产品的数字礼包。所有礼包在开启前都会显示价格、产品范围和获胜机会，确保安全、透明和令人兴奋的购物体验。' },
+    { q: 'FlameDraw 安全公平吗？', a: '' },
+    { q: 'FlameDraw 值得信赖吗？', a: '' },
     { q: '如何开启礼包？', a: '' },
   ];
   const faqRight: FaqItem[] = [

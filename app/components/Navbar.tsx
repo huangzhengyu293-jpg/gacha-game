@@ -260,7 +260,7 @@ export default function Navbar() {
               <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
             </svg>
           </div>
-          <h1 className="text-xl text-white font-black whitespace-nowrap">PackDraw</h1>
+          <h1 className="text-xl text-white font-black whitespace-nowrap">FlameDraw</h1>
         </Link>
 
         {/* Desktop Navigation */}
@@ -667,7 +667,7 @@ export default function Navbar() {
             style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
           >
             <div className="flex flex-col justify-center items-center pt-2 pb-1">
-              <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎来到 PackDraw</h2>
+              <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎来到 FlameDraw</h2>
               <p className="text-md" style={{ color: '#9CA3AF' }}>注册以开始</p>
             </div>
             <div className="flex flex-col justify-center px-2 md:px-10">

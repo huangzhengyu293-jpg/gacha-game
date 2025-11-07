@@ -6,9 +6,9 @@ type Lang = "zh" | "en" | "ko" | "ja";
 type Dict = Record<string, Record<Lang, string>>;
 
 const dict: Dict = {
-  brand: { zh: "PackDraw", en: "PackDraw", ko: "PackDraw", ja: "PackDraw" },
+  brand: { zh: "FlameDraw", en: "FlameDraw", ko: "FlameDraw", ja: "FlameDraw" },
   slogan: { zh: "开启礼包并争夺稀有和贵重产品。", en: "Open packs and compete for rare and premium items.", ko: "팩을 열고 희귀하고 고급 아이템을 획득하세요.", ja: "パックを開けて、レアで高級なアイテムを手に入れよう。" },
-  welcome: { zh: "欢迎来到 PackDraw", en: "Welcome to PackDraw", ko: "PackDraw에 오신 것을 환영합니다", ja: "PackDrawへようこそ" },
+  welcome: { zh: "欢迎来到 FlameDraw", en: "Welcome to FlameDraw", ko: "FlameDraw에 오신 것을 환영합니다", ja: "FlameDrawへようこそ" },
   games: { zh: "游戏", en: "Games", ko: "게임", ja: "ゲーム" },
   packs: { zh: "礼包", en: "Packs", ko: "パック", ja: "パック" },
   battles: { zh: "对战", en: "Battles", ko: "배틀", ja: "バトル" },
@@ -24,9 +24,9 @@ const dict: Dict = {
   terms: { zh: "服务条款", en: "Terms of Service", ko: "利用規約", ja: "利用規約" },
   community: { zh: "社区", en: "Community", ko: "コミュニティ", ja: "コミュニティ" },
   support: { zh: "支持", en: "Support", ko: "サポート", ja: "サポート" },
-  email: { zh: "support@packdraw.com", en: "support@packdraw.com", ko: "support@packdraw.com", ja: "support@packdraw.com" },
+  email: { zh: "support@flamedraw.com", en: "support@flamedraw.com", ko: "support@flamedraw.com", ja: "support@flamedraw.com" },
   chooseLanguage: { zh: "選擇語言", en: "Choose Language", ko: "言語を選択", ja: "言語を選択" },
-  copyright: { zh: "版权所有 © PackDraw 2025", en: "Copyright © PackDraw 2025", ko: "著作権 © PackDraw 2025", ja: "著作権 © PackDraw 2025" },
+  copyright: { zh: "版权所有 © FlameDraw 2025", en: "Copyright © FlameDraw 2025", ko: "著作権 © FlameDraw 2025", ja: "著作権 © FlameDraw 2025" },
   // New UI strings
   viewAll: { zh: "查看全部", en: "View All", ko: "すべて表示", ja: "すべて表示" },
   newPacks: { zh: "新礼包", en: "New Packs", ko: "新しいパック", ja: "新しいパック" },
@@ -82,10 +82,10 @@ const dict: Dict = {
   lowRisk: { zh: "低风险", en: "Low Risk", ko: "낮은 위험", ja: "低リスク" },
   highRisk: { zh: "高风险", en: "High Risk", ko: "높은 위험", ja: "高リスク" },
   legalBrandNote: {
-    zh: "PackDraw 是 PackDraw Group 的品牌，该集团由 Packdraw Limited（一家根据塞浦路斯法律注册的公司，公司编号 HE 445177，注册地址：Iakovou Patatsou 4a, Agios Dometios, 2362 尼科西亚，塞浦路斯）和 PackDraw US, LLC（一家根据美利坚合众国法律注册的公司，注册编号 7571319，注册地址：108 West 13th Street Wilmington, Delaware 19801，美国）组成。",
-    en: "PackDraw is a brand of the PackDraw Group, which consists of Packdraw Limited (a company registered under the laws of Cyprus, company number HE 445177, registered address: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus) and PackDraw US, LLC (a company registered under the laws of the United States, registration number 7571319, registered address: 108 West 13th Street, Wilmington, Delaware 19801, USA).",
-    ko: "PackDraw는 PackDraw Group의 브랜드로, Packdraw Limited(키프로스 법에 따라 등록된 회사, 회사 번호 HE 445177, 등록 주소: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus)와 PackDraw US, LLC(미국 법에 따라 등록된 회사, 등록 번호 7571319, 등록 주소: 108 West 13th Street, Wilmington, Delaware 19801, USA)로 구성됩니다.",
-    ja: "PackDraw は PackDraw Group のブランドであり、Packdraw Limited（キプロス法に基づき登録された会社、会社番号 HE 445177、登録住所：Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus）および PackDraw US, LLC（米国法に基づき登録された会社、登録番号 7571319、登録住所：108 West 13th Street, Wilmington, Delaware 19801, USA）で構成されています。"
+    zh: "FlameDraw 是 FlameDraw Group 的品牌，该集团由 FlameDraw Limited（一家根据塞浦路斯法律注册的公司，公司编号 HE 445177，注册地址：Iakovou Patatsou 4a, Agios Dometios, 2362 尼科西亚，塞浦路斯）和 FlameDraw US, LLC（一家根据美利坚合众国法律注册的公司，注册编号 7571319，注册地址：108 West 13th Street Wilmington, Delaware 19801，美国）组成。",
+    en: "FlameDraw is a brand of the FlameDraw Group, which consists of FlameDraw Limited (a company registered under the laws of Cyprus, company number HE 445177, registered address: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus) and FlameDraw US, LLC (a company registered under the laws of the United States, registration number 7571319, registered address: 108 West 13th Street, Wilmington, Delaware 19801, USA).",
+    ko: "FlameDraw FlameDraw Group의 브랜드로, FlameDraw Limited(키프로스 법에 따라 등록된 회사, 회사 번호 HE 445177, 등록 주소: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus)와 FlameDraw US, LLC(미국 법에 따라 등록된 회사, 등록 번호 7571319, 등록 주소: 108 West 13th Street, Wilmington, Delaware 19801, USA)로 구성됩니다.",
+    ja: "FlameDraw は FlameDraw Group のブランドであり、FlameDraw Limited（キプロス法に基づき登録された会社、会社番号 HE 445177、登録住所：Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus）および FlameDraw US, LLC（米国法に基づき登録された会社、登録番号 7571319、登録住所：108 West 13th Street, Wilmington, Delaware 19801, USA）で構成されています。"
   },
 };
 

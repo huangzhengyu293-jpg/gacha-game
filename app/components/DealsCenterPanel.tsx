@@ -343,7 +343,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
             <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
           </svg>
         </div>
-        <p className="text-white text-lg font-black">PackDraw</p>
+        <p className="text-white text-lg font-black">FlameDraw</p>
       </div>
 
       <p className="text-xl select-none font-extrabold mb-0 lg:hidden text-white">{percent.toFixed(2)}%</p>
