@@ -18,7 +18,7 @@ export default function SectionHeader({
   return (
     <div className={`flex flex-row justify-between items-center gap-2 ${className}`}>
       <div className="flex flex-row items-center gap-2">
-        <div className="text-gray-400 size-6">
+        <div className="size-6" style={{ color: '#7A8084' }}>
           {icon}
         </div>
         <h3 className="text-xl font-bold text-white">{title}</h3>

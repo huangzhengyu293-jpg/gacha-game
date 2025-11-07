@@ -1,18 +1,34 @@
 'use client';
+import { useMemo } from 'react';
 import { useI18n } from '../components/I18nProvider';
 import LiveFeedElement from '../components/LiveFeedElement';
 import LiveFeedTicker from '../components/LiveFeedTicker';
 import PacksToolbar from '../components/PacksToolbar';
 import PacksGrid from '../components/PacksGrid';
-import { packs as mockPacks } from '../lib/packs';
+import { packs as mockPacks, products as mockProducts, getPackByProduct } from '../lib/packs';
 
 export default function PacksPage() {
   const { t } = useI18n();
+  const bestOpenData = useMemo(() => {
+    const count = Math.min(3, mockProducts.length);
+    const chosen: number[] = [];
+    while (chosen.length < count) {
+      const idx = Math.floor(Math.random() * mockProducts.length);
+      if (!chosen.includes(idx)) chosen.push(idx);
+    }
+    return chosen
+      .map((i) => mockProducts[i])
+      .map((product) => {
+        const pack = getPackByProduct(product.id);
+        return pack ? { product, pack } : null;
+      })
+      .filter((x): x is { product: typeof mockProducts[number]; pack: typeof mockPacks[number] } => Boolean(x));
+  }, []);
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
-        <div className="flex gap-8 max-w-[1248px] mx-auto">
+      <div className="flex gap-8 max-w-[1248px] mx-auto">
         <div className="flex-1 xl:max-w-[992px]">
-          <div >
+          <div>
             <PacksToolbar />
           </div>
           <div className="mt-6">
@@ -21,12 +37,14 @@ export default function PacksPage() {
                 id: p.id,
                 coverSrc: `${p.image}?tr=q-50,w-640,c-at_max`,
                 price: `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                title: p.title,
+                priceNumber: p.price,
               }))}
             />
           </div>
         </div>
         <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit">
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -45,38 +63,22 @@ export default function PacksPage() {
               <p className="text-base text-white font-extrabold">{t('bestOpens')}</p>
             </div>
             <div className="live-feed flex flex-col gap-3">
-              <LiveFeedElement
-                index={0}
-                href="/packs/1"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max"
-                title="Audemars Piguet Stainless Steel USA Edition"
-                priceLabel="$65,000.00"
-              />
-              <LiveFeedElement
-                index={1}
-                href="/packs/2"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
-                title="Limited Edition Pack"
-                priceLabel="$2.99"
-                glowColor="#FACC15"
-              />
-              <LiveFeedElement
-                index={2}
-                href="/packs/3"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
-                title="Special Drop"
-                priceLabel="$5.00"
-                glowColor="#FACC15"
-              />
+              {bestOpenData.map(({ product, pack }, idx) => (
+                <LiveFeedElement
+                  key={product.id}
+                  index={idx}
+                  href={`/packs/${pack.id}`}
+                  avatarUrl={"https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"}
+                  productImageUrl={`${product.image}?tr=w-1080,c-at_max`}
+                  packImageUrl={`${pack.image}?tr=w-1080,c-at_max`}
+                  title={product.name}
+                  priceLabel={`$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  glowColor={product.backlightColor}
+                />
+              ))}
             </div>
           </div>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
+          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6">
             <div className="flex pb-4 gap-2 items-center">
               <div className="flex size-4 text-yellow-400">
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
@@ -90,5 +92,4 @@ export default function PacksPage() {
     </div>
   );
 }
-
 

@@ -160,7 +160,7 @@ export default function LiveFeedElement({
             loading="lazy"
             decoding="async"
             className="pointer-events-none"
-            style={{ position: "absolute", height: "100%", width: "100%", left: 0, top: 0, right: 0, bottom: 0, objectFit: "contain", color: "transparent" }}
+            style={{ position: "absolute", width: 150, height: "auto", left: "50%", top: "50%", transform: "translate(-50%, -50%)", objectFit: "contain", color: "transparent" }}
             src={packImageUrl}
           />
         ) : (

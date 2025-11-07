@@ -271,13 +271,14 @@ export default function Navbar() {
                 <Link href={item.href} className="block">
                 <div
                   ref={assignItemRef(index)}
-                  className="flex relative justify-center items-center px-3 h-9 gap-1 text-gray-400 hover:text-white cursor-pointer"
+                  className="flex relative justify-center items-center px-3 h-9 gap-1 hover:text-white cursor-pointer"
                   onMouseEnter={() => setActiveIndex(index)}
                   onMouseLeave={() => setActiveIndex(-1)}
+                  style={{ color: '#7A8084' }}
                 >
                         <div className="mb-[2px] size-5">{getIcon(item.icon)}</div>
-                    <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
-                  </div>
+                  <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
+                </div>
                 </Link>
               </div>
             ))}
@@ -291,14 +292,19 @@ export default function Navbar() {
               }}
                 />
               </div>
-            </div>
           </div>
+        </div>
 
         {/* Right side buttons */}
           <div className="flex flex-row gap-3 items-center lg:-ml-[20px] relative">
             {/* Sound button (>=sm) */}
           <div className="hidden sm:flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
+            <button
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
+              style={{ color: '#7A8084' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
                 <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
                 <path d="M16 9a5 5 0 0 1 0 6"></path>
@@ -420,7 +426,12 @@ export default function Navbar() {
             {status === 'authenticated' && (
               <div className="flex sm:hidden flex-row gap-3 items-center">
                 <div className="nav-vol flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center max-[390px]:hidden">
-                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base text-gray-400 font-bold hover:text-white select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10">
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
+                    style={{ color: '#7A8084' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
                   </button>
                   <div className="flex h-5 w-[1px] bg-gray-600"></div>
@@ -526,7 +537,7 @@ export default function Navbar() {
                   <div className="flex flex-col px-2 py-1.5 gap-1">
                     {navigationItems.map((item, idx) => (
                       <Link key={idx} href={item.href} className="flex items-center gap-2 menu-item px-3 py-2 rounded-lg" onClick={() => setShowMidMenu(false)}>
-                        <div className="size-4 text-white">{getIcon(item.icon)}</div>
+                        <div className="size-4" style={{ color: '#7A8084' }}>{getIcon(item.icon)}</div>
                         <p className="text-base text-white font-semibold">{t(item.labelKey as any)}</p>
                       </Link>
                     ))}
@@ -632,7 +643,7 @@ export default function Navbar() {
                 className="flex items-center gap-2 py-3 rounded-lg w-full menu-item"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <div className="size-5 text-gray-400">
+                <div className="size-5" style={{ color: '#7A8084' }}>
                   {getIcon(item.icon)}
                 </div>
                 <span className="text-lg text-white font-bold">{t((item as any).labelKey)}</span>

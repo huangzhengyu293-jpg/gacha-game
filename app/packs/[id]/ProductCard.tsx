@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Product } from '../../lib/packs';
+import ProductDetailsModal from '../../components/ProductDetailsModal';
 
 const BASE_BG = '#22272B'; // 等同 bg-gray-700（按你取色）
 const HOVER_BG = '#292F34'; // 近似等同 bg-gray-650
@@ -31,28 +32,49 @@ function mixHexColors(colorA: string, colorB: string, t: number) {
   return rgbToHex(r, g, bl);
 }
 
-export default function ProductCard({ prod }: { prod: Product }) {
+export default function ProductCard({ prod, compact = false }: { prod: Product; compact?: boolean }) {
   const [isHover, setIsHover] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [isSmall, setIsSmall] = useState(false);
+
+  useEffect(() => {
+    const compute = () => {
+      if (typeof window === 'undefined') return;
+      setIsSmall(window.innerWidth < 640);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
 
   const baseGlowColor = mixHexColors(prod.backlightColor, BASE_BG, 0.55); // 非 hover 更贴近背景，弱一些
   const hoverGlowColor = mixHexColors(prod.backlightColor, BASE_BG, 0.2);  // hover 更接近原色，更亮
 
+  const containerHeights = compact ? 'h-36 sm:h-40 md:h-44 lg:h-48' : 'h-40 sm:h-44 md:h-48';
+  const paddingClass = compact ? 'p-3' : 'p-4';
+  const percentTextClass = compact ? 'text-[11px] sm:text-xs md:text-sm lg:text-base' : 'text-base';
+  const nameTextClass = compact ? 'text-[11px] sm:text-xs md:text-sm lg:text-base' : 'text-base';
+  const priceTextClass = compact ? 'text-[11px] sm:text-xs md:text-sm lg:text-base' : 'text-base';
+  const glowSize = compact ? '70%' : '83.333%';
+  const effectiveHover = isSmall ? true : isHover;
+
   return (
     <div
-      className="h-40 sm:h-44 md:h-48"
+      className={containerHeights}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
+      onClick={() => setOpen(true)}
     >
       <div
         data-component="BaseProductCard"
-        className="group flex flex-col w-full h-full items-center justify-between rounded-lg overflow-hidden p-4 cursor-pointer"
+        className={`group flex flex-col w-full h-full items-center justify-between rounded-lg overflow-hidden cursor-pointer ${paddingClass}`}
         style={{
           boxSizing: 'border-box',
-          backgroundColor: isHover ? HOVER_BG : BASE_BG,
+          backgroundColor: effectiveHover ? HOVER_BG : BASE_BG,
           transition: 'background-color 200ms ease-in-out',
         }}
       >
-        <p className="font-semibold h-6 text-base" style={{ color: '#7A8084' }}>{(prod.probability * 100).toFixed(4)}%</p>
+        <p className={`font-semibold h-6 ${percentTextClass}`} style={{ color: '#7A8084', ...(compact ? { fontFamily: 'Urbanist, sans-serif' } : {}) }}>{(prod.probability * 100).toFixed(4)}%</p>
         <div className="relative flex-1 flex w-full justify-center">
           <div
             style={{
@@ -62,12 +84,12 @@ export default function ProductCard({ prod }: { prod: Product }) {
               transform: 'translate(-50%, -50%)',
               aspectRatio: '1 / 1',
               transition: 'opacity 200ms ease-in-out, background-color 200ms ease-in-out',
-              height: '83.333%',
-              width: '83.333%',
+              height: glowSize,
+              width: glowSize,
               borderRadius: '50%',
               filter: 'blur(25px)',
-              backgroundColor: isHover ? hoverGlowColor : baseGlowColor,
-              opacity: isHover ? 0.9 : 0.4,
+              backgroundColor: effectiveHover ? hoverGlowColor : baseGlowColor,
+              opacity: effectiveHover ? 0.9 : 0.4,
             }}
           />
           <img
@@ -79,12 +101,20 @@ export default function ProductCard({ prod }: { prod: Product }) {
           />
         </div>
         <div className="flex flex-col w-full gap-0.5">
-          <p className="font-semibold truncate max-w-full text-center text-base" style={{ color: '#7A8084' }}>{prod.name}</p>
+          <p className={`font-semibold truncate max-w-full text-center ${nameTextClass}`} style={{ color: '#7A8084', ...(compact ? { fontFamily: 'Urbanist, sans-serif' } : {}) }}>{prod.name}</p>
           <div className="flex justify-center">
-            <p className="font-extrabold text-base" style={{ color: '#FAFAFA' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className={`font-extrabold ${priceTextClass}`} style={{ color: '#FAFAFA', ...(compact ? { fontFamily: 'Urbanist, sans-serif' } : {}) }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
       </div>
+      <ProductDetailsModal
+        open={open}
+        onClose={() => setOpen(false)}
+        name={prod.name}
+        image={`${prod.image}?tr=w-3840,c-at_max`}
+        price={prod.price}
+        description={(prod as any).description}
+      />
     </div>
   );
 }

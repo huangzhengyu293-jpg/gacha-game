@@ -21,7 +21,7 @@ export default function Banner({ title, icon, bgClass, href, className = "" }: B
     >
       <div className={`absolute h-full w-full top-0 left-0 ${bgClass}`}></div>
       <div className="flex flex-col justify-between h-full z-10">
-        <div className="text-gray-600 size-10">
+        <div className="size-10" style={{ color: '#7A8084' }}>
           {icon}
         </div>
         <p className="text-gray-300 font-urbanist font-extrabold uppercase leading-[1.2] flex flex-col z-10 w-28">

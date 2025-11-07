@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { products as mockProducts, getPackByProduct } from "../../lib/packs";
 
 export type FeedItem = {
   id: string;
@@ -42,7 +43,7 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
   const ONE_STEP = CARD_HEIGHT + GAP_PX;
   const VIEWPORT_PX = visibleCount * CARD_HEIGHT + (visibleCount - 1) * GAP_PX;
 
-  const [items, setItems] = useState<FeedItem[]>(() => initialSeed().slice(0, visibleCount));
+  const [items, setItems] = useState<FeedItem[]>(() => initialSeed(visibleCount).slice(0, visibleCount));
   const [enteringId, setEnteringId] = useState<string | null>(null);
   const queueRef = useRef<FeedItem[]>([]);
   const visibleRef = useRef<boolean>(typeof document !== 'undefined' ? !document.hidden : true);
@@ -83,30 +84,36 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
 
   const push = useCallback((item: Omit<FeedItem, "id">) => {
     const newItem: FeedItem = { id: `push-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...item };
-    // 页面隐藏或当前动画未完成：放入队列（有限背压，保留最新的 MAX_BACKLOG 条）
-    if (!visibleRef.current || enteringId) {
-      queueRef.current.push(newItem);
-      if (queueRef.current.length > MAX_BACKLOG) {
-        queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+    // 预加载图片，确保加入时就有图
+    preloadItemImages(item).then(() => {
+      const readyItem = { ...newItem };
+      if (!visibleRef.current || enteringId) {
+        queueRef.current.push(readyItem);
+        if (queueRef.current.length > MAX_BACKLOG) {
+          queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+        }
+      } else {
+        startPrepend(readyItem);
       }
-    } else {
-      startPrepend(newItem);
-    }
+    });
   }, [enteringId, startPrepend]);
 
   const tick = useCallback(() => {
     timerRef.current = null;
     if (visibleRef.current) {
       const base = makeMockItem();
-      const newItem: FeedItem = { id: `mock-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...base };
-      if (enteringId) {
-        queueRef.current.push(newItem);
-        if (queueRef.current.length > MAX_BACKLOG) {
-          queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+      // 预加载后再加入，避免图片延迟出现
+      preloadItemImages(base).then(() => {
+        const newItem: FeedItem = { id: `mock-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...base };
+        if (enteringId) {
+          queueRef.current.push(newItem);
+          if (queueRef.current.length > MAX_BACKLOG) {
+            queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+          }
+        } else {
+          startPrepend(newItem);
         }
-      } else {
-        startPrepend(newItem);
-      }
+      });
     }
     timerRef.current = window.setTimeout(tick, intervalMs);
   }, [intervalMs, enteringId, startPrepend]);
@@ -221,90 +228,76 @@ function LiveFeedFinishBridge({ onFinish }: { onFinish: () => void }) {
 }
 
 // --- Mock helpers (与现有数据一致) ---
-function initialSeed(): FeedItem[] {
-  return [
-    {
-      id: `seed-0-${Date.now()}`,
-      href: "/packs/1",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max",
-      title: "Audemars Piguet Stainless Steel USA Edition",
-      priceLabel: "$65,000.00",
-      glowColor: "#E4AE33",
-    },
-    {
-      id: `seed-1-${Date.now()}`,
-      href: "/packs/2",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max",
-      title: "Limited Edition Pack",
-      priceLabel: "$2.99",
-      glowColor: "#6EE7B7",
-    },
-    {
-      id: `seed-2-${Date.now()}`,
-      href: "/packs/3",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max",
-      title: "Special Drop",
-      priceLabel: "$5.00",
-      glowColor: "#60A5FA",
-    },
-  ];
+function initialSeed(visibleCount: number): FeedItem[] {
+  const seed: FeedItem[] = [];
+  const n = Math.max(visibleCount, 9);
+  for (let i = 0; i < n; i++) {
+    const base = makeMockItem();
+    seed.push({ id: `seed-${i}-${Date.now()}`, ...base });
+  }
+  return seed;
 }
 
 function makeMockItem(): Omit<FeedItem, "id"> {
-  const variants: Omit<FeedItem, "id">[] = [
-    {
-      href: "/packs/1",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max",
-      title: "Audemars Piguet Stainless Steel USA Edition",
-      priceLabel: "$65,000.00",
-      glowColor: "#E4AE33",
-    },
-    {
-      href: "/packs/2",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max",
-      title: "Limited Edition Pack",
-      priceLabel: "$2.99",
-      glowColor: "#6EE7B7",
-    },
-    {
-      href: "/packs/3",
-      avatarUrl:
-        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-      productImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max",
-      packImageUrl:
-        "https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max",
-      title: "Special Drop",
-      priceLabel: "$5.00",
-      glowColor: "#60A5FA",
-    },
-  ];
-  return variants[Math.floor(Math.random() * variants.length)];
+  // 从你的 products 中纯随机一个商品，并匹配对应卡包
+  const idx = Math.floor(Math.random() * mockProducts.length);
+  const product = mockProducts[idx];
+  const pack = getPackByProduct(product.id);
+  return {
+    href: pack ? `/packs/${pack.id}` : "/packs",
+    avatarUrl:
+      "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
+    productImageUrl: `${product.image}?tr=w-1080,c-at_max`,
+    packImageUrl: pack ? `${pack.image}?tr=w-1080,c-at_max` : "",
+    title: product.name,
+    priceLabel: `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    glowColor: (product as any).backlightColor,
+  };
+}
+
+// ---- 图片预加载，加入前先准备好，避免“过一会才出来” ----
+function preloadImage(url: string, timeoutMs = 1500): Promise<void> {
+  if (!url) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      let done = false;
+      const cleanup = () => {
+        img.onload = null;
+        img.onerror = null;
+      };
+      const timer = window.setTimeout(() => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve();
+      }, timeoutMs);
+      img.onload = () => {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        cleanup();
+        resolve();
+      };
+      img.onerror = () => {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        cleanup();
+        resolve();
+      };
+      img.src = url;
+    } catch {
+      resolve();
+    }
+  });
+}
+
+function preloadItemImages(item: Omit<FeedItem, "id">): Promise<void> {
+  return Promise.all([
+    preloadImage(item.productImageUrl),
+    preloadImage(item.packImageUrl),
+  ]).then(() => undefined);
 }
 
 

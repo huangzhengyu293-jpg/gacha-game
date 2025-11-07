@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import DealsPaginationBar from './DealsPaginationBar';
+import { products as packProducts } from '../lib/packs';
+import ProductDetailsModal from './ProductDetailsModal';
 
 export interface ProductItem {
   id: string;
@@ -19,8 +21,19 @@ export interface ProductItem {
 
 function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; onSelect?: (p: ProductItem) => void; selected?: boolean; onQuickView?: (p: ProductItem) => void; }) {
   const [hovered, setHovered] = useState(false);
-  const bodyBg = hovered ? '#34383C' : '#22272B';
-  const glowOpacity = hovered ? 0.9 : 0.4;
+  const [isSmall, setIsSmall] = useState(false);
+  useEffect(() => {
+    const compute = () => {
+      if (typeof window === 'undefined') return;
+      setIsSmall(window.innerWidth < 640);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+  const effectiveHover = isSmall ? true : hovered;
+  const bodyBg = effectiveHover ? '#34383C' : '#22272B';
+  const glowOpacity = effectiveHover ? 0.9 : 0.4;
   const borderColor = selected ? '#FFFFFF' : '#2A2D35';
 
   return (
@@ -76,99 +89,17 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
 
 export default function DealsProductGridSection({ onSelectProduct, selectedId }: { onSelectProduct?: (p: ProductItem) => void; selectedId?: string }) {
   // 10 items for now; will be replaced by backend later
-  const products: ProductItem[] = useMemo(() => ([
-    {
-      id: 'p1',
-      name: 'Patek Philippe Nautilus "Tsavorite"',
-      image: 'https://ik.imagekit.io/hr727kunx/products/cmbgtrk6e0000l90q9zfvj8sl_4878254__nuUcuawh9?tr=w-3840,c-at_max',
-      price: 296700,
-      percent: 12.34,
-      subtitle: '18K 白金 / 自动上链',
-      description: '祖母绿宝石点缀，经典鹦鹉螺线条，细腻抛光打磨，兼具运动与优雅。',
-      brand: 'Patek Philippe',
-      category: '手表',
-      badge: 'new',
-      rating: 4.9,
-    },
-    {
-      id: 'p2',
-      name: 'Rolex Submariner Date Black',
-      image: 'https://ik.imagekit.io/hr727kunx/products/clx9sj9li0e6avt0rujn84efn_3494765__wvEd6x0CE?tr=w-3840,c-at_max',
-      price: 13950,
-      percent: 47.80,
-      subtitle: '蚝式钢 / 陶瓷外圈',
-      description: '专业潜水表血统，Cerachrom 陶瓷圈耐刮抗褪色，日常与水下都游刃有余。',
-      brand: 'Rolex',
-      category: '手表',
-      badge: 'hot',
-      rating: 4.8,
-    },
-    {
-      id: 'p3',
-      name: 'Audemars Piguet Royal Oak Blue',
-      image: 'https://ik.imagekit.io/hr727kunx/products/cmgfhf9f70003jv0f7er3xd2i_7023932__ZEXymgSV1?tr=w-3840,c-at_max',
-      price: 85900,
-      percent: 22.15,
-      subtitle: '精钢 / 蓝盘 “格纹”',
-      description: '皇家橡树标志性八角表圈与“Tapisserie”格纹表盘，辨识度拉满。',
-      brand: 'Audemars Piguet',
-      category: '手表',
-      badge: 'icon',
-      rating: 4.7,
-    },
-    {
-      id: 'p4',
-      name: 'Richard Mille RM 011 Flyback',
-      image: 'https://ik.imagekit.io/hr727kunx/products/cmbtzvnse0000ju0g32ipzs5k_9421879__aRi1D-0RN?tr=w-3840,c-at_max',
-      price: 218000,
-      percent: 5.25,
-      subtitle: '钛合金 / 飞返计时',
-      description: '赛车基因的高科技腕表，碳纤维与钛材质带来超轻佩戴体验。',
-      brand: 'Richard Mille',
-      category: '手表',
-      badge: '限量',
-      rating: 4.9,
-    },
-    {
-      id: 'p5',
-      name: 'Omega Speedmaster Moonwatch',
-      image: 'https://ik.imagekit.io/hr727kunx/products/cmbik4l3d0000kv0ghfkrs31d_2021066__LG2uUje8-8?tr=w-3840,c-at_max',
-      price: 7350,
-      percent: 63.90,
-      subtitle: '登月表 / 手动上链',
-      description: '人类登月传奇同款血统，经典计时布局与复古尺度，致敬探索精神。',
-      brand: 'Omega',
-      category: '手表',
-      badge: 'classic',
-      rating: 4.6,
-    },
-    {
-      id: 'p6',
-      name: 'Cartier Santos Large',
-      image: 'https://ik.imagekit.io/hr727kunx/products/cmbgtuxhc0000jx0m8z7t4fmm_5266610__MF9J_ygvx?tr=w-3840,c-at_max',
-      price: 7450,
-      percent: 33.33,
-      subtitle: 'Santos / 快速更换表带',
-      description: '方形飞行员表鼻祖，罗马数字与轨道刻度优雅对称，商务休闲皆宜。',
-      brand: 'Cartier',
-      category: '手表',
-      badge: 'hot',
-      rating: 4.5,
-    },
-    {
-      id: 'p7',
-      name: 'Vacheron Constantin Overseas Blue',
-      image: 'https://ik.imagekit.io/hr727kunx/products/clu8pi7xw010xld14gtecbtqp_939678__Sb_t7_ZCz?tr=w-3840,c-at_max',
-      price: 33900,
-      percent: 78.50,
-      subtitle: 'Overseas / 蓝盘三针',
-      description: '马耳他十字表链结构，清澈蓝盘与细腻拉丝，旅行格调之选。',
-      brand: 'Vacheron Constantin',
-      category: '手表',
-      badge: 'travel',
-      rating: 4.7,
-    }
-  ]), []);
+  const products: ProductItem[] = useMemo(() => {
+    return packProducts.map((prod) => ({
+      id: prod.id,
+      name: prod.name,
+      image: `${prod.image}?tr=w-3840,c-at_max`,
+      price: prod.price,
+      percent: Math.max(1, Math.min(80, Math.round(prod.probability * 1000))), // 概率粗略映射为 1..80
+      description: prod.description,
+      category: 'mock',
+    }));
+  }, []);
 
   // Pagination (kept simple for 10 items now)
   const [pageIndex, setPageIndex] = useState(0); // 0-based
@@ -254,48 +185,15 @@ export default function DealsProductGridSection({ onSelectProduct, selectedId }:
         />
       </div>
 
-      {quickViewOpen && (
-        <div className="fixed inset-0 z-50 px-4 py-16 overflow-y-auto flex justify-center items-start" style={{ backgroundColor: 'rgba(0,0,0,0.48)', pointerEvents: 'auto' }} onClick={closeQuickView}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="relative w-full max-w-lg sm:max-w-3xl rounded-lg shadow-lg overflow-hidden grid gap-4 p-6"
-            style={{
-              backgroundColor: '#22272B',
-              transform: animateIn ? 'scale(1)' : 'scale(0.95)',
-              opacity: animateIn ? 1 : 0,
-              transition: 'opacity 200ms ease, transform 200ms ease'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex flex-col gap-1.5 text-center sm:text-left">
-              <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>产品详情</h2>
-            </div>
-            <div>
-              <div className="rounded-lg" style={{ backgroundColor: '#34383C', padding: 24 }}>
-                <div className="h-[250px] flex justify-center">
-                  <img alt={quickProduct?.name || 'product'} loading="lazy" decoding="async" src={quickProduct?.image || ''} style={{ color: 'transparent', objectFit: 'contain', height: '100%', width: 'auto' }} />
-                </div>
-              </div>
-              <div className="flex flex-col gap-4 pt-10">
-                <div>
-                  <p className="font-black text-lg" style={{ color: '#FFFFFF' }}>{quickProduct?.name}</p>
-                  <p className="text-xl" style={{ color: '#FFFFFF' }}>{quickProduct ? `$${quickProduct.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` : ''}</p>
-                </div>
-                <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-                <p style={{ color: '#7A8084' }}>{quickProduct?.description || '产品详情将由后端提供。'}</p>
-              </div>
-            </div>
-            <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center" onClick={closeQuickView} style={{ color: '#9CA3AF' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6">
-                <path d="M18 6 6 18"></path>
-                <path d="m6 6 12 12"></path>
-              </svg>
-              <span className="sr-only">Close</span>
-            </button>
-          </div>
-        </div>
-      )}
+      <ProductDetailsModal
+        open={quickViewOpen && !!quickProduct}
+        onClose={closeQuickView}
+        name={quickProduct?.name || ''}
+        image={quickProduct?.image || ''}
+        price={quickProduct?.price || 0}
+        description={quickProduct?.description}
+        animateIn={animateIn}
+      />
     </div>
   );
 }
