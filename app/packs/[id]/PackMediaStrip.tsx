@@ -2,7 +2,11 @@
 
 import React, { useMemo, useState } from 'react';
 import SelectPackModal from './SelectPackModal';
-import { packMap, getProductsByPack } from '../../lib/packs';
+import { toDisplayProductFromCatalog } from '../../lib/catalogV2';
+import type { CatalogItem, DisplayProduct } from '../../lib/catalogV2';
+import type { CatalogPack } from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
 import ProductCard from './ProductCard';
 
 export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }: { primaryPackId?: string; primaryImageUrl: string; title: string }) {
@@ -19,13 +23,19 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
   const [selectOpen, setSelectOpen] = useState(false);
   const maxTiles = 6;
 
+  const { data: packs = [] as CatalogPack[] } = (useQuery as any)({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  const packMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    for (const p of packs) m[p.id] = p;
+    return m;
+  }, [packs]);
   const remainingPlaceholders = Math.max(0, maxTiles - slotPackIds.length);
   const slotUrls = useMemo(() => {
     return slotPackIds.map((id) => {
       const pack = packMap[id];
       return pack ? `${pack.image}?tr=w-256,c-at_max` : '';
     });
-  }, [slotPackIds]);
+  }, [slotPackIds, packMap]);
 
   // 底部详情仅渲染每个 packId 的第一份（去重），顺序按首次出现
   const uniqueDetailsPackIds = useMemo(() => {
@@ -166,7 +176,7 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
       {uniqueDetailsPackIds.map((id, blockIdx) => {
         const pack = packMap[id];
         if (!pack) return null;
-        const items = getProductsByPack(pack.id);
+        const items: DisplayProduct[] = (pack.items || []).map((it: CatalogItem) => toDisplayProductFromCatalog(it));
         return (
           <div key={`${id}-${blockIdx}`} className="flex gap-8 w-full max-w-[1280px] mx-auto">
             <div className="flex-1 w-full min-w-0">

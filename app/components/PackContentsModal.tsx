@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import type { Product } from '../lib/packs';
+import { type CatalogItem, type DisplayProduct, toDisplayProductFromCatalog } from '../lib/catalogV2';
 import ProductCard from '../packs/[id]/ProductCard';
 
 interface PackContentsModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
-  items: Product[];
+  items: (DisplayProduct | CatalogItem)[];
 }
 
 function mixColors(color1: string, color2: string, ratio: number) {
@@ -29,8 +29,16 @@ function mixColors(color1: string, color2: string, ratio: number) {
   return rgbToHex(r, g, b);
 }
 
+function isCatalogItem(x: any): x is CatalogItem {
+  return x && typeof x === 'object' && 'dropProbability' in x && 'qualityId' in x;
+}
+
 export default function PackContentsModal({ open, onClose, title, items }: PackContentsModalProps) {
   if (!open) return null;
+  const normalized: DisplayProduct[] = items.map((it) => {
+    if (isCatalogItem(it)) return toDisplayProductFromCatalog(it);
+    return it as DisplayProduct;
+  });
   return (
     <div data-state="open" className="fixed px-4 inset-0 z-50 bg-black/[0.48] overflow-y-auto flex justify-center items-start py-16" style={{ pointerEvents: 'auto', animation: 'modalFadeIn 180ms ease' }} onClick={onClose}>
       <style>{`
@@ -42,7 +50,7 @@ export default function PackContentsModal({ open, onClose, title, items }: PackC
           <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{title}</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
-          {items.map((product) => (
+          {normalized.map((product) => (
             <ProductCard key={product.id} prod={product} compact />
           ))}
         </div>

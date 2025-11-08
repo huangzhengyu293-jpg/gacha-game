@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Product } from '../../lib/packs';
+import type { DisplayProduct } from '../../lib/catalogV2';
 import ProductDetailsModal from '../../components/ProductDetailsModal';
 
 const BASE_BG = '#22272B'; // 等同 bg-gray-700（按你取色）
@@ -32,7 +32,7 @@ function mixHexColors(colorA: string, colorB: string, t: number) {
   return rgbToHex(r, g, bl);
 }
 
-export default function ProductCard({ prod, compact = false }: { prod: Product; compact?: boolean }) {
+export default function ProductCard({ prod, compact = false }: { prod: DisplayProduct; compact?: boolean }) {
   const [isHover, setIsHover] = useState(false);
   const [open, setOpen] = useState(false);
   const [isSmall, setIsSmall] = useState(false);
@@ -74,7 +74,7 @@ export default function ProductCard({ prod, compact = false }: { prod: Product; 
           transition: 'background-color 200ms ease-in-out',
         }}
       >
-        <p className={`font-semibold h-6 ${percentTextClass}`} style={{ color: '#7A8084', ...(compact ? { fontFamily: 'Urbanist, sans-serif' } : {}) }}>{(prod.probability * 100).toFixed(4)}%</p>
+        <p className={`font-semibold h-6 ${percentTextClass}`} style={{ color: '#7A8084', ...(compact ? { fontFamily: 'Urbanist, sans-serif' } : {}) }}>{(((prod.probability ?? 0) * 100)).toFixed(4)}%</p>
         <div className="relative flex-1 flex w-full justify-center">
           <div
             style={{

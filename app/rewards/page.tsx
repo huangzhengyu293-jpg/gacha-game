@@ -97,7 +97,7 @@ export default function RewardsPage() {
                   {/* 免费等级 2 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmfx9nwzu0000l10hv4c6aexn">
+                      <a className="flex relative rounded-lg" href="/rewards/cmfx9nwzu0000l10hv4c6aexn">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -129,7 +129,7 @@ export default function RewardsPage() {
                   {/* 免费等级 10 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmfyr656z0000l50gh2s236wu">
+                      <a className="flex relative rounded-lg" href="/rewards/cmfyr656z0000l50gh2s236wu">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -161,7 +161,7 @@ export default function RewardsPage() {
                   {/* 免费等级 20 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmekcf1dg0000js0fbkvdkf92">
+                      <a className="flex relative rounded-lg" href="/rewards/cmekcf1dg0000js0fbkvdkf92">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -193,7 +193,7 @@ export default function RewardsPage() {
                   {/* 免费等级 30 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cluahcv28007mjw13fq8c5wrq">
+                      <a className="flex relative rounded-lg" href="/rewards/cluahcv28007mjw13fq8c5wrq">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -225,7 +225,7 @@ export default function RewardsPage() {
                   {/* 免费等级 40 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgl5aadl0000l50g0ccpoqte">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgl5aadl0000l50g0ccpoqte">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -257,7 +257,7 @@ export default function RewardsPage() {
                   {/* 免费等级 50 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgl3i2l80005jx0frd58863h">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgl3i2l80005jx0frd58863h">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -289,7 +289,7 @@ export default function RewardsPage() {
                   {/* 免费等级 60 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgl5d6910009l50gq1zlavfe">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgl5d6910009l50gq1zlavfe">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -321,7 +321,7 @@ export default function RewardsPage() {
                   {/* 免费等级 70 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgl5sqgt0000l90hzf7yxj10">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgl5sqgt0000l90hzf7yxj10">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -353,7 +353,7 @@ export default function RewardsPage() {
                   {/* 免费等级 80 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgmgrglf0000l80gv7m17h5t">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgmgrglf0000l80gv7m17h5t">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -385,7 +385,7 @@ export default function RewardsPage() {
                   {/* 免费等级 90 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgmhg9wu0000l50m2azj8ant">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgmhg9wu0000l50m2azj8ant">
                         <img 
                           alt="pack" 
                           loading="lazy" 
@@ -417,7 +417,7 @@ export default function RewardsPage() {
                   {/* 免费等级 100 */}
                   <div>
                     <div className="relative">
-                      <a className="flex relative rounded-lg" href="/zh/rewards/cmgmhkovk0000ju0fa5zd6rnj">
+                      <a className="flex relative rounded-lg" href="/rewards/cmgmhkovk0000ju0fa5zd6rnj">
                         <img 
                           alt="pack" 
                           loading="lazy" 

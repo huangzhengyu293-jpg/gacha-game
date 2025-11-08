@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { products as packProducts } from '../lib/packs';
+
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -36,12 +36,34 @@ const ROUND_PRICES: number[] = [
   0.55, 0.72, 0.94, 1.38, 2.22, 3.61, 5.55, 11.11, 27.77, 83.33,
 ];
 
-// 参考产品（名字/图片/价格），改为使用你在 app/lib/packs.ts 写的 products
-const SOURCE_PRODUCTS = packProducts.map(p => ({ name: p.name, image: p.image, price: p.price }));
+// 参考产品从后端 /api/products 读取
+function useSourceProducts() {
+  const [items, setItems] = React.useState<Array<{ name: string; image: string; price: number }>>([]);
+  React.useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/products', { cache: 'no-store' });
+        if (!res.ok) throw new Error('fail');
+        const data = await res.json();
+        if (!aborted && Array.isArray(data)) {
+          setItems(data.map((p: any) => ({ name: p.name, image: p.image, price: p.price })));
+        }
+      } catch {
+        setItems([]);
+      }
+    })();
+    return () => { aborted = true; };
+  }, []);
+  return items;
+}
 
-function getRoundProduct(roundIdx: number) {
-  const p = SOURCE_PRODUCTS[roundIdx % SOURCE_PRODUCTS.length];
-  return p;
+function getRoundProductFactory(source: Array<{ name: string; image: string; price: number }>) {
+  return (roundIdx: number) => {
+    const list = source && source.length ? source : [{ name: '占位', image: '', price: 0 }];
+    const p = list[roundIdx % list.length];
+    return p;
+  };
 }
 
 function formatCurrency(num: number) {
@@ -49,6 +71,8 @@ function formatCurrency(num: number) {
 }
 
 export default function DrawExtraComponent() {
+  const SOURCE_PRODUCTS = useSourceProducts();
+  const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hoverCycleStep, setHoverCycleStep] = useState<number>(0); // 行索引
   const hoverTimerRef = useRef<number | null>(null);

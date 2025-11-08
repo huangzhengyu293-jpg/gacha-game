@@ -1,14 +1,33 @@
 import { notFound } from 'next/navigation';
-import { packMap, getProductsByPack, packs } from '../../lib/packs';
+import { getAllCatalogPackMap, getAllCatalogPacks } from '../../lib/catalogV2';
+import { headers } from 'next/headers';
 import ProductCard from './ProductCard';
 import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
 
 export default async function PackDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: currentId } = await params;
-  const pack = packMap[currentId] || packs.find(p => p.id === currentId);
+  // 优先从后端接口聚合读取（包含用户新建的礼包）；失败则回退到静态聚合
+  let pack: ReturnType<typeof getAllCatalogPacks>[number] | undefined;
+  try {
+    const h = headers();
+    const hdrs = await h;
+    const host = hdrs.get('x-forwarded-host') ?? hdrs.get('host');
+    const proto = hdrs.get('x-forwarded-proto') ?? 'http';
+    const base = `${proto}://${host}`;
+    const res = await fetch(`${base}/api/packs`, { cache: 'no-store' });
+    if (res.ok) {
+      const list = (await res.json()) as ReturnType<typeof getAllCatalogPacks>;
+      pack = list.find(p => p.id === currentId);
+    }
+  } catch {}
+  if (!pack) {
+    const map = getAllCatalogPackMap();
+    const list = getAllCatalogPacks();
+    pack = map[currentId] || list.find((p) => p.id === currentId);
+  }
   if (!pack) return notFound();
-  const items = getProductsByPack(pack.id);
+  // items 由 PackMediaStrip 动态渲染，已切换为 catalogV2
 
   return (
     <div className="flex flex-col flex-1 items-stretch relative mt-[-32px]">

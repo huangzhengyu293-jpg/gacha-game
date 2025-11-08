@@ -5,6 +5,8 @@ import { I18nProvider } from "./components/I18nProvider";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { LiveFeedProvider } from "./components/live-feed/LiveFeedProvider";
+import QueryProvider from "./components/QueryProvider";
+import ToastProvider from "./components/ToastProvider";
 import Providers from "./providers";
 
 const geistSans = Geist({
@@ -25,16 +27,16 @@ const urbanist = Urbanist({
 
 export const metadata: Metadata = {
   title: {
-    default: "flamedraw",
-    template: "%s | flamedraw",
+    default: "FlameDraw",
+    template: "%s | FlameDraw",
   },
-  applicationName: "flamedraw",
-  description: "flamedraw",
+  applicationName: "FlameDraw",
+  description: "FlameDraw",
   openGraph: {
-    title: "flamedraw",
+    title: "FlameDraw",
   },
   twitter: {
-    title: "flamedraw",
+    title: "FlameDraw",
   },
 };
 
@@ -54,16 +56,20 @@ export default function RootLayout({
       <body className={`${urbanist.className} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
         <I18nProvider>
           <Providers>
-            {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
-            <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
-              <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
-                <Navbar />
-                <div className="flex-1 pt-8">
-                  {children}
-                </div>
-                <Footer />
-              </div>
-            </LiveFeedProvider>
+            <QueryProvider>
+              <ToastProvider>
+                {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
+                <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
+                  <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
+                    <Navbar />
+                    <div className="flex-1 pt-8">
+                      {children}
+                    </div>
+                    <Footer />
+                  </div>
+                </LiveFeedProvider>
+              </ToastProvider>
+            </QueryProvider>
           </Providers>
         </I18nProvider>
       </body>

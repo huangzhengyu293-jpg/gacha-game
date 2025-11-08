@@ -1,0 +1,641 @@
+[
+  {
+    "id": "user_pack_1762610657307",
+    "title": "再次测试",
+    "image": "https://ik.imagekit.io/hr727kunx/community_packs/version37.png",
+    "price": 0.13743036,
+    "itemCount": 2,
+    "items": [
+      {
+        "id": "item_0015",
+        "name": "芍药",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7vsxm0000l50i2kzsbv28_7925041__bpiG50wjx",
+        "price": 11.3,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0018",
+        "name": "精灵球",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7mskd0000ju0kmqso6xbn_2808674__6u5KNOlaE",
+        "price": 1,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      }
+    ]
+  },
+  {
+    "id": "user_pack_1762610315916",
+    "title": "zai",
+    "image": "https://ik.imagekit.io/hr727kunx/community_packs/version39.png",
+    "price": 12.1899612,
+    "itemCount": 4,
+    "items": [
+      {
+        "id": "item_0024",
+        "name": "Zekrom ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5of0l0000js0mqdkst7ia_3091949__o_1YBmAkO?tr=w-3840,c-at_max?tr=w-3840,c-at_max",
+        "price": 335,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0023",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmg8qwvr20000kv0f7xwnyvu9_1596630__cqx8MRYg1?tr=w-3840,c-at_max?tr=w-3840,c-at_max",
+        "price": 370,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0022",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5ygl90000kz0m76trkyx0_967943__-Wz4IAmFp?tr=w-3840,c-at_max?tr=w-3840,c-at_max",
+        "price": 385,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0018",
+        "name": "精灵球",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7mskd0000ju0kmqso6xbn_2808674__6u5KNOlaE?tr=w-3840,c-at_max",
+        "price": 1,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      }
+    ]
+  },
+  {
+    "id": "pack_onepiece_ace",
+    "title": "One Piece Fire Fist Ace",
+    "image": "https://ik.imagekit.io/hr727kunx/packs/cmho66b2h0000l50gpl7u48cu_8686310__8Vx22oJXm?tr=w-3840,c-at_max",
+    "price": 10.45,
+    "itemCount": 16,
+    "items": [
+      {
+        "id": "item_opace_1",
+        "name": "Portgas.D.Ace (Serial Numbered) - One Piece Promotion Cards (OP-PR)",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho5dh460000l40m4l3l0nbv_5717727__5nBCY5qmi?tr=w-3840,c-at_max",
+        "price": 4000,
+        "probability": 0.00005,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_opace_2",
+        "name": "Portgas.D.Ace (Parallel) (Manga) (Alternate Art) - Paramount War (OP02)",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho51a1p0000jy0hek7kfn9r_2824139__nSTVQ8uFw?tr=w-3840,c-at_max",
+        "price": 1500,
+        "probability": 0.0001,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_opace_3",
+        "name": "Portgas.D.Ace (SP) Two Legends",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho2nh4c0000l20f9jkidtx6_5174877__AJTAhN21mz?tr=w-3840,c-at_max",
+        "price": 132,
+        "probability": 0.0049,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_opace_4",
+        "name": "Portgas.D.Ace (SP) Legacy of the Master",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho1zrdq0000k10fr4ekbo9u_8033143__vDfU8-MTMa?tr=w-3840,c-at_max",
+        "price": 109,
+        "probability": 0.005,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_opace_5",
+        "name": "Portgas.D.Ace (TR) Royal Blood",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho16rhm0001l40fvoifstma_4764497__vJTaDeC36?tr=w-3840,c-at_max",
+        "price": 55,
+        "probability": 0.04995,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_opace_6",
+        "name": "Portgas.D.Ace (119) (Parallel) 500 Years in the Future",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0vw100000js0gg1ambqc6_1472259__2C6wi3oR8?tr=w-3840,c-at_max",
+        "price": 23,
+        "probability": 0.045,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_opace_7",
+        "name": "Portgas.D.Ace (011) (Parallel) Ultra Deck: The Three Brothers",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0u6gz0000jw0f4odrv8s8_4528519__Lbpeff3Cu?tr=w-3840,c-at_max",
+        "price": 19,
+        "probability": 0.05,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_opace_8",
+        "name": "Portgas.D.Ace (Parallel) Two Legends",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0qsaw0000l40f4ug9ytpv_2805305__1ZxWCNkRZ?tr=w-3840,c-at_max",
+        "price": 9.21,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_opace_9",
+        "name": "Portgas.D.Ace (011) Ultra Deck: The Three Brothers",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0p1bu0000jx0heb18v1kt_8674853__udiKhJpX2h?tr=w-3840,c-at_max",
+        "price": 5.22,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_opace_10",
+        "name": "Portgas.D.Ace Paramount War",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0nefb0000jr0fsei8viv6_9124244__rdEynuhnI?tr=w-3840,c-at_max",
+        "price": 4.85,
+        "probability": 0.125,
+        "backlightColor": "#4B69FF"
+      },
+      {
+        "id": "item_opace_11",
+        "name": "Portgas.D.Ace (119) 500 Years in the Future",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0litt0000jy0kzokdvtqv_7911407__CwD8G_rz7?tr=w-3840,c-at_max",
+        "price": 4.24,
+        "probability": 0.12,
+        "backlightColor": "#4B69FF"
+      },
+      {
+        "id": "item_opace_12",
+        "name": "Portgas.D.Ace - PRB02-018 Premium Booster -The Best- Vol. 2",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0k3nm0001jr0gkatcle20_3856396___TZMugvb-?tr=w-3840,c-at_max",
+        "price": 1.27,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_opace_13",
+        "name": "Portgas.D.Ace Starter Deck 15: RED Edward.Newgate",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0iv1j0000lc0mub0wlehh_965386__ffBpvGlRu?tr=w-3840,c-at_max",
+        "price": 1.09,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_opace_14",
+        "name": "Portgas.D.Ace Starter Deck 9: Yamato",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0hfuk0000jr0gtp5hrz9i_3369288__ffwWx21G9?tr=w-3840,c-at_max",
+        "price": 0.44,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_opace_15",
+        "name": "Portgas.D.Ace Two Legends",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0fvbi0000jx0nrqb6uhpi_4773053__4Sp3ulaWZ?tr=w-3840,c-at_max",
+        "price": 0.43,
+        "probability": 0.05,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_opace_16",
+        "name": "Portgas.D.Ace (053) 500 Years in the Future",
+        "description": "来自 One Piece Fire Fist Ace 礼包的海贼王主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmho0cs1j0000li0f0kfkr2pd_7131111__J1WTCGScT?tr=w-3840,c-at_max",
+        "price": 0.27,
+        "probability": 0.05,
+        "backlightColor": "#EB4B4B"
+      }
+    ]
+  },
+  {
+    "id": "pack_celestial",
+    "title": "Celestial",
+    "image": "https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G",
+    "price": 20507.39,
+    "itemCount": 11,
+    "items": [
+      {
+        "id": "celestial_item_1",
+        "name": "2025 Bentley Continental GTC First Edition",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh117vpi0000la0g1auoppim_8354404__emK2iQL3J",
+        "price": 450000,
+        "probability": 0.000125,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_2",
+        "name": "Patek Philippe Celestial Grand Blue Dial 44mm",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2kx0m40000jy0mnpnzlpc1_8591189__RMfXhwba7",
+        "price": 450000,
+        "probability": 0.000125,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_3",
+        "name": "2023 Bentley Bentayga",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2j7rh80000jv0fr55h29nw_9723925__br_RJn3x-",
+        "price": 418000,
+        "probability": 0.000125,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_4",
+        "name": "1925 Bentley 3 4½ Litre",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2j3zwl0000jr0f42ry77ba_1018105__4JJPu_Yc5",
+        "price": 414000,
+        "probability": 0.000125,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_5",
+        "name": "2023 Bentley GTC",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2jc98i0004jv0fvm20qshi_3573318__phHeaFq1F",
+        "price": 396000,
+        "probability": 0.000125,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_6",
+        "name": "2025 Bentley Bentayga Azure",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh11dc5u0000la0f585gk5oe_957947__EC8XyZBnt",
+        "price": 302500,
+        "probability": 0.0005,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_7",
+        "name": "Cartier Santos 35mm",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh12kkcn0005l70gxgidhu0j_9759371__jzIW006Bc",
+        "price": 279000,
+        "probability": 0.0005,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_8",
+        "name": "2025 Land Rover Defender 110",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2jfaqg0000js0fy0yt1glq_1507162__6-K5odw69",
+        "price": 268000,
+        "probability": 0.00075,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_9",
+        "name": "2023 Audi R8 v10 Performance",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgfhk8ag0000l70gfygqghzv_3927629__k1-xSHM27",
+        "price": 220000,
+        "probability": 0.00075,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_10",
+        "name": "Apocalypse Hellfire 2.0 6X6",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmh2hkeyd0000jy0ga6nq4bt9_2079065__TaK0h4fEY",
+        "price": 215000,
+        "probability": 0.0015,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "celestial_item_11",
+        "name": "Hermès Birkin 30 Himalaya Niloticus Crocodile Palladium Hardware",
+        "description": "来自 Celestial 礼包的高端精品藏品。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cls1a2r81006rlb163shw0vru_5387319__yR_Dj10xR",
+        "price": 214500,
+        "probability": 0.0015,
+        "backlightColor": "#E4AE33"
+      }
+    ]
+  },
+  {
+    "id": "pack_pokegals",
+    "title": "PokeGals",
+    "image": "https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh",
+    "price": 1.84,
+    "itemCount": 7,
+    "items": [
+      {
+        "id": "item_pokegals_1",
+        "name": "莉莉",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo82y170000jp0fc2k2gj4y_949410__jYZt5PBjQ",
+        "price": 70,
+        "probability": 0.0015,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_pokegals_2",
+        "name": "玛妮",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo80mob0000l40mgvpqqxiy_763004__7jRIYNvGA",
+        "price": 34,
+        "probability": 0.0035,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_pokegals_3",
+        "name": "离子",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7y7z50001l50i3dvrh5t7_2587383__KszFCRqvU",
+        "price": 25,
+        "probability": 0.005,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_pokegals_4",
+        "name": "芍药",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7vsxm0000l50i2kzsbv28_7925041__bpiG50wjx",
+        "price": 11.3,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_pokegals_5",
+        "name": "罗克珊",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7tme30000kv0kdhldycqx_3550781__jss6m6e1J",
+        "price": 6.3,
+        "probability": 0.02,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_pokegals_6",
+        "name": "茴香",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7qf8u0000jv0m5vqdxffv_6839547__emfZVD1ch",
+        "price": 1.95,
+        "probability": 0.06,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_pokegals_7",
+        "name": "精灵球",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7mskd0000ju0kmqso6xbn_2808674__6u5KNOlaE",
+        "price": 1,
+        "probability": 0.9,
+        "backlightColor": "#829DBB"
+      }
+    ]
+  },
+  {
+    "id": "pack_halloween_pokemon",
+    "title": "不给糖就捣蛋宝可梦",
+    "image": "https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-3840,c-at_max",
+    "price": 398.3,
+    "itemCount": 11,
+    "items": [
+      {
+        "id": "item_halloween_1",
+        "name": "仙子伊布 VMAX",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo63gcm0000jv0o6zaqs5r6_1619359__y4fUlAB4d?tr=w-3840,c-at_max",
+        "price": 735,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_2",
+        "name": "火箭队的超梦前任",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo61xkx0000ji0kjhlgt21k_9559845__y63lUSfM1?tr=w-3840,c-at_max",
+        "price": 685,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_3",
+        "name": "Zekrom ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo606hm0000js0fxce2d3ko_3968236__47zGSrIT3?tr=w-3840,c-at_max",
+        "price": 588,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_4",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5ygl90000kz0m76trkyx0_967943__-Wz4IAmFp?tr=w-3840,c-at_max",
+        "price": 385,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_5",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmg8qwvr20000kv0f7xwnyvu9_1596630__cqx8MRYg1?tr=w-3840,c-at_max",
+        "price": 370,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_6",
+        "name": "Zekrom ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5of0l0000js0mqdkst7ia_3091949__o_1YBmAkO?tr=w-3840,c-at_max",
+        "price": 335,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_7",
+        "name": "雷希拉姆",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5ksdb0000la0m1ovx7yas_2617810___ucaUkELf?tr=w-3840,c-at_max",
+        "price": 255,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_8",
+        "name": "盖诺赛克特",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5hzna0000jz0f4bs1e3a5_1525619__Csxm8ivwb?tr=w-3840,c-at_max",
+        "price": 79,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_9",
+        "name": "梅迪查姆五世",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo2qell0001i50haz4762if_4053677__c3NUX4VJv?tr=w-3840,c-at_max",
+        "price": 31,
+        "probability": 0.1,
+        "backlightColor": "#8847FF"
+      },
+      {
+        "id": "item_halloween_10",
+        "name": "烛光五世",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo2lik80000i50hy2hsb2qa_8750657__9B1p0b16-?tr=w-3840,c-at_max",
+        "price": 2.59,
+        "probability": 0.05,
+        "backlightColor": "#EB4B4B"
+      },
+      {
+        "id": "item_halloween_11",
+        "name": "螃蟹V",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo2hrjf0000kv0fqj7vt6yb_8772392__iqnuqYLx7?tr=w-3840,c-at_max",
+        "price": 1.84,
+        "probability": 0.05,
+        "backlightColor": "#EB4B4B"
+      }
+    ]
+  },
+  {
+    "id": "user_pack_1762609584913",
+    "title": "111",
+    "image": "https://ik.imagekit.io/hr727kunx/community_packs/version18.png",
+    "price": 8.524592940000002,
+    "itemCount": 4,
+    "items": [
+      {
+        "id": "item_0014",
+        "name": "离子",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7y7z50001l50i3dvrh5t7_2587383__KszFCRqvU",
+        "price": 25,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0018",
+        "name": "精灵球",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7mskd0000ju0kmqso6xbn_2808674__6u5KNOlaE",
+        "price": 1,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0019",
+        "name": "仙子伊布 VMAX",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo63gcm0000jv0o6zaqs5r6_1619359__y4fUlAB4d?tr=w-3840,c-at_max",
+        "price": 735,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0017",
+        "name": "茴香",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7qf8u0000jv0m5vqdxffv_6839547__emfZVD1ch",
+        "price": 1.95,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      }
+    ]
+  },
+  {
+    "id": "user_pack_1762610054392",
+    "title": "ceshi",
+    "image": "https://ik.imagekit.io/hr727kunx/community_packs/version30.png",
+    "price": 31.686636540000002,
+    "itemCount": 8,
+    "items": [
+      {
+        "id": "item_0017",
+        "name": "茴香",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7qf8u0000jv0m5vqdxffv_6839547__emfZVD1ch",
+        "price": 1.95,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0018",
+        "name": "精灵球",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo7mskd0000ju0kmqso6xbn_2808674__6u5KNOlaE",
+        "price": 1,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0019",
+        "name": "仙子伊布 VMAX",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo63gcm0000jv0o6zaqs5r6_1619359__y4fUlAB4d?tr=w-3840,c-at_max",
+        "price": 735,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0020",
+        "name": "火箭队的超梦前任",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo61xkx0000ji0kjhlgt21k_9559845__y63lUSfM1?tr=w-3840,c-at_max",
+        "price": 685,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0012",
+        "name": "莉莉",
+        "description": "来自 PokeGals 礼包的宝可梦主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo82y170000jp0fc2k2gj4y_949410__jYZt5PBjQ",
+        "price": 70,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0021",
+        "name": "Zekrom ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo606hm0000js0fxce2d3ko_3968236__47zGSrIT3?tr=w-3840,c-at_max",
+        "price": 588,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0022",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmgo5ygl90000kz0m76trkyx0_967943__-Wz4IAmFp?tr=w-3840,c-at_max",
+        "price": 385,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      },
+      {
+        "id": "item_0023",
+        "name": "喷火龙ex",
+        "description": "来自 不给糖就捣蛋宝可梦 礼包的万圣主题卡牌。",
+        "image": "https://ik.imagekit.io/hr727kunx/products/cmg8qwvr20000kv0f7xwnyvu9_1596630__cqx8MRYg1?tr=w-3840,c-at_max",
+        "price": 370,
+        "probability": 0.01,
+        "backlightColor": "#E4AE33"
+      }
+    ]
+  }
+]

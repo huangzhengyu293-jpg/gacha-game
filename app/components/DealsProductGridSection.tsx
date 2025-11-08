@@ -2,8 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import DealsPaginationBar from './DealsPaginationBar';
-import { products as packProducts } from '../lib/packs';
 import ProductDetailsModal from './ProductDetailsModal';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
 
 export interface ProductItem {
   id: string;
@@ -88,18 +89,22 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
 }
 
 export default function DealsProductGridSection({ onSelectProduct, selectedId }: { onSelectProduct?: (p: ProductItem) => void; selectedId?: string }) {
-  // 10 items for now; will be replaced by backend later
-  const products: ProductItem[] = useMemo(() => {
-    return packProducts.map((prod) => ({
-      id: prod.id,
-      name: prod.name,
-      image: `${prod.image}?tr=w-3840,c-at_max`,
-      price: prod.price,
-      percent: Math.max(1, Math.min(80, Math.round(prod.probability * 1000))), // 概率粗略映射为 1..80
-      description: prod.description,
-      category: 'mock',
-    }));
-  }, []);
+  const { data: products = [] as ProductItem[] } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const data = await api.getProducts();
+      return data.map((prod) => ({
+        id: prod.id,
+        name: prod.name,
+        image: `${prod.image}?tr=w-3840,c-at_max`,
+        price: prod.price,
+        percent: Math.max(1, Math.min(80, Math.round((prod.dropProbability ?? 0) * 1000))),
+        description: prod.description,
+        category: 'catalog',
+      })) as ProductItem[];
+    },
+    staleTime: 60_000,
+  });
 
   // Pagination (kept simple for 10 items now)
   const [pageIndex, setPageIndex] = useState(0); // 0-based
@@ -168,7 +173,7 @@ export default function DealsProductGridSection({ onSelectProduct, selectedId }:
         />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {visible.map((p) => (
+        {visible.map((p: ProductItem) => (
           <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={p.id === selectedId} onQuickView={openQuickView} />
         ))}
       </div>

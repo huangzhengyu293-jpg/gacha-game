@@ -1,32 +1,37 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Banner from './components/Banner';
 import SectionHeader from './components/SectionHeader';
 import { useI18n } from './components/I18nProvider';
+import { useQuery } from '@tanstack/react-query';
+import { api } from './lib/api';
+import type { CatalogPack } from './lib/api';
 import PackCard from './components/PackCard';
 import LiveFeedElement from './components/LiveFeedElement';
 import LiveFeedTicker from './components/LiveFeedTicker';
 import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
-import { packs as mockPacks, products as mockProducts, getPackByProduct } from './lib/packs';
+import { getAllCatalogPacks, getGlowColorFromProbability } from './lib/catalogV2';
 
 export default function Home() {
   const { t } = useI18n();
+  const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+
   const liveFeedData = useMemo(() => {
-    const count = Math.min(3, mockProducts.length);
+    const count = Math.min(3, packs.length);
     const chosen: number[] = [];
     while (chosen.length < count) {
-      const idx = Math.floor(Math.random() * mockProducts.length);
+      const idx = Math.floor(Math.random() * packs.length);
       if (!chosen.includes(idx)) chosen.push(idx);
     }
-    return chosen
-      .map((i) => mockProducts[i])
-      .map((product) => {
-        const pack = getPackByProduct(product.id);
-        return pack ? { product, pack } : null;
-      })
-      .filter((x): x is { product: typeof mockProducts[number]; pack: typeof mockPacks[number] } => Boolean(x));
+    return chosen.map((i) => {
+      const pack = packs[i];
+      const items = pack.items || [];
+      if (!items.length) return null;
+      const product = items[Math.floor(Math.random() * items.length)];
+      return { product, pack };
+    }).filter(Boolean) as Array<{ product: any; pack: typeof packs[number] }>;
   }, []);
   return (
     <div className="flex flex-col min-h-screen" >
@@ -103,9 +108,9 @@ export default function Home() {
               />
               
 
-              {/* Interactive Cards Grid (from mock packs) */}
+              {/* Interactive Cards Grid - 仅显示最新 5 个礼包（新建在最前） */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 self-stretch min-w-0">
-                {mockPacks.map((pack) => (
+                {packs.slice(0, 5).map((pack: CatalogPack) => (
                   <div className="relative flex flex-col items-stretch w-full" key={pack.id}>
                     <PackCard
                       imageUrl={`${pack.image}?tr=q-50,w-640,c-at_max`}
@@ -204,11 +209,11 @@ export default function Home() {
                       index={idx}
                       href={`/packs/${pack.id}`}
                       avatarUrl={"https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"}
-                      productImageUrl={`${product.image}?tr=w-1080,c-at_max`}
+                      productImageUrl={`${(product as any).image}?tr=w-1080,c-at_max`}
                       packImageUrl={`${pack.image}?tr=w-1080,c-at_max`}
-                      title={product.name}
-                      priceLabel={`$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      glowColor={product.backlightColor}
+                      title={(product as any).name}
+                      priceLabel={`$${(product as any).price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      glowColor={getGlowColorFromProbability((product as any).dropProbability ?? (product as any).probability)}
                     />
                   ))}
                 </div>

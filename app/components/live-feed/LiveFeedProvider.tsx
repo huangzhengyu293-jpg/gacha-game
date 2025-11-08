@@ -1,7 +1,9 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { products as mockProducts, getPackByProduct } from "../../lib/packs";
+import { getAllCatalogPacks, getGlowColorFromProbability } from "../../lib/catalogV2";
+
+let PACKS_CACHE: any[] = [];
 
 export type FeedItem = {
   id: string;
@@ -128,6 +130,23 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
     };
   }, [intervalMs, tick]);
 
+  // 首次拉取 packs（JSON 优先，失败回退本地）
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/packs', { cache: 'no-store' });
+        if (!res.ok) throw new Error('fail');
+        const data = await res.json();
+        if (!aborted && Array.isArray(data)) {
+          PACKS_CACHE = data;
+        }
+      } catch {
+        PACKS_CACHE = getAllCatalogPacks();
+      }
+    })();
+    return () => { aborted = true; };
+  }, []);
   // WebSocket 预留：开启后端实时推送
   useEffect(() => {
     if (!socketEnabled || !socketUrl) return;
@@ -239,19 +258,20 @@ function initialSeed(visibleCount: number): FeedItem[] {
 }
 
 function makeMockItem(): Omit<FeedItem, "id"> {
-  // 从你的 products 中纯随机一个商品，并匹配对应卡包
-  const idx = Math.floor(Math.random() * mockProducts.length);
-  const product = mockProducts[idx];
-  const pack = getPackByProduct(product.id);
+  // 随机选择一个卡包及其中一个商品
+  const packs = (PACKS_CACHE && PACKS_CACHE.length ? PACKS_CACHE : getAllCatalogPacks());
+  const pack = packs[Math.floor(Math.random() * Math.max(1, packs.length))];
+  const items = (pack?.items || []) as any[];
+  const product = items[Math.floor(Math.random() * Math.max(1, items.length))];
   return {
-    href: pack ? `/packs/${pack.id}` : "/packs",
+    href: `/packs/${pack.id}`,
     avatarUrl:
       "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
-    productImageUrl: `${product.image}?tr=w-1080,c-at_max`,
-    packImageUrl: pack ? `${pack.image}?tr=w-1080,c-at_max` : "",
-    title: product.name,
-    priceLabel: `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    glowColor: (product as any).backlightColor,
+    productImageUrl: `${product?.image ?? ""}?tr=w-1080,c-at_max`,
+    packImageUrl: `${pack.image}?tr=w-1080,c-at_max`,
+    title: product?.name ?? "",
+    priceLabel: `$${(product?.price ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    glowColor: product ? getGlowColorFromProbability((product as any).dropProbability ?? (product as any).probability) : undefined,
   };
 }
 

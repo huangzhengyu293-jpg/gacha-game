@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { packs as allPacks } from '../../lib/packs';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
+import type { CatalogPack } from '../../lib/api';
 import PacksToolbar from '../../components/PacksToolbar';
 import PackCard from '../../components/PackCard';
 
@@ -19,38 +21,41 @@ export default function SelectPackModal({
   const [query, setQuery] = useState('');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
+  const { data: packs = [] as CatalogPack[] , refetch } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
 
   // 初始化数量：根据当前选中的 packId 列表（长度<=6）
   React.useEffect(() => {
     if (!open) return;
+    // 打开时拉取一次最新 packs（JSON 优先）
+    refetch();
     const next: Record<string, number> = {};
     selectedPackIds.forEach((id) => {
       next[id] = (next[id] || 0) + 1;
     });
     // 至少 1 个
-    if (Object.values(next).reduce((a, b) => a + b, 0) === 0 && allPacks.length > 0) {
-      const first = allPacks[0].id;
+    if (Object.values(next).reduce((a, b) => a + b, 0) === 0 && packs.length > 0) {
+      const first = packs[0].id;
       next[first] = 1;
     }
     setQtyMap(next);
-  }, [open, selectedPackIds]);
+  }, [open, selectedPackIds, packs.length, refetch]);
 
-  const filtered = useMemo(() => {
+  const filtered: CatalogPack[] = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allPacks;
-    return allPacks.filter(p => p.title.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return packs;
+    return packs.filter((p: CatalogPack) => p.title.toLowerCase().includes(q));
+  }, [query, packs]);
 
   const selectedCount = useMemo(() => {
     return Object.values(qtyMap).reduce((a, b) => a + (b || 0), 0);
   }, [qtyMap]);
   const selectedTotal = useMemo(() => {
-    return Object.entries(qtyMap).reduce((sum, [id, q]) => {
+    return Object.entries(qtyMap).reduce((sum: number, [id, q]: [string, number]) => {
       if (!q) return sum;
-      const p = allPacks.find(x => x.id === id);
+      const p = packs.find((x: CatalogPack) => x.id === id);
       return sum + (p ? p.price * q : 0);
     }, 0);
-  }, [qtyMap]);
+  }, [qtyMap, packs]);
 
   const getQty = (id: string) => qtyMap[id] || 0;
   const cap = 6;

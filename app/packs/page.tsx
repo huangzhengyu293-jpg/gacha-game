@@ -1,28 +1,34 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../components/I18nProvider';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import type { CatalogPack } from '../lib/api';
 import LiveFeedElement from '../components/LiveFeedElement';
 import LiveFeedTicker from '../components/LiveFeedTicker';
 import PacksToolbar from '../components/PacksToolbar';
 import PacksGrid from '../components/PacksGrid';
-import { packs as mockPacks, products as mockProducts, getPackByProduct } from '../lib/packs';
+import RouteToast from '../components/RouteToast';
+import { getAllCatalogPacks, getGlowColorFromProbability } from '../lib/catalogV2';
 
 export default function PacksPage() {
   const { t } = useI18n();
+  const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+
   const bestOpenData = useMemo(() => {
-    const count = Math.min(3, mockProducts.length);
+    const count = Math.min(3, packs.length);
     const chosen: number[] = [];
     while (chosen.length < count) {
-      const idx = Math.floor(Math.random() * mockProducts.length);
+      const idx = Math.floor(Math.random() * packs.length);
       if (!chosen.includes(idx)) chosen.push(idx);
     }
-    return chosen
-      .map((i) => mockProducts[i])
-      .map((product) => {
-        const pack = getPackByProduct(product.id);
-        return pack ? { product, pack } : null;
-      })
-      .filter((x): x is { product: typeof mockProducts[number]; pack: typeof mockPacks[number] } => Boolean(x));
+    return chosen.map((i) => {
+      const pack = packs[i];
+      const items = pack.items || [];
+      if (!items.length) return null;
+      const product = items[Math.floor(Math.random() * items.length)];
+      return { product, pack };
+    }).filter(Boolean) as Array<{ product: (typeof packs[number]['items'])[number]; pack: typeof packs[number] }>;
   }, []);
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
@@ -33,7 +39,7 @@ export default function PacksPage() {
           </div>
           <div className="mt-6">
             <PacksGrid
-              items={mockPacks.map(p => ({
+              items={packs.map((p: CatalogPack) => ({
                 id: p.id,
                 coverSrc: `${p.image}?tr=q-50,w-640,c-at_max`,
                 price: `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -69,11 +75,11 @@ export default function PacksPage() {
                   index={idx}
                   href={`/packs/${pack.id}`}
                   avatarUrl={"https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"}
-                  productImageUrl={`${product.image}?tr=w-1080,c-at_max`}
+                  productImageUrl={`${(product as any).image}?tr=w-1080,c-at_max`}
                   packImageUrl={`${pack.image}?tr=w-1080,c-at_max`}
-                  title={product.name}
-                  priceLabel={`$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  glowColor={product.backlightColor}
+                  title={(product as any).name}
+                  priceLabel={`$${(product as any).price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  glowColor={getGlowColorFromProbability((product as any).dropProbability ?? (product as any).probability)}
                 />
               ))}
             </div>
@@ -89,6 +95,7 @@ export default function PacksPage() {
           </div>
         </div>
       </div>
+      <RouteToast />
     </div>
   );
 }

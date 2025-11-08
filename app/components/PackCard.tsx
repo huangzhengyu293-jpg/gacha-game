@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import PackContentsModal from './PackContentsModal';
-import { getProductsByPack } from '../lib/packs';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
 
 interface PackCardProps {
   imageUrl: string;
@@ -36,6 +37,12 @@ export default function PackCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ rotateX: 0, rotateY: 0, scale: 1 });
   const [showModal, setShowModal] = useState(false);
+  const { data: modalPack } = useQuery({
+    queryKey: ['pack-by-id', packId, showModal],
+    queryFn: async () => packId ? await api.getPackById(packId) : undefined,
+    enabled: !!packId && showModal,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     if (!hoverTilt) return;
@@ -151,7 +158,7 @@ export default function PackCard({
             open={showModal}
             onClose={() => setShowModal(false)}
             title={`${packTitle ?? ''}${packPrice !== undefined ? ` - $${packPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
-            items={getProductsByPack(packId)}
+            items={(modalPack?.items ?? []) as any}
           />
         ) : null}
       </>
@@ -165,7 +172,7 @@ export default function PackCard({
           open={showModal}
           onClose={() => setShowModal(false)}
           title={`${packTitle ?? ''}${packPrice !== undefined ? ` - $${packPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
-          items={getProductsByPack(packId)}
+          items={(modalPack?.items ?? []) as any}
         />
       ) : null}
     </>
