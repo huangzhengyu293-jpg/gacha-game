@@ -9,7 +9,7 @@ import LiveFeedTicker from '../components/LiveFeedTicker';
 import PacksToolbar from '../components/PacksToolbar';
 import PacksGrid from '../components/PacksGrid';
 import RouteToast from '../components/RouteToast';
-import { getAllCatalogPacks, getGlowColorFromProbability } from '../lib/catalogV2';
+import { getGlowColorFromProbability } from '../lib/catalogV2';
 
 export default function PacksPage() {
   const { t } = useI18n();

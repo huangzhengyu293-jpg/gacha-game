@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { packImageVariants, PackImageVariant } from '../../lib/catalogV2';
+// 使用数据库中的 pack 背景图，不再使用本地 packImageVariants
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import ProductDetailsModal from '../../components/ProductDetailsModal';
@@ -28,13 +28,20 @@ export default function CreatePackPage() {
   const [commissionOpen, setCommissionOpen] = useState<boolean>(false);
   const commissionOptions = useMemo(() => [0.5, 1.0, 1.5, 2.0, 2.5, 3.0], []);
   const commissionRef = useRef<HTMLDivElement | null>(null);
-  const [selectedPackImageId, setSelectedPackImageId] = useState<string>(packImageVariants[0]?.id ?? 'version1');
+  const [selectedPackImageUrl, setSelectedPackImageUrl] = useState<string | null>(null);
   // toast 在需要时统一调用
   const router = useRouter();
 
   const queryClient = useQueryClient();
   const { data: itemsData = [], isLoading: productsLoading } = useQuery({ queryKey: ['products'], queryFn: api.getProducts, staleTime: 60_000 });
+  const { data: packBgUrlsData = [], isLoading: bgLoading } = useQuery({ queryKey: ['packbg'], queryFn: api.getPackBackgroundUrls, staleTime: 60_000 });
+  const packBgUrls = packBgUrlsData as string[];
   useEffect(() => { setItems(itemsData); setLoadingItems(productsLoading); }, [itemsData, productsLoading]);
+  useEffect(() => {
+    if (!selectedPackImageUrl && packBgUrls.length > 0) {
+      setSelectedPackImageUrl(packBgUrls[0]);
+    }
+  }, [packBgUrls, selectedPackImageUrl]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -66,7 +73,8 @@ export default function CreatePackPage() {
   const expectedValue = useMemo(() => selectedItems.reduce((sum, it) => sum + (it.price * ((probMap[it.id] ?? 0) / 100)), 0), [selectedItems, probMap]);
   const packPriceUsd = expectedValue * HOUSE_RATIO;
   const commissionRevenue = packPriceUsd * (commissionPct / 100);
-  const selectedPackImage = useMemo(() => packImageVariants.find(p => p.id === selectedPackImageId) ?? packImageVariants[0], [selectedPackImageId]);
+  // 预览图 URL
+  const selectedPreviewUrl = selectedPackImageUrl ?? '';
 
   // close commission dropdown on outside click
   useEffect(() => {
@@ -496,11 +504,13 @@ export default function CreatePackPage() {
                   <div className="relative aspect-[339/515] w-full h-full" style={{ backgroundColor: '#1D2125' }}>
                     {/* 预览使用选中图片 */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt="Pack Preview"
-                      src={`${selectedPackImage?.image}?w=1024`}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', color: 'transparent' }}
-                    />
+                    {selectedPreviewUrl ? (
+                      <img
+                        alt="Pack Preview"
+                        src={selectedPreviewUrl}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', color: 'transparent' }}
+                      />
+                    ) : null}
                     {/* 名称覆盖在图片上（底部居中）*/}
                     <div className="absolute left-0 right-0 flex items-start justify-center pointer-events-none" style={{ top: 40 }}>
                       <span
@@ -512,17 +522,17 @@ export default function CreatePackPage() {
                     </div>
                   </div>
                 </div>
-                {/* 右侧图片选择网格（使用你自己的礼包图片数组 packImageVariants）*/}
+                {/* 右侧图片选择网格（来自数据库 packbg，返回 url 字符串数组）*/}
                 <div className="flex flex-wrap gap-4 overflow-scroll w-full no-scrollbar max-h-[380px]">
-                  {packImageVariants.map((variant) => {
-                    const isSelected = variant.id === selectedPackImageId;
+                  {packBgUrls.map((url) => {
+                    const isSelected = url === selectedPackImageUrl;
                     return (
                       <button
-                        key={variant.id}
+                        key={url}
                         className="rounded-md relative aspect-[339/515] h-full w-[calc(50%-8px)] sm:w-[100px] border-2 border-solid"
                         style={{ borderColor: isSelected ? '#FFFFFF' : '#1D2125', backgroundColor: '#22272B' }}
                         tabIndex={0}
-                        onClick={() => setSelectedPackImageId(variant.id)}
+                        onClick={() => setSelectedPackImageUrl(url)}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -531,7 +541,7 @@ export default function CreatePackPage() {
                           decoding="async"
                           style={{ position: 'absolute', height: '100%', width: '100%', left: 0, top: 0, right: 0, bottom: 0, color: 'transparent', objectFit: 'contain' }}
                           sizes="200px"
-                          src={`${variant.image}`}
+                          src={url}
                         />
                       </button>
                     );
@@ -555,7 +565,11 @@ export default function CreatePackPage() {
                       dropProbability: (probMap[it.id] ?? 1.0) / 100,
                     }));
                     const title = packName?.trim() || '未命名礼包';
-                    const image = `${selectedPackImage?.image}`;
+                    if (!selectedPackImageUrl) {
+                      show({ title: '请选择礼包图片', description: '请先在步骤 5 选择一张礼包图片。', variant: 'error' });
+                      return;
+                    }
+                    const image = selectedPackImageUrl;
                     const price = packPriceUsd;
                     const created = await api.createPack({ title, image, price, items: itemsWithProb as any });
                     await queryClient.invalidateQueries({ queryKey: ['packs'] });

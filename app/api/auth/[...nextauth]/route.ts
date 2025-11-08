@@ -40,14 +40,13 @@ providers.push(
   })
 );
 
-const handler = NextAuth({
+export const authOptions = {
   providers,
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV !== 'production',
   callbacks: {
-    async jwt({ token, user, profile }) {
-      // 首次登录时把必要字段放进 JWT
+    async jwt({ token, user, profile }: any) {
       if (user) {
         token.name = user.name;
         token.email = (user as any).email ?? token.email;
@@ -56,7 +55,7 @@ const handler = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (session.user) {
         session.user.name = token.name as string | undefined;
         session.user.email = token.email as string | undefined;
@@ -66,7 +65,9 @@ const handler = NextAuth({
       return session;
     },
   },
-});
+} as const;
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
 

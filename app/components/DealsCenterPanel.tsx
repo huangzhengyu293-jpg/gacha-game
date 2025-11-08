@@ -2,6 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Urbanist } from 'next/font/google';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { useSession } from 'next-auth/react';
 
 interface DealsCenterPanelProps {
   percent?: number;
@@ -12,6 +15,7 @@ interface DealsCenterPanelProps {
   onLockChange?: (locked: boolean) => void;
   spinPrice?: number;
   inactive?: boolean;
+  productId?: string | null;
   productImage?: string | null;
   productTitle?: string | null;
   productPrice?: number | null;
@@ -19,7 +23,7 @@ interface DealsCenterPanelProps {
 
 const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '600', '700', '800', '900'], display: 'swap' });
 
-export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
+export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dragging, setDragging] = useState<null | 'start' | 'end' | 'body' | 'percent'>(null);
   const [centerDeg, setCenterDeg] = useState<number>(90);
@@ -33,6 +37,17 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   const demoRafRef = useRef<number | null>(null);
   const demoActiveRef = useRef<boolean>(false);
   const [demoOutcome, setDemoOutcome] = useState<'win' | 'lose'>('win');
+  const queryClient = useQueryClient();
+  const { status } = useSession();
+  const isAuthed = status === 'authenticated';
+  const addToWarehouse = useMutation({
+    mutationFn: async (item: { productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }) => {
+      return api.addUserWarehouseItems([item]);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+    },
+  });
 
   const arc = useMemo(() => {
     const pRaw = Math.max(0, Math.min(80, percent));
@@ -173,8 +188,11 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
     const endDeg = arc.endDeg;
     const arcSpan = endDeg - startDeg;
     const margin = 3;
+    // 根据转盘概率自动判定结果：percent 是 1..80，概率=percent/100
+    const win = Math.random() * 100 < Math.max(0, Math.min(100, percent));
+    setDemoOutcome(win ? 'win' : 'lose');
     let targetDeg: number;
-    if (demoOutcome === 'win') {
+    if (win) {
       const min = startDeg + margin;
       const max = endDeg - margin;
       const pick = min + Math.random() * Math.max(1, (max - min));
@@ -205,11 +223,73 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         setDemoRunning(false);
         demoRafRef.current = null;
         onLockChange && onLockChange(false);
+        // 演示转动：不入库
       }
     };
     demoRafRef.current = requestAnimationFrame(step);
   }
 
+  // 实际转动：结束后若中奖则入库
+  function startRealSpin() {
+    if (demoRunning) return;
+    onLockChange && onLockChange(true);
+    setDemoVisible(true);
+    setDemoRunning(true);
+    demoActiveRef.current = true;
+    const start = performance.now();
+    const duration = 7000; // 7s
+    const startAngle = demoVisible ? demoAngle : -Math.PI / 2;
+    const startDeg = arc.startDeg;
+    const endDeg = arc.endDeg;
+    const arcSpan = endDeg - startDeg;
+    const margin = 3;
+    const win = Math.random() * 100 < Math.max(0, Math.min(100, percent));
+    setDemoOutcome(win ? 'win' : 'lose');
+    let targetDeg: number;
+    if (win) {
+      const min = startDeg + margin;
+      const max = endDeg - margin;
+      const pick = min + Math.random() * Math.max(1, (max - min));
+      targetDeg = pick;
+    } else {
+      const graySpan = 360 - arcSpan;
+      const pick = (endDeg + margin + Math.random() * Math.max(1, (graySpan - 2 * margin))) % 360;
+      targetDeg = pick;
+    }
+    const targetRad = degToRad(targetDeg);
+    const fullTurn = 2 * Math.PI;
+    const extraTurns = 3;
+    const deltaToTarget = cwDeltaRad(startAngle, targetRad);
+    const totalDelta = deltaToTarget + extraTurns * fullTurn;
+    const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+    const step = (t: number) => {
+      if (!demoActiveRef.current) return;
+      const elapsed = t - start;
+      const p = Math.min(Math.max(elapsed / duration, 0), 1);
+      const eased = easeOutCubic(p);
+      const ang = startAngle + eased * totalDelta;
+      setDemoAngle(ang);
+      if (p < 1) {
+        demoRafRef.current = requestAnimationFrame(step);
+      } else {
+        demoActiveRef.current = false;
+        setDemoRunning(false);
+        demoRafRef.current = null;
+        onLockChange && onLockChange(false);
+        if (win && !inactive && productTitle && (productImage || '') !== '' && (productPrice != null)) {
+          const pid = String(productId ?? productTitle);
+          addToWarehouse.mutate({
+            productId: pid,
+            name: productTitle,
+            image: String(productImage),
+            price: Number(productPrice || 0),
+            quantity: 1,
+          });
+        }
+      }
+    };
+    demoRafRef.current = requestAnimationFrame(step);
+  }
   useEffect(() => {
     return () => {
       if (demoRafRef.current != null) cancelAnimationFrame(demoRafRef.current);
@@ -535,16 +615,10 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       <div className="flex lg:hidden flex-col items-stretch w-full gap-2 mt-4">
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base select-none h-11 px-6"
-          style={{ backgroundColor: '#48BB78', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
-          disabled={uiLocked || demoRunning}
+          style={{ backgroundColor: '#48BB78', color: (uiLocked || demoRunning || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (uiLocked || demoRunning || !isAuthed) ? 'default' : 'pointer' }}
+          disabled={uiLocked || demoRunning || !isAuthed}
+          onClick={startRealSpin}
         >转动获取 {spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$')}</button>
-        {/* 单一切换按钮：中奖/未中奖 */}
-        <button
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-sm select-none h-9 px-4"
-          style={{ backgroundColor: '#34383C', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
-          disabled={uiLocked || demoRunning}
-          onClick={() => setDemoOutcome(demoOutcome === 'win' ? 'lose' : 'win')}
-        >{demoOutcome === 'win' ? '中奖' : '未中奖'}</button>
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6"
           style={{ backgroundColor: uiLocked || demoRunning ? '#34383C' : '#2A2D35', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
@@ -566,15 +640,10 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       <div className="hidden lg:flex lg:flex-row lg:items-center gap-2 w-full pt-4">
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6 w-full"
-          style={{ backgroundColor: '#48BB78', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
-          disabled={uiLocked || demoRunning}
+          style={{ backgroundColor: '#48BB78', color: (uiLocked || demoRunning || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (uiLocked || demoRunning || !isAuthed) ? 'default' : 'pointer' }}
+          disabled={uiLocked || demoRunning || !isAuthed}
+          onClick={startRealSpin}
         >转动获取 {spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$')}</button>
-        <button
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-sm font-bold select-none h-9 px-4"
-          style={{ backgroundColor: '#34383C', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
-          disabled={uiLocked || demoRunning}
-          onClick={() => setDemoOutcome(demoOutcome === 'win' ? 'lose' : 'win')}
-        >{demoOutcome === 'win' ? '中奖' : '未中奖'}</button>
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6"
           style={{ backgroundColor: uiLocked || demoRunning ? '#34383C' : '#2A2D35', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}

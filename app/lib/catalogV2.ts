@@ -1003,57 +1003,14 @@ function buildCatalogPacksFromLegacy(): CatalogPack[] {
 // 每个 CatalogPack 自带 items，不再需要额外的 packId->items 映射
 
 // 便捷映射：packId -> CatalogPack
-export const catalogPackMap: Record<string, CatalogPack> = {};
-for (const pack of buildCatalogPacksFromLegacy()) {
-    catalogPackMap[pack.id] = pack;
-}
+// 旧版 map 已不再对外使用
 
 // 允许在运行时追加“用户创建的礼包”并在全局聚合使用
 // 运行时创建的新礼包直接写入 packs（与源码结构一致）
 
-export function addUserPack(params: { title: string; image: string; price: number; items: CatalogItem[]; id?: string }): CatalogPack {
-    const id = params.id ?? `user_pack_${Date.now()}`;
-    // 写入 packs（LegacyPack 形态，items 用原始字段结构）
-    const legacyItems = params.items.map(it => ({
-        id: it.id,
-        name: it.name,
-        description: it.description,
-        image: it.image,
-        price: it.price,
-        probability: it.dropProbability, // 小数或百分比由 getGlowColorFromProbability 兼容
-        backlightColor: getGlowColorFromProbability(it.dropProbability),
-    }));
-    const legacyPack: LegacyPack = {
-        id,
-        title: params.title,
-        image: params.image,
-        price: params.price,
-        itemCount: legacyItems.length,
-        items: legacyItems,
-    };
-    (packs as LegacyPack[]).push(legacyPack);
-    // 返回最新的 CatalogPack 视图
-    const added: CatalogPack = {
-        id,
-        title: params.title,
-        image: params.image,
-        price: params.price,
-        itemCount: legacyItems.length,
-        items: legacyItems.map(toCatalogItemFromPackItem),
-    };
-    return added;
-}
+// 运行时追加本地包的旧逻辑已废弃，改为通过后端 API 创建礼包
 
-export function getAllCatalogPacks(): CatalogPack[] {
-    return buildCatalogPacksFromLegacy();
-}
-
-export function getAllCatalogPackMap(): Record<string, CatalogPack> {
-    const list = getAllCatalogPacks();
-    const map: Record<string, CatalogPack> = {};
-    for (const p of list) map[p.id] = p;
-    return map;
-}
+// 旧聚合方法已废弃，前端通过 API 获取 packs 数据
 
 // 品质 id -> 颜色 的映射
 export const qualityIdToColor: Record<string, string> = qualities.reduce((acc, q) => {
@@ -1062,24 +1019,7 @@ export const qualityIdToColor: Record<string, string> = qualities.reduce((acc, q
 }, {} as Record<string, string>);
 
 // 卡包封面图片版本（从提供的 HTML 列表抽取 1~40）
-export interface PackImageVariant {
-    id: string; // 例如 "version1"
-    image: string; // 远程原图地址
-}
-
-const PACK_IMAGE_BASE =
-    "https://ik.imagekit.io/hr727kunx/community_packs/version";
-
-export const packImageVariants: PackImageVariant[] = Array.from(
-    { length: 40 },
-    (_, i) => {
-        const n = i + 1;
-        return {
-            id: `version${n}`,
-            image: `${PACK_IMAGE_BASE}${n}.png`,
-        };
-    }
-);
+// 旧版封面图片版本数据由数据库 packbg 提供，这里移除本地常量
 
 // 根据掉落概率（支持 0-1 或 0-100）返回光晕颜色
 export function getGlowColorFromProbability(probability: number | undefined): string {

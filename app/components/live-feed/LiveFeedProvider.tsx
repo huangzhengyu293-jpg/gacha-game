@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getAllCatalogPacks, getGlowColorFromProbability } from "../../lib/catalogV2";
+import { getGlowColorFromProbability } from "../../lib/catalogV2";
 
 let PACKS_CACHE: any[] = [];
 
@@ -130,7 +130,7 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
     };
   }, [intervalMs, tick]);
 
-  // 首次拉取 packs（JSON 优先，失败回退本地）
+  // 首次拉取 packs（从后端取；失败则置空）
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -140,13 +140,22 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
         const data = await res.json();
         if (!aborted && Array.isArray(data)) {
           PACKS_CACHE = data;
+          // 初次拿到 packs 后，立即用真实数据生成一屏种子，避免刷新时出现空色块
+          const seedList: FeedItem[] = [];
+          for (let i = 0; i < Math.max(visibleCount, 9); i++) {
+            const base = makeMockItem();
+            // 预加载每个条目的图片，保证首屏有图
+            await preloadItemImages(base);
+            seedList.push({ id: `seed-${i}-${Date.now()}`, ...base });
+          }
+          setItems(seedList.slice(0, visibleCount));
         }
       } catch {
-        PACKS_CACHE = getAllCatalogPacks();
+        PACKS_CACHE = [];
       }
     })();
     return () => { aborted = true; };
-  }, []);
+  }, [visibleCount]);
   // WebSocket 预留：开启后端实时推送
   useEffect(() => {
     if (!socketEnabled || !socketUrl) return;
@@ -248,18 +257,25 @@ function LiveFeedFinishBridge({ onFinish }: { onFinish: () => void }) {
 
 // --- Mock helpers (与现有数据一致) ---
 function initialSeed(visibleCount: number): FeedItem[] {
-  const seed: FeedItem[] = [];
-  const n = Math.max(visibleCount, 9);
-  for (let i = 0; i < n; i++) {
-    const base = makeMockItem();
-    seed.push({ id: `seed-${i}-${Date.now()}`, ...base });
-  }
-  return seed;
+  // 刷新首屏时先不生成空图片项，等 packs 拉取后再注入真实种子
+  return [];
 }
 
 function makeMockItem(): Omit<FeedItem, "id"> {
   // 随机选择一个卡包及其中一个商品
-  const packs = (PACKS_CACHE && PACKS_CACHE.length ? PACKS_CACHE : getAllCatalogPacks());
+  const packs = (PACKS_CACHE && PACKS_CACHE.length ? PACKS_CACHE : []);
+  if (!packs.length) {
+    return {
+      href: `/packs`,
+      avatarUrl:
+        "https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max",
+      productImageUrl: "",
+      packImageUrl: "",
+      title: "",
+      priceLabel: `$0.00`,
+      glowColor: undefined,
+    };
+  }
   const pack = packs[Math.floor(Math.random() * Math.max(1, packs.length))];
   const items = (pack?.items || []) as any[];
   const product = items[Math.floor(Math.random() * Math.max(1, items.length))];

@@ -71,6 +71,7 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             onLockChange={(locked: boolean) => setUiLocked(locked)}
             spinPrice={spinPrice}
             inactive={inactive}
+            productId={selectedProduct?.id || null}
             productImage={selectedProduct?.image || null}
             productTitle={selectedProduct?.name || null}
             productPrice={selectedProduct?.price ?? null}

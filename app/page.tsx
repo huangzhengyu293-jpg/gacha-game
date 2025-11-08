@@ -12,7 +12,7 @@ import LiveFeedTicker from './components/LiveFeedTicker';
 import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
-import { getAllCatalogPacks, getGlowColorFromProbability } from './lib/catalogV2';
+import { getGlowColorFromProbability } from './lib/catalogV2';
 
 export default function Home() {
   const { t } = useI18n();
@@ -32,7 +32,7 @@ export default function Home() {
       const product = items[Math.floor(Math.random() * items.length)];
       return { product, pack };
     }).filter(Boolean) as Array<{ product: any; pack: typeof packs[number] }>;
-  }, []);
+  }, [packs]);
   return (
     <div className="flex flex-col min-h-screen" >
       <div className="flex-1 min-h-screen pt-0">

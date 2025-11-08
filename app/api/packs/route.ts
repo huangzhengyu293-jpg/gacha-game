@@ -1,171 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'node:path';
-import fs from 'node:fs';
-import { getAllCatalogPacks, getGlowColorFromProbability, qualities } from '@/app/lib/catalogV2';
+import { getDb } from '@/app/lib/mongodb';
 
-type LegacyItem = {
-  id: string;
-  name: string;
-  description?: string;
-  image: string;
-  price: number;
-  probability: number; // 0-1 或 0-100 皆可
-  backlightColor: string;
-};
-
-type LegacyPack = {
-  id: string;
-  title: string;
-  image: string;
-  price: number;
-  itemCount: number;
-  items: LegacyItem[];
-};
-
-function getUserStorePath() {
-  if (process.env.VERCEL) return '/tmp/user_packs.json';
-  const p = path.join(process.cwd(), '.data');
-  try { fs.mkdirSync(p, { recursive: true }); } catch {}
-  return path.join(p, 'user_packs.json');
-}
-
-function getBaseStorePath() {
-  if (process.env.VERCEL) return '/tmp/base_packs.json';
-  const p = path.join(process.cwd(), '.data');
-  try { fs.mkdirSync(p, { recursive: true }); } catch {}
-  return path.join(p, 'base_packs.json');
-}
-
-function readUserPacks(): LegacyPack[] {
-  const file = getUserStorePath();
-  try {
-    if (!fs.existsSync(file)) return [];
-    const raw = fs.readFileSync(file, 'utf8');
-    const data = JSON.parse(raw);
-    if (Array.isArray(data)) return data as LegacyPack[];
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function writeUserPacks(packs: LegacyPack[]) {
-  const file = getUserStorePath();
-  try {
-    fs.writeFileSync(file, JSON.stringify(packs, null, 2), 'utf8');
-  } catch {}
-}
-
-function readBasePacks(): LegacyPack[] {
-  const file = getBaseStorePath();
-  try {
-    if (!fs.existsSync(file)) return [];
-    const raw = fs.readFileSync(file, 'utf8');
-    const data = JSON.parse(raw);
-    if (Array.isArray(data)) return data as LegacyPack[];
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function writeBasePacks(packs: LegacyPack[]) {
-  const file = getBaseStorePath();
-  try {
-    fs.writeFileSync(file, JSON.stringify(packs, null, 2), 'utf8');
-  } catch {}
-}
-
-const colorToQualityId: Record<string, string> = Object.fromEntries(
-  qualities.map(q => [q.color, q.id])
-);
-
-function legacyItemFromCatalogLike(item: {
+type PackItemDoc = {
   id: string;
   name: string;
   description?: string;
   image: string;
   price: number;
   dropProbability: number;
-}): LegacyItem {
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    image: item.image,
-    price: item.price,
-    probability: item.dropProbability,
-    backlightColor: getGlowColorFromProbability(item.dropProbability),
-  };
-}
+  qualityId?: string;
+};
 
-function toCatalogItem(item: LegacyItem) {
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    image: item.image,
-    price: item.price,
-    dropProbability: item.probability,
-    qualityId: colorToQualityId[item.backlightColor] ?? 'common',
-  };
-}
+type PackDoc = {
+  _id?: any;
+  id: string;
+  title: string;
+  image: string;
+  price: number;
+  items: PackItemDoc[];
+  createdAt: Date;
+  updatedAt?: Date;
+};
 
-function toCatalogPack(p: LegacyPack) {
+function toResponsePack(doc: PackDoc) {
   return {
-    id: p.id,
-    title: p.title,
-    image: p.image,
-    price: p.price,
-    itemCount: p.itemCount,
-    items: (p.items || []).map(toCatalogItem),
+    id: doc.id,
+    title: doc.title,
+    image: doc.image,
+    price: doc.price,
+    itemCount: (doc.items || []).length,
+    items: (doc.items || []).map(it => ({
+      id: it.id,
+      name: it.name,
+      description: it.description,
+      image: it.image,
+      price: it.price,
+      dropProbability: it.dropProbability,
+      qualityId: it.qualityId,
+    })),
   };
 }
 
 export async function GET() {
-  // 读取基础数据（JSON 优先；若缺失则从 TS 构造一次并落盘）
-  let baseLegacy = readBasePacks();
-  if (!baseLegacy.length) {
-    const fromTs = getAllCatalogPacks();
-    baseLegacy = fromTs.map(p => ({
-      id: p.id,
-      title: p.title,
-      image: p.image,
-      price: p.price,
-      itemCount: p.itemCount,
-      items: (p.items || []).map(it => ({
-        id: it.id,
-        name: it.name,
-        description: it.description,
-        image: it.image,
-        price: it.price,
-        probability: it.dropProbability,
-        backlightColor: getGlowColorFromProbability(it.dropProbability),
-      })),
-    }));
-  }
-  // 兼容迁移：若 user_packs.json 存在，则与 base 合并后写回 base，并优先后者覆盖同 id
-  const legacyUser = readUserPacks();
-  if (legacyUser.length) {
-    // 以 baseLegacy 为基础，存在同 id 则就地更新；不存在的用户礼包插入到列表头部，确保“新建在最前”
-    const byId = new Map<string, number>();
-    baseLegacy.forEach((p, idx) => byId.set(p.id, idx));
-    const prepend: LegacyPack[] = [];
-    for (const u of legacyUser) {
-      if (byId.has(u.id)) {
-        baseLegacy[byId.get(u.id)!] = u;
-      } else {
-        prepend.push(u);
-      }
+  const db = await getDb();
+  const col = db.collection<PackDoc>('packs');
+  const list = await col.find({}).sort({ createdAt: -1 }).toArray();
+
+  // 读取最新的 products 数据并与 pack.items 按 id 对齐，确保手动更新 products 后列表能立刻反映
+  const productIds = new Set<string>();
+  for (const p of list) {
+    for (const it of (p.items || [])) {
+      if (it?.id) productIds.add(it.id);
     }
-    baseLegacy = [...prepend, ...baseLegacy];
-    writeBasePacks(baseLegacy);
-  } else {
-    // 确保 base 文件存在
-    writeBasePacks(baseLegacy);
   }
-  const base = baseLegacy.map(toCatalogPack);
-  return NextResponse.json(base);
+  let productMap: Map<string, PackItemDoc> = new Map();
+  if (productIds.size) {
+    const prodCol = db.collection<any>('products');
+    const products = await prodCol.find({ id: { $in: Array.from(productIds) } }).toArray();
+    productMap = new Map(products.map((x: any) => [x.id, {
+      id: x.id,
+      name: x.name,
+      description: x.description,
+      image: x.image,
+      price: Number(x.price),
+      dropProbability: Number(x.dropProbability ?? x.probability ?? 0),
+      qualityId: x.qualityId,
+    } as PackItemDoc]));
+  }
+  const merged = list.map((p) => ({
+    ...p,
+    items: (p.items || []).map((it) => productMap.get(it.id) ?? it),
+  }));
+
+  return NextResponse.json(merged.map(toResponsePack), {
+    headers: { 'x-data-source': 'mongo', 'Cache-Control': 'no-store' },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -175,29 +84,31 @@ export async function POST(req: NextRequest) {
     if (!title || !image || typeof price !== 'number' || !Array.isArray(items)) {
       return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
     }
-    const legacyItems: LegacyItem[] = items.map((it: any) => legacyItemFromCatalogLike({
+    const packId = id || `user_pack_${Date.now()}`;
+    const now = new Date();
+    const normalizedItems: PackItemDoc[] = items.map((it: any) => ({
       id: it.id || `item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      name: it.name,
+      name: String(it.name),
       description: it.description,
-      image: it.image,
+      image: String(it.image),
       price: Number(it.price),
       dropProbability: Number(it.dropProbability ?? it.probability ?? 0),
+      qualityId: it.qualityId,
     }));
-    const packId = id || `user_pack_${Date.now()}`;
-    const legacyPack: LegacyPack = {
+    const doc: PackDoc = {
       id: packId,
       title: String(title),
       image: String(image),
       price: Number(price),
-      itemCount: legacyItems.length,
-      items: legacyItems,
+      items: normalizedItems,
+      createdAt: now,
+      updatedAt: now,
     };
-    const current = readBasePacks();
-    // 新建直接插入到数组第一个；若同 id 已存在则更新并移到首位
-    const filtered = current.filter(p => p.id !== legacyPack.id);
-    const merged = [legacyPack, ...filtered];
-    writeBasePacks(merged);
-    return NextResponse.json(toCatalogPack(legacyPack), { status: 201 });
+    const db = await getDb();
+    const col = db.collection<PackDoc>('packs');
+    await col.deleteOne({ id: packId });
+    await col.insertOne(doc);
+    return NextResponse.json(toResponsePack(doc), { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: 'server_error' }, { status: 500 });
   }

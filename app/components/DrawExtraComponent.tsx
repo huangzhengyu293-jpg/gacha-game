@@ -1,5 +1,8 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { useSession } from 'next-auth/react';
 
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -38,7 +41,7 @@ const ROUND_PRICES: number[] = [
 
 // 参考产品从后端 /api/products 读取
 function useSourceProducts() {
-  const [items, setItems] = React.useState<Array<{ name: string; image: string; price: number }>>([]);
+  const [items, setItems] = React.useState<Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>>([]);
   React.useEffect(() => {
     let aborted = false;
     (async () => {
@@ -47,7 +50,7 @@ function useSourceProducts() {
         if (!res.ok) throw new Error('fail');
         const data = await res.json();
         if (!aborted && Array.isArray(data)) {
-          setItems(data.map((p: any) => ({ name: p.name, image: p.image, price: p.price })));
+          setItems(data.map((p: any) => ({ id: p.id, name: p.name, image: p.image, price: p.price, qualityId: p.qualityId })));
         }
       } catch {
         setItems([]);
@@ -58,11 +61,11 @@ function useSourceProducts() {
   return items;
 }
 
-function getRoundProductFactory(source: Array<{ name: string; image: string; price: number }>) {
+function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>) {
   return (roundIdx: number) => {
     const list = source && source.length ? source : [{ name: '占位', image: '', price: 0 }];
-    const p = list[roundIdx % list.length];
-    return p;
+    const p = list[roundIdx % list.length] as any;
+  return p;
   };
 }
 
@@ -71,8 +74,19 @@ function formatCurrency(num: number) {
 }
 
 export default function DrawExtraComponent() {
+  const { status } = useSession();
+  const isAuthed = status === 'authenticated';
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
+  const queryClient = useQueryClient();
+  const collectMutation = useMutation({
+    mutationFn: async (items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
+      return api.collectLotteryItems(items as any);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+    },
+  });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hoverCycleStep, setHoverCycleStep] = useState<number>(0); // 行索引
   const hoverTimerRef = useRef<number | null>(null);
@@ -753,8 +767,9 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#48BB78', color: '#FFFFFF', cursor: isFlipping ? 'default' : 'pointer', opacity: isFlipping ? 0.9 : 1 }}
+                style={{ backgroundColor: '#48BB78', color: (isFlipping || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (isFlipping || !isAuthed) ? 'default' : 'pointer', opacity: isFlipping ? 0.9 : 1 }}
                 onClick={startGame}
+                disabled={isFlipping || !isAuthed}
               >开始游戏 ${formatCurrency(parsedAmount)}</button>
             </div>
           </div>
@@ -788,9 +803,42 @@ export default function DrawExtraComponent() {
                   '抽奖'
                 )}
               </button>
-              <button type="button" className="h-14 px-8 text-base font-bold rounded-md" style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}>
-                全部领取 ${formatCurrency(calculateTotalPrize())}
+              <button
+                type="button"
+                className="h-14 px-8 text-base font-bold rounded-md"
+                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: collectMutation.isPending ? 'default' : 'pointer', opacity: collectMutation.isPending ? 0.9 : 1 }}
+                disabled={collectMutation.isPending}
+                onClick={() => {
+                  if (collectMutation.isPending) return;
+                  const items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }> = [];
+                  for (let i = 0; i < 9; i++) {
+                    if (cardWonRound[i] >= 0) {
+                      const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
+                      if (currentRound !== null && Number.isFinite(currentRound as any)) {
+                        const prod = getRoundProduct(currentRound as number) as any;
+                        if (prod && (prod.id || prod.name)) {
+                          items.push({
+                            productId: String(prod.id ?? `${prod.name}-${currentRound}`),
+                            name: String(prod.name ?? ''),
+                            image: String(prod.image ?? ''),
+                            price: Number(prod.price ?? 0),
+                            qualityId: prod.qualityId,
+                            quantity: 1,
+                          });
+                        }
+                      }
+                    }
+                  }
+                  if (items.length > 0) {
+                    collectMutation.mutate(items);
+                  }
+                }}
+              >
+                {collectMutation.isPending ? '领取中…' : `全部领取 $${formatCurrency(calculateTotalPrize())}`}
               </button>
+              <div className="hidden">
+                {/* 逻辑挂载位置保持简洁：点击上方按钮时收集中奖卡片并写入仓库 */}
+              </div>
             </div>
           </div>
         </div>
