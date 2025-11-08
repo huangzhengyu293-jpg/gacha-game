@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useI18n } from '../components/I18nProvider';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -95,7 +95,9 @@ export default function PacksPage() {
           </div>
         </div>
       </div>
-      <RouteToast />
+      <Suspense>
+        <RouteToast />
+      </Suspense>
     </div>
   );
 }
