@@ -39,18 +39,20 @@ function writeBaseProducts(items: CatalogItem[]) {
   } catch {}
 }
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const list = readBaseProducts();
-  const found = list.find(p => p.id === params.id);
+  const { id } = await context.params;
+  const found = list.find(p => p.id === id);
   if (!found) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(found);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const patch = await req.json();
     const list = readBaseProducts();
-    const idx = list.findIndex(p => p.id === params.id);
+    const { id } = await context.params;
+    const idx = list.findIndex(p => p.id === id);
     if (idx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     const prev = list[idx];
     const next: CatalogItem = {
@@ -68,9 +70,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const list = readBaseProducts();
-  const idx = list.findIndex(p => p.id === params.id);
+  const { id } = await context.params;
+  const idx = list.findIndex(p => p.id === id);
   if (idx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   list.splice(idx, 1);
   writeBaseProducts(list);

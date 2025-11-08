@@ -49,18 +49,20 @@ function writeBasePacks(packs: LegacyPack[]) {
   } catch {}
 }
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const list = readBasePacks();
-  const found = list.find(p => p.id === params.id);
+  const found = list.find(p => p.id === id);
   if (!found) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(found);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const patch = await req.json();
     const list = readBasePacks();
-    const idx = list.findIndex(p => p.id === params.id);
+    const { id } = await context.params;
+    const idx = list.findIndex(p => p.id === id);
     if (idx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     const prev = list[idx];
     const next: LegacyPack = {
@@ -89,9 +91,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const list = readBasePacks();
-  const idx = list.findIndex(p => p.id === params.id);
+  const { id } = await context.params;
+  const idx = list.findIndex(p => p.id === id);
   if (idx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   list.splice(idx, 1);
   writeBasePacks(list);
