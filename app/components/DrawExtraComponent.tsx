@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useSession } from 'next-auth/react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -83,8 +84,43 @@ export default function DrawExtraComponent() {
     mutationFn: async (items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
       return api.collectLotteryItems(items as any);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data: unknown, variables: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
       await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+      try {
+        const items = Array.isArray(variables) ? variables : [];
+        const mapped = items.map((it: any) => ({
+          name: String(it?.name ?? ''),
+          image: String(it?.image ?? ''),
+          price: Number(it?.price ?? 0),
+        }));
+        setCollectOverlayItems(mapped);
+        setOverlayArm(false);
+        setCollectOverlayOpen(true);
+        // 重置逐个展示计数并启动序列显示
+        setRevealedCount(0);
+        if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
+        const stepMs = 380; // 每个卡片的间隔
+        const startAfter = 180; // 列表开始前的微小延迟
+        let i = 0;
+        const run = () => {
+          i += 1;
+          setRevealedCount(i);
+          if (i < mapped.length) {
+            revealTimerRef.current = window.setTimeout(run, stepMs);
+          } else {
+            revealTimerRef.current = null;
+          }
+        };
+        revealTimerRef.current = window.setTimeout(run, startAfter);
+        if (collectOverlayTimerRef.current) window.clearTimeout(collectOverlayTimerRef.current);
+        const closeDelay = Math.max(3000, 1200 + mapped.length * stepMs + 600);
+        collectOverlayTimerRef.current = window.setTimeout(() => {
+          setCollectOverlayOpen(false);
+          collectOverlayTimerRef.current = null;
+        }, closeDelay);
+      } catch {
+        // ignore overlay errors
+      }
     },
   });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -120,10 +156,25 @@ export default function DrawExtraComponent() {
   // 每一面对应的高亮颜色索引（与倍数颜色绑定），仅在该面内容设置时记录，翻到该面时才生效
   const [faceGlowIdxFront, setFaceGlowIdxFront] = useState<(number | null)[]>(Array(9).fill(null));
   const [faceGlowIdxBack, setFaceGlowIdxBack] = useState<(number | null)[]>(Array(9).fill(null));
+  // 选择的中奖卡（锁定，不再参与后续抽奖）；是否允许选择（首轮不允许选）
+  const [selectedLocked, setSelectedLocked] = useState<boolean[]>(Array(9).fill(false));
+  const [canSelect, setCanSelect] = useState<boolean>(false);
+  // "全选自动弹出展示层"的一次性开关，避免关闭后立刻再次打开
+  const [overlayArm, setOverlayArm] = useState<boolean>(false);
+
   // 复位到初始时关闭翻牌过渡，避免出现"多翻一次"的视觉
   const [suppressFlipTransition, setSuppressFlipTransition] = useState<boolean>(false);
   // 每张背面卡片的hover状态
   const [backCardHovered, setBackCardHovered] = useState<boolean[]>(Array(9).fill(false));
+  // 领取成功展示层（显示 3 秒自动关闭）
+  const [collectOverlayOpen, setCollectOverlayOpen] = useState<boolean>(false);
+  const [collectOverlayItems, setCollectOverlayItems] = useState<Array<{ name: string; image: string; price: number }>>([]);
+  const collectOverlayTimerRef = useRef<number | null>(null);
+  const revealTimerRef = useRef<number | null>(null);
+  const [revealedCount, setRevealedCount] = useState<number>(0);
+  // 每一面的锁定样式覆盖：true=强制选中样式，false=强制未选中样式，null=按 selectedLocked
+  const [faceLockOverrideFront, setFaceLockOverrideFront] = useState<(boolean | null)[]>(Array(9).fill(null));
+  const [faceLockOverrideBack, setFaceLockOverrideBack] = useState<(boolean | null)[]>(Array(9).fill(null));
 
   function hexToRgba(hex: string, alpha: number) {
     const h = hex.replace('#', '');
@@ -247,6 +298,108 @@ export default function DrawExtraComponent() {
     }
   }, [showGuide, showFair]);
 
+  useEffect(() => {
+    return () => {
+      if (collectOverlayTimerRef.current) {
+        window.clearTimeout(collectOverlayTimerRef.current);
+        collectOverlayTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 展示层开启时锁定页面滚动
+  useEffect(() => {
+    if (collectOverlayOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [collectOverlayOpen]);
+
+  // canSelect 打开时允许自动弹出；关闭时解除"武装"
+  useEffect(() => {
+    setOverlayArm(!!canSelect);
+  }, [canSelect]);
+
+  // 全选（所有存活中奖卡都锁定）后自动弹出展示层（仅当 overlayArm 为 true 时）
+  useEffect(() => {
+    if (!canSelect || collectOverlayOpen || !overlayArm) return;
+    let hasAlive = false;
+    for (let i = 0; i < 9; i++) {
+      if (cardWonRound[i] >= 0) { hasAlive = true; break; }
+    }
+    if (!hasAlive) return;
+    const allSelected = Array.from({ length: 9 }).every((_, i) => {
+      if (cardWonRound[i] >= 0) return selectedLocked[i] === true;
+      return true;
+    });
+    if (allSelected) {
+      const items: Array<{ name: string; image: string; price: number }> = [];
+      for (let i = 0; i < 9; i++) {
+        if (cardWonRound[i] >= 0) {
+          const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
+          if (currentRound !== null) {
+            const prod = getRoundProduct(currentRound as number) as any;
+            items.push({ name: String(prod?.name ?? ''), image: String(prod?.image ?? ''), price: Number(prod?.price ?? 0) });
+          }
+        }
+      }
+      setCollectOverlayItems(items);
+      setOverlayArm(false);
+      setCollectOverlayOpen(true);
+    }
+  }, [canSelect, selectedLocked, cardWonRound, cardBack, frontRound, backRound, collectOverlayOpen, getRoundProduct, overlayArm]);
+
+  // 展示层动画 variants（Framer Motion）
+  const overlayContainerVariants = {
+    hidden: { opacity: 1 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2, delayChildren: 0.05 },
+    },
+    exit: { opacity: 1 },
+  };
+  const crownVariants = {
+    hidden: { y: -24, scale: 0.85, opacity: 0 },
+    show: { y: 0, scale: 1, opacity: 1, transition: { stiffness: 320, damping: 22 } },
+    exit: { y: -12, opacity: 0, transition: { duration: 0.2 } },
+  };
+  const titleVariants = {
+    hidden: { y: -10, scale: 0.96, opacity: 0 },
+    show: { y: 0, scale: 1, opacity: 1, transition: { stiffness: 300, damping: 24 } },
+    exit: { y: -6, opacity: 0, transition: { duration: 0.2 } },
+  };
+  const listWrapperVariants = {
+    hidden: { opacity: 0, y: -6 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.18 } },
+    exit: { opacity: 0, y: -4, transition: { duration: 0.18 } },
+  };
+  const listVariants = {
+    hidden: { opacity: 1 },
+    show: {
+      opacity: 1,
+      transition: { when: 'beforeChildren', staggerChildren: 0.08, delayChildren: 0.08 },
+    },
+    exit: { opacity: 1 },
+  };
+  const cardVariants = {
+    hidden: { y: -14, scale: 0.9, opacity: 0 },
+    show: { y: 0, scale: 1, opacity: 1, transition: { stiffness: 420, damping: 26 } },
+    exit: { y: -8, scale: 0.98, opacity: 0, transition: { duration: 0.18 } },
+  };
+  const xpVariants = {
+    hidden: { y: -8, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { stiffness: 280, damping: 24 } },
+    exit: { y: -6, opacity: 0, transition: { duration: 0.18 } },
+  };
+  const buttonVariants = {
+    hidden: { y: -6, scale: 0.96, opacity: 0 },
+    show: { y: 0, scale: 1, opacity: 1, transition: { stiffness: 280, damping: 22 } },
+    exit: { y: -4, opacity: 0, transition: { duration: 0.18 } },
+  };
+
   // 模拟获取公平性数据
   useEffect(() => {
     if (showFair) {
@@ -296,7 +449,7 @@ export default function DrawExtraComponent() {
 
   // 处理卡片hover的通用函数
   const handleCardMouseEnter = (idx: number) => {
-    if (cardWonRound[idx] >= 0) {
+    if (cardWonRound[idx] >= 0 && !selectedLocked[idx]) {
       const newHovered = [...backCardHovered];
       newHovered[idx] = true;
       setBackCardHovered(newHovered);
@@ -304,14 +457,45 @@ export default function DrawExtraComponent() {
   };
 
   const handleCardMouseLeave = (idx: number) => {
-    if (cardWonRound[idx] >= 0) {
+    if (cardWonRound[idx] >= 0 && !selectedLocked[idx]) {
       const newHovered = [...backCardHovered];
       newHovered[idx] = false;
       setBackCardHovered(newHovered);
     }
   };
 
+  // 点击锁定当前显示为商品的一张卡：再翻一次（来回翻），并移除高亮与 hover 行为
+  const handleLockWinningCard = (idx: number) => {
+    if (!canSelect || selectedLocked[idx]) return;
+    const visibleRound = cardBack[idx] ? backRound[idx] : frontRound[idx];
+    if (visibleRound === null) return;
+    const newLocked = selectedLocked.slice();
+    newLocked[idx] = true;
+    // 两面都记录为当前显示轮次，以便再翻一次也显示同一商品
+    const newFrontRound = frontRound.slice();
+    const newBackRound = backRound.slice();
+    newFrontRound[idx] = visibleRound;
+    newBackRound[idx] = visibleRound;
+    // 选中后保留该卡对应倍数的基础背光颜色（仅取消 hover 增强）
+    const visibleGlowIdx = cardBack[idx] ? faceGlowIdxBack[idx] : faceGlowIdxFront[idx];
+    const newFaceGlowFront = faceGlowIdxFront.slice(); newFaceGlowFront[idx] = visibleGlowIdx ?? null;
+    const newFaceGlowBack = faceGlowIdxBack.slice(); newFaceGlowBack[idx] = visibleGlowIdx ?? null;
+    const newBack = cardBack.slice(); newBack[idx] = !newBack[idx];
+    setSelectedLocked(newLocked);
+    setFrontRound(newFrontRound);
+    setBackRound(newBackRound);
+    setFaceGlowIdxFront(newFaceGlowFront);
+    setFaceGlowIdxBack(newFaceGlowBack);
+    setCardBack(newBack);
+  };
+
   const startGame = () => {
+    if (isFlipping) return;
+    // 若还有未清理的展示层关闭定时器，先清掉，避免面板被回切
+    if (collectOverlayTimerRef.current) {
+      window.clearTimeout(collectOverlayTimerRef.current);
+      collectOverlayTimerRef.current = null;
+    }
     // 先固定容器高度，立即切换按钮面板
     const h = setupPanelRef.current?.offsetHeight;
     if (h && h > 0) {
@@ -321,25 +505,72 @@ export default function DrawExtraComponent() {
     setShowActions(true);
     // 切换到动作面板时立即设置目标高度，固定为 128
     setContainerH(128);
-    // 若首次点击，同时触发同步翻牌（与面板替换并行）
-    if (!hasFlipped && !isFlipping) {
-      if (activeMultiplierIdx === null) setActiveMultiplierIdx(0);
+
+    // 每次点击"开始游戏"，都视为第一次：重置倍数到 x1，直接翻到第 1 轮商品
       setIsFlipping(true);
-      // 第一轮：生存率 100%，全部中奖
+    // 新一轮开始即清除选中样式，避免等翻完才变化
+    setSelectedLocked(Array(9).fill(false));
+    setCanSelect(false);
+    setActiveMultiplierIdx(0);
+    setHasFlipped(false);
+    // 第一轮：生存率 100%，全部中奖，商品放在背面
       setRoundIndex(0);
       setCardWonRound(Array(9).fill(0));
-      setFrontRound(Array(9).fill(null));
-      setBackRound(Array(9).fill(0));
-      // 记录本轮（背面）对应的高亮颜色索引（x1 -> 0）
-      setFaceGlowIdxBack(Array(9).fill(0));
-      setTimeout(() => {
-        setCardBack(Array(9).fill(true));
-      }, 10);
-      setTimeout(() => {
-        setHasFlipped(true);
-        setIsFlipping(false);
-      }, 650);
+    // 直接基于当前朝向，准备目标面为第1轮商品，然后执行一次翻牌（不复位初始面）
+    const toggled = cardBack.map((v) => !v);
+    // 克隆当前两面的内容与背光索引，避免在翻转前改变"当前可见面"的内容
+    const nextFrontRound = frontRound.slice();
+    const nextBackRound = backRound.slice();
+    const nextFaceGlowFront = faceGlowIdxFront.slice();
+    const nextFaceGlowBack = faceGlowIdxBack.slice();
+    for (let i = 0; i < 9; i++) {
+      if (toggled[i]) {
+        // 翻转后显示背面：把第1轮商品放到背面（不改当前可见面）
+        nextBackRound[i] = 0;
+        nextFaceGlowBack[i] = 0;
+      } else {
+        // 翻转后显示正面：把第1轮商品放到正面（不改当前可见面）
+        nextFrontRound[i] = 0;
+        nextFaceGlowFront[i] = 0;
+      }
     }
+    setFrontRound(nextFrontRound);
+    setBackRound(nextBackRound);
+    setFaceGlowIdxFront(nextFaceGlowFront);
+    setFaceGlowIdxBack(nextFaceGlowBack);
+    setTimeout(() => {
+      setCardBack(toggled);
+    }, 10);
+    // 在翻牌期间：当前可见面保持选中样式，目标面强制未选中样式，避免样式跳变
+    const nextFrontLockOverride = Array(9).fill(null) as (boolean | null)[];
+    const nextBackLockOverride = Array(9).fill(null) as (boolean | null)[];
+    for (let i = 0; i < 9; i++) {
+      if (selectedLocked[i]) {
+        if (cardBack[i]) {
+          // 当前在背面显示 → 背面保持选中，正面强制未选中
+          nextBackLockOverride[i] = true;
+          nextFrontLockOverride[i] = false;
+        } else {
+          // 当前在正面显示 → 正面保持选中，背面强制未选中
+          nextFrontLockOverride[i] = true;
+          nextBackLockOverride[i] = false;
+        }
+      }
+    }
+    setFaceLockOverrideFront(nextFrontLockOverride);
+    setFaceLockOverrideBack(nextBackLockOverride);
+    setTimeout(() => {
+      setCardBack(toggled);
+    }, 10);
+    setTimeout(() => {
+      // 翻转结束：进入新一轮，清空全局选中与覆盖
+      setSelectedLocked(Array(9).fill(false));
+      setFaceLockOverrideFront(Array(9).fill(null));
+      setFaceLockOverrideBack(Array(9).fill(null));
+      setHasFlipped(true);
+      setIsFlipping(false);
+      // 首轮后仍保持不可选，需点击"抽奖"进入下一轮后可选择
+    }, 650);
   };
 
   const flipRound = (glowIdxForRound: number) => {
@@ -355,7 +586,7 @@ export default function DrawExtraComponent() {
     const newFaceGlowBack = faceGlowIdxBack.slice();
     for (let i = 0; i < 9; i++) {
       // 仅上一轮中奖的卡片继续抽
-      const eligible = newWon[i] === roundIndex;
+    const eligible = newWon[i] === roundIndex && !selectedLocked[i];
       if (!eligible) continue;
       const win = Math.random() < p;
       if (win) {
@@ -367,7 +598,7 @@ export default function DrawExtraComponent() {
         newBack[i] = !newBack[i]; // 翻到另一面显示奖品
       } else {
         newWon[i] = -1; // 淘汰
-        // 为了产生翻面动画，切换到“另一面”并在该面渲染初始样式
+        // 为了产生翻面动画，切换到"另一面"并在该面渲染初始样式
         const targetIsBack = !newBack[i];
         if (targetIsBack) {
           newBackRound[i] = null; // 背面显示初始样式
@@ -400,7 +631,7 @@ export default function DrawExtraComponent() {
         setHasFlipped(false);
         setActiveMultiplierIdx(null);
         setRoundIndex(0);
-        // 关闭翻牌过渡，瞬间归位到正面，避免“多翻一次”
+        // 关闭翻牌过渡，瞬间归位到正面，避免"多翻一次"
         setSuppressFlipTransition(true);
         setCardBack(Array(9).fill(false));
         setCardWonRound(Array(9).fill(-1));
@@ -421,6 +652,8 @@ export default function DrawExtraComponent() {
         setTimeout(() => setSuppressFlipTransition(false), 30);
       }
       setIsFlipping(false);
+      // 首轮之后允许选择
+      setCanSelect(true);
     }, 650);
   };
 
@@ -534,7 +767,96 @@ export default function DrawExtraComponent() {
       {/* 顶部与内容分割线 */}
 
       {/* 内容区（组件内切换，不影响父级） */}
-      <div className="flex flex-col items-center p-4 md:py-8 sm:px-10 md:px-16 rounded-b-lg" style={{ backgroundColor: '#161A1D', overflow: 'visible' }}>
+      <div className="flex flex-col items-center p-4 md:py-8 sm:px-10 md:px-16 rounded-b-lg relative" style={{ backgroundColor: '#161A1D', overflow: 'visible' }}>
+        {/* 领取成功展示层（覆盖内容，Framer Motion 动画 + 3 秒后自动关闭） */}
+        <AnimatePresence>
+          {collectOverlayOpen && (
+            <motion.div
+              className="fixed inset-0 flex flex-col items-center justify-start pt-20 min-h-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl z-10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <motion.div variants={overlayContainerVariants} initial="hidden" animate="show" exit="exit" className="flex flex-col items-center w-full">
+                {/* 顶部图标 */}
+                <motion.div variants={crownVariants} className="mb-8 relative">
+                  <div className="overflow-hidden border border-gray-700 rounded-full relative" style={{ borderWidth: 1 }}>
+                    <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
+                      <div className="relative rounded-full overflow-hidden" style={{ width: 96, height: 96 }}>
+                        <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="96" height="96">
+                          <mask id="collect-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
+                          <g mask="url(#collect-mask)">
+                            <rect width="36" height="36" fill="#333333"></rect>
+                            <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+                            <g transform="translate(-1 1) rotate(5 18 18)">
+                              <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                              <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                              <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                            </g>
+                          </g>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+                {/* 标题 */}
+                <motion.p variants={titleVariants} className="text-3xl font-bold text-white mb-8">
+                  {`Total Value $${collectOverlayItems.reduce((s, it) => s + (Number(it.price) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </motion.p>
+                {/* 奖励卡片（逐个弹出） */}
+                <motion.div variants={listWrapperVariants} className="flex justify-center w-full mb-4">
+                  <motion.div variants={listVariants} className="flex flex-wrap justify-center gap-4 max-w-2xl">
+                    {collectOverlayItems.map((it, idx) => (
+                      <motion.div key={idx} variants={cardVariants} className="max-w-[160px]">
+                        <div className="flex w-full aspect-square min-w-40">
+                          <div data-component="ProductDisplayCard" className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none bg-gray-700 hover:bg-gray-650 overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4">
+                            <div className="relative flex-1 flex w-full justify-center mt-1">
+                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full filter blur-[25px] bg-pack-#8847FF opacity-40 md:group-hover:opacity-90"></div>
+                              <img
+                                alt={it.name}
+                                loading="lazy"
+                                decoding="async"
+                                data-nimg="fill"
+                                className="pointer-events-none"
+                                sizes="(min-width: 0px) 100px"
+                                srcSet={`${it.image}?tr=w-16,c-at_max 16w, ${it.image}?tr=w-32,c-at_max 32w, ${it.image}?tr=w-48,c-at_max 48w, ${it.image}?tr=w-64,c-at_max 64w, ${it.image}?tr=w-96,c-at_max 96w, ${it.image}?tr=w-128,c-at_max 128w, ${it.image}?tr=w-256,c-at_max 256w, ${it.image}?tr=w-384,c-at_max 384w, ${it.image}?tr=w-640,c-at_max 640w, ${it.image}?tr=w-750,c-at_max 750w, ${it.image}?tr=w-828,c-at_max 828w, ${it.image}?tr=w-1080,c-at_max 1080w, ${it.image}?tr=w-1200,c-at_max 1200w, ${it.image}?tr=w-1920,c-at_max 1920w, ${it.image}?tr=w-2048,c-at_max 2048w, ${it.image}?tr=w-3840,c-at_max 3840w`}
+                                src={`${it.image}?tr=w-3840,c-at_max`}
+                                style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <p className="text-xxs sm:text-xs font-semibold truncate max-w-[50px] xs:max-w-[100px] text-gray-400 text-center">{it.name}</p>
+                              <p className="text-xxs sm:text-xs font-extrabold text-center">${(Number(it.price) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </motion.div>
+                {/* XP 文本 */}
+                <motion.p variants={xpVariants} className="text-base font-semibold text-yellow-400 mb-8">
+                  {`XP Earned: ${collectOverlayItems.length * 100}`}
+                </motion.p>
+                {/* 关闭按钮 */}
+                <motion.div variants={buttonVariants}>
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-14 px-8"
+                    onClick={() => {
+                      // 只关闭展示页，并切回"开始游戏"面板；保留选中样式与商品
+                      setCollectOverlayOpen(false);
+                      setOverlayArm(false);
+                      setShowActions(false);
+                    }}
+                  >
+                    Play Again
+                  </button>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* 3列网格卡片（静态） */}
         <div className="grid grid-cols-3 gap-4 w-full" style={{ overflow: 'visible' }}>
           {Array.from({ length: 9 }).map((_, idx) => (
@@ -544,7 +866,7 @@ export default function DrawExtraComponent() {
                   <div className="flip-card w-full h-full" style={{ overflow: 'visible' }}>
                     <div className={`flip-inner`} style={{ transform: `rotateY(${cardBack[idx] ? 180 : 0}deg)`, transition: suppressFlipTransition ? 'none' as any : undefined }}>
                       {/* 正面 */}
-                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: frontRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: frontRound[idx] === null ? '#161a1d' : '#1d2125' }}>
+                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (frontRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '#161A1D' : (frontRound[idx] === null ? '#161a1d' : '#1d2125' )) }}>
                         <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const fr = frontRound[idx];
@@ -566,14 +888,16 @@ export default function DrawExtraComponent() {
                             const glowIdx = faceGlowIdxFront[idx];
                             const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
                             const isWon = cardWonRound[idx] >= 0;
-                            const isHovered = isWon && backCardHovered[idx];
+                            const isLocked = (faceLockOverrideFront[idx] ?? selectedLocked[idx]) as boolean;
+                            const isHovered = !isLocked && isWon && backCardHovered[idx];
                             return (
                               <div 
                                 data-component="ProductDisplayCard" 
-                                className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
-                                style={{ backgroundColor: isHovered ? '#22272b' : '#1d2125' }}
-                                onMouseEnter={() => handleCardMouseEnter(idx)}
-                                onMouseLeave={() => handleCardMouseLeave(idx)}
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
+                                onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
+                                onMouseLeave={() => { if (!isLocked) handleCardMouseLeave(idx); }}
+                                onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
                               >
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
                                   <div style={{ 
@@ -586,9 +910,9 @@ export default function DrawExtraComponent() {
                                     height: '50%', 
                                     width: '50%',
                                     borderRadius: '50%', 
-                                    filter: 'blur(25px)', 
+                                      filter: 'blur(16px)',
                                     backgroundColor: glowHex, 
-                                    opacity: isHovered ? 0.9 :  0.4
+                                    opacity: isLocked ? 0.4 : (isHovered ? 0.9 :  0.4)
                                   }}></div>
                                   <img 
                                     alt={prod.name} 
@@ -612,7 +936,7 @@ export default function DrawExtraComponent() {
                         </div>
                       </div>
                       {/* 背面（结果样式，类似产品卡简化） */}
-                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: backRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: backRound[idx] === null ? '#161a1d' : '#1d2125' }}>
+                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (backRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '#161A1D' : (backRound[idx] === null ? '#161a1d' : '#1d2125')) }}>
                         <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const br = backRound[idx];
@@ -634,14 +958,16 @@ export default function DrawExtraComponent() {
                             const glowIdx = faceGlowIdxBack[idx];
                             const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
                             const isWon = cardWonRound[idx] >= 0;
-                            const isHovered = isWon && backCardHovered[idx];
+                            const isLocked = (faceLockOverrideBack[idx] ?? selectedLocked[idx]) as boolean;
+                            const isHovered = !isLocked && isWon && backCardHovered[idx];
                             return (
                               <div 
                                 data-component="ProductDisplayCard" 
-                                className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
-                                style={{ backgroundColor: isHovered ? '#22272b' : '#1d2125' }}
-                                onMouseEnter={() => handleCardMouseEnter(idx)}
-                                onMouseLeave={() => handleCardMouseLeave(idx)}
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
+                                onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
+                                onMouseLeave={() => { if (!isLocked) handleCardMouseLeave(idx); }}
+                                onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
                               >
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
                                   <div style={{ 
@@ -654,9 +980,9 @@ export default function DrawExtraComponent() {
                                     height: '70%', 
                                     width: '70%',
                                     borderRadius: '50%', 
-                                    filter: 'blur(25px)', 
+                                      filter: 'blur(16px)',
                                     backgroundColor: glowHex, 
-                                    opacity: isHovered ? 0.9 : 0.4
+                                    opacity: isLocked ? 0.4 : (isHovered ? 0.9 : 0.4)
                                   }}></div>
                                   <img 
                                     alt={prod.name} 
@@ -806,11 +1132,14 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: collectMutation.isPending ? 'default' : 'pointer', opacity: collectMutation.isPending ? 0.9 : 1 }}
-                disabled={collectMutation.isPending}
+                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: (collectMutation.isPending || !canSelect) ? 'default' : 'pointer', opacity: (collectMutation.isPending || !canSelect) ? 0.9 : 1 }}
+                disabled={collectMutation.isPending || !canSelect}
                 onClick={() => {
-                  if (collectMutation.isPending) return;
+                  if (collectMutation.isPending || !canSelect) return;
                   const items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }> = [];
+                  // 全部设为选中样式（无需再翻）
+                  const newLockedAll = selectedLocked.map((v, i) => (cardWonRound[i] >= 0 ? true : v));
+                  setSelectedLocked(newLockedAll);
                   for (let i = 0; i < 9; i++) {
                     if (cardWonRound[i] >= 0) {
                       const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
