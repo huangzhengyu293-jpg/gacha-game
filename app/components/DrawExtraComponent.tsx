@@ -115,7 +115,10 @@ export default function DrawExtraComponent() {
         if (collectOverlayTimerRef.current) window.clearTimeout(collectOverlayTimerRef.current);
         const closeDelay = Math.max(3000, 1200 + mapped.length * stepMs + 600);
         collectOverlayTimerRef.current = window.setTimeout(() => {
+          // 自动关闭时行为与点击“Play Again”一致
           setCollectOverlayOpen(false);
+          setOverlayArm(false);
+          setShowActions(false);
           collectOverlayTimerRef.current = null;
         }, closeDelay);
       } catch {
@@ -148,6 +151,12 @@ export default function DrawExtraComponent() {
   const [isFlipping, setIsFlipping] = useState<boolean>(false);
   const [roundIndex, setRoundIndex] = useState<number>(0); // 当前轮次
   const [activeMultiplierIdx, setActiveMultiplierIdx] = useState<number | null>(null);
+  // 顶部倍数栏滚动
+  const topBarRef = useRef<HTMLDivElement | null>(null);
+  const multiplierItemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const assignMultiplierRef = (index: number) => (el: HTMLDivElement | null) => {
+    multiplierItemRefs.current[index] = el;
+  };
   // 每张卡片是否展示背面（奖品）以及达到的轮次（-1 表示初始样式）
   const [cardBack, setCardBack] = useState<boolean[]>(Array(9).fill(false));
   const [cardWonRound, setCardWonRound] = useState<number[]>(Array(9).fill(-1));
@@ -194,6 +203,16 @@ export default function DrawExtraComponent() {
     ? `drop-shadow(0 0 10px ${hexToRgba(activeGlowColor, 0.6)}) drop-shadow(0 0 4px ${hexToRgba(activeGlowColor, 0.35)})`
     : 'drop-shadow(0 0 10px rgba(71,74,77,0.4))'
   , [activeGlowColor]);
+
+  // 当激活倍数改变时，将其滚动到倍数栏的左侧起始位置
+  useEffect(() => {
+    if (activeMultiplierIdx === null) return;
+    const scroller = topBarRef.current;
+    const el = multiplierItemRefs.current[activeMultiplierIdx];
+    if (!scroller || !el) return;
+    const left = el.offsetLeft;
+    scroller.scrollTo({ left, behavior: 'smooth' });
+  }, [activeMultiplierIdx]);
 
   useEffect(() => {
     const update = () => setIsSmall(!window.matchMedia('(min-width: 640px)').matches);
@@ -457,11 +476,10 @@ export default function DrawExtraComponent() {
   };
 
   const handleCardMouseLeave = (idx: number) => {
-    if (cardWonRound[idx] >= 0 && !selectedLocked[idx]) {
-      const newHovered = [...backCardHovered];
-      newHovered[idx] = false;
-      setBackCardHovered(newHovered);
-    }
+    // 无条件清理 hover，避免翻面/锁定等状态切换时残留高亮
+    const newHovered = [...backCardHovered];
+    newHovered[idx] = false;
+    setBackCardHovered(newHovered);
   };
 
   // 点击锁定当前显示为商品的一张卡：再翻一次（来回翻），并移除高亮与 hover 行为
@@ -666,6 +684,8 @@ export default function DrawExtraComponent() {
         .custom-scroll::-webkit-scrollbar-track { background: #2C2C2C; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #9F9F9F; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-button { background: #9F9F9F; height: 0; width: 0; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         /* 翻牌 */
@@ -679,11 +699,12 @@ export default function DrawExtraComponent() {
       `}</style>
       {/* 顶部倍数栏 */}
       <div className="flex relative w-full h-14 rounded-t-lg overflow-clip" style={{ backgroundColor: '#161A1D' }}>
-        <div className="flex absolute inset-0 overflow-clip">
-          <div className="flex">
+        <div ref={topBarRef} className="flex absolute inset-0 overflow-x-auto overflow-y-hidden no-scrollbar">
+          <div className="flex h-full">
             {MULTIPLIERS.map((m, i) => (
               <div
                 key={m.label}
+                ref={assignMultiplierRef(i)}
                 className="flex relative h-14 w-16 min-w-16 cursor-pointer select-none"
                 onMouseEnter={() => setHoverIdx(i)}
                 onMouseLeave={() => setHoverIdx((prev) => (prev === i ? null : prev))}
@@ -810,9 +831,9 @@ export default function DrawExtraComponent() {
                     {collectOverlayItems.map((it, idx) => (
                       <motion.div key={idx} variants={cardVariants} className="max-w-[160px]">
                         <div className="flex w-full aspect-square min-w-40">
-                          <div data-component="ProductDisplayCard" className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none bg-gray-700 hover:bg-gray-650 overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4">
+                          <div data-component="ProductDisplayCard" className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none bg-gray-700 hover:bg-gray-650 overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4">
                             <div className="relative flex-1 flex w-full justify-center mt-1">
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full filter blur-[25px] bg-pack-#8847FF opacity-40 md:group-hover:opacity-90"></div>
+                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full filter blur-[25px] bg-pack-#8847FF opacity-40"></div>
                               <img
                                 alt={it.name}
                                 loading="lazy"
@@ -825,9 +846,9 @@ export default function DrawExtraComponent() {
                                 style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
                               />
                             </div>
-                            <div className="flex flex-col">
-                              <p className="text-xxs sm:text-xs font-semibold truncate max-w-[50px] xs:max-w-[100px] text-gray-400 text-center">{it.name}</p>
-                              <p className="text-xxs sm:text-xs font-extrabold text-center">${(Number(it.price) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <div className="flex flex-col leading-tight">
+                              <p className="text-[10px] sm:text-xs font-semibold truncate max-w-[60px] sm:max-w-[100px] text-gray-400 text-center">{it.name}</p>
+                              <p className="text-[10px] sm:text-xs font-extrabold text-center">${(Number(it.price) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             </div>
                           </div>
                         </div>
@@ -893,12 +914,17 @@ export default function DrawExtraComponent() {
                             return (
                               <div 
                                 data-component="ProductDisplayCard" 
-                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4"
                                 style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
                                 onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
-                                onMouseLeave={() => { if (!isLocked) handleCardMouseLeave(idx); }}
+                                onMouseLeave={() => { handleCardMouseLeave(idx); }}
                                 onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
                               >
+                                {isLocked && isWon && fr !== null ? (
+                                  <div className="flex absolute left-0 top-0 px-2 py-1" style={{ zIndex: 2 }}>
+                                    <p className="text-sm text-white font-bold">{MULTIPLIERS[fr]?.label}</p>
+                                  </div>
+                                ) : null}
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
                                   <div style={{ 
                                     position: 'absolute', 
@@ -926,9 +952,9 @@ export default function DrawExtraComponent() {
                                     style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
                                 </div>
-                                <div className="flex flex-col">
-                                  <p className="text-xxs sm:text-xs truncate max-w-[100px] xs:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
-                                  <p className="text-xxs sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <div className="flex flex-col leading-tight">
+                                  <p className="text-[10px] sm:text-xs truncate max-w-[60px] sm:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
+                                  <p className="text-[10px] sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                               </div>
                             );
@@ -963,12 +989,17 @@ export default function DrawExtraComponent() {
                             return (
                               <div 
                                 data-component="ProductDisplayCard" 
-                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4"
+                                className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4"
                                 style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
                                 onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
-                                onMouseLeave={() => { if (!isLocked) handleCardMouseLeave(idx); }}
+                                onMouseLeave={() => { handleCardMouseLeave(idx); }}
                                 onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
                               >
+                                {isLocked && isWon && br !== null ? (
+                                  <div className="flex absolute left-0 top-0 px-2 py-1" style={{ zIndex: 2 }}>
+                                    <p className="text-sm text-white font-bold">{MULTIPLIERS[br]?.label}</p>
+                                  </div>
+                                ) : null}
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
                                   <div style={{ 
                                     position: 'absolute', 
@@ -996,9 +1027,9 @@ export default function DrawExtraComponent() {
                                     style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
                                 </div>
-                                <div className="flex flex-col">
-                                  <p className="text-xxs sm:text-xs truncate max-w-[100px] xs:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
-                                  <p className="text-xxs sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <div className="flex flex-col leading-tight">
+                                  <p className="text-[10px] sm:text-xs truncate max-w-[60px] sm:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>
+                                  <p className="text-[10px] sm:text-xs font-extrabold text-center" style={{ color: '#fafafa', fontFamily: 'Urbanist, sans-serif' }}>${prod.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                               </div>
                             );

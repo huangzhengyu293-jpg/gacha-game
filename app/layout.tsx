@@ -32,6 +32,9 @@ export const metadata: Metadata = {
   },
   applicationName: "FlameDraw",
   description: "FlameDraw",
+  icons: {
+    icon: "/logo.svg",
+  },
   openGraph: {
     title: "FlameDraw",
   },
