@@ -1,8 +1,101 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import InlineSelect from "../components/InlineSelect";
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import type { CatalogPack } from '../lib/api';
+import SelectPackModal from '../packs/[id]/SelectPackModal';
+import Image from 'next/image';
+import InfoTooltip from '../components/InfoTooltip';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+interface SortablePackItemProps {
+  pack: CatalogPack;
+  onRemove: () => void;
+}
+
+function SortablePackItem({ pack, onRemove }: SortablePackItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: pack.id });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex flex-col gap-2 items-stretch"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex relative cursor-move"
+        style={{ touchAction: 'none' }}
+      >
+        <Image
+          alt={pack.title}
+          src={pack.image}
+          width={200}
+          height={304}
+          className="w-full h-auto"
+          style={{ color: 'transparent', pointerEvents: 'none' }}
+          sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
+          unoptimized
+        />
+      </div>
+      <button
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative font-bold select-none h-10 px-6 text-white text-sm cursor-pointer"
+        style={{
+          backgroundColor: isHovered ? '#22272B' : 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (isHovered) {
+            e.currentTarget.style.backgroundColor = '#2D3236';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (isHovered) {
+            e.currentTarget.style.backgroundColor = '#22272B';
+          }
+        }}
+        onClick={onRemove}
+      >
+        {isHovered ? 'Remove' : `$${pack.price.toFixed(2)}`}
+      </button>
+    </div>
+  );
+}
 
 export default function CreateBattlePage() {
   const router = useRouter();
@@ -12,11 +105,11 @@ export default function CreateBattlePage() {
     return p === "team" ? "team" : "solo";
   });
   const [playersCount, setPlayersCount] = useState<string>(() => {
-    if (typeof window === "undefined") return "1";
+    if (typeof window === "undefined") return "2";
     const n = Number(
-      new URLSearchParams(window.location.search).get("playersInSolo") || "1"
+      new URLSearchParams(window.location.search).get("playersInSolo") || "2"
     );
-    return Number.isFinite(n) && n >= 1 && n <= 6 ? String(n) : "1";
+    return Number.isFinite(n) && n >= 1 && n <= 6 ? String(n) : "2";
   });
   const [selectedMode, setSelectedMode] = useState<
     "classic" | "share" | "sprint" | "jackpot" | "elimination"
@@ -46,6 +139,12 @@ export default function CreateBattlePage() {
     return v === "true";
   });
 
+  // "最后的机会"只有在经典和大奖模式才能开启
+  const canEnableLastChance = selectedMode === "classic" || selectedMode === "jackpot";
+  
+  // "倒置模式"除了分享模式都可以开启
+  const canEnableInverted = selectedMode !== "share";
+
   const replaceUrl = (updates: Record<string, string | undefined>) => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -57,6 +156,60 @@ export default function CreateBattlePage() {
     const pathname = window.location.pathname || "/create-battle";
     const url = qs ? `${pathname}?${qs}` : pathname;
     window.history.replaceState(null, "", url);
+  };
+
+  // 当模式改变时，自动关闭不符合条件的选项
+  useEffect(() => {
+    if (!canEnableLastChance && optLastChance) {
+      setOptLastChance(false);
+      replaceUrl({ lastChance: undefined });
+    }
+  }, [selectedMode, canEnableLastChance, optLastChance]);
+
+  useEffect(() => {
+    if (!canEnableInverted && optInverted) {
+      setOptInverted(false);
+      replaceUrl({ upsideDown: undefined });
+    }
+  }, [selectedMode, canEnableInverted, optInverted]);
+  const [selectedPackIds, setSelectedPackIds] = useState<string[]>([]);
+  const [isSelectPackModalOpen, setIsSelectPackModalOpen] = useState(false);
+  const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  
+  const selectedPacks = useMemo(() => {
+    return selectedPackIds.map(id => packs.find((p: CatalogPack) => p.id === id)).filter(Boolean) as CatalogPack[];
+  }, [selectedPackIds, packs]);
+  
+  const totalCost = useMemo(() => {
+    return selectedPacks.reduce((sum, pack) => sum + pack.price, 0);
+  }, [selectedPacks]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    setSelectedPackIds((items) => {
+      const oldIndex = items.indexOf(active.id as string);
+      const newIndex = items.indexOf(over.id as string);
+      
+      // 只有当两个索引都有效时才执行移动
+      if (oldIndex !== -1 && newIndex !== -1) {
+        return arrayMove(items, oldIndex, newIndex);
+      }
+      
+      // 如果 newIndex 无效（比如拖拽到了"添加礼包"按钮），不执行任何操作
+      return items;
+    });
   };
 
   return (
@@ -1448,6 +1601,17 @@ export default function CreateBattlePage() {
                 </div>
               </div>
             </div>
+            {/* 模式说明 */}
+            <p
+              className="text-gray-400 font-semibold max-w-2xl text-center mx-auto mt-4"
+              style={{ color: "#7A8084" }}
+            >
+              {selectedMode === "classic" && "在经典模式下，在最后一轮之后，总价值最高的玩家赢得对战并获得所有物品。"}
+              {selectedMode === "share" && "在分享模式下，在最后一轮之后，累积的总价值在所有玩家之间平均分配。"}
+              {selectedMode === "sprint" && "在积分冲刺模式下，每轮最高价值的抽取获得1分。积分最多的玩家赢得对战并获得所有物品。"}
+              {selectedMode === "jackpot" && "在大奖模式下，在最后一轮之后，为总'大奖'价值转动轮盘。每个玩家的获胜机会等于他们在总抽取价值中的份额。"}
+              {selectedMode === "elimination" && "在淘汰模式下，在最后几轮中，价值最低的玩家被淘汰，直到只剩下一名玩家。在淘汰模式下，您必须为每个玩家选择至少一个包裹。"}
+            </p>
           </div>
 
           {/* 选项 */}
@@ -1485,37 +1649,17 @@ export default function CreateBattlePage() {
                             <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
                           </svg>
                         </div>
-                        <span
-                          className="font-semibold whitespace-nowrap"
-                          style={{ color: "#FFFFFF" }}
-                        >
-                          快速对战
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-semibold whitespace-nowrap"
+                            style={{ color: "#FFFFFF" }}
+                          >
+                            快速对战
+                          </span>
+                          <InfoTooltip content="启用时，对战进行得更快，动画延迟减少。" />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          className="inline-flex items-center justify-center size-6 rounded-[4px] cursor-pointer"
-                          aria-label="info"
-                          style={{ backgroundColor: "#22272B" }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="lucide lucide-info size-4"
-                            style={{ color: "#7A8084" }}
-                          >
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4"></path>
-                            <path d="M12 8h.01"></path>
-                          </svg>
-                        </button>
                         <button
                           type="button"
                           role="switch"
@@ -1584,43 +1728,25 @@ export default function CreateBattlePage() {
                             <circle cx="9" cy="12" r="1"></circle>
                           </svg>
                         </div>
-                        <span
-                          className="font-semibold whitespace-nowrap"
-                          style={{ color: "#FFFFFF" }}
-                        >
-                          最后机会
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-semibold whitespace-nowrap"
+                            style={{ color: "#FFFFFF" }}
+                          >
+                            最后机会
+                          </span>
+                          <InfoTooltip content="启用时，只有最后一轮重要。在最后一轮抽取最有价值物品的玩家获得一切。" />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          className="inline-flex items-center justify-center size-6 rounded-[4px] cursor-pointer"
-                          aria-label="info"
-                          style={{ backgroundColor: "#22272B" }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="lucide lucide-info size-4"
-                            style={{ color: "#7A8084" }}
-                          >
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4"></path>
-                            <path d="M12 8h.01"></path>
-                          </svg>
-                        </button>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={optLastChance}
+                          disabled={!canEnableLastChance}
                           onClick={() =>
                             setOptLastChance((v) => {
+                              if (!canEnableLastChance) return v;
                               const nv = !v;
                               replaceUrl({
                                 lastChance: nv ? "true" : undefined,
@@ -1628,7 +1754,7 @@ export default function CreateBattlePage() {
                               return nv;
                             })
                           }
-                          className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer"
+                          className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{
                             backgroundColor: optLastChance
                               ? "#4299E1"
@@ -1681,43 +1807,25 @@ export default function CreateBattlePage() {
                             <path d="M5 21h14"></path>
                           </svg>
                         </div>
-                        <span
-                          className="font-semibold whitespace-nowrap"
-                          style={{ color: "#FFFFFF" }}
-                        >
-                          倒置
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-semibold whitespace-nowrap"
+                            style={{ color: "#FFFFFF" }}
+                          >
+                            倒置
+                          </span>
+                          <InfoTooltip content="启用时，总物品价值最低的玩家获胜并获得所有物品。" />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          className="inline-flex items-center justify-center size-6 rounded-[4px] cursor-pointer"
-                          aria-label="info"
-                          style={{ backgroundColor: "#22272B" }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="lucide lucide-info size-4"
-                            style={{ color: "#7A8084" }}
-                          >
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4"></path>
-                            <path d="M12 8h.01"></path>
-                          </svg>
-                        </button>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={optInverted}
+                          disabled={!canEnableInverted}
                           onClick={() =>
                             setOptInverted((v) => {
+                              if (!canEnableInverted) return v;
                               const nv = !v;
                               replaceUrl({
                                 upsideDown: nv ? "true" : undefined,
@@ -1725,7 +1833,7 @@ export default function CreateBattlePage() {
                               return nv;
                             })
                           }
-                          className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer"
+                          className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{
                             backgroundColor: optInverted
                               ? "#4299E1"
@@ -1759,40 +1867,81 @@ export default function CreateBattlePage() {
           <div className="w-full space-y-4">
             <div className="flex flex-row gap-3 justify-between w-full">
               <p className="text-xl font-bold" style={{ color: "#7A8084" }}>
-                已选礼包 (0)
+                已选礼包 ({selectedPackIds.length})
               </p>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 w-full">
-              <div className="max-w-[194px] aspect-[194/294]">
-                <div
-                  className="rounded-lg cursor-pointer h-full w-full flex items-center justify-center flex-col gap-2"
-                  style={{
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' viewBox='0 0 194 294' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='2' y='2' width='190' height='290' fill='none' rx='8' ry='8' stroke='%236b7280' stroke-width='1' stroke-dasharray='6%2c5' stroke-dashoffset='0' stroke-linecap='butt'/%3e%3c/svg%3e\")",
-                    color: "#FFFFFF",
-                  }}
-                >
-                  <div>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="40"
-                      height="40"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={selectedPackIds}
+                strategy={rectSortingStrategy}
+              >
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 w-full">
+                  <div className="max-w-[194px] aspect-[194/294]">
+                    <div
+                      className="rounded-lg cursor-pointer h-full w-full flex items-center justify-center flex-col gap-2"
+                      style={{
+                        backgroundImage:
+                          "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' viewBox='0 0 194 294' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='2' y='2' width='190' height='290' fill='none' rx='8' ry='8' stroke='%236b7280' stroke-width='1' stroke-dasharray='6%2c5' stroke-dashoffset='0' stroke-linecap='butt'/%3e%3c/svg%3e\")",
+                        color: "#FFFFFF",
+                      }}
+                      onClick={(e) => {
+                        // 如果是从拖拽操作来的，不触发点击
+                        if ((e.nativeEvent as any).isTrusted) {
+                          setIsSelectPackModalOpen(true);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        // 阻止拖拽时触发点击
+                        e.stopPropagation();
+                      }}
                     >
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5v14"></path>
-                    </svg>
+                      <div>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="40"
+                          height="40"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 12h14"></path>
+                          <path d="M12 5v14"></path>
+                        </svg>
+                      </div>
+                      <p className="font-medium">添加礼包</p>
+                    </div>
                   </div>
-                  <p className="font-medium">添加礼包</p>
+                  {selectedPacks.map((pack) => (
+                    <SortablePackItem
+                      key={pack.id}
+                      pack={pack}
+                      onRemove={() => {
+                        setSelectedPackIds(prev => prev.filter(id => id !== pack.id));
+                      }}
+                    />
+                  ))}
                 </div>
-              </div>
-            </div>
+              </SortableContext>
+            </DndContext>
           </div>
+          
+          <SelectPackModal
+            open={isSelectPackModalOpen}
+            onClose={() => setIsSelectPackModalOpen(false)}
+            selectedPackIds={selectedPackIds}
+            onSelectionChange={(ids) => {
+              setSelectedPackIds(ids);
+            }}
+            maxPacks={undefined}
+            minPacks={0}
+          />
 
           {/* 对战摘要 */}
           <div className="w-full" style={{ backgroundColor: "#1D2125" }}>
@@ -1802,9 +1951,9 @@ export default function CreateBattlePage() {
               </p>
               <div className="space-y-1">
                 {[
-                  { k: "玩家", v: "4" },
-                  { k: "包装/回合", v: "0" },
-                  { k: "总成本", v: "$0.00" },
+                  { k: "玩家", v: playersCount },
+                  { k: "包装/回合", v: String(selectedPackIds.length) },
+                  { k: "总成本", v: `$${totalCost.toFixed(2)}` },
                 ].map((row) => (
                   <div
                     key={row.k}
@@ -1822,15 +1971,21 @@ export default function CreateBattlePage() {
           {/* 底部按钮 */}
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus select-none px-8 w-full h-16 sticky bottom-2 !mt-0"
-            
+            disabled={selectedPackIds.length === 0}
             style={{
               backgroundColor: "#48BB78",
-              color: "#2F855A",
+              color: selectedPackIds.length > 0 ? "#FFFFFF" : "#2F855A",
               fontFamily: "var(--font-urbanist)",
+              opacity: selectedPackIds.length > 0 ? 1 : 0.5,
+              cursor: selectedPackIds.length > 0 ? "pointer" : "not-allowed",
             }}
-            onClick={() => router.replace(`/battles/${Date.now()}`)}
+            onClick={() => {
+              if (selectedPackIds.length > 0) {
+                router.replace(`/battles/${Date.now()}`);
+              }
+            }}
           >
-            创建对战 for $0.00
+            创建对战 for ${totalCost.toFixed(2)}
           </button>
         </div>
       </div>

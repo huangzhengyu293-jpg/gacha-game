@@ -12,18 +12,26 @@ export default function SelectPackModal({
   onClose,
   selectedPackIds,
   onSelectionChange,
+  maxPacks,
+  minPacks,
 }: {
   open: boolean;
   onClose: () => void;
   selectedPackIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  maxPacks?: number;
+  minPacks?: number;
 }) {
+  // 如果 maxPacks 是 undefined 且 minPacks 是 0，说明是对战页面，无限制
+  // 如果 maxPacks 是 undefined 但 minPacks 不是 0（或未传入），说明是礼包页面，默认 6
+  const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
+  const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;
   const [query, setQuery] = useState('');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
   const { data: packs = [] as CatalogPack[] , refetch } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
 
-  // 初始化数量：根据当前选中的 packId 列表（长度<=6）
+  // 初始化数量：根据当前选中的 packId 列表
   React.useEffect(() => {
     if (!open) return;
     // 打开时拉取一次最新 packs（JSON 优先）
@@ -32,13 +40,13 @@ export default function SelectPackModal({
     selectedPackIds.forEach((id) => {
       next[id] = (next[id] || 0) + 1;
     });
-    // 至少 1 个
-    if (Object.values(next).reduce((a, b) => a + b, 0) === 0 && packs.length > 0) {
+    // 至少 effectiveMinPacks 个（仅对礼包页面有效）
+    if (effectiveMinPacks > 0 && Object.values(next).reduce((a, b) => a + b, 0) === 0 && packs.length > 0) {
       const first = packs[0].id;
       next[first] = 1;
     }
     setQtyMap(next);
-  }, [open, selectedPackIds, packs.length, refetch]);
+  }, [open, selectedPackIds, packs.length, refetch, effectiveMinPacks]);
 
   const filtered: CatalogPack[] = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -58,24 +66,37 @@ export default function SelectPackModal({
   }, [qtyMap, packs]);
 
   const getQty = (id: string) => qtyMap[id] || 0;
-  const cap = 6;
   const emitFromMap = (map: Record<string, number>) => {
-    // 以当前选中顺序为优先，生成最多 6 个的 id 列表
+    // 以当前选中顺序为优先，生成 id 列表
     const list: string[] = [];
     // 先按 selectedPackIds 的去重顺序推入（避免重复顺序导致重复累加）
     const orderedUnique = Array.from(new Set(selectedPackIds));
     orderedUnique.forEach((id) => {
       const c = map[id] || 0;
-      for (let i = 0; i < c && list.length < cap; i++) list.push(id);
+      for (let i = 0; i < c; i++) {
+        // 如果 effectiveMaxPacks 是 undefined，允许无限添加；否则检查是否超过限制
+        if (effectiveMaxPacks === undefined) {
+          list.push(id);
+        } else if (list.length < effectiveMaxPacks) {
+          list.push(id);
+        }
+      }
     });
     // 再补充其他在 map 中但不在 selectedPackIds 的 id
     Object.keys(map).forEach((id) => {
       if (orderedUnique.includes(id)) return;
       const c = map[id] || 0;
-      for (let i = 0; i < c && list.length < cap; i++) list.push(id);
+      for (let i = 0; i < c; i++) {
+        // 如果 effectiveMaxPacks 是 undefined，允许无限添加；否则检查是否超过限制
+        if (effectiveMaxPacks === undefined) {
+          list.push(id);
+        } else if (list.length < effectiveMaxPacks) {
+          list.push(id);
+        }
+      }
     });
-    // 至少 1
-    if (list.length === 0) {
+    // 至少 effectiveMinPacks 个（仅对礼包页面有效）
+    if (effectiveMinPacks > 0 && list.length === 0) {
       if (selectedPackIds.length > 0) {
         list.push(selectedPackIds[0]);
       } else {
@@ -87,8 +108,10 @@ export default function SelectPackModal({
   };
   const inc = (id: string) => {
     setQtyMap(prev => {
-      const total = Object.values(prev).reduce((a, b) => a + (b || 0), 0);
-      if (total >= cap) return prev;
+      if (effectiveMaxPacks !== undefined) {
+        const total = Object.values(prev).reduce((a, b) => a + (b || 0), 0);
+        if (total >= effectiveMaxPacks) return prev;
+      }
       const next = { ...prev, [id]: (prev[id] || 0) + 1 };
       emitFromMap(next);
       return next;
@@ -96,12 +119,14 @@ export default function SelectPackModal({
   };
   const dec = (id: string) => {
     setQtyMap(prev => {
-      const total = Object.values(prev).reduce((a, b) => a + (b || 0), 0);
       const curr = prev[id] || 0;
-      // 全局最少 1：若总数为 1 且当前为 1，则不再递减
-      if (total <= 1 && curr <= 1) return prev;
       const next = Math.max(0, curr - 1);
       const map = { ...prev, [id]: next };
+      // 全局最少 effectiveMinPacks：若总数为 effectiveMinPacks 且当前为 1，则不再递减（仅对礼包页面有效）
+      if (effectiveMinPacks > 0) {
+        const total = Object.values(map).reduce((a, b) => a + (b || 0), 0);
+        if (total <= effectiveMinPacks && curr <= 1) return prev;
+      }
       emitFromMap(map);
       return map;
     });

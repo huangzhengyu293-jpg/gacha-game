@@ -65,8 +65,10 @@ function useSourceProducts() {
 function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>) {
   return (roundIdx: number) => {
     const list = source && source.length ? source : [{ name: '占位', image: '', price: 0 }];
-    const p = list[roundIdx % list.length] as any;
-  return p;
+    // 使用倒序：从列表末尾开始取商品
+    const reversedIdx = list.length - 1 - (roundIdx % list.length);
+    const p = list[reversedIdx] as any;
+    return p;
   };
 }
 
@@ -793,79 +795,82 @@ export default function DrawExtraComponent() {
         <AnimatePresence>
           {collectOverlayOpen && (
             <motion.div
-              className="fixed inset-0 flex flex-col items-center justify-start pt-20 min-h-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-8 shadow-2xl z-10"
+              className="fixed inset-0 flex flex-col items-center justify-start rounded-2xl p-4 sm:p-8 shadow-2xl z-10 overflow-y-auto"
+              style={{ backgroundColor: '#191d20', paddingTop: 'calc(80px + 1rem)', paddingBottom: '2rem' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <motion.div variants={overlayContainerVariants} initial="hidden" animate="show" exit="exit" className="flex flex-col items-center w-full">
+              <motion.div variants={overlayContainerVariants} initial="hidden" animate="show" exit="exit" className="flex flex-col items-center w-full min-h-full">
                 {/* 顶部图标 */}
-                <motion.div variants={crownVariants} className="mb-8 relative">
-                  <div className="overflow-hidden border border-gray-700 rounded-full relative" style={{ borderWidth: 1 }}>
-                    <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
-                      <div className="relative rounded-full overflow-hidden" style={{ width: 96, height: 96 }}>
-                        <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="96" height="96">
-                          <mask id="collect-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
-                          <g mask="url(#collect-mask)">
-                            <rect width="36" height="36" fill="#333333"></rect>
-                            <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
-                            <g transform="translate(-1 1) rotate(5 18 18)">
-                              <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
-                              <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                              <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                <motion.div variants={crownVariants} className="mb-6 sm:mb-8 relative">
+                  <div className="relative">
+                    <div className="overflow-hidden border border-gray-700 rounded-full relative" style={{ borderWidth: 1 }}>
+                      <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
+                        <div className="relative rounded-full overflow-hidden" style={{ width: 96, height: 96 }}>
+                          <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="96" height="96">
+                            <mask id="collect-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
+                            <g mask="url(#collect-mask)">
+                              <rect width="36" height="36" fill="#333333"></rect>
+                              <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+                              <g transform="translate(-1 1) rotate(5 18 18)">
+                                <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                                <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                              </g>
                             </g>
-                          </g>
-                        </svg>
+                          </svg>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </motion.div>
                 {/* 标题 */}
-                <motion.p variants={titleVariants} className="text-3xl font-bold text-white mb-8">
+                <motion.p variants={titleVariants} className="text-2xl sm:text-3xl font-bold text-white mb-6 sm:mb-8">
                   {`Total Value $${collectOverlayItems.reduce((s, it) => s + (Number(it.price) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </motion.p>
                 {/* 奖励卡片（逐个弹出） */}
                 <motion.div variants={listWrapperVariants} className="flex justify-center w-full mb-4">
-                  <motion.div variants={listVariants} className="flex flex-wrap justify-center gap-4 max-w-2xl">
+                  <motion.div variants={listVariants} className="flex flex-wrap justify-center gap-3 sm:gap-4 max-w-2xl">
                     {collectOverlayItems.map((it, idx) => (
-                      <motion.div key={idx} variants={cardVariants} className="max-w-[160px]">
-                        <div className="flex w-full aspect-square min-w-40">
-                          <div data-component="ProductDisplayCard" className="relative group transition-colors duration-200 ease-in-out rounded-lg select-none bg-gray-700 hover:bg-gray-650 overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4">
-                            <div className="relative flex-1 flex w-full justify-center mt-1">
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full filter blur-[25px] bg-pack-#8847FF opacity-40"></div>
-                              <img
-                                alt={it.name}
-                                loading="lazy"
-                                decoding="async"
-                                data-nimg="fill"
-                                className="pointer-events-none"
-                                sizes="(min-width: 0px) 100px"
-                                srcSet={`${it.image}?tr=w-16,c-at_max 16w, ${it.image}?tr=w-32,c-at_max 32w, ${it.image}?tr=w-48,c-at_max 48w, ${it.image}?tr=w-64,c-at_max 64w, ${it.image}?tr=w-96,c-at_max 96w, ${it.image}?tr=w-128,c-at_max 128w, ${it.image}?tr=w-256,c-at_max 256w, ${it.image}?tr=w-384,c-at_max 384w, ${it.image}?tr=w-640,c-at_max 640w, ${it.image}?tr=w-750,c-at_max 750w, ${it.image}?tr=w-828,c-at_max 828w, ${it.image}?tr=w-1080,c-at_max 1080w, ${it.image}?tr=w-1200,c-at_max 1200w, ${it.image}?tr=w-1920,c-at_max 1920w, ${it.image}?tr=w-2048,c-at_max 2048w, ${it.image}?tr=w-3840,c-at_max 3840w`}
-                                src={`${it.image}?tr=w-3840,c-at_max`}
-                                style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
-                              />
-                            </div>
-                            <div className="flex flex-col leading-tight">
-                              <p className="text-[10px] sm:text-xs font-semibold truncate max-w-[60px] sm:max-w-[100px] text-gray-400 text-center">{it.name}</p>
-                              <p className="text-[10px] sm:text-xs font-extrabold text-center">${(Number(it.price) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
+                      <motion.div key={idx} variants={cardVariants} className="w-[132px] h-[132px]">
+                        <div 
+                          data-component="ProductDisplayCard" 
+                          className="relative transition-colors duration-200 ease-in-out rounded-lg select-none overflow-hidden w-full h-full flex flex-col items-center justify-between gap-2 py-1.5 md:py-2 px-4 "
+                          style={{ backgroundColor: '#22272b' }}
+                        >
+                          <div className="relative flex-1 flex w-full justify-center mt-1">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full filter blur-[25px] bg-pack-#4B69FF opacity-40"></div>
+                            <img
+                              alt={it.name}
+                              loading="lazy"
+                              decoding="async"
+                              data-nimg="fill"
+                              className="pointer-events-none"
+                              sizes="(min-width: 0px) 100px"
+                              srcSet={`${it.image}?tr=w-16,c-at_max 16w, ${it.image}?tr=w-32,c-at_max 32w, ${it.image}?tr=w-48,c-at_max 48w, ${it.image}?tr=w-64,c-at_max 64w, ${it.image}?tr=w-96,c-at_max 96w, ${it.image}?tr=w-128,c-at_max 128w, ${it.image}?tr=w-256,c-at_max 256w, ${it.image}?tr=w-384,c-at_max 384w, ${it.image}?tr=w-640,c-at_max 640w, ${it.image}?tr=w-750,c-at_max 750w, ${it.image}?tr=w-828,c-at_max 828w, ${it.image}?tr=w-1080,c-at_max 1080w, ${it.image}?tr=w-1200,c-at_max 1200w, ${it.image}?tr=w-1920,c-at_max 1920w, ${it.image}?tr=w-2048,c-at_max 2048w, ${it.image}?tr=w-3840,c-at_max 3840w`}
+                              src={`${it.image}?tr=w-3840,c-at_max`}
+                              style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
+                            />
+                          </div>
+                          <div className="flex flex-col leading-tight">
+                            <p className="text-xxs sm:text-xs font-semibold truncate max-w-[50px] xs:max-w-[100px] text-center" style={{ color: '#7a8084' }}>{it.name}</p>
+                            <p className="text-xxs sm:text-xs font-extrabold text-center" style={{ color: '#fafafa' }}>${(Number(it.price) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           </div>
                         </div>
                       </motion.div>
                     ))}
                   </motion.div>
                 </motion.div>
-                {/* XP 文本 */}
-                <motion.p variants={xpVariants} className="text-base font-semibold text-yellow-400 mb-8">
-                  {`XP Earned: ${collectOverlayItems.length * 100}`}
-                </motion.p>
                 {/* 关闭按钮 */}
                 <motion.div variants={buttonVariants}>
                   <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-14 px-8"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none h-14 px-8 mb-10"
+                    style={{ backgroundColor: '#34383C', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                     onClick={() => {
-                      // 只关闭展示页，并切回"开始游戏"面板；保留选中样式与商品
                       setCollectOverlayOpen(false);
                       setOverlayArm(false);
                       setShowActions(false);
