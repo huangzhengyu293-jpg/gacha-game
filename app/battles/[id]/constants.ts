@@ -1,4 +1,9 @@
-import type { SlotMachineItem } from '../../components/SlotMachine/SlotMachine';
+export interface SlotMachineItem {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+}
 
 export const MOCK_SLOT_MACHINE_DATA: SlotMachineItem[][] = [
   [
