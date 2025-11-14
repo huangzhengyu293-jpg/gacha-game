@@ -141,6 +141,12 @@ export default function ActionBarClient({ price }: { price: number }) {
             type="button"
             onMouseEnter={() => setHoverDemo(true)}
             onMouseLeave={() => setHoverDemo(false)}
+            onClick={() => {
+              const spinFunction = (window as any).spinSlotMachine;
+              if (spinFunction && typeof spinFunction === 'function') {
+                spinFunction();
+              }
+            }}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-11 md:w-auto sm:h-11 px-0 md:px-6"
             style={{
               backgroundColor: hoverDemo ? btnHoverBg : btnBaseBg,

@@ -1,9 +1,12 @@
+import type { CatalogItem } from '@/app/lib/api';
+
 export type PackItem = {
   id: string;
   image: string;
   name: string;
   value: string;
   openedBy?: string;
+  items?: CatalogItem[];
 };
 
 export type PrizeItem = {
@@ -39,5 +42,6 @@ export type BattleData = {
   completedAt?: string;
   battleType: 'solo' | 'team';
   teamStructure?: '2v2' | '3v3' | '2v2v2';
+  playersCount: number;
 };
 

@@ -1981,7 +1981,11 @@ export default function CreateBattlePage() {
             }}
             onClick={() => {
               if (selectedPackIds.length > 0) {
-                router.replace(`/battles/${Date.now()}`);
+                const packIdsParam = selectedPackIds.join(",");
+                const params = new URLSearchParams();
+                params.set("packIds", packIdsParam);
+                params.set("players", playersCount);
+                router.replace(`/battles/${Date.now()}?${params.toString()}`);
               }
             }}
           >

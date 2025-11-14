@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import ProductCard from './ProductCard';
 import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
+import SlotMachine from '@/app/components/Slotmachine/Slotmachine';
 
 export default async function PackDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: currentId } = await params;
@@ -18,7 +19,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="flex flex-col flex-1 items-stretch relative mt-[-32px]">
       <div className="flex flex-1 flex-col gap-6 pb-48 pt-2">
-      <div className="flex self-center w-full max-w-screen-xl px-4 mb-[250px] justify-between items-center mx-auto">
+      <div className="flex self-center w-full max-w-screen-xl px-4 justify-between items-center mx-auto">
         <a href="/packs" className="inline-flex items-center justify-center whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold hover:text-white select-none h-10 px-0 gap-0" style={{ color: '#7A8084' }}>
           <div className="size-5">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none"><path d="M8 3L3 8L8 13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path><path d="M13 8L3 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path></svg>
@@ -37,7 +38,9 @@ export default async function PackDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div className="flex gap-2 w-[113.5px]"></div>
       </div>
-      {/* Action bar just below the 250px spacing */}
+      {/* SlotMachine component */}
+      <SlotMachine />
+      {/* Action bar just below the SlotMachine */}
       <div className="flex self-center w-full max-w-screen-xl px-4">
         <ActionBarClient price={pack.price} />
       </div>
