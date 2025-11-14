@@ -8,7 +8,7 @@ import PackDetailModal from "./components/PackDetailModal";
 import { useBattleData } from "./hooks/useBattleData";
 import type { PackItem, Participant } from "./types";
 import BattleInfoCard from "./components/BattleInfoCard";
-import LuckySlotMachine, { type SlotSymbol } from "@/app/components/Slotmachine/LuckySlotMachine";
+import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 
 export default function BattleDetailPage() {
   const battleData = useBattleData();

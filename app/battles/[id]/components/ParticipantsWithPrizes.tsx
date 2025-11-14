@@ -3,7 +3,7 @@
 import type { BattleData, Participant } from "../types";
 import Image from "next/image";
 import { useEffect, useState, useMemo, useRef } from "react";
-import type { SlotSymbol } from "@/app/components/Slotmachine/LuckySlotMachine";
+import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 
 interface ParticipantsWithPrizesProps {
   battleData: BattleData;

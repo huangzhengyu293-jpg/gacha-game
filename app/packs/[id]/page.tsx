@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import ProductCard from './ProductCard';
 import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
-import SlotMachine from '@/app/components/Slotmachine/Slotmachine';
+import SlotMachine from '@/app/components/SlotMachine/SlotMachine';
 
 export default async function PackDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: currentId } = await params;
