@@ -50,6 +50,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const reelContainerRef = useRef<HTMLDivElement>(null);
   const initialSymbolsRef = useRef<SlotSymbol[]>([]); // Store initial symbols, never update
   
+  // 🚀 Virtual Scrolling: Data structure for all items (virtual)
+  const virtualItemsRef = useRef<SlotSymbol[]>([]); // All virtual items
+  const renderedItemsMapRef = useRef<Map<number, HTMLDivElement>>(new Map()); // Pool of rendered DOM elements
+  const visibleRangeRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  
   // 配置参数
   const REEL_HEIGHT = height;
   const [itemHeight, setItemHeight] = useState(180);
@@ -57,6 +62,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const [repeatTimes, setRepeatTimes] = useState(3);
   // Calculate reel center based on actual height (450px fixed)
   const reelCenter = 225; // Fixed at 450/2 = 225px for all screen sizes
+  
+  // 🚀 Virtual scrolling constants
+  const BUFFER_SIZE = 5; // Render 5 extra items above and below viewport
   
   // Dynamically update item height and count based on parent container width
   useEffect(() => {
@@ -235,54 +243,140 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       container.style.top = containerTop + 'px';
     }
     
-    // Directly calculate the closest item index (O(1) - FAST!)
-    const approximateIndex = Math.round((reelCenterRef.current - containerTop - itemHeightRef.current / 2) / itemHeightRef.current);
-    const items = container.querySelectorAll('.slot-item');
-    const closestIndex = Math.max(0, Math.min(items.length - 1, approximateIndex));
+    // 🚀 Calculate closest VIRTUAL index (not DOM index!)
+    const virtualClosestIndex = Math.round((reelCenterRef.current - containerTop - itemHeightRef.current / 2) / itemHeightRef.current);
+    const clampedIndex = Math.max(0, Math.min(virtualItemsRef.current.length - 1, virtualClosestIndex));
     
-    // Only update if the index has changed
-    if (closestIndex !== currentSelectedIndexRef.current) {
+    // Only update if the virtual index has changed
+    if (clampedIndex !== currentSelectedIndexRef.current) {
       // Remove selected from only the previous item
       if (currentSelectedElementRef.current) {
         currentSelectedElementRef.current.classList.remove('selected');
       }
       
-      // Add selected to the new closest item
-      const closestItem = items[closestIndex] as HTMLElement;
+      // Add selected to the new closest item (if it's rendered)
+      const closestItem = renderedItemsMapRef.current.get(clampedIndex);
       if (closestItem) {
         closestItem.classList.add('selected');
-        currentSelectedIndexRef.current = closestIndex;
+        currentSelectedIndexRef.current = clampedIndex;
         currentSelectedElementRef.current = closestItem;
+      } else {
+        // Item not rendered yet, just track the index
+        currentSelectedIndexRef.current = clampedIndex;
+        currentSelectedElementRef.current = null;
       }
     }
   }, []); // NO dependencies - completely stable!
 
-  // 查找最接近的项目
+  // 🚀 查找最接近的虚拟项目索引
   const findClosestItem = useCallback((container: HTMLDivElement): number => {
-    const items = container.querySelectorAll('.slot-item');
     const containerTop = parseFloat(container.style.top || '0');
     
-    // Get actual item height from DOM
-    const actualItemHeight = items[0]?.getBoundingClientRect().height || itemHeightRef.current;
+    // Directly calculate the closest virtual index using math (O(1))
+    const virtualClosestIndex = Math.round((reelCenterRef.current - containerTop - itemHeightRef.current / 2) / itemHeightRef.current);
+    const clampedIndex = Math.max(0, Math.min(virtualItemsRef.current.length - 1, virtualClosestIndex));
     
-    let closestIndex = 0;
-    let minDistance = Infinity;
-    
-    items.forEach((_, index) => {
-      const itemTop = index * actualItemHeight + containerTop;
-      const itemCenter = itemTop + actualItemHeight / 2;
-      const distance = Math.abs(itemCenter - reelCenterRef.current);
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    return closestIndex;
+    return clampedIndex;
   }, []); // NO dependencies - completely stable!
 
-  // 初始化转轮
+  // 🚀 Create a single DOM element (reusable factory)
+  const createItemElement = useCallback((symbol: SlotSymbol, index: number): HTMLDivElement => {
+    const item = document.createElement('div');
+    item.className = 'slot-item';
+    item.dataset.id = symbol.id;
+    item.dataset.name = symbol.name;
+    item.dataset.price = symbol.price.toString();
+    item.dataset.index = index.toString(); // Track virtual index
+    
+    // 光晕层
+    const glow = document.createElement('div');
+    glow.className = 'item-glow';
+    
+    // 图片包装器
+    const imgWrapper = document.createElement('div');
+    imgWrapper.className = 'item-image-wrapper';
+    
+    const img = document.createElement('img');
+    img.src = symbol.image;
+    img.alt = symbol.name;
+    
+    imgWrapper.appendChild(img);
+    
+    // 信息层
+    const info = document.createElement('div');
+    info.className = 'item-info';
+    
+    const namePara = document.createElement('p');
+    namePara.className = 'item-name';
+    namePara.textContent = symbol.name;
+    
+    const pricePara = document.createElement('p');
+    pricePara.textContent = `¥${symbol.price}`;
+    
+    info.appendChild(namePara);
+    info.appendChild(pricePara);
+    
+    item.appendChild(glow);
+    item.appendChild(imgWrapper);
+    item.appendChild(info);
+    
+    // Set absolute position
+    item.style.position = 'absolute';
+    item.style.top = `${index * itemHeightRef.current}px`;
+    
+    return item;
+  }, []);
+
+  // 🚀 Update virtual items rendering (only render visible range)
+  const updateVirtualItems = useCallback(() => {
+    const container = reelContainerRef.current;
+    if (!container || virtualItemsRef.current.length === 0) return;
+    
+    const containerTop = parseFloat(container.style.top || '0');
+    const viewportStart = -containerTop;
+    const viewportEnd = viewportStart + REEL_HEIGHT;
+    
+    // Calculate visible range with buffer
+    const startIndex = Math.max(0, Math.floor(viewportStart / itemHeightRef.current) - BUFFER_SIZE);
+    const endIndex = Math.min(
+      virtualItemsRef.current.length - 1,
+      Math.ceil(viewportEnd / itemHeightRef.current) + BUFFER_SIZE
+    );
+    
+    // Only update if range changed significantly
+    if (startIndex === visibleRangeRef.current.start && endIndex === visibleRangeRef.current.end) {
+      return;
+    }
+    
+    visibleRangeRef.current = { start: startIndex, end: endIndex };
+    
+    // Remove items outside visible range
+    const itemsToRemove: number[] = [];
+    renderedItemsMapRef.current.forEach((element, index) => {
+      if (index < startIndex || index > endIndex) {
+        element.remove();
+        itemsToRemove.push(index);
+      }
+    });
+    itemsToRemove.forEach(index => renderedItemsMapRef.current.delete(index));
+    
+    // Add/update items in visible range
+    for (let i = startIndex; i <= endIndex; i++) {
+      const symbol = virtualItemsRef.current[i];
+      if (!symbol) continue;
+      
+      let item = renderedItemsMapRef.current.get(i);
+      if (!item) {
+        // Create new DOM element
+        item = createItemElement(symbol, i);
+        renderedItemsMapRef.current.set(i, item);
+        container.appendChild(item);
+      }
+      // Position is set in createItemElement, no need to update unless changed
+    }
+  }, [createItemElement, REEL_HEIGHT]);
+
+  // 初始化转轮 - 只创建虚拟数据，不创建所有DOM
   const initReels = useCallback(() => {
     if (!reelContainerRef.current) return;
     
@@ -293,74 +387,44 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       return;
     }
     
-    console.log('🔄 [initReels] 被调用，调用栈:', new Error().stack?.split('\n').slice(1, 4).join('\n'));
+    console.log('🔄 [initReels] 虚拟滚动初始化');
     
     const container = reelContainerRef.current;
     container.innerHTML = '';
+    renderedItemsMapRef.current.clear();
     
     // CRITICAL: Only use initialSymbolsRef, NEVER use symbols prop
-    // This ensures initReels doesn't capture symbols in closure
     if (initialSymbolsRef.current.length === 0) {
       console.warn('⚠️ initialSymbolsRef is empty, cannot initialize');
       return;
     }
     
+    // 🚀 Build virtual items array (NO DOM creation yet!)
     const symbolSequence: SlotSymbol[] = [];
     for (let j = 0; j < itemsPerReel; j++) {
       symbolSequence.push(initialSymbolsRef.current[Math.floor(Math.random() * initialSymbolsRef.current.length)]);
     }
     
+    virtualItemsRef.current = [];
     for (let repeat = 0; repeat < repeatTimes; repeat++) {
-      symbolSequence.forEach(symbol => {
-        const item = document.createElement('div');
-        item.className = 'slot-item';
-        item.dataset.id = symbol.id;
-        item.dataset.name = symbol.name;
-        item.dataset.price = symbol.price.toString();
-        
-        // 光晕层
-        const glow = document.createElement('div');
-        glow.className = 'item-glow';
-        
-        // 图片包装器
-        const imgWrapper = document.createElement('div');
-        imgWrapper.className = 'item-image-wrapper';
-        
-        const img = document.createElement('img');
-        img.src = symbol.image;
-        img.alt = symbol.name;
-        
-        imgWrapper.appendChild(img);
-        
-        // 信息层
-        const info = document.createElement('div');
-        info.className = 'item-info';
-        
-        const namePara = document.createElement('p');
-        namePara.className = 'item-name';
-        namePara.textContent = symbol.name;
-        
-        const pricePara = document.createElement('p');
-        pricePara.textContent = `¥${symbol.price}`;
-        
-        info.appendChild(namePara);
-        info.appendChild(pricePara);
-        
-        item.appendChild(glow);
-        item.appendChild(imgWrapper);
-        item.appendChild(info);
-        container.appendChild(item);
-      });
+      virtualItemsRef.current.push(...symbolSequence);
     }
+    
+    console.log(`🚀 虚拟滚动：创建 ${virtualItemsRef.current.length} 个虚拟items，只渲染可见区域`);
+    
+    // Set container to absolute positioning for virtual scrolling
+    container.style.position = 'relative';
     
     // 设置初始位置
     const initialIndex = itemsPerReel;
     const initialTop = reelCenter - initialIndex * itemHeight - itemHeight / 2;
     container.style.top = initialTop + 'px';
     
+    // 🚀 Render only visible items
+    updateVirtualItems();
     updateSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reelCenter, updateSelection, itemsPerReel, repeatTimes, itemHeight, isSpinning]); // Removed symbols - use initialSymbolsRef instead
+  }, [updateVirtualItems, updateSelection, itemsPerReel, repeatTimes, itemHeight, isSpinning]);
 
   // 第一阶段旋转
   const spinPhase1 = useCallback((duration: number, targetSymbol: SlotSymbol | null = null): Promise<void> => {
@@ -379,11 +443,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       const actualItemHeight = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
       
       if (targetSymbol) {
-        const items = container.querySelectorAll('.slot-item');
-        
+        // 🚀 Search in virtual items array instead of DOM
         const matchingIndices: number[] = [];
-        items.forEach((item, index) => {
-          if ((item as HTMLElement).dataset.id === targetSymbol.id) {
+        virtualItemsRef.current.forEach((item, index) => {
+          if (item.id === targetSymbol.id) {
             matchingIndices.push(index);
           }
         });
@@ -442,6 +505,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         container.style.top = currentTop + 'px';
         
         checkAndResetPosition(container);
+        
+        // 🚀 Update virtual items every frame
+        updateVirtualItems();
         updateSelection();
         
         if (progress < 1) {
@@ -453,7 +519,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       animate();
     });
-  }, [checkAndResetPosition, updateSelection, customEase]); // Removed reelCenter, itemHeight - use refs
+  }, [checkAndResetPosition, updateVirtualItems, updateSelection, customEase]);
 
   // 第二阶段旋转
   const spinPhase2 = useCallback((targetSymbol: SlotSymbol | null = null): Promise<void> => {
@@ -482,16 +548,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // Get actual item height from DOM for accurate positioning
       const actualItemHeight = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
       
-      // If we have a target symbol, find ALL instances and choose the best one
+      // 🚀 If we have a target symbol, search in virtual items array
       if (targetSymbol) {
         console.log(`[spinPhase2] 开始查找目标: ${targetSymbol.name} (ID: ${targetSymbol.id})`);
-        const items = container.querySelectorAll('.slot-item');
         const targetIndices: number[] = [];
         
-        // Find all instances of the target symbol
-        items.forEach((item, index) => {
-          const itemId = (item as HTMLElement).dataset.id;
-          if (itemId === targetSymbol.id) {
+        // Find all instances in virtual array
+        virtualItemsRef.current.forEach((item, index) => {
+          if (item.id === targetSymbol.id) {
             targetIndices.push(index);
           }
         });
@@ -520,7 +584,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           console.log(`✅ [spinPhase2] 选择目标索引 ${closestIndex}，${targetSymbol.name}`);
         } else {
           console.error(`❌ [spinPhase2] 未找到目标符号 ${targetSymbol.name} (ID: ${targetSymbol.id})！`);
-          console.log(`   检查前5个item的ID:`, Array.from(items).slice(0, 5).map(i => (i as HTMLElement).dataset.id));
         }
       } else {
         console.warn(`⚠️ [spinPhase2] 没有传入目标符号，将停在最近的item`);
@@ -553,7 +616,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         container.style.top = newTop + 'px';
         
         if (progress < 1) {
-          // Update selection during animation for smooth visual feedback
+          // 🚀 Update virtual items and selection during animation
+          updateVirtualItems();
           updateSelection();
           requestAnimationFrame(animate);
         } else {
@@ -563,7 +627,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           // Force reflow to apply position immediately
           void container.offsetHeight;
           
-          // Update selection ONE final time at the exact position
+          // 🚀 Final update of virtual items and selection
+          updateVirtualItems();
           updateSelection();
           
           // CRITICAL: Lock selection to prevent any further updates
@@ -580,7 +645,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       animate();
     });
-  }, [findClosestItem, updateSelection]); // Removed reelCenter, itemsPerReel, itemHeight - use refs
+  }, [findClosestItem, updateVirtualItems, updateSelection]);
 
   // 开始旋转
   const startSpin = useCallback(async () => {
@@ -623,27 +688,27 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     await spinPhase2(selectedPrize);
     console.log('[LuckySlotMachine.startSpin] 第二阶段完成');
     
-    // 立即找到选中的item并显示信息（不延迟）
+    // 🚀 立即找到选中的item并显示信息（使用虚拟索引）
     if (reelContainerRef.current) {
       console.log('[LuckySlotMachine.startSpin] 处理结果');
-      const container = reelContainerRef.current;
-      const items = container.querySelectorAll('.slot-item');
       
-      // Find and highlight the selected item
+      // Get the final result from virtual items using the selected index
       let finalResult: SlotSymbol | null = selectedPrize;
       
-      items.forEach(item => {
-        if (item.classList.contains('selected')) {
-          item.classList.add('show-info');
-          
-          // If no pre-selected prize, get the result from the selected item
-          if (!finalResult) {
-            const itemId = (item as HTMLElement).dataset.id;
-            // Use initialSymbolsRef instead of symbols prop to avoid dependency
-            finalResult = initialSymbolsRef.current.find(s => s.id === itemId) || null;
-          }
+      // If we have a selected index, get the virtual item
+      if (currentSelectedIndexRef.current >= 0 && currentSelectedIndexRef.current < virtualItemsRef.current.length) {
+        const selectedVirtualItem = virtualItemsRef.current[currentSelectedIndexRef.current];
+        
+        // Add show-info class to the rendered DOM element (if it exists)
+        if (currentSelectedElementRef.current) {
+          (currentSelectedElementRef.current as HTMLElement).classList.add('show-info');
         }
-      });
+        
+        // If no pre-selected prize, use the virtual item as result
+        if (!finalResult) {
+          finalResult = selectedVirtualItem;
+        }
+      }
       
       // Use the pre-selected prize for the result, or the actual stopped item
       if (finalResult) {

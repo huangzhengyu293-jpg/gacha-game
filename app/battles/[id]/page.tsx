@@ -125,12 +125,18 @@ export default function BattleDetailPage() {
             name: randomSymbol.name,
             price: randomSymbol.price
           };
+          
+          console.log(`🎁 [预生成] 第${packIndex + 1}轮 - ${participant.id}: ${randomSymbol.name} (ID: ${randomSymbol.id}, ¥${randomSymbol.price})`);
         }
       });
     });
     
     // Store detailed results globally for comparison
     (window as any).__preGeneratedDetailedResults = detailedResults;
+    
+    console.log('📋 ========== 所有轮次预生成结果汇总 ==========');
+    console.table(detailedResults);
+    console.log('==============================================');
     
     setPreGeneratedResults(results);
   }, [battleData, getSymbolsForRound]);
