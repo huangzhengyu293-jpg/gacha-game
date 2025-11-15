@@ -74,8 +74,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // Get parent container width
       const containerWidth = containerRef.current?.clientWidth || 300;
       
-      // Log for debugging
-      console.log(`🔍 [LuckySlotMachine] 容器实际宽度: ${containerWidth}px`);
       
       // Determine item size based on parent container width
       // 180×180 for width >= 180px
@@ -91,7 +89,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         calculatedHeight = 180;
       }
       
-      console.log(`📏 [LuckySlotMachine] 计算出的 item 尺寸: ${calculatedHeight}×${calculatedHeight}`);
       
       setItemHeight(calculatedHeight);
       
@@ -116,7 +113,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       const calculatedRepeatTimes = Math.max(3, Math.ceil(minTotalItems / baseItemsPerReel));
       setRepeatTimes(calculatedRepeatTimes);
       
-      console.log(`📐 容器宽度: ${containerWidth}px, Item大小: ${calculatedHeight}×${calculatedHeight}, 每轮: ${baseItemsPerReel}个, 重复: ${calculatedRepeatTimes}次, 总计: ${baseItemsPerReel * calculatedRepeatTimes}个`);
     };
     
     updateItemConfig();
@@ -149,13 +145,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // Use symbolsRef to get the latest symbols without triggering on symbols change
       const prize = symbolsRef.current.find(s => s.id === selectedPrizeId);
       if (prize) {
-        console.log(`[LuckySlotMachine] 设置目标奖品: ${prize.name} (ID: ${selectedPrizeId})`);
         setSelectedPrize(prize);
         setLocalSelectedId(selectedPrizeId);
         // Reset hasStarted when selectedPrizeId changes (new round)
         setHasStarted(false);
       } else {
-        console.warn(`[LuckySlotMachine] 未找到ID为 ${selectedPrizeId} 的奖品`);
       }
     } else {
       // Reset when no prize is selected
@@ -170,13 +164,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (selectedPrizeId && !isSpinning && !buttonText && selectedPrize && !hasStarted) {
       // For auto-start, trust that parent passed valid selectedPrizeId
       // The actual target comes from selectedPrize, not initialSymbolsRef
-      console.log(`[LuckySlotMachine] 准备自动启动，目标: ${selectedPrize.name} (ID: ${selectedPrizeId})`);
-      // Small delay to ensure DOM is ready
+      // Delay to ensure virtual DOM is fully ready
       const timer = setTimeout(() => {
-        console.log(`[LuckySlotMachine] 自动启动旋转，目标: ${selectedPrize.name}`);
         setHasStarted(true);
         startSpin();
-      }, 100); // Reduced delay for faster response
+      }, 500); // Longer delay for first round to ensure virtual DOM is ready
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,7 +379,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       return;
     }
     
-    console.log('🔄 [initReels] 虚拟滚动初始化');
     
     const container = reelContainerRef.current;
     container.innerHTML = '';
@@ -395,7 +386,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     // CRITICAL: Only use initialSymbolsRef, NEVER use symbols prop
     if (initialSymbolsRef.current.length === 0) {
-      console.warn('⚠️ initialSymbolsRef is empty, cannot initialize');
       return;
     }
     
@@ -410,7 +400,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       virtualItemsRef.current.push(...symbolSequence);
     }
     
-    console.log(`🚀 虚拟滚动：创建 ${virtualItemsRef.current.length} 个虚拟items，只渲染可见区域`);
     
     // Set container to absolute positioning for virtual scrolling
     container.style.position = 'relative';
@@ -451,10 +440,12 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           }
         });
         
-        const minRolls = 25;
-        const maxRolls = 30;
-        const rollCount = Math.floor(Math.random() * (maxRolls - minRolls + 1)) + minRolls;
-        const minScrollDistance = rollCount * actualItemHeight;
+        // ⏱️ 基于时间计算滚动距离（而非固定圈数）
+        // duration越长，滚动越远，保持恒定速度感
+        const pixelsPerMs = 0.8; // 每毫秒滚动0.8像素（可调整速度）
+        const minScrollDistance = duration * pixelsPerMs;
+        const equivalentRolls = minScrollDistance / actualItemHeight;
+        
         
         let selectedIndex: number | null = null;
         for (const index of matchingIndices) {
@@ -482,15 +473,15 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           // Add random offset for more realistic stopping
           const randomOffset = (Math.random() * 30 + 10) * (Math.random() < 0.5 ? 1 : -1);
           targetTop = -(selectedIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2 + randomOffset;
-          console.log(`[spinPhase1] 目标符号 ${targetSymbol.name} 将停在索引 ${selectedIndex}（带偏移 ${randomOffset.toFixed(1)}px）`);
         } else {
           targetTop = startTop - minScrollDistance;
         }
       } else {
-        // Increase roll count for more spinning (when no target)
-        const rollCount = Math.floor(Math.random() * 10) + 35;
+        // ⏱️ 无目标时：基于时间计算滚动距离
+        const pixelsPerMs = 0.8;
+        const scrollDistance = duration * pixelsPerMs;
         const randomOffset = (Math.random() * 40 + 20) * (Math.random() < 0.5 ? 1 : -1);
-        targetTop = startTop - (rollCount * actualItemHeight) + randomOffset;
+        targetTop = startTop - scrollDistance + randomOffset;
       }
       
       const distance = startTop - targetTop;
@@ -545,12 +536,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       let closestIndex = findClosestItem(container);
       
-      // Get actual item height from DOM for accurate positioning
       const actualItemHeight = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
       
-      // 🚀 If we have a target symbol, search in virtual items array
       if (targetSymbol) {
-        console.log(`[spinPhase2] 开始查找目标: ${targetSymbol.name} (ID: ${targetSymbol.id})`);
         const targetIndices: number[] = [];
         
         // Find all instances in virtual array
@@ -560,10 +548,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           }
         });
         
-        console.log(`[spinPhase2] 找到 ${targetIndices.length} 个匹配项，索引:`, targetIndices);
         
         if (targetIndices.length > 0) {
-          // Choose the instance that requires minimal movement and is visible
           let bestIndex = targetIndices[0];
           let minMovement = Infinity;
           
@@ -573,7 +559,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
             const targetTop = reelCenterRef.current - actualItemHeight / 2;
             const movement = Math.abs(itemTop - targetTop);
             
-            // Prefer items that are already close to center and visible
             if (movement < minMovement && itemCenter > 0 && itemCenter < REEL_HEIGHT) {
               minMovement = movement;
               bestIndex = index;
@@ -581,12 +566,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           });
           
           closestIndex = bestIndex;
-          console.log(`✅ [spinPhase2] 选择目标索引 ${closestIndex}，${targetSymbol.name}`);
         } else {
-          console.error(`❌ [spinPhase2] 未找到目标符号 ${targetSymbol.name} (ID: ${targetSymbol.id})！`);
         }
       } else {
-        console.warn(`⚠️ [spinPhase2] 没有传入目标符号，将停在最近的item`);
       }
       
       // Calculate exact center position
@@ -595,14 +577,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // Calculate distance to exact center
       const distance = exactTargetTop - currentTop;
       
-      console.log(`[spinPhase2] 动画参数:`, {
-        closestIndex,
-        actualItemHeight,
-        currentTop,
-        exactTargetTop,
-        distance,
-        willMoveTo: exactTargetTop
-      });
+     
       
       const animate = () => {
         const elapsed = Date.now() - startTime;
@@ -634,7 +609,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           // CRITICAL: Lock selection to prevent any further updates
           selectionLockedRef.current = true;
           
-          console.log(`✅ [spinPhase2] 完成，精确停在: ${exactTargetTop.toFixed(2)}，选中已锁定`);
           
           // Wait a tiny bit before resolving
           setTimeout(() => {
@@ -649,9 +623,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
 
   // 开始旋转
   const startSpin = useCallback(async () => {
-    console.log('[LuckySlotMachine.startSpin] 开始旋转，isSpinning=', isSpinning, 'selectedPrize=', selectedPrize?.name);
     if (isSpinning || !reelContainerRef.current) {
-      console.log('[LuckySlotMachine.startSpin] 跳过：isSpinning=', isSpinning, 'reelContainer=', !!reelContainerRef.current);
       return;
     }
     
@@ -660,7 +632,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     // 触发开始回调
     if (onSpinStart) {
-      console.log('[LuckySlotMachine.startSpin] 触发 onSpinStart');
       onSpinStart();
     }
     
@@ -679,18 +650,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // Add ±100ms variation to make each machine slightly different
     const duration = baseDuration + (Math.random() - 0.5) * 200;
     
-    console.log(`[LuckySlotMachine.startSpin] 开始第一阶段，目标: ${selectedPrize?.name || '无'}`);
     await spinPhase1(duration, selectedPrize);
     
-    // No delay between phases for smoother transition
-    // Pass the selected prize to phase 2 to ensure we stop on the correct item
-    console.log(`[LuckySlotMachine.startSpin] 开始第二阶段，目标: ${selectedPrize?.name || '无'}`);
     await spinPhase2(selectedPrize);
-    console.log('[LuckySlotMachine.startSpin] 第二阶段完成');
     
-    // 🚀 立即找到选中的item并显示信息（使用虚拟索引）
     if (reelContainerRef.current) {
-      console.log('[LuckySlotMachine.startSpin] 处理结果');
       
       // Get the final result from virtual items using the selected index
       let finalResult: SlotSymbol | null = selectedPrize;
@@ -714,18 +678,15 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       if (finalResult) {
         setResult(`结果: ${finalResult.name} - ¥${finalResult.price}`);
         if (onSpinComplete) {
-          console.log(`[LuckySlotMachine] 完成，预设目标: ${selectedPrize?.name}, 实际结果: ${finalResult.name}`);
           // Always use the pre-selected prize if available
           const reportResult = selectedPrize || finalResult;
           onSpinComplete(reportResult);
         }
       } else {
-        console.warn('[LuckySlotMachine] 完成但没有找到结果');
       }
     }
     
     setIsSpinning(false);
-    console.log(`[LuckySlotMachine] 旋转完成，hasStarted保持为: ${hasStarted}`);
     // Don't reset hasStarted here - it should only be reset when selectedPrizeId changes
   }, [isSpinning, selectedPrize, onSpinStart, onSpinComplete, spinPhase1, spinPhase2, hasStarted]); // Removed symbols dependency
 
@@ -739,8 +700,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // Only initialize once on mount when symbols are available AND item config is ready
     // Wait for itemsPerReel to be calculated (default is 30, after calculation it should be >= 90)
     if (!hasInitializedRef.current && symbols.length > 0 && itemsPerReel >= 90) {
-      console.log('🎰 首次初始化转轮（组件生命周期唯一一次）');
-      console.log(`📊 使用配置: itemsPerReel=${itemsPerReel}, repeatTimes=${repeatTimes}, itemHeight=${itemHeight}`);
       
       // Store initial symbols and NEVER update them
       initialSymbolsRef.current = symbols;
@@ -764,16 +723,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
                             prevRepeatTimesRef.current !== repeatTimes;
     
     if (structureChanged) {
-      console.log('⚠️ 转轮结构变化（但已初始化，跳过重新初始化）');
-      // Just update the refs, don't reinitialize
       prevItemsPerReelRef.current = itemsPerReel;
       prevRepeatTimesRef.current = repeatTimes;
     }
   }, [itemsPerReel, repeatTimes]); // Removed initReels dependency to prevent any reinit
   
-  // IMPORTANT: Do NOT update reel content after initial mount
-  // The reel is randomly generated once and stays the same
-  // Each round uses the same reel items, only the target prize changes
 
   // 处理奖品选择
   const handlePrizeSelect = (symbol: SlotSymbol) => {
@@ -781,11 +735,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     setSelectedPrize(symbol);
   };
 
-  // Method to update reel content for new round
   const updateReelContent = useCallback((newSymbols: SlotSymbol[]) => {
     if (!reelContainerRef.current || newSymbols.length === 0) return;
     
-    console.log('🔄 更新转轮内容为新一轮的物品');
     
     // Update initialSymbolsRef to new symbols
     initialSymbolsRef.current = newSymbols;

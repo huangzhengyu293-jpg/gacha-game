@@ -10,27 +10,74 @@ import type { PackItem, Participant } from "./types";
 import BattleInfoCard from "./components/BattleInfoCard";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 
+// 🎯 主状态机类型
+type MainState = 'IDLE' | 'LOADING' | 'COUNTDOWN' | 'ROUND_LOOP' | 'COMPLETED';
+
+// 🎯 轮次子状态机类型
+type RoundState = 'ROUND_RENDER' | 'ROUND_SPIN' | 'ROUND_SETTLE' | 'ROUND_NEXT' | null;
+
+// 🎯 状态数据结构
+interface BattleStateData {
+  mainState: MainState;
+  roundState: RoundState;
+  game: {
+    currentRound: number;
+    totalRounds: number;
+    rounds: Array<{
+      symbols: SlotSymbol[];
+      prizes: Record<string, string>; // participantId -> prizeId
+    }>;
+  };
+  spinning: {
+    activeCount: number;
+    completed: Set<string>; // participant IDs
+  };
+}
+
 export default function BattleDetailPage() {
   const battleData = useBattleData();
   const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
   const [allSlotsFilled, setAllSlotsFilled] = useState(false);
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
+  
+  // 🎯 状态机核心状态
+  const [mainState, setMainState] = useState<MainState>('IDLE');
+  const [roundState, setRoundState] = useState<RoundState>(null);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
-  const [galleryAlert, setGalleryAlert] = useState(false);
-  const [hidePacks, setHidePacks] = useState(false);
-  const [showSlotMachines, setShowSlotMachines] = useState(false);
-  const [currentRound, setCurrentRound] = useState(0);
-  const [roundStatus, setRoundStatus] = useState<'idle' | 'spinning' | 'completed'>('idle');
+  
+  // 🎯 游戏数据
+  const [gameData, setGameData] = useState<BattleStateData['game']>({
+    currentRound: 0,
+    totalRounds: 0,
+    rounds: []
+  });
+  
+  // 🎯 转动状态
+  const [spinningState, setSpinningState] = useState<BattleStateData['spinning']>({
+    activeCount: 0,
+    completed: new Set()
+  });
+  
+  // 结果存储
   const [roundResults, setRoundResults] = useState<Record<number, Record<string, SlotSymbol>>>({});
-  const [preGeneratedResults, setPreGeneratedResults] = useState<Record<number, Record<string, string>>>({});
-  const [completedSpins, setCompletedSpins] = useState<Set<string>>(new Set());
-  const [currentSlotSymbols, setCurrentSlotSymbols] = useState<SlotSymbol[]>([]); // Store symbols for current round
-  const [currentRoundPrizes, setCurrentRoundPrizes] = useState<Record<string, string>>({}); // Store prizes for current round
-  const [allRoundsCompleted, setAllRoundsCompleted] = useState(false); // Track if all rounds are completed
+  
+  // UI状态
+  const [galleryAlert, setGalleryAlert] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
   const slotMachineRefs = useRef<Record<string, any>>({});
-  const currentRoundRef = useRef(0); // Keep track of current round in ref to avoid closure issues
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  
+  // 兼容旧代码的状态变量（会被状态机同步更新）
+  const [currentRound, setCurrentRound] = useState(0);
+  const [roundStatus, setRoundStatus] = useState<'idle' | 'spinning' | 'completed'>('idle');
+  const [preGeneratedResults, setPreGeneratedResults] = useState<Record<number, Record<string, string>>>({});
+  const [completedSpins, setCompletedSpins] = useState<Set<string>>(new Set());
+  const [currentSlotSymbols, setCurrentSlotSymbols] = useState<SlotSymbol[]>([]);
+  const [currentRoundPrizes, setCurrentRoundPrizes] = useState<Record<string, string>>({});
+  const [allRoundsCompleted, setAllRoundsCompleted] = useState(false);
+  const [hidePacks, setHidePacks] = useState(false);
+  const [showSlotMachines, setShowSlotMachines] = useState(false);
+  const currentRoundRef = useRef(0);
 
   // 检测屏幕宽度是否小于1024px
   useEffect(() => {
@@ -96,39 +143,34 @@ export default function BattleDetailPage() {
   // Pre-generate all results when countdown starts
   const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
   
-  const generateAllResults = useCallback((allParticipants: any[]) => {
-    // Prevent generating results multiple times
-    if (hasGeneratedResultsRef.current) {
-      return;
-    }
+  const generateAllResults = useCallback((allParticipants: any[]): BattleStateData['game']['rounds'] => {
+    console.log('📊 [LOADING] 生成所有轮次数据...');
     
-    hasGeneratedResultsRef.current = true;
-    const results: Record<number, Record<string, string>> = {};
-    
-    
+    const rounds: BattleStateData['game']['rounds'] = [];
     const detailedResults: Record<number, Record<string, any>> = {};
     
     battleData.packs.forEach((pack, packIndex) => {
       const symbols = getSymbolsForRound(packIndex);
       if (symbols.length === 0) return;
       
-      results[packIndex] = {};
+      const prizes: Record<string, string> = {};
       detailedResults[packIndex] = {};
       
       allParticipants.forEach(participant => {
         if (participant && participant.id) {
           // Randomly select a symbol for this player and round
           const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
-          results[packIndex][participant.id] = randomSymbol.id;
+          prizes[participant.id] = randomSymbol.id;
           detailedResults[packIndex][participant.id] = {
             id: randomSymbol.id,
             name: randomSymbol.name,
             price: randomSymbol.price
           };
           
-          console.log(`🎁 [预生成] 第${packIndex + 1}轮 - ${participant.id}: ${randomSymbol.name} (ID: ${randomSymbol.id}, ¥${randomSymbol.price})`);
         }
       });
+      
+      rounds.push({ symbols, prizes });
     });
     
     // Store detailed results globally for comparison
@@ -138,144 +180,200 @@ export default function BattleDetailPage() {
     console.table(detailedResults);
     console.log('==============================================');
     
-    setPreGeneratedResults(results);
+    return rounds;
   }, [battleData, getSymbolsForRound]);
 
-  // Track if we've already started countdown to avoid re-triggering
-  const hasStartedCountdownRef = useRef(false);
-  
+  // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
-    if (allSlotsFilled && allParticipants.length > 0) {
-      if (!hasStartedCountdownRef.current && countdownValue === null && !galleryAlert) {
-        hasStartedCountdownRef.current = true;
-        setHidePacks(true);
-        setCountdownValue(3);
-        // Generate all results when countdown starts with all participants (including bots)
-        generateAllResults(allParticipants);
-      }
-    } else {
-      // Reset when slots are not filled
-      if (!allSlotsFilled) {
-        hasStartedCountdownRef.current = false;
-        hasGeneratedResultsRef.current = false; // Reset results generation flag
-        setCountdownValue(null);
-        setGalleryAlert(false);
-        setHidePacks(false);
-        setShowSlotMachines(false);
-        setCurrentRound(0);
-        currentRoundRef.current = 0; // Reset round ref
-        setRoundStatus('idle');
-        setCompletedSpins(new Set());
-        setRoundResults({});
-        setPreGeneratedResults({});
-        setCurrentSlotSymbols([]);
-        setCurrentRoundPrizes({});
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSlotsFilled, allParticipants.length]); // Only depend on the essential states
-
-  useEffect(() => {
-    if (countdownValue === null) return;
-
-    if (countdownValue <= 0) {
+    if (mainState === 'IDLE' && allSlotsFilled && allParticipants.length > 0) {
+      setMainState('LOADING');
+    } else if (mainState !== 'IDLE' && !allSlotsFilled) {
+      // 状态守卫：玩家离开，重置到IDLE
+      setMainState('IDLE');
+      setRoundState(null);
+      setGameData({ currentRound: 0, totalRounds: 0, rounds: [] });
+      setSpinningState({ activeCount: 0, completed: new Set() });
+      setRoundResults({});
       setCountdownValue(null);
-      // Instead of turning red, show slot machines
-      setShowSlotMachines(true);
-      setRoundStatus('idle'); // Start with idle status
-      // Initialize symbols AND prizes for first round
-      const firstRoundSymbols = allRoundSymbols[0] || [];
-      const firstRoundPrizes = preGeneratedResults[0] || {};
-      setCurrentSlotSymbols(firstRoundSymbols);
-      setCurrentRoundPrizes(firstRoundPrizes);
-      return;
+      setGalleryAlert(false);
+      hasGeneratedResultsRef.current = false;
     }
+  }, [mainState, allSlotsFilled, allParticipants.length]);
 
-    const timer = setTimeout(() => {
-      setCountdownValue((prev) => (prev ?? 0) - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [countdownValue]);
-
-  // Track if we're currently starting a round to prevent multiple triggers
-  const isStartingRoundRef = useRef(false);
-  const lastProcessedRoundRef = useRef(-1); // Track last processed round to prevent duplicates
-  
-  // Start a round when slot machines are shown and round is idle
+  // 🎯 STATE TRANSITION: LOADING → COUNTDOWN
   useEffect(() => {
-    if (showSlotMachines && roundStatus === 'idle' && preGeneratedResults && Object.keys(preGeneratedResults).length > 0 && !allRoundsCompleted) {
-      // Check if current round is valid
-      if (currentRound >= battleData.packs.length) {
+    if (mainState === 'LOADING') {
+      
+      // 生成所有轮次数据
+      const rounds = generateAllResults(allParticipants);
+      
+      setGameData({
+        currentRound: 0,
+        totalRounds: rounds.length,
+        rounds
+      });
+      
+      setMainState('COUNTDOWN');
+      setCountdownValue(3);
+    }
+  }, [mainState, allParticipants, generateAllResults]);
+
+  // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
+  useEffect(() => {
+    if (mainState === 'COUNTDOWN' && countdownValue === 0) {
+      setCountdownValue(null); // 销毁倒计时组件
+      setMainState('ROUND_LOOP');
+      setRoundState('ROUND_RENDER'); // 进入第一个轮次的渲染态
+    }
+  }, [mainState, countdownValue]);
+
+  // 🎯 Countdown ticker (倒计时器)
+  useEffect(() => {
+    if (mainState === 'COUNTDOWN' && countdownValue !== null && countdownValue > 0) {
+      const timer = setTimeout(() => {
+        setCountdownValue(prev => (prev ?? 0) - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [mainState, countdownValue]);
+
+  // 🎯 ROUND_LOOP 子状态机: ROUND_RENDER
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_RENDER') {
+      const currentRound = gameData.currentRound;
+      
+      // 状态守卫：检查轮次有效性
+      if (currentRound >= gameData.totalRounds) {
+        setMainState('COMPLETED');
+        setRoundState(null);
         return;
       }
       
-      // Prevent multiple executions for the same round
-      if (isStartingRoundRef.current || lastProcessedRoundRef.current === currentRound) {
+      
+      // 状态守卫：确保当轮数据完整
+      const currentRoundData = gameData.rounds[currentRound];
+      if (!currentRoundData || currentRoundData.symbols.length === 0) {
         return;
       }
       
-      isStartingRoundRef.current = true;
-      lastProcessedRoundRef.current = currentRound;
+    
       
-      // For first round only, update symbols and prizes
-      // (subsequent rounds have their data already set in the completed handler)
-      if (currentRound === 0 && currentSlotSymbols.length === 0) {
-        const symbols = allRoundSymbols[currentRound] || [];
-        const prizes = preGeneratedResults[currentRound] || {};
-        setCurrentSlotSymbols(symbols);
-        setCurrentRoundPrizes(prizes);
-        
-        // For first round, we need to wait for state to update before starting
-        // Exit here and let the next render cycle handle the start
-        isStartingRoundRef.current = false;
-        return;
-      }
+      // 虚拟DOM更新：设置当前轮次数据（触发老虎机渲染）
+      // 这里不需要手动渲染，React会自动diff并更新
       
-      // Verify that we have the data before starting
-      if (currentSlotSymbols.length === 0 || Object.keys(currentRoundPrizes).length === 0) {
-        console.warn(`[警告] 第 ${currentRound + 1} 轮数据未准备好，等待下一个周期`);
-        isStartingRoundRef.current = false;
-        return;
-      }
-      
-      // Clear completed spins for new round
-      setCompletedSpins(new Set());
-      
-      // Use setTimeout to ensure state has been updated
+      // 等待DOM渲染完成
       setTimeout(() => {
-        setRoundStatus('spinning');
-        
-        // Trigger all slot machines for current round simultaneously
+        setRoundState('ROUND_SPIN');
+      }, 100); // 等待虚拟DOM diff完成
+    }
+  }, [mainState, roundState, gameData]);
+
+  // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN') {
+      const currentRound = gameData.currentRound;
+      const currentRoundData = gameData.rounds[currentRound];
+      
+      if (!currentRoundData) return;
+      
+      
+      // 重置转动状态
+      setSpinningState({
+        activeCount: allParticipants.length,
+        completed: new Set()
+      });
+      
+      // 触发所有老虎机转动
+      setTimeout(() => {
         allParticipants.forEach(participant => {
           if (participant && participant.id) {
-            const slotMachine = slotMachineRefs.current[participant.id];
-            if (slotMachine && slotMachine.startSpin) {
-              slotMachine.startSpin();
+            const slotRef = slotMachineRefs.current[participant.id];
+            if (slotRef && slotRef.startSpin) {
+              slotRef.startSpin();
+            } else {
             }
           }
         });
-        
-        // Reset the flag after starting
-        isStartingRoundRef.current = false;
-      }, 100); // Small delay to ensure state is updated
-      
-      // Cleanup
-      return () => {
-        isStartingRoundRef.current = false;
-      };
+      }, 600); // 等待老虎机完全就绪（第一轮需要更长时间）
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showSlotMachines, roundStatus, currentRound, allRoundsCompleted, battleData.packs.length]); // Removed data length dependencies to prevent re-triggers
+  }, [mainState, roundState, gameData, allParticipants]);
 
-  // Update currentRoundRef when currentRound changes
+  // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN → ROUND_SETTLE (监听所有老虎机停止)
   useEffect(() => {
-    currentRoundRef.current = currentRound;
-  }, [currentRound]);
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN') {
+      // 状态守卫：确认所有老虎机已停止
+      if (spinningState.completed.size === allParticipants.length && allParticipants.length > 0) {
+        setRoundState('ROUND_SETTLE');
+      }
+    }
+  }, [mainState, roundState, spinningState.completed.size, allParticipants.length]);
+
+  // 🎯 ROUND_LOOP 子状态机: ROUND_SETTLE
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SETTLE') {
+      const currentRound = gameData.currentRound;
+      
+      
+      // 状态守卫：验证所有数据已记录
+      const currentResults = roundResults[currentRound];
+      if (currentResults && Object.keys(currentResults).length === allParticipants.length) {
+        
+        // 0.5秒后进入下一步
+        setTimeout(() => {
+          setRoundState('ROUND_NEXT');
+        }, 500);
+      } else {
+      }
+    }
+  }, [mainState, roundState, gameData.currentRound, roundResults, allParticipants.length]);
+
+  // 🎯 ROUND_LOOP 子状态机: ROUND_NEXT
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_NEXT') {
+      const currentRound = gameData.currentRound;
+      const nextRound = currentRound + 1;
+      
+      
+      if (nextRound < gameData.totalRounds) {
+        
+        // 更新游戏数据到下一轮
+        setGameData(prev => ({
+          ...prev,
+          currentRound: nextRound
+        }));
+        
+        // 回到ROUND_RENDER开始新一轮
+        setRoundState('ROUND_RENDER');
+      } else {
+        setMainState('COMPLETED');
+        setRoundState(null);
+      }
+    }
+  }, [mainState, roundState, gameData]);
+
+  // 🎯 同步新旧状态（状态机 → 兼容变量）
+  useEffect(() => {
+    setCurrentRound(gameData.currentRound);
+    currentRoundRef.current = gameData.currentRound;
+    
+    const currentRoundData = gameData.rounds[gameData.currentRound];
+    if (currentRoundData) {
+      setCurrentSlotSymbols(currentRoundData.symbols);
+      setCurrentRoundPrizes(currentRoundData.prizes);
+    }
+    
+    setHidePacks(mainState !== 'IDLE');
+    setShowSlotMachines(mainState === 'ROUND_LOOP');
+    setAllRoundsCompleted(mainState === 'COMPLETED');
+    setCompletedSpins(spinningState.completed);
+  }, [gameData, mainState, spinningState.completed]);
+
+  // 旧的自动启动逻辑已被状态机接管，删除
 
   // Handle when a slot machine completes
   const handleSlotComplete = useCallback((participantId: string, result: SlotSymbol) => {
-    const round = currentRoundRef.current; // Use ref to get the latest value
+    const round = gameData.currentRound;
+    
     
     // Compare with pre-generated result
     const preGenerated = (window as any).__preGeneratedDetailedResults;
@@ -285,138 +383,78 @@ export default function BattleDetailPage() {
       
       if (!match) {
         console.error(`[错误] 结果不匹配！预设 ${expected.name} != 实际 ${result.name}`);
+      } else {
+        console.log(`✅ [验证通过] ${participantId}: ${result.name}`);
       }
     }
     
-    // Save the result using the current round from ref
+    // Save the result
     setRoundResults(prev => {
       const updated = { ...prev };
       if (!updated[round]) {
         updated[round] = {};
       }
-      // Only save if not already saved for this round
       if (!updated[round][participantId]) {
         updated[round][participantId] = result;
-      } else {
       }
       return updated;
     });
     
-    // Add to completed spins (only if not already completed) - MUST be after result is saved
-    setCompletedSpins(prev => {
-      if (prev.has(participantId)) {
-        return prev;
+    // 🎯 更新转动状态（添加到completed集合）
+    setSpinningState(prev => {
+      if (prev.completed.has(participantId)) {
+        return prev; // 已经完成过，不重复添加
       }
-      const newSet = new Set(prev);
-      newSet.add(participantId);
-      return newSet;
+      const newCompleted = new Set(prev.completed);
+      newCompleted.add(participantId);
+      return {
+        ...prev,
+        completed: newCompleted
+      };
     });
-  }, []); // Remove currentRound from dependencies
+  }, [gameData.currentRound, allParticipants.length]);
 
-  // Prevent multiple completion checks
-  const hasCheckedCompletionRef = useRef(false); // Prevent multiple completion checks
-  const isTransitioningToNextRoundRef = useRef(false); // Prevent multiple round transitions
+  // 旧的完成检查和轮次切换逻辑已被状态机接管
   
-  // Check if all slot machines have completed for current round
+  // 🎯 COMPLETED状态：显示最终统计
   useEffect(() => {
-    
-    if (roundStatus === 'spinning' && completedSpins.size === allParticipants.length && allParticipants.length > 0 && !hasCheckedCompletionRef.current) {
-      hasCheckedCompletionRef.current = true;
+    if (mainState === 'COMPLETED') {
+      console.log('🏁 [COMPLETED] 所有轮次完成！');
       
-      // Verify all results are saved before marking as completed
-      const currentRoundResults = roundResults[currentRound];
-      const savedCount = currentRoundResults ? Object.keys(currentRoundResults).length : 0;
-      
-      if (savedCount === allParticipants.length) {
-        setRoundStatus('completed');
-      } else {
-        hasCheckedCompletionRef.current = false; // Reset to check again
-      }
-    }
-    
-    // Reset the flag when round status changes from completed
-    if (roundStatus === 'idle') {
-      hasCheckedCompletionRef.current = false;
-    }
-  }, [completedSpins.size, allParticipants.length, roundStatus, currentRound, roundResults, completedSpins]);
-  
-  // Move to next round when current round is completed
-  useEffect(() => {
-    if (roundStatus === 'completed' && !isTransitioningToNextRoundRef.current) {
-      if (currentRound < battleData.packs.length - 1) {
-        // Prevent multiple transitions
-        isTransitioningToNextRoundRef.current = true;
+      // 延迟显示最终统计
+      setTimeout(() => {
+        const preGenerated = (window as any).__preGeneratedDetailedResults;
         
-        // Move to next round immediately after a short delay for visual effect
-        const timer = setTimeout(() => {
+        if (preGenerated && roundResults) {
+          let matchCount = 0;
+          let totalCount = 0;
           
-          // Update round and prepare data for next round
-          const nextRound = currentRound + 1;
-          const symbols = allRoundSymbols[nextRound] || [];
-          const prizes = preGeneratedResults[nextRound] || {};
-          
-       
-          
-          // Update everything at once
-          setCurrentRound(nextRound);
-          setCurrentSlotSymbols(symbols);
-          setCurrentRoundPrizes(prizes);
-          // Don't set to 'idle' immediately - let the useEffect handle it after data is ready
-          setTimeout(() => {
-            setRoundStatus('idle'); // This will trigger spin after data is ready
-          }, 50);
-          
-          // Reset the flag after transition
-          isTransitioningToNextRoundRef.current = false;
-        }, 500); // Reduced from 2000ms to 500ms
-        
-        // Cleanup
-        return () => {
-          clearTimeout(timer);
-          isTransitioningToNextRoundRef.current = false;
-        };
-      } else {
-        // All rounds completed
-        setAllRoundsCompleted(true);
-        // Ensure no more rounds can start
-        setRoundStatus('completed');
-        isTransitioningToNextRoundRef.current = false;
-        
-        // Print final comparison after a delay
-        setTimeout(() => {
-          const preGenerated = (window as any).__preGeneratedDetailedResults;
-          
-          if (preGenerated && roundResults) {
-            let matchCount = 0;
-            let totalCount = 0;
+          Object.keys(preGenerated).forEach(roundStr => {
+            const round = parseInt(roundStr);
             
-            Object.keys(preGenerated).forEach(roundStr => {
-              const round = parseInt(roundStr);
+            Object.keys(preGenerated[round] || {}).forEach(participantId => {
+              const expected = preGenerated[round][participantId];
+              const actual = roundResults[round]?.[participantId];
+              totalCount++;
               
-              Object.keys(preGenerated[round] || {}).forEach(participantId => {
-                const expected = preGenerated[round][participantId];
-                const actual = roundResults[round]?.[participantId];
-                totalCount++;
-                
-                if (actual) {
-                  const match = expected.id === actual.id;
-                  if (match) matchCount++;
-                  
-                } else {
-                }
-              });
+              if (actual) {
+                const match = expected.id === actual.id;
+                if (match) matchCount++;
+              }
             });
-            
-            if (matchCount !== totalCount) {
-              console.error('⚠️ 发现结果不一致，请检查老虎机逻辑！');
-            } else {
-              console.log('✅ 所有结果完全匹配！');
-            }
+          });
+          
+          console.log(`📊 [最终统计] ${matchCount}/${totalCount} 匹配 (${(matchCount/totalCount*100).toFixed(1)}%)`);
+          
+          if (matchCount !== totalCount) {
+            console.error('⚠️ 发现结果不一致！');
+          } else {
+            console.log('✅ 所有结果完全匹配！');
           }
-        }, 2000);
-      }
+        }
+      }, 1000);
     }
-  }, [roundStatus, currentRound, battleData.packs.length]);
+  }, [mainState, roundResults]);
 
   // Get gallery height for slot machines
   const [galleryHeight, setGalleryHeight] = useState(540);
