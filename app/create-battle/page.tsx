@@ -1,6 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import InlineSelect from "../components/InlineSelect";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -97,7 +97,7 @@ function SortablePackItem({ pack, onRemove }: SortablePackItemProps) {
   );
 }
 
-export default function CreateBattlePage() {
+function CreateBattleContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -2135,5 +2135,13 @@ export default function CreateBattlePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CreateBattlePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p className="text-white">加载中...</p></div>}>
+      <CreateBattleContent />
+    </Suspense>
   );
 }
