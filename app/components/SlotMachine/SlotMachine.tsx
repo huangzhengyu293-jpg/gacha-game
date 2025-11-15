@@ -336,13 +336,19 @@ const SlotMachine: React.FC<SlotMachineProps> = ({
         const startTime = Date.now();
         
         function animate() {
+          const currentContainer = containerRef.current;
+          if (!currentContainer) {
+            resolve();
+            return;
+          }
+          
           const elapsed = Date.now() - startTime;
           const progress = Math.min(elapsed / duration, 1);
           const easedProgress = customEase(progress);
           
-          const beforeLeft = parseFloat(container.style.left);
-          checkAndResetPosition(container);
-          const afterLeft = parseFloat(container.style.left);
+          const beforeLeft = parseFloat(currentContainer.style.left || '0');
+          checkAndResetPosition(currentContainer);
+          const afterLeft = parseFloat(currentContainer.style.left || '0');
           
           if (Math.abs(beforeLeft - afterLeft) > 100) {
             const diff = afterLeft - beforeLeft;
@@ -350,7 +356,7 @@ const SlotMachine: React.FC<SlotMachineProps> = ({
           }
           
           const currentLeft = startLeft - distance * easedProgress;
-          container.style.left = currentLeft + 'px';
+          currentContainer.style.left = currentLeft + 'px';
           
           updateSelection(false);
           
@@ -380,19 +386,25 @@ const SlotMachine: React.FC<SlotMachineProps> = ({
         const distance = targetLeft - currentLeft;
         
         function animate() {
+          const currentContainer = containerRef.current;
+          if (!currentContainer) {
+            resolve();
+            return;
+          }
+          
           const elapsed = Date.now() - startTime;
           const progress = Math.min(elapsed / duration, 1);
           
           const easeOut = 1 - Math.pow(1 - progress, 3);
           
           const newLeft = currentLeft + distance * easeOut;
-          container.style.left = newLeft + 'px';
+          currentContainer.style.left = newLeft + 'px';
           updateSelection(false);
           
           if (progress < 1) {
             requestAnimationFrame(animate);
           } else {
-            container.style.left = targetLeft + 'px';
+            currentContainer.style.left = targetLeft + 'px';
             updateSelection(true);
             resolve();
           }
