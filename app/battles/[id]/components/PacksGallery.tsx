@@ -109,19 +109,19 @@ export default function PacksGallery({
               }}
             />
             {packs.map((pack, index) => (
-              <div 
-                key={pack.id} 
+          <div
+            key={pack.id}
                 ref={(el) => { packRefs.current[index] = el; }}
                 className="min-w-[160px] max-w-[160px] flex-shrink-0"
-              >
+          >
                 <div className="relative">
                   <Image
                     alt={pack.name || 'pack'}
                     src={pack.image}
                     width={200}
                     height={304}
-                    loading="lazy"
-                    decoding="async"
+                loading="lazy"
+                decoding="async"
                     className="w-full h-auto"
                     style={{ color: 'transparent' }}
                     sizes="(max-width: 640px) 160px, 160px"
@@ -129,10 +129,10 @@ export default function PacksGallery({
                   />
                   <div className="flex justify-center pt-3 pb-4">
                     <div className="font-bold text-base text-white">{pack.value}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            </div>
+            </div>
+          </div>
+        ))}
           </div>
         )}
         <canvas

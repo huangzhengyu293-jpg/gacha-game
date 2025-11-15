@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import Image from 'next/image';
 
 export interface SlotSymbol {
@@ -19,8 +19,6 @@ interface LuckySlotMachineProps {
   onSpinStart?: () => void;
   onSpinComplete?: (result: SlotSymbol) => void;
   height?: number; // 转轮高度，默认540
-  showPrizeSelector?: boolean; // 是否显示奖品选择器
-  buttonText?: string; // 按钮文字
   spinDuration?: number; // 固定的旋转时长
 }
 
@@ -35,14 +33,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   onSpinStart,
   onSpinComplete,
   height = 540,
-  showPrizeSelector = true,
-  buttonText = '开始',
   spinDuration
 }, ref) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);
-  const [result, setResult] = useState<string>('');
-  const [localSelectedId, setLocalSelectedId] = useState<string | null>(selectedPrizeId || null);
   const [hasStarted, setHasStarted] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -146,7 +140,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       const prize = symbolsRef.current.find(s => s.id === selectedPrizeId);
       if (prize) {
         setSelectedPrize(prize);
-        setLocalSelectedId(selectedPrizeId);
         // Reset hasStarted when selectedPrizeId changes (new round)
         setHasStarted(false);
       } else {
@@ -154,14 +147,13 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     } else {
       // Reset when no prize is selected
       setSelectedPrize(null);
-      setLocalSelectedId(null);
       setHasStarted(false);
     }
   }, [selectedPrizeId]); // Only depend on selectedPrizeId
 
   // 自动开始旋转（当有选中奖品且没有按钮时）
   useEffect(() => {
-    if (selectedPrizeId && !isSpinning && !buttonText && selectedPrize && !hasStarted) {
+    if (selectedPrizeId && !isSpinning &&  selectedPrize && !hasStarted) {
       // For auto-start, trust that parent passed valid selectedPrizeId
       // The actual target comes from selectedPrize, not initialSymbolsRef
       // Delay to ensure virtual DOM is fully ready
@@ -172,7 +164,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPrizeId, buttonText, selectedPrize, hasStarted]); // Removed symbols dependency
+  }, [selectedPrizeId,  selectedPrize, hasStarted]); // Removed symbols dependency
 
   // 自定义缓动函数
   const customEase = (t: number): number => {
@@ -252,6 +244,18 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         closestItem.classList.add('selected');
         currentSelectedIndexRef.current = clampedIndex;
         currentSelectedElementRef.current = closestItem;
+        
+        // 🎵 使用Web Audio API播放tick音效（零延迟，支持无限并发）
+        if (typeof window !== 'undefined') {
+          const ctx = (window as any).__audioContext;
+          const buffer = (window as any).__tickAudioBuffer;
+          if (ctx && buffer) {
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+          }
+        }
       } else {
         // Item not rendered yet, just track the index
         currentSelectedIndexRef.current = clampedIndex;
@@ -280,9 +284,18 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     item.dataset.price = symbol.price.toString();
     item.dataset.index = index.toString(); // Track virtual index
     
-    // 光晕层
+    // 光晕层 - 根据品质设置颜色
     const glow = document.createElement('div');
     glow.className = 'item-glow';
+    
+    // 根据品质设置光晕颜色
+    const glowColor = symbol.qualityId === 'legendary' ? '255, 215, 0' // 金色
+      : symbol.qualityId === 'epic' ? '163, 53, 238'      // 紫色
+      : symbol.qualityId === 'rare' ? '0, 112, 221'       // 蓝色
+      : symbol.qualityId === 'uncommon' ? '30, 255, 0'    // 绿色
+      : '157, 157, 157'; // 灰色 (common)
+    
+    glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
     
     // 图片包装器
     const imgWrapper = document.createElement('div');
@@ -298,15 +311,18 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const info = document.createElement('div');
     info.className = 'item-info';
     
-    const namePara = document.createElement('p');
-    namePara.className = 'item-name';
-    namePara.textContent = symbol.name;
-    
-    const pricePara = document.createElement('p');
-    pricePara.textContent = `¥${symbol.price}`;
-    
-    info.appendChild(namePara);
-    info.appendChild(pricePara);
+    // 🎯 金色占位符不显示名字和金额
+    if (symbol.id !== 'golden_placeholder') {
+      const namePara = document.createElement('p');
+      namePara.className = 'item-name';
+      namePara.textContent = symbol.name;
+      
+      const pricePara = document.createElement('p');
+      pricePara.textContent = `¥${symbol.price}`;
+      
+      info.appendChild(namePara);
+      info.appendChild(pricePara);
+    }
     
     item.appendChild(glow);
     item.appendChild(imgWrapper);
@@ -628,7 +644,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
     
     setIsSpinning(true);
-    setResult('');
     
     // 触发开始回调
     if (onSpinStart) {
@@ -645,10 +660,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     currentSelectedIndexRef.current = -1;
     currentSelectedElementRef.current = null;
     
-    // Use fixed duration with small random variation for more realistic effect
-    const baseDuration = spinDuration || 4500;
-    // Add ±100ms variation to make each machine slightly different
-    const duration = baseDuration + (Math.random() - 0.5) * 200;
+    // 使用固定时长，确保所有老虎机同步回正
+    const duration = spinDuration || 4500;
     
     await spinPhase1(duration, selectedPrize);
     
@@ -676,7 +689,19 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       // Use the pre-selected prize for the result, or the actual stopped item
       if (finalResult) {
-        setResult(`结果: ${finalResult.name} - ¥${finalResult.price}`);
+        
+        // 🎵 使用Web Audio API播放回正音效
+        if (typeof window !== 'undefined') {
+          const ctx = (window as any).__audioContext;
+          const buffer = (window as any).__basicWinAudioBuffer;
+          if (ctx && buffer) {
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+          }
+        }
+        
         if (onSpinComplete) {
           // Always use the pre-selected prize if available
           const reportResult = selectedPrize || finalResult;
@@ -730,10 +755,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   
 
   // 处理奖品选择
-  const handlePrizeSelect = (symbol: SlotSymbol) => {
-    setLocalSelectedId(symbol.id);
-    setSelectedPrize(symbol);
-  };
+ 
 
   const updateReelContent = useCallback((newSymbols: SlotSymbol[]) => {
     if (!reelContainerRef.current || newSymbols.length === 0) return;
@@ -1022,36 +1044,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
 
 
      
-      {buttonText && (
-        <div className="controls">
-          <button 
-            className="spin-button"
-            onClick={startSpin}
-            disabled={isSpinning}
-          >
-            {buttonText}
-          </button>
-        </div>
-      )}
-
     
 
-      {showPrizeSelector && (
-        <div className="prize-selector">
-          <label>选择中奖物品：</label>
-          <div className="prize-options">
-            {symbols.map(symbol => (
-              <div
-                key={symbol.id}
-                className={`prize-option ${localSelectedId === symbol.id ? 'selected' : ''}`}
-                onClick={() => handlePrizeSelect(symbol)}
-              >
-                <img src={symbol.image} alt={symbol.name} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    
       </div>
     );
   });

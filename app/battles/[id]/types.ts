@@ -43,5 +43,8 @@ export type BattleData = {
   battleType: 'solo' | 'team';
   teamStructure?: '2v2' | '3v3' | '2v2v2';
   playersCount: number;
+  isFastMode?: boolean;
+  isLastChance?: boolean;
+  isInverted?: boolean;
 };
 

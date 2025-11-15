@@ -22,6 +22,10 @@ export interface BattleHeaderProps {
   isCountingDown?: boolean; // 是否正在倒计时
   isPlaying?: boolean; // 是否正在进行中
   isCompleted?: boolean; // 是否已完成
+  gameMode?: string; // 游戏模式
+  isFastMode?: boolean; // 快速对战
+  isLastChance?: boolean; // 最后的机会
+  isInverted?: boolean; // 倒置模式
   onFairnessClick?: () => void;
   onShareClick?: () => void;
 }
@@ -39,12 +43,70 @@ export default function BattleHeader({
   isCountingDown = false,
   isPlaying = false,
   isCompleted = false,
+  gameMode = "classic",
+  isFastMode = false,
+  isLastChance = false,
+  isInverted = false,
   onFairnessClick,
   onShareClick,
 }: BattleHeaderProps) {
   const packScrollRef = useRef<HTMLDivElement>(null);
   const packRefs = useRef<(HTMLImageElement | null)[]>([]);
   const isHighlighted = (index: number) => highlightedIndices.includes(index);
+  
+  // 根据游戏模式映射显示名称和颜色
+  const getModeConfig = () => {
+    switch (gameMode) {
+      case 'classic':
+        return { name: '普通', color: 'transparent' };
+      case 'share':
+        return { name: '分享', color: '#57abf8' };
+      case 'sprint':
+        return { name: '积分冲刺', color: '#7c4be2' };
+      case 'jackpot':
+        return { name: '大奖', color: '#53e296' };
+      case 'elimination':
+        return { name: '淘汰', color: '#ff9c49' };
+      default:
+        return { name: awardName, color: 'transparent' };
+    }
+  };
+  
+  const modeConfig = getModeConfig();
+  
+  // 收集所有开启的选项图标
+  const optionIcons: ReactNode[] = [];
+  
+  if (isFastMode) {
+    // 闪电图标
+    optionIcons.push(
+      <svg key="fast" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
+        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
+      </svg>
+    );
+  }
+  
+  if (isLastChance) {
+    // 骷髅图标
+    optionIcons.push(
+      <svg key="lastchance" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
+        <path d="m12.5 17-.5-1-.5 1h1z"></path>
+        <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+        <circle cx="15" cy="12" r="1"></circle>
+        <circle cx="9" cy="12" r="1"></circle>
+      </svg>
+    );
+  }
+  
+  if (isInverted) {
+    // 倒置皇冠图标
+    optionIcons.push(
+      <svg key="inverted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-crown rotate-180 size-4 text-gray-300">
+        <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"></path>
+        <path d="M5 21h14"></path>
+      </svg>
+    );
+  }
 
   // 自动滚动到当前轮次卡包（显示在第二个位置）
   useEffect(() => {
@@ -126,12 +188,16 @@ export default function BattleHeader({
               </Link>
               <div className="flex flex-col-reverse items-start md:flex-row md:items-center">
                 <div
-                  className="flex items-center relative gap-2 rounded px-3 py-1 after:content-[''] after:absolute after:left-0 after:top-0 after:bottom-0 after:w-0.5 after:rounded-l after:bg-transparent"
+                  className="flex items-center relative gap-2 rounded px-3 py-1 after:content-[''] after:absolute after:left-0 after:top-0 after:bottom-0 after:w-0.5 after:rounded-l mode-badge"
                   style={{ backgroundColor: "#22272B" }}
                 >
+                  <style dangerouslySetInnerHTML={{
+                    __html: `.mode-badge::after { background-color: ${modeConfig.color} !important; }`
+                  }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {awardName}
+                    {modeConfig.name}
                   </p>
+                  {optionIcons.map(icon => icon)}
                 </div>
               </div>
             </div>
@@ -190,11 +256,11 @@ export default function BattleHeader({
                 ) : isPlaying ? (
                   <div className="flex gap-1 items-center">
                     <span className="text-base font-bold ml-1" style={{ color: "#E1E7EF" }}>
-                      回合
-                    </span>
+                        回合
+                      </span>
                     <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                       {currentRound + 1}/{totalRounds}
-                    </span>
+                      </span>
                     <div className="flex w-[1px] h-4 bg-gray-600 mx-2"></div>
                     <p className="text-base font-bold max-w-32 overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: "#E1E7EF" }}>
                       {currentPackName}
@@ -300,12 +366,16 @@ export default function BattleHeader({
             <div className="flex justify-between items-center">
               <div className="flex flex-col-reverse items-start md:flex-row md:items-center">
                 <div
-                  className="flex items-center relative gap-2 rounded px-3 py-1 after:content-[''] after:absolute after:left-0 after:top-0 after:bottom-0 after:w-0.5 after:rounded-l after:bg-transparent"
+                  className="flex items-center relative gap-2 rounded px-3 py-1 after:content-[''] after:absolute after:left-0 after:top-0 after:bottom-0 after:w-0.5 after:rounded-l mode-badge-mobile"
                   style={{ backgroundColor: "#22272B" }}
                 >
+                  <style dangerouslySetInnerHTML={{
+                    __html: `.mode-badge-mobile::after { background-color: ${modeConfig.color} !important; }`
+                  }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {awardName}
+                    {modeConfig.name}
                   </p>
+                  {optionIcons.map(icon => icon)}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -373,7 +443,7 @@ export default function BattleHeader({
 
             {/* Battle Status Row */}
             <div className="flex flex-col items-center gap-2">
-              <div className="flex self-center">
+            <div className="flex self-center">
                 {isCountingDown ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                     准备开始
@@ -388,12 +458,12 @@ export default function BattleHeader({
                     </span>
                     <div className="flex w-[1px] h-4 bg-gray-600 mx-2"></div>
                     <p className="text-base font-bold max-w-24 overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: "#E1E7EF" }}>
-                      {currentPackName}
-                    </p>
+                    {currentPackName}
+                  </p>
                     <div className="flex w-[1px] h-4 bg-gray-600 mx-2"></div>
                     <p className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                      {currentPackPrice}
-                    </p>
+                    {currentPackPrice}
+                  </p>
                   </div>
                 ) : isCompleted ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
@@ -403,7 +473,7 @@ export default function BattleHeader({
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                     {statusText}
                   </span>
-                )}
+              )}
               </div>
               <div className="flex gap-1">
                 <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>

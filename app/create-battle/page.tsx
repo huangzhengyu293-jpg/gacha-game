@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 import React, { useState, useMemo, useEffect } from "react";
 import InlineSelect from "../components/InlineSelect";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { CatalogPack } from '../lib/api';
@@ -99,45 +99,96 @@ function SortablePackItem({ pack, onRemove }: SortablePackItemProps) {
 
 export default function CreateBattlePage() {
   const router = useRouter();
-  const [typeState, setTypeState] = useState<"solo" | "team">(() => {
-    if (typeof window === "undefined") return "solo";
-    const p = new URLSearchParams(window.location.search).get("type");
-    return p === "team" ? "team" : "solo";
-  });
-  const [playersCount, setPlayersCount] = useState<string>(() => {
-    if (typeof window === "undefined") return "2";
-    const n = Number(
-      new URLSearchParams(window.location.search).get("playersInSolo") || "2"
-    );
-    return Number.isFinite(n) && n >= 1 && n <= 6 ? String(n) : "2";
-  });
-  const [selectedMode, setSelectedMode] = useState<
-    "classic" | "share" | "sprint" | "jackpot" | "elimination"
-  >(() => {
-    if (typeof window === "undefined") return "classic";
-    const gm = new URLSearchParams(window.location.search).get("gameMode");
-    return gm === "share" ||
-      gm === "sprint" ||
-      gm === "jackpot" ||
-      gm === "elimination"
-      ? (gm as any)
-      : "classic";
-  });
-  const [optFastBattle, setOptFastBattle] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    const v = new URLSearchParams(window.location.search).get("fastBattle");
-    return v === "true";
-  });
-  const [optLastChance, setOptLastChance] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const v = new URLSearchParams(window.location.search).get("lastChance");
-    return v === "true";
-  });
-  const [optInverted, setOptInverted] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const v = new URLSearchParams(window.location.search).get("upsideDown");
-    return v === "true";
-  });
+  const searchParams = useSearchParams();
+  
+  // 从URL读取初始值，确保单人模式默认为2
+  const getInitialType = () => {
+    const typeParam = searchParams?.get("type");
+    return typeParam === "team" ? "team" : "solo";
+  };
+  
+  const getInitialPlayersCount = () => {
+    const typeParam = searchParams?.get("type");
+    const isSoloMode = !typeParam || typeParam === "solo";
+    
+    if (!isSoloMode) return "2"; // 团队模式不用这个值
+    
+    const playersParam = searchParams?.get("playersInSolo");
+    if (playersParam) {
+      const n = Number(playersParam);
+      if (Number.isFinite(n) && n >= 1 && n <= 6) {
+        return String(n);
+      }
+    }
+    // 默认返回2
+    return "2";
+  };
+  
+  const [typeState, setTypeState] = useState<"solo" | "team">(getInitialType);
+  const [playersCount, setPlayersCount] = useState<string>(getInitialPlayersCount);
+  const [teamStructure, setTeamStructure] = useState<"2v2" | "3v3" | "2v2v2">("2v2");
+  
+  // 初始化时确保URL参数正确
+  useEffect(() => {
+    const typeParam = searchParams?.get("type");
+    const isSoloMode = !typeParam || typeParam === "solo";
+    
+    console.log('🔍 [CreateBattle初始化]', {
+      typeParam,
+      isSoloMode,
+      playersCount,
+      urlPlayersInSolo: searchParams?.get("playersInSolo")
+    });
+    
+    if (isSoloMode) {
+      const playersParam = searchParams?.get("playersInSolo");
+      // 如果没有参数，或者参数无效，设置默认值2
+      if (!playersParam || Number(playersParam) < 1 || Number(playersParam) > 6) {
+        console.log('✅ [CreateBattle] 设置默认玩家数: 2');
+        replaceUrl({ playersInSolo: "2" });
+        setPlayersCount("2");
+      }
+    }
+    
+    const teamStructureParam = searchParams?.get("teamStructure");
+    if (teamStructureParam === "3v3" || teamStructureParam === "2v2v2") {
+      setTeamStructure(teamStructureParam);
+    } else if (teamStructureParam === "2v2") {
+      setTeamStructure("2v2");
+    }
+  }, [searchParams]);
+  
+  const [selectedMode, setSelectedMode] = useState<"classic" | "share" | "sprint" | "jackpot" | "elimination">("classic");
+  const [optFastBattle, setOptFastBattle] = useState<boolean>(true);
+  const [optLastChance, setOptLastChance] = useState<boolean>(false);
+  const [optInverted, setOptInverted] = useState<boolean>(false);
+  
+  // 初始化游戏模式和选项
+  useEffect(() => {
+    const gameModeParam = searchParams?.get("gameMode");
+    if (gameModeParam === "share" || gameModeParam === "sprint" || gameModeParam === "jackpot" || gameModeParam === "elimination") {
+      setSelectedMode(gameModeParam);
+    } else if (gameModeParam === "classic") {
+      setSelectedMode("classic");
+    }
+    
+    const fastBattleParam = searchParams?.get("fastBattle");
+    if (fastBattleParam === "true") {
+      setOptFastBattle(true);
+    } else if (fastBattleParam === "false") {
+      setOptFastBattle(false);
+    }
+    
+    const lastChanceParam = searchParams?.get("lastChance");
+    if (lastChanceParam === "true") {
+      setOptLastChance(true);
+    }
+    
+    const upsideDownParam = searchParams?.get("upsideDown");
+    if (upsideDownParam === "true") {
+      setOptInverted(true);
+    }
+  }, [searchParams]);
 
   // "最后的机会"只有在经典和大奖模式才能开启
   const canEnableLastChance = selectedMode === "classic" || selectedMode === "jackpot";
@@ -172,7 +223,14 @@ export default function CreateBattlePage() {
       replaceUrl({ upsideDown: undefined });
     }
   }, [selectedMode, canEnableInverted, optInverted]);
-  const [selectedPackIds, setSelectedPackIds] = useState<string[]>([]);
+  const [selectedPackIds, setSelectedPackIds] = useState<string[]>(() => {
+    // 从URL读取初始卡包IDs
+    const packIdsParam = searchParams?.get('packIds');
+    if (packIdsParam) {
+      return packIdsParam.split(',').filter(id => id.trim());
+    }
+    return [];
+  });
   const [isSelectPackModalOpen, setIsSelectPackModalOpen] = useState(false);
   const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
   
@@ -223,8 +281,27 @@ export default function CreateBattlePage() {
                 <InlineSelect
                   value={typeState}
                   onChange={(v) => {
-                    setTypeState(v as "solo" | "team");
-                    replaceUrl({ type: v });
+                    const newType = v as "solo" | "team";
+                    setTypeState(newType);
+                    
+                    // 切换模式时清除对应的URL参数
+                    if (newType === "team") {
+                      // 切换到团队模式：清除playersInSolo，添加teamStructure
+                      const params = new URLSearchParams(window.location.search);
+                      params.delete("playersInSolo");
+                      params.set("type", "team");
+                      params.set("teamStructure", teamStructure);
+                      router.replace(`?${params.toString()}`);
+                    } else {
+                      // 切换到单人模式：清除teamStructure，添加playersInSolo
+                      const params = new URLSearchParams(window.location.search);
+                      params.delete("teamStructure");
+                      params.set("type", "solo");
+                      // 确保使用默认值 2
+                      const finalPlayersCount = playersCount || "2";
+                      params.set("playersInSolo", finalPlayersCount);
+                      router.replace(`?${params.toString()}`);
+                    }
                   }}
                   options={[
                     { label: "单人对战", value: "solo" },
@@ -240,28 +317,53 @@ export default function CreateBattlePage() {
                 className="text-xl font-semibold mb-4"
                 style={{ color: "#7A8084" }}
               >
-                玩家
+                {typeState === "solo" ? "玩家" : "队伍结构"}
               </h2>
               <div className="flex justify-center gap-3 flex-wrap w-full">
-                {[2, 3, 4, 6].map((n) => (
-                  <button
-                    key={n}
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base font-semibold select-none px-6 size-16 rounded-full border cursor-pointer"
-                    onClick={() => {
-                      setPlayersCount(String(n));
-                      replaceUrl({ playersInSolo: String(n) });
-                    }}
-                    style={{
-                      backgroundColor:
-                        Number(playersCount) === n ? "#60A5FA" : "#22272B",
-                      color: "#FFFFFF",
-                      borderColor:
-                        Number(playersCount) === n ? "#60A5FA" : "#34383C",
-                    }}
-                  >
-                    {n}
-                  </button>
-                ))}
+                {typeState === "solo" ? (
+                  // Solo模式：显示2, 3, 4, 6玩家数量
+                  [2, 3, 4, 6].map((n) => (
+                    <button
+                      key={n}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base font-semibold select-none px-6 size-16 rounded-full border cursor-pointer"
+                      onClick={() => {
+                        setPlayersCount(String(n));
+                        replaceUrl({ playersInSolo: String(n) });
+                      }}
+                      style={{
+                        backgroundColor:
+                          Number(playersCount) === n ? "#60A5FA" : "#22272B",
+                        color: "#FFFFFF",
+                        borderColor:
+                          Number(playersCount) === n ? "#60A5FA" : "#34383C",
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))
+                ) : (
+                  // Team模式：显示2v2, 3v3, 2v2v2
+                  (["2v2", "3v3", "2v2v2"] as const).map((ts) => (
+                    <button
+                      key={ts}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base font-semibold select-none px-6 h-16 rounded-full border cursor-pointer"
+                      onClick={() => {
+                        setTeamStructure(ts);
+                        replaceUrl({ teamStructure: ts });
+                      }}
+                      style={{
+                        backgroundColor:
+                          teamStructure === ts ? "#60A5FA" : "#22272B",
+                        color: "#FFFFFF",
+                        borderColor:
+                          teamStructure === ts ? "#60A5FA" : "#34383C",
+                        minWidth: "4rem",
+                      }}
+                    >
+                      {ts}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1981,10 +2083,49 @@ export default function CreateBattlePage() {
             }}
             onClick={() => {
               if (selectedPackIds.length > 0) {
+                console.log('🎮 [创建对战] 当前状态:', {
+                  typeState,
+                  playersCount,
+                  urlPlayersInSolo: searchParams?.get("playersInSolo")
+                });
+                
                 const packIdsParam = selectedPackIds.join(",");
                 const params = new URLSearchParams();
                 params.set("packIds", packIdsParam);
-                params.set("players", playersCount);
+                
+                // 传递战斗类型和对应参数
+                params.set("type", typeState);
+                if (typeState === "solo") {
+                  // 单人模式：确保有默认值2
+                  const finalPlayersCount = playersCount || "2";
+                  console.log('✅ [创建对战] 单人模式玩家数:', finalPlayersCount);
+                  params.set("players", finalPlayersCount);
+                } else {
+                  // 团队模式：传递teamStructure
+                  params.set("teamStructure", teamStructure);
+                  // 根据teamStructure计算总玩家数
+                  const totalPlayers = teamStructure === "2v2" ? 4 : teamStructure === "3v3" ? 6 : 6; // 2v2v2
+                  params.set("players", String(totalPlayers));
+                }
+                
+                // 传递游戏模式
+                params.set("gameMode", selectedMode);
+                
+                // 传递快速对战选项
+                if (optFastBattle) {
+                  params.set("fastBattle", "true");
+                }
+                
+                // 传递最后的机会选项
+                if (optLastChance) {
+                  params.set("lastChance", "true");
+                }
+                
+                // 传递倒置模式选项
+                if (optInverted) {
+                  params.set("upsideDown", "true");
+                }
+                
                 router.replace(`/battles/${Date.now()}?${params.toString()}`);
               }
             }}
