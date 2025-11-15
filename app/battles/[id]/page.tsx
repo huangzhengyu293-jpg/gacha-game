@@ -1724,8 +1724,6 @@ export default function BattleDetailPage() {
                                 symbols={currentRoundData.pools.normal}
                                 selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                showPrizeSelector={false}
-                                buttonText=""
                                 spinDuration={spinDuration}
                                 onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                               />
@@ -1749,8 +1747,6 @@ export default function BattleDetailPage() {
                                   symbols={currentRoundData.pools.legendary}
                                   selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                   height={450}
-                                  showPrizeSelector={false}
-                                  buttonText=""
                                   spinDuration={spinDuration}
                                   onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                 />
@@ -1799,8 +1795,6 @@ export default function BattleDetailPage() {
                               symbols={currentRoundData.pools.normal}
                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                               height={450}
-                              showPrizeSelector={false}
-                              buttonText=""
                               spinDuration={spinDuration}
                               onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                             />
@@ -1822,8 +1816,6 @@ export default function BattleDetailPage() {
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                showPrizeSelector={false}
-                                buttonText=""
                                 spinDuration={spinDuration}
                                 onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                               />
@@ -1867,8 +1859,6 @@ export default function BattleDetailPage() {
                               symbols={currentRoundData.pools.normal}
                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                               height={450}
-                              showPrizeSelector={false}
-                              buttonText=""
                               spinDuration={spinDuration}
                               onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                             />
@@ -1890,8 +1880,6 @@ export default function BattleDetailPage() {
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                showPrizeSelector={false}
-                                buttonText=""
                                 spinDuration={spinDuration}
                                 onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                               />
@@ -1917,11 +1905,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -1940,11 +1928,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -1963,11 +1951,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} showPrizeSelector={false} buttonText="" spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -2016,8 +2004,6 @@ export default function BattleDetailPage() {
                                   symbols={roundData.pools.normal}
                                   selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
                                   height={450}
-                                  showPrizeSelector={false}
-                                  buttonText=""
                                   spinDuration={spinDuration}
                                   onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
                                 />
@@ -2041,8 +2027,6 @@ export default function BattleDetailPage() {
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
                                     height={450}
-                                    showPrizeSelector={false}
-                                    buttonText=""
                                     spinDuration={spinDuration}
                                     onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
                                   />
@@ -2094,8 +2078,6 @@ export default function BattleDetailPage() {
                                   symbols={roundData.pools.normal}
                                   selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
                                   height={450}
-                                  showPrizeSelector={false}
-                                  buttonText=""
                                   spinDuration={spinDuration}
                                   onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
                                 />
@@ -2119,8 +2101,6 @@ export default function BattleDetailPage() {
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
                                     height={450}
-                                    showPrizeSelector={false}
-                                    buttonText=""
                                     spinDuration={spinDuration}
                                     onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
                                   />
@@ -2167,8 +2147,6 @@ export default function BattleDetailPage() {
                                symbols={roundData.pools.normal}
                                selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
                                height={450}
-                               showPrizeSelector={false}
-                               buttonText=""
                                spinDuration={spinDuration}
                               onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
                             />
@@ -2192,8 +2170,6 @@ export default function BattleDetailPage() {
                                   symbols={roundData.pools.legendary}
                                   selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
                                   height={450}
-                                  showPrizeSelector={false}
-                                  buttonText=""
                                   spinDuration={spinDuration}
                                   onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
                                 />
