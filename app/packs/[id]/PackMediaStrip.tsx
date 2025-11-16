@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import SelectPackModal from './SelectPackModal';
 import { toDisplayProductFromCatalog } from '../../lib/catalogV2';
 import type { CatalogItem, DisplayProduct } from '../../lib/catalogV2';
@@ -14,6 +14,7 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
   const [hoverAdd, setHoverAdd] = useState(false);
   const [hoverAddIdx, setHoverAddIdx] = useState<number | null>(null);
   const [hoverDelIdx, setHoverDelIdx] = useState<number | null>(null);
+  const [isSlotMachineSpinning, setIsSlotMachineSpinning] = useState<boolean>(false);
   // 统一以 packId 存储当前 1..6 槽位
   const [slotPackIds, setSlotPackIds] = useState<string[]>(() => {
     if (primaryPackId) return [primaryPackId];
@@ -22,6 +23,11 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
   });
   const [selectOpen, setSelectOpen] = useState(false);
   const maxTiles = 6;
+  
+  // 将slotPackIds暴露给全局，供老虎机组件使用
+  useEffect(() => {
+    (window as any).__slotPackIds = slotPackIds;
+  }, [slotPackIds]);
 
   const { data: packs = [] as CatalogPack[] } = (useQuery as any)({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
   const packMap = useMemo(() => {
@@ -50,15 +56,24 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
     return res;
   }, [slotPackIds]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const spinning = (window as any).__isSlotMachineSpinning || false;
+      setIsSlotMachineSpinning(spinning);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
   function addSamePackId(id: string) {
-    if (slotPackIds.length >= maxTiles) return;
+    if (slotPackIds.length >= maxTiles || isSlotMachineSpinning) return;
     setSlotPackIds(prev => [...prev, id]);
   }
   function removeAt(index: number) {
-    if (index === 0) return;
+    if (index === 0 || isSlotMachineSpinning) return;
     setSlotPackIds(prev => prev.filter((_, i) => i !== index));
   }
   function openSelect() {
+    if (isSlotMachineSpinning) return;
     setSelectOpen(true);
   }
   return (
@@ -92,12 +107,16 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
                         type="button"
                         aria-label="add"
-                        onMouseEnter={() => setHoverAdd(true)}
+                        disabled={isSlotMachineSpinning}
+                        onMouseEnter={() => !isSlotMachineSpinning && setHoverAdd(true)}
                         onMouseLeave={() => setHoverAdd(false)}
-                        onClick={(e) => { e.stopPropagation(); addSamePackId(slotPackIds[0]); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (!isSlotMachineSpinning) addSamePackId(slotPackIds[0]); 
+                        }}
                         style={{
-                          backgroundColor: hoverAdd ? '#5A5E62' : '#34383C',
-                          cursor: 'pointer',
+                          backgroundColor: hoverAdd && !isSlotMachineSpinning ? '#5A5E62' : '#34383C',
+                          cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
                         }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus size-5 text-white">
@@ -114,12 +133,16 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
                       type="button"
                       aria-label="delete"
-                      onMouseEnter={() => setHoverDelIdx(idx)}
+                      disabled={isSlotMachineSpinning}
+                      onMouseEnter={() => !isSlotMachineSpinning && setHoverDelIdx(idx)}
                       onMouseLeave={() => setHoverDelIdx(null)}
-                      onClick={(e) => { e.stopPropagation(); removeAt(idx); }}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (!isSlotMachineSpinning) removeAt(idx); 
+                      }}
                       style={{
-                        backgroundColor: hoverDelIdx === idx ? '#5A5E62' : '#34383C',
-                        cursor: 'pointer',
+                        backgroundColor: hoverDelIdx === idx && !isSlotMachineSpinning ? '#5A5E62' : '#34383C',
+                        cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
                       }}
                     >
                       <div className="size-5 text-white">
@@ -136,12 +159,16 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
                         type="button"
                         aria-label="add"
-                        onMouseEnter={() => setHoverAddIdx(idx)}
+                        disabled={isSlotMachineSpinning}
+                        onMouseEnter={() => !isSlotMachineSpinning && setHoverAddIdx(idx)}
                         onMouseLeave={() => setHoverAddIdx(null)}
-                        onClick={(e) => { e.stopPropagation(); addSamePackId(id); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (!isSlotMachineSpinning) addSamePackId(id); 
+                        }}
                         style={{
-                          backgroundColor: hoverAddIdx === idx ? '#5A5E62' : '#34383C',
-                          cursor: 'pointer',
+                          backgroundColor: hoverAddIdx === idx && !isSlotMachineSpinning ? '#5A5E62' : '#34383C',
+                          cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
                         }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus size-5 text-white">
@@ -159,7 +186,7 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
                 key={`ph-${i}`}
                 className="rounded-lg size-24 lg:size-32 text-gray-500 flex items-center justify-center shrink-0 cursor-pointer"
                 style={{ backgroundImage: dashed }}
-                onClick={() => openSelect()}
+                onClick={() => { if (!isSlotMachineSpinning) openSelect(); }}
               >
                 <div className="text-white">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 export default function ActionBarClient({ price }: { price: number }) {
   const [quantity, setQuantity] = useState<number>(1);
@@ -10,6 +10,20 @@ export default function ActionBarClient({ price }: { price: number }) {
   const [hoverDemo, setHoverDemo] = useState<boolean>(false);
   const [hoverQuick, setHoverQuick] = useState<boolean>(false);
   const [quickActive, setQuickActive] = useState<boolean>(false);
+  const [isSlotMachineSpinning, setIsSlotMachineSpinning] = useState<boolean>(false);
+  
+  // 监听老虎机转动状态
+  useEffect(() => {
+    const checkSpinning = () => {
+      const spinning = (window as any).__isSlotMachineSpinning || false;
+      setIsSlotMachineSpinning(spinning);
+    };
+    
+    checkSpinning();
+    const interval = setInterval(checkSpinning, 100);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const canDec = quantity > 1;
   const canInc = quantity < 15;
@@ -139,19 +153,22 @@ export default function ActionBarClient({ price }: { price: number }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onMouseEnter={() => setHoverDemo(true)}
+            disabled={isSlotMachineSpinning}
+            onMouseEnter={() => !isSlotMachineSpinning && setHoverDemo(true)}
             onMouseLeave={() => setHoverDemo(false)}
             onClick={() => {
+              if (isSlotMachineSpinning) return;
               const spinFunction = (window as any).spinSlotMachine;
               if (spinFunction && typeof spinFunction === 'function') {
-                spinFunction();
+                spinFunction(quantity); // 传递选中的轮数
               }
             }}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-11 md:w-auto sm:h-11 px-0 md:px-6"
             style={{
-              backgroundColor: hoverDemo ? btnHoverBg : btnBaseBg,
-              color: '#FFFFFF',
-              cursor: 'pointer',
+              backgroundColor: isSlotMachineSpinning ? '#2A2E32' : (hoverDemo ? btnHoverBg : btnBaseBg),
+              color: isSlotMachineSpinning ? '#5A5E62' : '#FFFFFF',
+              cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
+              opacity: isSlotMachineSpinning ? 0.5 : 1,
             }}
           >
             <div className="size-5">
@@ -164,14 +181,22 @@ export default function ActionBarClient({ price }: { price: number }) {
           </button>
           <button
             type="button"
-            onMouseEnter={() => setHoverQuick(true)}
+            disabled={isSlotMachineSpinning}
+            onMouseEnter={() => !isSlotMachineSpinning && setHoverQuick(true)}
             onMouseLeave={() => setHoverQuick(false)}
-            onClick={() => setQuickActive((v) => !v)}
+            onClick={() => {
+              if (isSlotMachineSpinning) return;
+              const newQuickState = !quickActive;
+              setQuickActive(newQuickState);
+              // 设置全局快速模式标志
+              (window as any).__slotMachineFastMode = newQuickState;
+            }}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-11 p-0"
             style={{
-              backgroundColor: hoverQuick ? btnHoverBg : btnBaseBg,
-              color: '#FFFFFF',
-              cursor: 'pointer',
+              backgroundColor: isSlotMachineSpinning ? '#2A2E32' : (hoverQuick ? btnHoverBg : btnBaseBg),
+              color: isSlotMachineSpinning ? '#5A5E62' : '#FFFFFF',
+              cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
+              opacity: isSlotMachineSpinning ? 0.5 : 1,
             }}
             aria-pressed={quickActive}
           >

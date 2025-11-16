@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import ProductCard from './ProductCard';
 import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
-import SlotMachine from '@/app/components/SlotMachine/SlotMachine';
+import HorizontalSlotMachineClient from './HorizontalSlotMachineClient';
 
 export default async function PackDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: currentId } = await params;
@@ -38,9 +38,9 @@ export default async function PackDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div className="flex gap-2 w-[113.5px]"></div>
       </div>
-      {/* SlotMachine component */}
-      <SlotMachine />
-      {/* Action bar just below the SlotMachine */}
+      {/* 水平老虎机组件 */}
+      <HorizontalSlotMachineClient packId={pack.id} />
+      {/* Action bar */}
       <div className="flex self-center w-full max-w-screen-xl px-4">
         <ActionBarClient price={pack.price} />
       </div>
