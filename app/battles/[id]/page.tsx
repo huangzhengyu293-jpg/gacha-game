@@ -306,6 +306,18 @@ export default function BattleDetailPage() {
         } catch (err) {
         }
       }
+      
+      // 加载special_win.mp3
+      let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
+      if (!specialWinAudioBuffer) {
+        try {
+          const response = await fetch('/special_win.mp3');
+          const arrayBuffer = await response.arrayBuffer();
+          specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
+        } catch (err) {
+        }
+      }
     };
     
     initAudio();
@@ -799,7 +811,19 @@ export default function BattleDetailPage() {
       
       
       if (gotLegendary.size > 0) {
-        // 有人中legendary，等待0.5秒让玩家看清金色占位符
+        // 🎵 有人中legendary，播放 special_win 音效
+        if (typeof window !== 'undefined') {
+          const ctx = (window as any).__audioContext;
+          const buffer = (window as any).__specialWinAudioBuffer;
+          if (ctx && buffer) {
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+          }
+        }
+        
+        // 等待0.5秒让玩家看清金色占位符
         setTimeout(() => {
           setRoundState('ROUND_PREPARE_SECOND');
         }, 500); // 0.5秒延迟
