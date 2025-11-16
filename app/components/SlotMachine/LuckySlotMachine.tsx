@@ -156,24 +156,22 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (selectedPrizeId && !isSpinning &&  selectedPrize && !hasStarted) {
       // For auto-start, trust that parent passed valid selectedPrizeId
       // The actual target comes from selectedPrize, not initialSymbolsRef
-      // Delay to ensure virtual DOM is fully ready
-      const timer = setTimeout(() => {
-        setHasStarted(true);
-        startSpin();
-      }, 500); // Longer delay for first round to ensure virtual DOM is ready
-      return () => clearTimeout(timer);
+      // 立即启动，无延迟
+      setHasStarted(true);
+      // 使用 requestAnimationFrame 确保 DOM 准备就绪后立即启动
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          startSpin();
+        });
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrizeId,  selectedPrize, hasStarted]); // Removed symbols dependency
 
   // 自定义缓动函数
   const customEase = (t: number): number => {
-    if (t < 0.2) {
-      return t * t * 12.5;
-    } else {
-      const t2 = (t - 0.2) / 0.8;
-      return 0.5 + 0.5 * (1 - Math.pow(1 - t2, 5));
-    }
+    // 直接高速开局，只有减速阶段
+    return 1 - Math.pow(1 - t, 5);
   };
 
   // 检查并重置位置
@@ -420,9 +418,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // Set container to absolute positioning for virtual scrolling
     container.style.position = 'relative';
     
-    // 设置初始位置
+    // 设置初始位置（给一个向上的偏移，模拟已经在滚动中）
     const initialIndex = itemsPerReel;
-    const initialTop = reelCenter - initialIndex * itemHeight - itemHeight / 2;
+    const preScrollOffset = itemHeight * 5; // 预先向上滚动5个物品的距离
+    const initialTop = reelCenter - initialIndex * itemHeight - itemHeight / 2 - preScrollOffset;
     container.style.top = initialTop + 'px';
     
     // 🚀 Render only visible items
@@ -689,19 +688,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       // Use the pre-selected prize for the result, or the actual stopped item
       if (finalResult) {
-        
-        // 🎵 使用Web Audio API播放回正音效
-        if (typeof window !== 'undefined') {
-          const ctx = (window as any).__audioContext;
-          const buffer = (window as any).__basicWinAudioBuffer;
-          if (ctx && buffer) {
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start(0);
-          }
-        }
-        
         if (onSpinComplete) {
           // Always use the pre-selected prize if available
           const reportResult = selectedPrize || finalResult;

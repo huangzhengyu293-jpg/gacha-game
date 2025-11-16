@@ -804,10 +804,8 @@ export default function BattleDetailPage() {
           setRoundState('ROUND_PREPARE_SECOND');
         }, 500); // 0.5秒延迟
       } else {
-        // 无人中legendary，等待动画完成再结算
-        setTimeout(() => {
-          setRoundState('ROUND_SETTLE');
-        }, 1000); // 1秒等待回正动画完成
+        // 无人中legendary，立即结算
+        setRoundState('ROUND_SETTLE');
       }
     }
   }, [mainState, roundState, gameData]);
@@ -935,6 +933,18 @@ export default function BattleDetailPage() {
       }
       
       settleExecutedRef.current[currentRound] = true;
+      
+      // 🎵 播放回正音效（只播放一次）
+      if (typeof window !== 'undefined') {
+        const ctx = (window as any).__audioContext;
+        const buffer = (window as any).__basicWinAudioBuffer;
+        if (ctx && buffer) {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        }
+      }
       
       
       // 🎯 记录所有玩家的最终道具
