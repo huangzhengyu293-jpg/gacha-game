@@ -128,6 +128,25 @@ function CreateBattleContent() {
   const [playersCount, setPlayersCount] = useState<string>(getInitialPlayersCount);
   const [teamStructure, setTeamStructure] = useState<"2v2" | "3v3" | "2v2v2">("2v2");
   
+  // 计算实际的玩家数量
+  const actualPlayersCount = useMemo(() => {
+    if (typeState === "team") {
+      // 团队模式下根据teamStructure计算实际人数
+      switch (teamStructure) {
+        case "2v2":
+          return 4; // 2队，每队2人
+        case "3v3":
+          return 6; // 2队，每队3人
+        case "2v2v2":
+          return 6; // 3队，每队2人
+        default:
+          return 4;
+      }
+    }
+    // Solo模式下直接使用playersCount
+    return Number(playersCount);
+  }, [typeState, teamStructure, playersCount]);
+  
   // 初始化时确保URL参数正确
   useEffect(() => {
     const typeParam = searchParams?.get("type");
@@ -1712,7 +1731,7 @@ function CreateBattleContent() {
               {selectedMode === "share" && "在分享模式下，在最后一轮之后，累积的总价值在所有玩家之间平均分配。"}
               {selectedMode === "sprint" && "在积分冲刺模式下，每轮最高价值的抽取获得1分。积分最多的玩家赢得对战并获得所有物品。"}
               {selectedMode === "jackpot" && "在大奖模式下，在最后一轮之后，为总'大奖'价值转动轮盘。每个玩家的获胜机会等于他们在总抽取价值中的份额。"}
-              {selectedMode === "elimination" && "在淘汰模式下，在最后几轮中，价值最低的玩家被淘汰，直到只剩下一名玩家。在淘汰模式下，您必须为每个玩家选择至少一个包裹。"}
+              {selectedMode === "elimination" && `在淘汰模式下，从倒数第${actualPlayersCount - 1}轮开始，每轮价值${optInverted ? '最高' : '最低'}的玩家被淘汰，直到只剩下一名玩家。淘汰模式需要至少${actualPlayersCount - 1}个卡包（${actualPlayersCount}名玩家）。`}
             </p>
           </div>
 
@@ -2053,7 +2072,7 @@ function CreateBattleContent() {
               </p>
               <div className="space-y-1">
                 {[
-                  { k: "玩家", v: playersCount },
+                  { k: "玩家", v: String(actualPlayersCount) },
                   { k: "包装/回合", v: String(selectedPackIds.length) },
                   { k: "总成本", v: `$${totalCost.toFixed(2)}` },
                 ].map((row) => (
@@ -2073,13 +2092,16 @@ function CreateBattleContent() {
           {/* 底部按钮 */}
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus select-none px-8 w-full h-16 sticky bottom-2 !mt-0"
-            disabled={selectedPackIds.length === 0}
+            disabled={
+              selectedPackIds.length === 0 ||
+              (selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)
+            }
             style={{
               backgroundColor: "#48BB78",
-              color: selectedPackIds.length > 0 ? "#FFFFFF" : "#2F855A",
+              color: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? "#FFFFFF" : "#2F855A",
               fontFamily: "var(--font-urbanist)",
-              opacity: selectedPackIds.length > 0 ? 1 : 0.5,
-              cursor: selectedPackIds.length > 0 ? "pointer" : "not-allowed",
+              opacity: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? 1 : 0.5,
+              cursor: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? "pointer" : "not-allowed",
             }}
             onClick={() => {
               if (selectedPackIds.length > 0) {

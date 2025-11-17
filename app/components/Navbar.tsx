@@ -34,7 +34,10 @@ export default function Navbar() {
   const [regPass, setRegPass] = useState('');
   const [showStrength, setShowStrength] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
+  const [regLoading, setRegLoading] = useState(false); // 注册加载状态
+  const [regError, setRegError] = useState(''); // 注册错误信息
   const [showLogin, setShowLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
@@ -118,6 +121,42 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [showUserMenu]);
 
+  // 注册处理函数
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canRegister || regLoading) return;
+    
+    setRegLoading(true);
+    setRegError('');
+    
+    try {
+      const result = await api.register({
+        name: regUsername.trim(),
+        email: regEmail.trim(),
+        password: regPass
+      });
+      
+      // 注册成功
+      console.log('注册成功:', result);
+      // 关闭注册弹窗
+      setShowRegister(false);
+      // 清空表单
+      setRegUsername('');
+      setRegEmail('');
+      setRegPass('');
+      setAgreed(false);
+      // 可以选择自动登录或显示成功消息
+      alert('注册成功！请登录。');
+      setShowLogin(true);
+    } catch (error) {
+      console.error('注册失败:', error);
+      setRegError(error instanceof Error ? error.message : '注册失败，请稍后重试');
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
+  const usernameValid = regUsername.trim().length >= 3; // 用户名至少3个字符
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
   const loginEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail);
   const hasLower = /[a-z]/.test(regPass);
@@ -127,7 +166,7 @@ export default function Navbar() {
   const passLenOK = regPass.length >= 8;
   // 至少包含大小写和数字，长度>=8 判定为有效
   const passwordValid = passLenOK && hasLower && hasUpper && hasDigit;
-  const canRegister = emailValid && passwordValid;
+  const canRegister = usernameValid && emailValid && passwordValid && agreed;
   const loginCanSubmit = loginEmailValid && loginPass.length > 0;
   const forgotEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail);
   const passwordScore = (() => {
@@ -683,7 +722,16 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
 
       {/* 单一遮罩（Auth） */}
       {(showRegister || showLogin || showForgot) && (
-        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { setShowRegister(false); setShowLogin(false); setShowForgot(false); }} />
+        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { 
+          setShowRegister(false); 
+          setShowLogin(false); 
+          setShowForgot(false); 
+          // 清空注册表单
+          setRegUsername('');
+          setRegEmail('');
+          setRegPass('');
+          setAgreed(false);
+        }} />
       )}
 
       {/* Register Modal 内容 */}
@@ -717,7 +765,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               </div>
               <p style={{ color: agreed ? '#FFFFFF' : '#9CA3AF' }}>使用 Google 登录</p>
             </button>
-            <form className="flex flex-col">
+            <form className="flex flex-col" onSubmit={handleRegister}>
               <div className="space-y-2">
                 <div className="flex justify-start items-center gap-2 mt-2">
                   <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
@@ -728,12 +776,21 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   </label>
                 </div>
               </div>
+              {regError && (
+                <div className="mt-3 p-3 rounded-md" style={{ backgroundColor: '#FEE2E2' }}>
+                  <p className="text-sm" style={{ color: '#DC2626' }}>{regError}</p>
+                </div>
+              )}
               <div className="flex items-center my-4">
                 <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
                 <p className="text-base px-3" style={{ color: '#33363A' }}>或</p>
                 <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
               </div>
               <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="reg-username" style={{ color: '#FFFFFF' }}>用户名</label>
+                  <input id="reg-username" type="text" autoComplete="username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入用户名" />
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-base font-medium" htmlFor="reg-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
                   <input id="reg-email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
@@ -777,11 +834,25 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   </label>
                 </div>
               </div>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: canRegister ? 'pointer' : 'not-allowed', opacity: canRegister ? 1 : 0.8 }} disabled={!canRegister}>注册</button>
+              <button 
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !regLoading) ? 'pointer' : 'not-allowed', opacity: (canRegister && !regLoading) ? 1 : 0.8 }} 
+                disabled={!canRegister || regLoading}
+              >
+                {regLoading ? '注册中...' : '注册'}
+              </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowRegister(false); setShowLogin(true); }}>登录</span>
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { 
+                setShowRegister(false); 
+                setShowLogin(true); 
+                // 清空注册表单
+                setRegUsername('');
+                setRegEmail('');
+                setRegPass('');
+              }}>登录</span>
             </div>
           </div>
         </div>

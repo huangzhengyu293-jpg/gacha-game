@@ -41,7 +41,7 @@ export default function ParticipantsSection({ participants }: ParticipantsSectio
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-bold text-white truncate">{participant.name}</p>
-              <p className="text-sm font-bold" style={{ color: '#7A8084' }}>总价值: {participant.totalValue}</p>
+              <p className="text-sm font-bold text-white">总价值: {participant.totalValue}</p>
             </div>
             {participant.isWinner && (
               <div className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: '#10B981', color: '#FFFFFF' }}>

@@ -20,6 +20,7 @@ interface HorizontalLuckySlotMachineProps {
   onSpinComplete?: (result: SlotSymbol) => void;
   width?: number; // 转轮宽度，默认540
   spinDuration?: number; // 固定的旋转时长
+  isEliminationMode?: boolean; // 是否是淘汰模式（用于区分礼包/淘汰老虎机）
 }
 
 export interface HorizontalLuckySlotMachineHandle {
@@ -33,7 +34,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
   onSpinStart,
   onSpinComplete,
   width = 540,
-  spinDuration
+  spinDuration,
+  isEliminationMode = false
 }, ref) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);
@@ -138,6 +140,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
   const currentSelectedIndexRef = useRef<number>(-1);
   const currentSelectedElementRef = useRef<HTMLElement | null>(null);
   const selectionLockedRef = useRef<boolean>(false);
+  const isSpinningRef = useRef<boolean>(false); // 🎵 用ref跟踪滚动状态，确保tick音效正常播放
 
   const reelCenterRef = useRef(reelCenter);
   const itemWidthRef = useRef(itemWidth);
@@ -199,8 +202,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       currentSelectedElementRef.current = element;
       currentSelectedIndexRef.current = virtualClosestIndex;
       
-      // 🎵 播放tick音效（每次选中变化时）
-      if (typeof window !== 'undefined') {
+      // 🎵 播放tick音效（只在正在滚动时播放，且选中index改变时）
+      if (isSpinningRef.current && typeof window !== 'undefined') {
         const ctx = (window as any).__audioContext;
         const buffer = (window as any).__tickAudioBuffer;
         if (ctx && buffer) {
@@ -275,48 +278,144 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         element.style.maxHeight = '195px';
         element.style.transform = 'translate(-97.5px, -97.5px)';
         
-        // 光晕背景
-        const glowColor = item.qualityId === 'legendary' ? '#FFD700' 
-          : item.qualityId === 'epic' ? '#A335EE'
-          : item.qualityId === 'rare' ? '#0070DD'
-          : item.qualityId === 'uncommon' ? '#1EFF00'
-          : '#9D9D9D';
+        // 光晕背景（只在有qualityId时创建）
+        let glow: HTMLDivElement | null = null;
         
-        const glow = document.createElement('div');
-        glow.className = 'glow';
-        glow.style.position = 'absolute';
-        glow.style.top = '50%';
-        glow.style.left = '50%';
-        glow.style.transform = 'translate(-50%, -50%)';
-        glow.style.width = '60%';
-        glow.style.height = '60%';
-        glow.style.aspectRatio = '1';
-        glow.style.backgroundColor = glowColor;
-        glow.style.borderRadius = '50%';
-        glow.style.filter = 'blur(25px)';
-        glow.style.opacity = '0.4';
-        glow.style.transition = 'opacity 0.2s ease-out';
+        if (item.qualityId) {
+          const glowColor = item.qualityId === 'legendary' ? '#FFD700' 
+            : item.qualityId === 'epic' ? '#A335EE'
+            : item.qualityId === 'rare' ? '#0070DD'
+            : item.qualityId === 'uncommon' ? '#1EFF00'
+            : '#9D9D9D';
+          
+          glow = document.createElement('div');
+          glow.className = 'glow';
+          glow.style.position = 'absolute';
+          glow.style.top = '50%';
+          glow.style.left = '50%';
+          glow.style.transform = 'translate(-50%, -50%)';
+          glow.style.width = '60%';
+          glow.style.height = '60%';
+          glow.style.aspectRatio = '1';
+          glow.style.backgroundColor = glowColor;
+          glow.style.borderRadius = '50%';
+          glow.style.filter = 'blur(25px)';
+          glow.style.opacity = '0.4';
+          glow.style.transition = 'opacity 0.2s ease-out';
+          glow.style.zIndex = '1'; // 确保光晕在图片后面
+        }
         
         // 图片容器
         const imgWrapper = document.createElement('div');
         imgWrapper.className = 'img-wrapper';
         imgWrapper.style.position = 'relative';
         imgWrapper.style.display = 'flex';
+        imgWrapper.style.alignItems = 'center'; // 垂直居中
+        imgWrapper.style.justifyContent = 'center'; // 水平居中
         imgWrapper.style.width = '55%';
         imgWrapper.style.height = '55%';
         imgWrapper.style.transition = 'transform 0.2s ease-out';
         imgWrapper.style.transform = 'scale(1)';
+        imgWrapper.style.zIndex = '2'; // 确保图片在光晕上方
         
-        const img = document.createElement('img');
-        img.src = item.image;
-        img.alt = item.name;
-        img.className = 'product-image';
-        img.style.position = 'absolute';
-        img.style.height = '100%';
-        img.style.width = '100%';
-        img.style.inset = '0px';
-        img.style.objectFit = 'contain';
-        img.style.color = 'transparent';
+        // 根据模式渲染不同的图片结构
+        if (isEliminationMode) {
+          // 淘汰模式：按照参考HTML结构渲染头像（多层包裹）
+          // <div class="flex rounded-full overflow-clip transition-transform duration-200 scale-125">
+          const outerWrapper = document.createElement('div');
+          outerWrapper.className = 'flex rounded-full overflow-clip transition-transform duration-200';
+          outerWrapper.style.transform = 'scale(1)';
+          
+          // <div class="overflow-hidden border rounded-full border-gray-700" style="border-width: 1px;">
+          const borderWrapper = document.createElement('div');
+          borderWrapper.className = 'overflow-hidden border rounded-full border-gray-700';
+          borderWrapper.style.borderWidth = '1px';
+          
+          // <div class="relative rounded-full overflow-hidden" style="width: 96px; height: 96px;">
+          const avatarContainer = document.createElement('div');
+          avatarContainer.className = 'relative rounded-full overflow-hidden';
+          avatarContainer.style.width = '100%'; // 改为100%以适应父容器
+          avatarContainer.style.height = '100%'; // 改为100%以适应父容器
+          avatarContainer.style.aspectRatio = '1'; // 保持1:1比例
+          
+          // 检查是否是SVG字符串（机器人头像）
+          const isSvgString = item.image.trim().startsWith('<svg');
+          
+          if (isSvgString) {
+            // SVG字符串：直接设置innerHTML
+            avatarContainer.innerHTML = item.image;
+            const svgElement = avatarContainer.querySelector('svg');
+            if (svgElement) {
+              svgElement.style.width = '100%';
+              svgElement.style.height = '100%';
+              svgElement.style.objectFit = 'cover';
+              
+              // 设置SVG颜色（确保可见）
+              svgElement.style.color = 'currentColor';
+              
+              // 如果SVG有fill="currentColor"，需要设置父容器的color
+              avatarContainer.style.color = '#ffffff'; // 白色
+            }
+          } else {
+            // 普通图片URL：创建img标签
+            const img = document.createElement('img');
+            img.src = item.image;
+            img.alt = item.name;
+            img.className = 'pointer-events-none';
+            img.style.position = 'absolute';
+            img.style.height = '100%';
+            img.style.width = '100%';
+            img.style.inset = '0px';
+            img.style.objectFit = 'cover';
+            img.style.color = 'transparent';
+            avatarContainer.appendChild(img);
+          }
+          
+          // 组装：avatarContainer -> borderWrapper -> outerWrapper -> imgWrapper
+          borderWrapper.appendChild(avatarContainer);
+          outerWrapper.appendChild(borderWrapper);
+          imgWrapper.appendChild(outerWrapper);
+        } else {
+          // 礼包模式：简单渲染（原有逻辑）
+          const isSvgString = item.image.trim().startsWith('<svg');
+          
+          if (isSvgString) {
+            // SVG字符串
+            const svgContainer = document.createElement('div');
+            svgContainer.className = 'avatar-svg-container';
+            svgContainer.innerHTML = item.image;
+            svgContainer.style.position = 'absolute';
+            svgContainer.style.height = '100%';
+            svgContainer.style.width = '100%';
+            svgContainer.style.inset = '0px';
+            svgContainer.style.display = 'flex';
+            svgContainer.style.alignItems = 'center';
+            svgContainer.style.justifyContent = 'center';
+            
+            const svgElement = svgContainer.querySelector('svg');
+            if (svgElement) {
+              svgElement.style.width = '100%';
+              svgElement.style.height = '100%';
+              svgElement.style.objectFit = 'contain';
+            }
+            
+            imgWrapper.appendChild(svgContainer);
+          } else {
+            // 普通图片URL
+            const img = document.createElement('img');
+            img.src = item.image;
+            img.alt = item.name;
+            img.className = 'product-image';
+            img.style.position = 'absolute';
+            img.style.height = '100%';
+            img.style.width = '100%';
+            img.style.inset = '0px';
+            img.style.objectFit = 'contain';
+            img.style.color = 'transparent';
+            
+            imgWrapper.appendChild(img);
+          }
+        }
         
         // 物品信息（名字和价格）
         const itemInfo = document.createElement('div');
@@ -346,18 +445,23 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         itemName.style.overflow = 'hidden';
         itemName.style.textOverflow = 'ellipsis';
         
-        const itemPrice = document.createElement('p');
-        itemPrice.textContent = `$${item.price.toFixed(2)}`;
-        itemPrice.style.margin = '0';
-        itemPrice.style.color = 'white';
-        itemPrice.style.fontWeight = '900';
-        itemPrice.style.fontSize = '16px';
-        
+        // 只在价格大于0时显示价格
         itemInfo.appendChild(itemName);
-        itemInfo.appendChild(itemPrice);
         
-        imgWrapper.appendChild(img);
-        element.appendChild(glow);
+        if (item.price > 0) {
+          const itemPrice = document.createElement('p');
+          itemPrice.textContent = `$${item.price.toFixed(2)}`;
+          itemPrice.style.margin = '0';
+          itemPrice.style.color = 'white';
+          itemPrice.style.fontWeight = '900';
+          itemPrice.style.fontSize = '16px';
+          itemInfo.appendChild(itemPrice);
+        }
+        
+        // 组装元素（imgWrapper已经在上面的if-else中添加了子元素）
+        if (glow) {
+          element.appendChild(glow); // 只在有光晕时添加
+        }
         element.appendChild(imgWrapper);
         element.appendChild(itemInfo);
         container.appendChild(element);
@@ -672,11 +776,15 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     }
     
     setIsSpinning(true);
+    isSpinningRef.current = true; // 🎵 设置ref状态，用于tick音效判断
     
-    // 隐藏所有信息
+    // 重置选中锁定，准备新的spin
+    selectionLockedRef.current = false;
+    
+    // 隐藏所有信息（但保留selected类，等新的选中后再更新）
     const items = reelContainerRef.current.querySelectorAll('.slot-item');
     items.forEach(item => {
-      item.classList.remove('show-info', 'selected');
+      item.classList.remove('show-info');
       const itemInfo = item.querySelector('.item-info') as HTMLElement;
       if (itemInfo) {
         itemInfo.style.opacity = '0';
@@ -714,8 +822,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     }
     
     setIsSpinning(false);
-    // 重置状态，准备下一次
-    selectionLockedRef.current = false;
+    isSpinningRef.current = false; // 🎵 重置ref状态
+    // 保持选中锁定，不要重置
+    // selectionLockedRef.current = false;  // 注释掉，保持选中状态
   }, [isSpinning, onSpinStart, onSpinComplete, spinDuration, selectedPrize, spinPhase1, spinPhase2, findClosestItem]);
 
   const hasInitializedRef = useRef(false);

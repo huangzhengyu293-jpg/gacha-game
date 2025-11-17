@@ -46,5 +46,15 @@ export type BattleData = {
   isFastMode?: boolean;
   isLastChance?: boolean;
   isInverted?: boolean;
+  // 淘汰模式数据
+  eliminations?: {
+    [roundIndex: number]: {
+      eliminatedPlayerId: string;
+      eliminatedPlayerName: string;
+      needsSlotMachine: boolean; // 是否需要老虎机动画（多人并列最低时为true）
+      tiedPlayerIds?: string[]; // 如果需要老虎机，这里是所有并列最低的玩家ID列表
+    };
+  };
+  eliminationStartRound?: number; // 淘汰开始的轮次（从0开始的索引）
 };
 

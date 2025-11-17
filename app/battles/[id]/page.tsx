@@ -10,8 +10,8 @@ import PacksGallery from "./components/PacksGallery";
 import PackDetailModal from "./components/PackDetailModal";
 import { useBattleData } from "./hooks/useBattleData";
 import type { PackItem, Participant } from "./types";
-import BattleInfoCard from "./components/BattleInfoCard";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
+import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
 
 // 🎰 大奖模式内联进度条组件（避免重复挂载问题）
 function JackpotProgressBarInline({ 
@@ -156,6 +156,9 @@ type RoundState =
   | 'ROUND_PREPARE_SECOND'       // 准备第二段（替换数据源）
   | 'ROUND_SPIN_SECOND'          // 第二段转动（使用legendary池）
   | 'ROUND_SETTLE' 
+  | 'ROUND_CHECK_ELIMINATION'    // 🔥 淘汰模式：检查是否需要淘汰
+  | 'ROUND_ELIMINATION_SLOT'     // 🔥 淘汰模式：播放淘汰老虎机动画
+  | 'ROUND_ELIMINATION_RESULT'   // 🔥 淘汰模式：显示淘汰结果
   | 'ROUND_NEXT' 
   | null;
 
@@ -210,8 +213,6 @@ export default function BattleDetailPage() {
   
   // 💰 玩家累计金额映射 (participantId -> totalValue)
   const [participantValues, setParticipantValues] = useState<Record<string, number>>({});
-  
-  // 🚀 快速对战模式（从battleData读取）
   const isFastMode = battleData.isFastMode || false;
   const spinDuration = isFastMode ? 1000 : 4500;
   
@@ -253,6 +254,7 @@ export default function BattleDetailPage() {
   // 🔒 大奖模式：防止重复初始化
   const jackpotInitialized = useRef(false);
   const jackpotWinnerSet = useRef(false); // 防止重复设置获胜者
+  const completedWinnerSetRef = useRef(false); // 🎯 防止COMPLETED状态下重复设置获胜者
   
   // 🎉 大奖模式：动画完成回调（稳定引用）
   const handleJackpotAnimationComplete = useCallback(() => {
@@ -260,6 +262,57 @@ export default function BattleDetailPage() {
       setJackpotPhase('winner');
     }, 1000);
   }, []);
+  
+  // 🔥 淘汰模式：已淘汰的玩家ID集合
+  const [eliminatedPlayerIds, setEliminatedPlayerIds] = useState<Set<string>>(new Set());
+  
+  // 🔥 淘汰模式：玩家ID -> 被淘汰的轮次索引（0-based）
+  const [eliminationRounds, setEliminationRounds] = useState<Record<string, number>>({});
+  
+  // 🔥 淘汰模式：当前轮次的淘汰数据
+  const [currentEliminationData, setCurrentEliminationData] = useState<{
+    eliminatedPlayerId: string;
+    eliminatedPlayerName: string;
+    needsSlotMachine: boolean;
+    tiedPlayerIds?: string[];
+    roundIndex: number; // 🔥 添加轮次索引
+  } | null>(null);
+  
+  // 🔥 淘汰模式：淘汰老虎机ref
+  const eliminationSlotMachineRef = useRef<EliminationSlotMachineHandle>(null);
+  
+  // 🏃 积分冲刺模式：玩家/团队积分
+  const [sprintScores, setSprintScores] = useState<Record<string, number>>({});
+  
+  // 🔥 淘汰模式：淘汰老虎机完成回调
+  const handleEliminationSlotComplete = useCallback(() => {
+    console.log('✅ [淘汰老虎机] 动画完成');
+    
+    // 🔥 立即添加淘汰玩家到已淘汰集合（在老虎机组件内已经渲染了淘汰 UI）
+    if (currentEliminationData) {
+      setEliminatedPlayerIds(prev => {
+        const newSet = new Set(prev);
+        if (!newSet.has(currentEliminationData.eliminatedPlayerId)) {
+          newSet.add(currentEliminationData.eliminatedPlayerId);
+          console.log('✅ [淘汰老虎机完成] 已添加淘汰玩家:', currentEliminationData.eliminatedPlayerId);
+          console.log('✅ [淘汰老虎机完成] 当前已淘汰玩家:', Array.from(newSet));
+        }
+        return newSet;
+      });
+      
+      // 🔥 记录淘汰轮次
+      setEliminationRounds(prev => {
+        const newRounds = {
+          ...prev,
+          [currentEliminationData.eliminatedPlayerId]: currentEliminationData.roundIndex
+        };
+        console.log('🔥 [淘汰老虎机完成] 记录淘汰轮次:', newRounds);
+        return newRounds;
+      });
+    }
+    
+    setRoundState('ROUND_ELIMINATION_RESULT');
+  }, [currentEliminationData]);
   
   // 按teamId分组玩家（用于老虎机布局）
   const teamGroups = useMemo(() => {
@@ -437,6 +490,44 @@ export default function BattleDetailPage() {
     return symbolsByRound;
   }, [battleData.packs]);
 
+  // 🔑 缓存淘汰老虎机的玩家数据，避免每次渲染都重新生成
+  const eliminationPlayers = useMemo(() => {
+    if (!currentEliminationData?.tiedPlayerIds) return [];
+    
+    return allParticipants
+      .filter(p => currentEliminationData.tiedPlayerIds!.includes(p.id))
+      .map(p => {
+        // 对于机器人，生成SVG字符串；对于真实玩家，使用avatar URL
+        const isBot = p.id.startsWith('bot-') || !p.avatar;
+        let avatarData = p.avatar;
+        
+        if (isBot) {
+          // 生成机器人SVG字符串
+          const maskId = `mask-${p.id}`;
+          avatarData = `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+            <mask id="${maskId}" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+              <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+            </mask>
+            <g mask="url(#${maskId})">
+              <rect width="36" height="36" fill="#333333"></rect>
+              <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+              <g transform="translate(-1 1) rotate(5 18 18)">
+                <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+              </g>
+            </g>
+          </svg>`;
+        }
+        
+        return {
+          id: p.id,
+          name: p.name,
+          avatar: avatarData
+        };
+      });
+  }, [currentEliminationData?.tiedPlayerIds, allParticipants]);
+
   // 🎯 创建金色占位符
   const createGoldenPlaceholder = (): SlotSymbol => ({
     id: 'golden_placeholder',
@@ -607,6 +698,229 @@ export default function BattleDetailPage() {
         name: playerTotals[topPlayerId]?.name, 
         totalValue: maxValue,
         teamIds: winnerIds
+      };
+    }
+    
+    // 🏃 积分冲刺模式：预先计算所有积分和最终获胜者
+    if (gameMode === 'sprint') {
+      console.log('\n🏃🏃🏃 [积分冲刺模式] 预计算所有结果 🏃🏃🏃');
+      
+      // 初始化积分
+      const scores: Record<string, number> = {};
+      const roundWinners: Record<number, string[]> = {}; // 每轮的获胜者
+      
+      if (isTeamMode) {
+        // 团队模式：初始化每个团队的积分
+        const teams = new Set(allParticipants.map(p => p.teamId).filter(Boolean));
+        teams.forEach(teamId => {
+          scores[teamId!] = 0;
+        });
+      } else {
+        // 单人模式：初始化每个玩家的积分
+        allParticipants.forEach(p => {
+          scores[p.id] = 0;
+        });
+      }
+      
+      // 计算每轮的得分
+      for (let round = 0; round < battleData.packs.length; round++) {
+        const roundPrices: Record<string, number> = {};
+        const roundResult = detailedResults[round];
+        
+        if (!roundResult) continue;
+        
+        if (isTeamMode) {
+          // 团队模式：计算每个团队的总价
+          const teamTotals: Record<string, number> = {};
+          
+          allParticipants.forEach(participant => {
+            if (!participant || !participant.id || !participant.teamId) return;
+            const item = roundResult[participant.id];
+            if (!item || !item.价格) return;
+            
+            const price = parseFloat(item.价格.replace('¥', ''));
+            teamTotals[participant.teamId] = (teamTotals[participant.teamId] || 0) + price;
+          });
+          
+          Object.assign(roundPrices, teamTotals);
+        } else {
+          // 单人模式：每个玩家的价格
+          allParticipants.forEach(participant => {
+            if (!participant || !participant.id) return;
+            const item = roundResult[participant.id];
+            if (!item || !item.价格) return;
+            
+            const price = parseFloat(item.价格.replace('¥', ''));
+            roundPrices[participant.id] = price;
+          });
+        }
+        
+        // 🔥 根据倒置选项决定得分规则
+        let targetPrice: number;
+        const winners: string[] = [];
+        
+        if (isInverted) {
+          // 倒置模式：最低价格获得1分
+          targetPrice = Math.min(...Object.values(roundPrices));
+          console.log(`  💰 [倒置模式] 最低价格: ¥${targetPrice.toFixed(2)}`);
+        } else {
+          // 正常模式：最高价格获得1分
+          targetPrice = Math.max(...Object.values(roundPrices));
+          console.log(`  💰 [正常模式] 最高价格: ¥${targetPrice.toFixed(2)}`);
+        }
+        
+        // 给目标价格的玩家/团队加分
+        Object.entries(roundPrices).forEach(([id, price]) => {
+          if (price === targetPrice) {
+            scores[id] = (scores[id] || 0) + 1;
+            winners.push(id);
+            console.log(`  第${round + 1}轮: ${id} 获得1分 (¥${price.toFixed(2)})`);
+          }
+        });
+        
+        roundWinners[round] = winners;
+      }
+      
+      console.log('\n📊 [最终积分]:', scores);
+      
+      // 找出最高分
+      const maxScore = Math.max(...Object.values(scores));
+      const topScorers = Object.entries(scores)
+        .filter(([_, score]) => score === maxScore)
+        .map(([id]) => id);
+      
+      console.log(`🏆 [最高分] ${maxScore}分`);
+      console.log(`👥 [最高分玩家/团队] ${topScorers.join(', ')}`);
+      
+      let finalWinnerId: string;
+      let needsTiebreaker = false;
+      
+      if (topScorers.length === 1) {
+        // 只有一个获胜者
+        finalWinnerId = topScorers[0];
+        console.log(`✅ [获胜者] ${finalWinnerId}`);
+      } else {
+        // 多人平局，随机选择一个（实际游戏中会用老虎机动画）
+        needsTiebreaker = true;
+        finalWinnerId = topScorers[Math.floor(Math.random() * topScorers.length)];
+        console.log(`🎰 [平局] ${topScorers.length}人并列，需要老虎机决胜`);
+        console.log(`🎯 [老虎机结果] ${finalWinnerId} 获胜`);
+      }
+      
+      console.log('\n🏃🏃🏃 [积分冲刺模式答案计算完成] 🏃🏃🏃\n');
+      
+      // 保存到全局变量供后续使用
+      (window as any).__sprintData = {
+        scores,
+        roundWinners,
+        finalWinnerId,
+        needsTiebreaker,
+        tiebreakerPlayers: needsTiebreaker ? topScorers : []
+      };
+    }
+    
+    // 🔥 淘汰模式：计算每轮淘汰数据
+    if (gameMode === 'elimination') {
+      console.log('\n🔥🔥🔥 [淘汰模式] 计算每轮淘汰数据 🔥🔥🔥');
+      
+      const totalRounds = battleData.packs.length;
+      const playersCount = allParticipants.length;
+      const eliminationStartRound = totalRounds - (playersCount - 1); // 淘汰开始的轮次（从0开始）
+      
+      console.log(`📊 总轮次: ${totalRounds}, 玩家数: ${playersCount}`);
+      console.log(`🎯 淘汰开始轮次: 第${eliminationStartRound + 1}轮（索引${eliminationStartRound}）`);
+      
+      const eliminations: Record<number, {
+        eliminatedPlayerId: string;
+        eliminatedPlayerName: string;
+        needsSlotMachine: boolean;
+        tiedPlayerIds?: string[];
+      }> = {};
+      
+      let activePlayerIds = allParticipants.map(p => p.id); // 当前仍在游戏中的玩家
+      
+      // 从淘汰开始轮次到倒数第二轮（最后一轮不淘汰，因为只剩两人决出胜负）
+      // 淘汰次数 = playersCount - 1（淘汰到只剩1人）
+      const eliminationCount = playersCount - 1;
+      for (let i = 0; i < eliminationCount && (eliminationStartRound + i) < totalRounds; i++) {
+        const roundIdx = eliminationStartRound + i;
+        const roundResult = detailedResults[roundIdx];
+        if (!roundResult) continue;
+        
+        console.log(`\n📍 第${roundIdx + 1}轮淘汰计算 (当前存活玩家: ${activePlayerIds.length}人)`);
+        
+        // 获取当前存活玩家的本轮奖品价格
+        const playerPrices: Array<{ id: string; name: string; price: number }> = [];
+        
+        activePlayerIds.forEach(playerId => {
+          const item = roundResult[playerId];
+          if (item && item.价格) {
+            const price = parseFloat(item.价格.replace('¥', ''));
+            const player = allParticipants.find(p => p.id === playerId);
+            playerPrices.push({
+              id: playerId,
+              name: player?.name || 'Unknown',
+              price: price
+            });
+            console.log(`  👤 ${player?.name}: ${item.道具} - ¥${price}`);
+          }
+        });
+        
+        // 🔥 根据倒置选项决定淘汰规则
+        let targetPlayers: typeof playerPrices;
+        let targetPrice: number;
+        
+        if (battleData.isInverted) {
+          // 倒置模式：淘汰最高价格
+          targetPrice = Math.max(...playerPrices.map(p => p.price));
+          targetPlayers = playerPrices.filter(p => p.price === targetPrice);
+          console.log(`  💰 [倒置模式] 最高价格: ¥${targetPrice}`);
+          console.log(`  🎯 最高价格玩家数: ${targetPlayers.length}人`);
+        } else {
+          // 正常模式：淘汰最低价格
+          targetPrice = Math.min(...playerPrices.map(p => p.price));
+          targetPlayers = playerPrices.filter(p => p.price === targetPrice);
+          console.log(`  💰 [正常模式] 最低价格: ¥${targetPrice}`);
+          console.log(`  🎯 最低价格玩家数: ${targetPlayers.length}人`);
+        }
+        
+        if (targetPlayers.length === 1) {
+          // 唯一目标价格，直接淘汰
+          const eliminated = targetPlayers[0];
+          eliminations[roundIdx] = {
+            eliminatedPlayerId: eliminated.id,
+            eliminatedPlayerName: eliminated.name,
+            needsSlotMachine: false
+          };
+          console.log(`  ❌ 直接淘汰: ${eliminated.name}`);
+        } else {
+          // 多人并列目标价格，需要老虎机动画
+          const randomIndex = Math.floor(Math.random() * targetPlayers.length);
+          const eliminated = targetPlayers[randomIndex];
+          eliminations[roundIdx] = {
+            eliminatedPlayerId: eliminated.id,
+            eliminatedPlayerName: eliminated.name,
+            needsSlotMachine: true,
+            tiedPlayerIds: targetPlayers.map(p => p.id)
+          };
+          console.log(`  🎰 需要老虎机动画 (${targetPlayers.length}人并列)`);
+          console.log(`  👥 并列玩家: ${targetPlayers.map(p => p.name).join(', ')}`);
+          console.log(`  ❌ 随机淘汰: ${eliminated.name}`);
+        }
+        
+        // 从存活列表中移除被淘汰的玩家
+        activePlayerIds = activePlayerIds.filter(id => id !== eliminations[roundIdx].eliminatedPlayerId);
+      }
+      
+      console.log('\n✅ 淘汰数据生成完成');
+      console.log(`🏆 最终获胜者: ${allParticipants.find(p => p.id === activePlayerIds[0])?.name}`);
+      console.log('🔥🔥🔥 [淘汰模式答案计算完成] 🔥🔥🔥\n');
+      
+      // 保存到全局变量供后续使用
+      (window as any).__eliminationData = {
+        eliminations,
+        eliminationStartRound,
+        finalWinnerId: activePlayerIds[0]
       };
     }
     
@@ -1023,15 +1337,191 @@ export default function BattleDetailPage() {
         return newValues;
       });
       
+      // 🏃 积分冲刺模式：从预计算数据更新本轮积分
+      if (gameMode === 'sprint') {
+        const sprintData = (window as any).__sprintData;
+        
+        if (sprintData && sprintData.roundWinners && sprintData.roundWinners[currentRound]) {
+          const roundWinners = sprintData.roundWinners[currentRound];
+          
+          // 更新积分（从预计算的数据中读取）
+          setSprintScores(prev => {
+            const newScores = { ...prev };
+            
+            roundWinners.forEach((winnerId: string) => {
+              newScores[winnerId] = (newScores[winnerId] || 0) + 1;
+              console.log(`🏃 [积分冲刺] ${winnerId} 获得1分，当前积分: ${newScores[winnerId]}`);
+            });
+            
+            return newScores;
+          });
+        } else {
+          console.warn('⚠️ [积分冲刺] 未找到预计算的积分数据');
+        }
+      }
+      
       // 清空玩家数据源（准备下一轮）
       setPlayerSymbols({});
       
-      // 等待记录完成
+      // 🔥 结果已预设，立即进入下一阶段
       setTimeout(() => {
-        setRoundState('ROUND_NEXT');
-      }, 500); // 0.5秒显示结果
+        // 🔥 淘汰模式：检查是否需要淘汰
+        if (gameMode === 'elimination') {
+          setRoundState('ROUND_CHECK_ELIMINATION');
+        } else {
+          setRoundState('ROUND_NEXT');
+        }
+      }, 100);
     }
-  }, [mainState, roundState, gameData, allParticipants]);
+  }, [mainState, roundState, gameData, allParticipants, gameMode, isTeamMode]);
+
+  // 🔥 ROUND_LOOP 子状态机: ROUND_CHECK_ELIMINATION（检查是否需要淘汰）
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_CHECK_ELIMINATION') {
+      const currentRound = gameData.currentRound;
+      const eliminationData = (window as any).__eliminationData;
+      
+      if (!eliminationData || !eliminationData.eliminations) {
+        console.warn('⚠️ [淘汰检查] 未找到淘汰数据，跳过淘汰环节');
+        setRoundState('ROUND_NEXT');
+        return;
+      }
+      
+      const { eliminations, eliminationStartRound } = eliminationData;
+      
+      // 检查当前轮次是否在淘汰轮次范围内
+      // 淘汰应该从 eliminationStartRound 开始，一直到只剩一个人（totalRounds - 1 轮）
+      if (currentRound < eliminationStartRound) {
+        console.log(`ℹ️ [淘汰检查] 第${currentRound + 1}轮还未到淘汰开始轮次（${eliminationStartRound + 1}），跳过淘汰`);
+        setRoundState('ROUND_NEXT');
+        return;
+      }
+      
+      // 🔥 不应该跳过最后一轮！淘汰要进行到只剩一个人
+      // 检查是否已经只剩一个人没被淘汰
+      const remainingPlayers = allParticipants.filter(p => !eliminatedPlayerIds.has(p.id));
+      if (remainingPlayers.length <= 1) {
+        console.log(`ℹ️ [淘汰检查] 第${currentRound + 1}轮已经只剩${remainingPlayers.length}个人，不需要继续淘汰`);
+        setRoundState('ROUND_NEXT');
+        return;
+      }
+      
+      const eliminationInfo = eliminations[currentRound];
+      if (!eliminationInfo) {
+        console.warn(`⚠️ [淘汰检查] 第${currentRound + 1}轮未找到淘汰信息`);
+        setRoundState('ROUND_NEXT');
+        return;
+      }
+      
+      console.log(`\n🔥 [淘汰检查] 第${currentRound + 1}轮淘汰环节`);
+      console.log(`  被淘汰玩家: ${eliminationInfo.eliminatedPlayerName}`);
+      console.log(`  需要老虎机: ${eliminationInfo.needsSlotMachine ? '是' : '否'}`);
+      if (eliminationInfo.tiedPlayerIds) {
+        console.log(`  并列玩家IDs: ${eliminationInfo.tiedPlayerIds.join(', ')}`);
+        console.log(`  并列玩家数: ${eliminationInfo.tiedPlayerIds.length}`);
+      }
+      
+      // 保存当前淘汰数据（添加轮次索引）
+      setCurrentEliminationData({
+        ...eliminationInfo,
+        roundIndex: currentRound
+      });
+      console.log('✅ [淘汰检查] currentEliminationData 已设置', eliminationInfo);
+      
+      if (eliminationInfo.needsSlotMachine) {
+        // 🔥 需要老虎机动画 - 不在这里添加淘汰玩家，等老虎机完成后再添加
+        console.log(`  🎰 进入淘汰老虎机动画（不立即淘汰）`);
+        setTimeout(() => {
+          setRoundState('ROUND_ELIMINATION_SLOT');
+        }, 100); // 🔥 结果已预设，立即播放动画
+      } else {
+        // 🔥 直接淘汰 - 立即添加淘汰玩家到已淘汰集合
+        console.log(`  ❌ 直接淘汰，立即渲染淘汰 UI`);
+        setEliminatedPlayerIds(prev => {
+          const newSet = new Set(prev);
+          newSet.add(eliminationInfo.eliminatedPlayerId);
+          console.log('✅ [直接淘汰] 已添加淘汰玩家:', eliminationInfo.eliminatedPlayerId);
+          console.log('✅ [直接淘汰] 当前已淘汰玩家:', Array.from(newSet));
+          return newSet;
+        });
+        
+        // 🔥 记录淘汰轮次（使用 currentEliminationData 中的 roundIndex）
+        setEliminationRounds(prev => {
+          const newRounds = {
+            ...prev,
+            [eliminationInfo.eliminatedPlayerId]: currentRound
+          };
+          console.log('🔥 [直接淘汰] 记录淘汰轮次:', newRounds);
+          return newRounds;
+        });
+        
+        setTimeout(() => {
+          setRoundState('ROUND_ELIMINATION_RESULT');
+        }, 100); // 🔥 结果已预设，立即显示
+      }
+    }
+  }, [mainState, roundState, gameData]);
+  
+  // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_ELIMINATION_SLOT') {
+      console.log('🎰 [淘汰老虎机] 开始播放动画');
+      
+      // 触发淘汰老虎机组件的动画
+      if (eliminationSlotMachineRef.current) {
+        eliminationSlotMachineRef.current.startSpin();
+      } else {
+        console.warn('⚠️ [淘汰老虎机] ref未找到，跳过动画');
+        setTimeout(() => {
+          setRoundState('ROUND_ELIMINATION_RESULT');
+        }, 1000);
+      }
+    }
+  }, [mainState, roundState]);
+  
+  // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_RESULT（显示淘汰结果）
+  useEffect(() => {
+    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_ELIMINATION_RESULT') {
+      if (!currentEliminationData) {
+        console.warn('⚠️ [淘汰结果] 未找到淘汰数据');
+        setRoundState('ROUND_NEXT');
+        return;
+      }
+      
+      console.log(`❌ [淘汰结果] ${currentEliminationData.eliminatedPlayerName} 被淘汰`);
+      
+      // 将玩家添加到已淘汰列表（如果还没添加的话）
+      setEliminatedPlayerIds(prev => {
+        const newSet = new Set(prev);
+        if (!newSet.has(currentEliminationData.eliminatedPlayerId)) {
+          newSet.add(currentEliminationData.eliminatedPlayerId);
+          console.log('✅ [淘汰结果] 已添加淘汰玩家:', currentEliminationData.eliminatedPlayerId);
+        }
+        return newSet;
+      });
+      
+      // 🔥 记录淘汰轮次（如果还没记录的话）
+      setEliminationRounds(prev => {
+        if (!(currentEliminationData.eliminatedPlayerId in prev)) {
+          const newRounds = {
+            ...prev,
+            [currentEliminationData.eliminatedPlayerId]: currentEliminationData.roundIndex
+          };
+          console.log('🔥 [淘汰结果] 记录淘汰轮次:', newRounds);
+          return newRounds;
+        }
+        console.log('🔥 [淘汰结果] 淘汰轮次已存在，跳过记录');
+        return prev;
+      });
+      
+      // 🔥 结果已预设，快速进入下一轮（给用户短暂时间看到淘汰效果）
+      setTimeout(() => {
+        console.log('✅ [淘汰结果] 进入下一轮');
+        setCurrentEliminationData(null); // 清空当前淘汰数据
+        setRoundState('ROUND_NEXT');
+      }, 500);
+    }
+  }, [mainState, roundState, currentEliminationData]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_NEXT
   useEffect(() => {
@@ -1100,6 +1590,14 @@ export default function BattleDetailPage() {
 
   // 旧的自动启动逻辑已被状态机接管，删除
 
+  // Handle when all slots are filled
+  const handleAllSlotsFilledChange = useCallback((filled: boolean, participants?: any[]) => {
+    setAllSlotsFilled(filled);
+    if (participants) {
+      setAllParticipants(participants);
+    }
+  }, []);
+
   // Handle when a slot machine completes
   const handleSlotComplete = useCallback((participantId: string, result: SlotSymbol) => {
     const round = gameData.currentRound;
@@ -1151,6 +1649,11 @@ export default function BattleDetailPage() {
   // 🎯 COMPLETED状态：显示最终统计和判定获胜者
   useEffect(() => {
     if (mainState === 'COMPLETED') {
+      // 🎯 如果已经设置过获胜者，不再重复执行
+      if (completedWinnerSetRef.current) {
+        return;
+      }
+      
       console.log('🏁 [COMPLETED] 所有轮次完成！');
       console.log('🏁 [COMPLETED] 状态已锁定，不会再改变');
       console.log(`🎮 [游戏模式] ${gameMode}`);
@@ -1211,8 +1714,11 @@ export default function BattleDetailPage() {
             isWinner: true
           })));
           
-            const prizePerPerson = totalPrize / allParticipants.length;
+          const prizePerPerson = totalPrize / allParticipants.length;
           console.log(`💰 [分享模式] 每人获得: $${prizePerPerson.toFixed(2)}`);
+          
+          // 🎯 标记已设置获胜者
+          completedWinnerSetRef.current = true;
         }
         // 🏆 大奖模式：标记获胜者
         else if (gameMode === 'jackpot') {
@@ -1231,7 +1737,87 @@ export default function BattleDetailPage() {
                 ...p,
                 isWinner: p && winnerIds.includes(p.id)
               })));
+              
+              // 🎯 标记已设置获胜者
+              completedWinnerSetRef.current = true;
             }
+          }
+        }
+        // 🏃 积分冲刺模式：从预计算数据读取获胜者
+        else if (gameMode === 'sprint') {
+          console.log('🏃 [积分冲刺模式] 读取预计算的获胜者...');
+          
+          const sprintData = (window as any).__sprintData;
+          
+          if (sprintData && sprintData.finalWinnerId) {
+            const winnerId = sprintData.finalWinnerId;
+            const needsTiebreaker = sprintData.needsTiebreaker;
+            
+            console.log(`🏃 [预计算获胜者] ${winnerId}`);
+            console.log(`🏃 [需要决胜老虎机] ${needsTiebreaker ? '是' : '否'}`);
+            
+            if (needsTiebreaker && sprintData.tiebreakerPlayers) {
+              console.log(`🎰 [平局玩家] ${sprintData.tiebreakerPlayers.join(', ')}`);
+              // TODO: 播放老虎机动画选出获胜者
+            }
+            
+            if (isTeamMode) {
+              // 团队模式：标记整个团队获胜
+              setAllParticipants(prev => prev.map(p => ({
+                ...p,
+                isWinner: p && p.teamId === winnerId
+              })));
+            } else {
+              // 单人模式：标记个人获胜
+              setAllParticipants(prev => prev.map(p => ({
+                ...p,
+                isWinner: p && p.id === winnerId
+              })));
+            }
+            
+            // 🎯 标记已设置获胜者
+            completedWinnerSetRef.current = true;
+          } else {
+            console.error('⚠️ [积分冲刺模式] 未找到预计算的获胜者数据');
+          }
+        }
+        // 🏆 淘汰模式：从预先计算的数据中读取获胜者
+        else if (gameMode === 'elimination') {
+          console.log('🏆 [淘汰模式] 读取预先计算的获胜者...');
+          
+          const eliminationData = (window as any).__eliminationData;
+          
+          if (eliminationData && eliminationData.finalWinnerId) {
+            const winnerId = eliminationData.finalWinnerId;
+            const winner = allParticipants.find(p => p && p.id === winnerId);
+            
+            if (winner) {
+              if (isTeamMode && winner.teamId) {
+                // 团队模式：标记获胜者所在队伍的所有成员
+                const winningTeam = allParticipants.filter(p => p && p.teamId === winner.teamId);
+                
+                console.log(`🎉 [团队获胜] 队伍 ${winner.teamId} 获胜！`);
+                console.log(`👥 [获胜成员] ${winningTeam.map(p => p.name).join(', ')}`);
+                
+                setAllParticipants(prev => prev.map(p => ({
+                  ...p,
+                  isWinner: p && p.teamId === winner.teamId
+                })));
+              } else {
+                // 单人模式：标记获胜者
+                console.log(`🎉 [单人获胜] ${winner.name} 获胜！`);
+                
+                setAllParticipants(prev => prev.map(p => ({
+                  ...p,
+                  isWinner: p && p.id === winnerId
+                })));
+              }
+              
+              // 🎯 标记已设置获胜者
+              completedWinnerSetRef.current = true;
+            }
+          } else {
+            console.error('⚠️ [淘汰模式] 未找到预先计算的获胜者数据');
           }
         }
         // 只有经典模式需要判定获胜者
@@ -1301,6 +1887,9 @@ export default function BattleDetailPage() {
                 ...p,
                 isWinner: p && p.teamId === topPlayer.teamId
               })));
+              
+              // 🎯 标记已设置获胜者
+              completedWinnerSetRef.current = true;
             }
           } else {
             // 单人模式：根据倒置模式找出比较值最高/最低的玩家
@@ -1333,6 +1922,9 @@ export default function BattleDetailPage() {
                 ...p,
                 isWinner: p && p.id === winner.id
               })));
+              
+              // 🎯 标记已设置获胜者
+              completedWinnerSetRef.current = true;
             }
           }
         }
@@ -1369,7 +1961,7 @@ export default function BattleDetailPage() {
         }
       }, 1000);
     }
-  }, [mainState, roundResults, allParticipants, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.totalRounds, playerColors]);
+  }, [mainState, roundResults, allParticipants, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.totalRounds, playerColors, sprintScores]);
 
   // Get gallery height for slot machines
   const [galleryHeight, setGalleryHeight] = useState(540);
@@ -1379,7 +1971,7 @@ export default function BattleDetailPage() {
       setGalleryHeight(Math.max(400, height - 40)); // Leave some padding
     }
   }, [showSlotMachines]);
-
+  
   // Symbols are now managed by state and only updated when round starts
 
   return (
@@ -1589,6 +2181,17 @@ export default function BattleDetailPage() {
                           currentRound: 0
                         }));
                         
+                        // 🏃 清空冲刺模式状态
+                        setSprintScores({});
+                        
+                        // 🔥 清空淘汰模式状态
+                        setEliminatedPlayerIds(new Set());
+                        setEliminationRounds({});
+                        setCurrentEliminationData(null);
+                        
+                        // 🎯 重置COMPLETED状态的防重复标记
+                        completedWinnerSetRef.current = false;
+                        
                         setMainState('COUNTDOWN');
                         setRoundState(null);
                         setCountdownValue(3);
@@ -1718,7 +2321,7 @@ export default function BattleDetailPage() {
             {isTeamMode && teamGroups.length > 0 ? (
               // 大屏幕 (>= 1024px): 横向排列所有队伍
               !isSmallScreen ? (
-                <div className="flex gap-4 px-2 md:px-4 w-full max-w-[1248px]" style={{ height: '450px' }}>
+                <div className="flex gap-4 px-2 md:px-4 w-full max-w-[1248px]" style={{ height: '450px', position: 'relative' }}>
                   {teamGroups.map((teamMembers, teamIndex) => (
                     <div
                       key={`team-${teamIndex}`}
@@ -2149,7 +2752,7 @@ export default function BattleDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex gap-0 md:gap-4 px-4 overflow-x-hidden w-full max-w-[1248px] justify-around" style={{ height: '450px' }}>
+              <div className="flex gap-0 md:gap-4 px-4 overflow-x-hidden w-full max-w-[1248px] justify-around" style={{ height: '450px', position: 'relative' }}>
                 {allParticipants.map((participant) => {
                   if (!participant || !participant.id) return null;
                   
@@ -2219,17 +2822,44 @@ export default function BattleDetailPage() {
             )}
           </>
         )}
+        
+        {/* 🔥 淘汰老虎机覆盖层 - 统一覆盖所有模式 */}
+        {gameMode === 'elimination' && 
+         roundState === 'ROUND_ELIMINATION_SLOT' && 
+         currentEliminationData && 
+         currentEliminationData.needsSlotMachine && 
+         currentEliminationData.tiedPlayerIds && (
+          <div className="flex absolute justify-center items-center flex-col" style={{ 
+            height: '450px',
+            width: '100vw',
+            backgroundColor: '#191d21',
+            zIndex: 50,
+            top: 0,
+            left: '50%',
+            transform: 'translateX(-50%)'
+          }}>
+            <EliminationSlotMachine
+              ref={eliminationSlotMachineRef}
+              players={eliminationPlayers}
+              selectedPlayerId={currentEliminationData.eliminatedPlayerId}
+              onSpinComplete={handleEliminationSlotComplete}
+              isFastMode={isFastMode}
+            />
+          </div>
+        )}
         </div>
         <div className="w-full ">
           <div className="flex w-full max-w-[1280px] mx-auto flex-col gap-6">
+            {/* 🔥 调试：打印传递给 ParticipantsWithPrizes 的数据 */}
+            {(() => {
+              if (Object.keys(eliminationRounds).length > 0) {
+                console.log('🔥🔥🔥 [page.tsx] 传递给 ParticipantsWithPrizes 的 eliminationRounds:', eliminationRounds);
+              }
+              return null;
+            })()}
             <ParticipantsWithPrizes
               battleData={battleData}
-              onAllSlotsFilledChange={useCallback((filled: boolean, participants?: any[]) => {
-                setAllSlotsFilled(filled);
-                if (participants) {
-                  setAllParticipants(participants);
-                }
-              }, [])}
+              onAllSlotsFilledChange={handleAllSlotsFilledChange}
               roundResults={Object.entries(roundResults).map(([round, results]) => ({
                 roundId: `round-${parseInt(round)}`,
                 playerItems: results
@@ -2237,6 +2867,10 @@ export default function BattleDetailPage() {
               participantValues={participantValues}
               gameMode={gameMode}
               playerColors={playerColors}
+              eliminatedPlayerIds={eliminatedPlayerIds}
+              eliminationRounds={eliminationRounds}
+              sprintScores={sprintScores}
+              currentRound={gameData.currentRound}
             />
         {selectedPack && (
           <PackDetailModal

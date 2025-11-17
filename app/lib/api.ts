@@ -36,6 +36,14 @@ async function jsonFetch<T>(input: RequestInfo | URL, init?: RequestInit): Promi
 }
 
 export const api = {
+  // auth - 通过Next.js API路由代理，避免CORS问题
+  register: (payload: { name: string; email: string; password: string }) =>
+    jsonFetch<{ ok: true; user?: { id: string; name: string; email: string } }>('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+
   // packs
   getPacks: () => jsonFetch<CatalogPack[]>('/api/packs'),
   getPackById: async (id: string) => {
