@@ -23,14 +23,14 @@ export default function ProductDetailsModal({
   const showAnim = animateIn ?? true;
   return (
     <div
-      className="fixed inset-0 z-50 px-4 py-16 overflow-y-auto flex justify-center items-start"
-      style={{ backgroundColor: 'rgba(0,0,0,0.48)', pointerEvents: 'auto' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)', pointerEvents: 'auto', width: '100vw', height: '100vh', left: 0, top: 0 }}
       onClick={(e) => { e.stopPropagation(); onClose(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg sm:max-w-3xl rounded-lg shadow-lg overflow-hidden grid gap-4 p-6"
+        className="relative w-full max-w-lg sm:max-w-3xl rounded-lg shadow-lg overflow-hidden grid gap-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: '#22272B',
           transform: showAnim ? 'scale(1)' : 'scale(0.95)',

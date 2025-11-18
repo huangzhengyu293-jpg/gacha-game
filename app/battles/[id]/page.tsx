@@ -352,7 +352,7 @@ export default function BattleDetailPage() {
     });
     
     return Array.from(teamMap.values());
-  }, [isTeamMode, allParticipants]);
+  }, [isTeamMode, allParticipants.length]);
   
   // 🎵 使用Web Audio API加载音频（零延迟播放）
   useEffect(() => {
@@ -408,12 +408,14 @@ export default function BattleDetailPage() {
   
  
   
-  // 🎯 游戏数据
-  const [gameData, setGameData] = useState<BattleStateData['game']>({
+  // 🎯 游戏数据（优化：rounds 放在 ref，避免深度比对）
+  const [gameData, setGameData] = useState<{ currentRound: number; totalRounds: number }>({
     currentRound: 0,
-    totalRounds: 0,
-    rounds: []
+    totalRounds: 0
   });
+  
+  // 🚀 性能优化：rounds 数据放在 ref，避免 React 深度比对
+  const gameRoundsRef = useRef<BattleStateData['game']['rounds']>([]);
   
   // 🎯 转动状态
   const [spinningState, setSpinningState] = useState<BattleStateData['spinning']>({
@@ -434,6 +436,18 @@ export default function BattleDetailPage() {
   
   // 结果存储
   const [roundResults, setRoundResults] = useState<Record<number, Record<string, SlotSymbol>>>({});
+  
+  // 🚀 性能优化：已完成的轮次集合（只存轮次索引，避免频繁更新大对象）
+  const [completedRounds, setCompletedRounds] = useState<Set<number>>(new Set());
+  
+  // 🚀 缓存 roundResults 的转换结果，避免每次渲染都重新 map
+  const roundResultsArray = useMemo(() => 
+    Object.entries(roundResults).map(([round, results]) => ({
+      roundId: `round-${parseInt(round)}`,
+      playerItems: results
+    })), 
+    [roundResults]
+  );
   
   // UI状态
   const [galleryAlert, setGalleryAlert] = useState(false);
@@ -577,7 +591,7 @@ export default function BattleDetailPage() {
           avatar: avatarData
         };
       });
-  }, [currentEliminationData?.tiedPlayerIds, allParticipants]);
+  }, [currentEliminationData?.tiedPlayerIds, allParticipants.length]);
 
   // 🎯 创建金色占位符
   const createGoldenPlaceholder = (): SlotSymbol => ({
@@ -978,10 +992,12 @@ export default function BattleDetailPage() {
     return rounds;
   }, [battleData, processSymbolPools, gameMode]);
 
-  // 🎨 大奖模式：在所有插槽填满后分配颜色
+  // 🎨 大奖模式：在所有插槽填满后分配颜色（只执行一次）
+  const colorsAssignedRef = useRef(false);
+  
   useEffect(() => {
-    if (allSlotsFilled && allParticipants.length > 0 && gameMode === 'jackpot') {
-      console.log('\n🎨 [人员满了] 分配玩家颜色');
+    if (allSlotsFilled && allParticipants.length > 0 && gameMode === 'jackpot' && !colorsAssignedRef.current) {
+      colorsAssignedRef.current = true;
       
       // 分配颜色
       const colors = [
@@ -998,20 +1014,23 @@ export default function BattleDetailPage() {
       const colorMap: Record<string, string> = {};
       allParticipants.forEach((p, idx) => {
         colorMap[p.id] = colors[idx % colors.length];
-        console.log(`🎨 ${p.name} -> ${colors[idx % colors.length]}`);
       });
       
       setPlayerColors(colorMap);
-      console.log('✅ [颜色分配完成]\n');
     }
-  }, [allSlotsFilled, allParticipants, gameMode]);
+  }, [allSlotsFilled, allParticipants.length, gameMode]);
 
   // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
     if (mainState === 'IDLE' && allSlotsFilled && allParticipants.length > 0) {
-      // 🛡️ 守卫：确保参与者数量正确（避免在参与者未完全加入时就开始）
+      // 🛡️ 守卫1：确保参与者数量正确
       if (allParticipants.length !== battleData.playersCount) {
-        console.warn(`⚠️ [IDLE → LOADING] 参与者数量不匹配！当前: ${allParticipants.length}, 预期: ${battleData.playersCount}`);
+        return;
+      }
+      
+      // 🛡️ 守卫2：确保有真实用户（不是全部都是机器人）
+      const hasRealUser = allParticipants.some(p => p && p.id && !String(p.id).startsWith('bot-'));
+      if (!hasRealUser) {
         return;
       }
       
@@ -1020,16 +1039,20 @@ export default function BattleDetailPage() {
       // 状态守卫：玩家离开，重置到IDLE（但COMPLETED状态不重置）
       setMainState('IDLE');
       setRoundState(null);
-      setGameData({ currentRound: 0, totalRounds: 0, rounds: [] });
+      gameRoundsRef.current = [];
+      setGameData({ currentRound: 0, totalRounds: 0 });
       setSpinningState({ activeCount: 0, completed: new Set() });
       setRoundResults({});
+      setCompletedRounds(new Set());
       setCountdownValue(null);
       setGalleryAlert(false);
       hasGeneratedResultsRef.current = false;
+      colorsAssignedRef.current = false;
       // 重置防重复标记
       firstSpinStartedRef.current = {};
       secondSpinStartedRef.current = {};
       settleExecutedRef.current = {};
+      renderExecutedRef.current = {};
     }
   }, [mainState, allSlotsFilled, allParticipants.length]);
 
@@ -1047,10 +1070,12 @@ export default function BattleDetailPage() {
       // 生成所有轮次数据（使用快照）
       const rounds = generateAllResults(participantsSnapshotRef.current);
       
+      // 🚀 性能优化：rounds 放在 ref，避免深度比对
+      gameRoundsRef.current = rounds;
+      
       setGameData({
         currentRound: 0,
-        totalRounds: rounds.length,
-        rounds
+        totalRounds: rounds.length
       });
       
       setMainState('COUNTDOWN');
@@ -1088,9 +1113,17 @@ export default function BattleDetailPage() {
   }, [mainState, countdownValue]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_RENDER
+  const renderExecutedRef = useRef<Record<number, boolean>>({});
+  
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_RENDER') {
       const currentRound = gameData.currentRound;
+      
+      // 防止重复执行
+      if (renderExecutedRef.current[currentRound]) {
+        return;
+      }
+      renderExecutedRef.current[currentRound] = true;
       
       // 状态守卫：检查轮次有效性
       if (currentRound >= gameData.totalRounds) {
@@ -1099,7 +1132,7 @@ export default function BattleDetailPage() {
         return;
       }
       
-      const currentRoundData = gameData.rounds[currentRound];
+      const currentRoundData = gameRoundsRef.current[currentRound];
       if (!currentRoundData || currentRoundData.pools.normal.length === 0) {
         return;
       }
@@ -1123,13 +1156,13 @@ export default function BattleDetailPage() {
         setRoundState('ROUND_SPIN_FIRST');
       }, 100);
     }
-  }, [mainState, roundState, gameData]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_FIRST（第一段转动）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN_FIRST') {
       const currentRound = gameData.currentRound;
-      const currentRoundData = gameData.rounds[currentRound];
+      const currentRoundData = gameRoundsRef.current[currentRound];
       
       if (!currentRoundData) return;
       
@@ -1160,12 +1193,12 @@ export default function BattleDetailPage() {
         });
       }, 600);
     }
-  }, [mainState, roundState, gameData, allParticipants]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_FIRST → ROUND_CHECK_LEGENDARY
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN_FIRST') {
-      const currentRoundData = gameData.rounds[gameData.currentRound];
+      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
       if (!currentRoundData) return;
       
       // 使用spinningState来监听（这个会正确触发）
@@ -1173,12 +1206,12 @@ export default function BattleDetailPage() {
         setRoundState('ROUND_CHECK_LEGENDARY');
       }
     }
-  }, [mainState, roundState, gameData, allParticipants.length, spinningState.completed.size]);
+  }, [mainState, roundState, gameData.currentRound, allParticipants.length, spinningState.completed.size]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_CHECK_LEGENDARY（检查legendary）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_CHECK_LEGENDARY') {
-      const currentRoundData = gameData.rounds[gameData.currentRound];
+      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
       if (!currentRoundData) {
         return;
       }
@@ -1208,12 +1241,12 @@ export default function BattleDetailPage() {
         setRoundState('ROUND_SETTLE');
       }
     }
-  }, [mainState, roundState, gameData]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_PREPARE_SECOND（准备第二段）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_PREPARE_SECOND') {
-      const currentRoundData = gameData.rounds[gameData.currentRound];
+      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
       if (!currentRoundData) return;
       
       
@@ -1250,13 +1283,13 @@ export default function BattleDetailPage() {
       }, 800); // 更长延迟等待重新挂载
     
     }
-  }, [mainState, roundState, gameData, allParticipants, currentRoundPrizes]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, currentRoundPrizes]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_SECOND（第二段转动）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN_SECOND') {
       const currentRound = gameData.currentRound;
-      const currentRoundData = gameData.rounds[currentRound];
+      const currentRoundData = gameRoundsRef.current[currentRound];
       if (!currentRoundData) return;
       
       // 防止重复执行
@@ -1300,12 +1333,12 @@ export default function BattleDetailPage() {
         });
       }, 100); // 短暂延迟等待selectedPrizeId更新
     }
-  }, [mainState, roundState, gameData, currentRoundPrizes]);
+  }, [mainState, roundState, gameData.currentRound, currentRoundPrizes]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_SECOND → ROUND_SETTLE
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN_SECOND') {
-      const currentRoundData = gameData.rounds[gameData.currentRound];
+      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
       if (!currentRoundData) return;
       
       const activeCount = currentRoundData.spinStatus.secondStage.active.size;
@@ -1317,13 +1350,13 @@ export default function BattleDetailPage() {
         setPlayerSymbols({}); // 清空玩家数据源
       }
     }
-  }, [mainState, roundState, gameData, spinningState.completed.size]);
+  }, [mainState, roundState, gameData.currentRound, spinningState.completed.size]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SETTLE（统一记录所有道具）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SETTLE') {
       const currentRound = gameData.currentRound;
-      const currentRoundData = gameData.rounds[currentRound];
+      const currentRoundData = gameRoundsRef.current[currentRound];
       
       if (!currentRoundData) return;
       
@@ -1371,7 +1404,14 @@ export default function BattleDetailPage() {
         }
       });
       
-      // 保存结果
+      // 🚀 性能优化：标记轮次完成（轻量级state更新）
+      setCompletedRounds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(currentRound);
+        return newSet;
+      });
+      
+      // 保存结果（但不触发 ParticipantsWithPrizes 重新渲染）
       setRoundResults(prev => ({
         ...prev,
         [currentRound]: finalResults
@@ -1435,7 +1475,7 @@ export default function BattleDetailPage() {
         }
       }, 100);
     }
-  }, [mainState, roundState, gameData, allParticipants, gameMode, isTeamMode]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, gameMode, isTeamMode]);
 
   // 🔥 ROUND_LOOP 子状态机: ROUND_CHECK_ELIMINATION（检查是否需要淘汰）
   useEffect(() => {
@@ -1522,7 +1562,7 @@ export default function BattleDetailPage() {
         }, 100); // 🔥 结果已预设，立即显示
       }
     }
-  }, [mainState, roundState, gameData]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
   useEffect(() => {
@@ -1593,7 +1633,7 @@ export default function BattleDetailPage() {
       
       if (nextRound < gameData.totalRounds) {
         // 🎯 提前准备下一轮的奖品数据（避免竞态条件）
-        const nextRoundData = gameData.rounds[nextRound];
+        const nextRoundData = gameRoundsRef.current[nextRound];
         if (nextRoundData) {
           const nextPrizes: Record<string, string> = {};
           
@@ -1628,66 +1668,103 @@ export default function BattleDetailPage() {
         setRoundState(null);
       }
     }
-  }, [mainState, roundState, gameData]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
 
-  // 🎯 同步新旧状态（状态机 → 兼容变量）
+  // 🎯 同步新旧状态（状态机 → 兼容变量）- 优化：拆分多个 useEffect，避免连锁触发
   useEffect(() => {
     setCurrentRound(gameData.currentRound);
     currentRoundRef.current = gameData.currentRound;
-    roundStateRef.current = roundState; // 同步roundState到ref
-    
-    const currentRoundData = gameData.rounds[gameData.currentRound];
-    if (currentRoundData) {
-      // 设置全局显示列表（第一段用普通池）
-      setCurrentSlotSymbols(currentRoundData.pools.normal);
-      
-      // 🎯 构建奖品映射（关键：第一段期间必须显示占位符）
-      const prizes: Record<string, string> = {};
-      Object.keys(currentRoundData.results).forEach(participantId => {
-        const result = currentRoundData.results[participantId];
-        
-        // 判断当前阶段
-        const isFirstStage = roundState === 'ROUND_RENDER' 
-                          || roundState === 'ROUND_SPIN_FIRST' 
-                          || roundState === 'ROUND_CHECK_LEGENDARY';
-        
-        if (result.needsSecondSpin && isFirstStage) {
-          // 第一段 + legendary道具 → 显示占位符
-          prizes[participantId] = 'golden_placeholder';
-        } else {
-          // 第二段 或 普通道具 → 显示真实ID
-          prizes[participantId] = result.itemId;
-        }
-      });
-      setCurrentRoundPrizes(prizes);
-      
-    }
-    
+  }, [gameData.currentRound]);
+  
+  useEffect(() => {
+    roundStateRef.current = roundState;
+  }, [roundState]);
+  
+  useEffect(() => {
     setHidePacks(mainState !== 'IDLE');
     setShowSlotMachines(mainState === 'ROUND_LOOP');
     setAllRoundsCompleted(mainState === 'COMPLETED');
+  }, [mainState]);
+  
+  useEffect(() => {
     setCompletedSpins(spinningState.completed);
-  }, [gameData, mainState, spinningState.completed, roundState]);
+  }, [spinningState.completed]);
+  
+  // 🎯 更新当前轮次的奖品映射（只在轮次或阶段变化时）- 防重复执行
+  const lastPrizesUpdateRef = useRef<string>('');
+  
+  useEffect(() => {
+    const updateKey = `${gameData.currentRound}-${roundState}`;
+    
+    // 🛡️ 防重复：如果key相同，跳过
+    if (lastPrizesUpdateRef.current === updateKey) {
+      return;
+    }
+    lastPrizesUpdateRef.current = updateKey;
+    
+    const currentRoundData = gameRoundsRef.current[gameData.currentRound];
+    if (!currentRoundData) return;
+    
+    // 设置全局显示列表（第一段用普通池）
+    setCurrentSlotSymbols(currentRoundData.pools.normal);
+    
+    // 🎯 构建奖品映射（关键：第一段期间必须显示占位符）
+    const prizes: Record<string, string> = {};
+    Object.keys(currentRoundData.results).forEach(participantId => {
+      const result = currentRoundData.results[participantId];
+      
+      // 判断当前阶段
+      const isFirstStage = roundState === 'ROUND_RENDER' 
+                        || roundState === 'ROUND_SPIN_FIRST' 
+                        || roundState === 'ROUND_CHECK_LEGENDARY';
+      
+      if (result.needsSecondSpin && isFirstStage) {
+        // 第一段 + legendary道具 → 显示占位符
+        prizes[participantId] = 'golden_placeholder';
+      } else {
+        // 第二段 或 普通道具 → 显示真实ID
+        prizes[participantId] = result.itemId;
+      }
+    });
+    setCurrentRoundPrizes(prizes);
+  }, [gameData.currentRound, roundState]);
 
   // 旧的自动启动逻辑已被状态机接管，删除
 
+  // 🚀 使用 ref 来获取最新的 mainState，避免依赖变化导致回调重新创建
+  const mainStateRef = useRef(mainState);
+  mainStateRef.current = mainState;
+  
+  // 🚀 使用 ref 追踪上一次的值，避免不必要的状态更新
+  const prevAllSlotsFilledRef = useRef<boolean>(false);
+  const prevParticipantsLengthRef = useRef<number>(0);
+  
   // Handle when all slots are filled
   const handleAllSlotsFilledChange = useCallback((filled: boolean, participants?: any[]) => {
-    setAllSlotsFilled(filled);
+    // 🔒 守卫1：只在值真正变化时更新
+    if (prevAllSlotsFilledRef.current !== filled) {
+      prevAllSlotsFilledRef.current = filled;
+      setAllSlotsFilled(filled);
+    }
+    
     if (participants) {
-      // 🔒 守卫：一旦进入 LOADING 或之后的状态，就不再更新参与者列表
-      if (mainState !== 'IDLE') {
+      // 🔒 守卫2：一旦进入 LOADING 或之后的状态，就不再更新参与者列表
+      if (mainStateRef.current !== 'IDLE') {
         return;
       }
       
-      setAllParticipants(participants);
+      // 🔒 守卫3：只在参与者数量变化时更新
+      if (prevParticipantsLengthRef.current !== participants.length) {
+        prevParticipantsLengthRef.current = participants.length;
+        setAllParticipants(participants);
+      }
     }
-  }, [mainState]);
+  }, []);
 
   // Handle when a slot machine completes
   const handleSlotComplete = useCallback((participantId: string, result: SlotSymbol) => {
     const round = gameData.currentRound;
-    const currentRoundData = gameData.rounds[round];
+    const currentRoundData = gameRoundsRef.current[round];
     
     if (!currentRoundData) return;
     
@@ -2075,7 +2152,7 @@ export default function BattleDetailPage() {
         }
       }
     }
-  }, [mainState, roundResults, allParticipants, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.totalRounds, playerColors, sprintScores]);
+  }, [mainState, roundResults, allParticipants.length, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.currentRound, gameData.totalRounds, playerColors, sprintScores]);
 
   // Get gallery height for slot machines
   const [galleryHeight, setGalleryHeight] = useState(540);
@@ -2313,6 +2390,7 @@ export default function BattleDetailPage() {
                         setRoundState(null);
                         setCountdownValue(3);
                         setRoundResults({});
+                        setCompletedRounds(new Set());
                         setPlayerSymbols({});
                         setSlotMachineKeySuffix({});
                         setSpinningState({ activeCount: 0, completed: new Set() });
@@ -2320,6 +2398,7 @@ export default function BattleDetailPage() {
                         firstSpinStartedRef.current = {};
                         secondSpinStartedRef.current = {};
                         settleExecutedRef.current = {};
+                        renderExecutedRef.current = {};
                         // gameData.rounds 保留，只重置 currentRound
                       }}
                     >
@@ -2448,7 +2527,7 @@ export default function BattleDetailPage() {
                       {teamMembers.map((participant) => {
                         if (!participant || !participant.id) return null;
                         
-                        const currentRoundData = gameData.rounds[gameData.currentRound];
+                        const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                         if (!currentRoundData) return null;
                         
                         const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2520,7 +2599,7 @@ export default function BattleDetailPage() {
                     {allParticipants.slice(0, 3).map((participant) => {
                       if (!participant || !participant.id) return null;
                       
-                      const currentRoundData = gameData.rounds[gameData.currentRound];
+                      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                       if (!currentRoundData) return null;
                       
                       const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2584,7 +2663,7 @@ export default function BattleDetailPage() {
                     {allParticipants.slice(3, 6).map((participant) => {
                       if (!participant || !participant.id) return null;
                       
-                      const currentRoundData = gameData.rounds[gameData.currentRound];
+                      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                       if (!currentRoundData) return null;
                       
                       const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2651,7 +2730,7 @@ export default function BattleDetailPage() {
                   <div className="flex gap-0 md:gap-4 justify-around" style={{ height: '130px', overflow: 'hidden', pointerEvents: 'none' }}>
                     {allParticipants.slice(0, 2).map((participant) => {
                       if (!participant || !participant.id) return null;
-                      const currentRoundData = gameData.rounds[gameData.currentRound];
+                      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                       if (!currentRoundData) return null;
                       const selectedPrizeId = currentRoundPrizes[participant.id];
                       const keySuffix = slotMachineKeySuffix[participant.id] || '';
@@ -2659,11 +2738,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -2674,7 +2753,7 @@ export default function BattleDetailPage() {
                   <div className="flex gap-0 md:gap-4 justify-around" style={{ height: '130px', overflow: 'hidden', pointerEvents: 'none' }}>
                     {allParticipants.slice(2, 4).map((participant) => {
                       if (!participant || !participant.id) return null;
-                      const currentRoundData = gameData.rounds[gameData.currentRound];
+                      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                       if (!currentRoundData) return null;
                       const selectedPrizeId = currentRoundPrizes[participant.id];
                       const keySuffix = slotMachineKeySuffix[participant.id] || '';
@@ -2682,11 +2761,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -2697,7 +2776,7 @@ export default function BattleDetailPage() {
                   <div className="flex gap-0 md:gap-4 justify-around" style={{ height: '130px', overflow: 'hidden', pointerEvents: 'none' }}>
                     {allParticipants.slice(4, 6).map((participant) => {
                       if (!participant || !participant.id) return null;
-                      const currentRoundData = gameData.rounds[gameData.currentRound];
+                      const currentRoundData = gameRoundsRef.current[gameData.currentRound];
                       if (!currentRoundData) return null;
                       const selectedPrizeId = currentRoundPrizes[participant.id];
                       const keySuffix = slotMachineKeySuffix[participant.id] || '';
@@ -2705,11 +2784,11 @@ export default function BattleDetailPage() {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                            <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                            <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                              <LuckySlotMachine key={`${participant.id}-${gameData.currentRound}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                              <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450}   spinDuration={spinDuration} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -2734,7 +2813,7 @@ export default function BattleDetailPage() {
                         {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
                         {(() => {
                           const roundIndex = gameData.currentRound;
-                          const roundData = gameData.rounds[roundIndex];
+                          const roundData = gameRoundsRef.current[roundIndex];
                           if (!roundData) return null;
                           
                           const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2760,7 +2839,7 @@ export default function BattleDetailPage() {
                                 }}
                               >
                                 <LuckySlotMachine
-                                  key={`${participant.id}-${roundIndex}-first`}
+                                  key={`${participant.id}-first`}
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
@@ -2783,7 +2862,7 @@ export default function BattleDetailPage() {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-${roundIndex}-second`}
+                                    key={`${participant.id}-second`}
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -2817,7 +2896,7 @@ export default function BattleDetailPage() {
                         {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
                         {(() => {
                           const roundIndex = gameData.currentRound;
-                          const roundData = gameData.rounds[roundIndex];
+                          const roundData = gameRoundsRef.current[roundIndex];
                           if (!roundData) return null;
                           
                           const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2843,7 +2922,7 @@ export default function BattleDetailPage() {
                                 }}
                               >
                                 <LuckySlotMachine
-                                  key={`${participant.id}-${roundIndex}-first`}
+                                  key={`${participant.id}-first`}
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
@@ -2866,7 +2945,7 @@ export default function BattleDetailPage() {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-${roundIndex}-second`}
+                                    key={`${participant.id}-second`}
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -2896,7 +2975,7 @@ export default function BattleDetailPage() {
                       {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
                       {(() => {
                         const roundIndex = gameData.currentRound;
-                        const roundData = gameData.rounds[roundIndex];
+                        const roundData = gameRoundsRef.current[roundIndex];
                         if (!roundData) return null;
                         
                         const selectedPrizeId = currentRoundPrizes[participant.id];
@@ -2998,10 +3077,7 @@ export default function BattleDetailPage() {
             <ParticipantsWithPrizes
               battleData={battleData}
               onAllSlotsFilledChange={handleAllSlotsFilledChange}
-              roundResults={Object.entries(roundResults).map(([round, results]) => ({
-                roundId: `round-${parseInt(round)}`,
-                playerItems: results
-              }))}
+              roundResults={roundResultsArray}
               participantValues={participantValues}
               gameMode={gameMode}
               playerColors={playerColors}
@@ -3009,6 +3085,7 @@ export default function BattleDetailPage() {
               eliminationRounds={eliminationRounds}
               sprintScores={sprintScores}
               currentRound={gameData.currentRound}
+              completedRounds={completedRounds}
             />
         {selectedPack && (
           <PackDetailModal

@@ -32,6 +32,7 @@ export default function SelectPackModal({
   const { data: packs = [] as CatalogPack[] , refetch } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
   const isInitializingRef = useRef(false);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const lastEmittedListRef = useRef<string>(''); // 🚀 追踪上一次输出的列表（用字符串比较）
   
   // 保持 onSelectionChange 引用最新
   useEffect(() => {
@@ -124,7 +125,13 @@ export default function SelectPackModal({
   useEffect(() => {
     if (isInitializingRef.current) return;
     const list = generateListFromMap(qtyMap);
-    onSelectionChangeRef.current(list);
+    const listStr = list.join(',');
+    
+    // 🔒 只在列表真正变化时才调用回调，避免无限循环
+    if (lastEmittedListRef.current !== listStr) {
+      lastEmittedListRef.current = listStr;
+      onSelectionChangeRef.current(list);
+    }
   }, [qtyMap, selectedPackIds, effectiveMaxPacks, effectiveMinPacks]);
 
   const inc = (id: string) => {
@@ -152,7 +159,7 @@ export default function SelectPackModal({
 
   if (!open) return null;
   return (
-    <div data-state="open" className="fixed px-4 inset-0 z-50 bg-black/[0.48] overflow-y-auto flex justify-center items-start py-16" style={{ pointerEvents: 'auto', animation: 'modalFadeIn 180ms ease' }} onClick={onClose}>
+    <div data-state="open" className="fixed px-4 inset-0 z-50 bg-black/[0.48] overflow-y-auto flex justify-center items-start py-16 mb-0" style={{ pointerEvents: 'auto', animation: 'modalFadeIn 180ms ease' }} onClick={onClose}>
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }

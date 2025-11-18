@@ -16,6 +16,7 @@ interface ParticipantsWithPrizesProps {
   eliminationRounds?: Record<string, number>; // 🔥 淘汰模式：玩家ID -> 被淘汰的轮次索引（0-based）
   sprintScores?: Record<string, number>; // 🏃 积分冲刺模式：玩家/团队积分
   currentRound?: number; // 当前轮次（用于实时更新积分）
+  completedRounds?: Set<number>; // 🚀 性能优化：已完成的轮次集合
 }
 
 export default function ParticipantsWithPrizes({
@@ -29,6 +30,7 @@ export default function ParticipantsWithPrizes({
   eliminationRounds = {},
   sprintScores = {},
   currentRound = 0,
+  completedRounds = new Set(),
 }: ParticipantsWithPrizesProps) {
   const { participants, packs, playersCount, battleType, teamStructure } = battleData;
   
@@ -42,7 +44,8 @@ export default function ParticipantsWithPrizes({
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeTeamGroup, setActiveTeamGroup] = useState(0); // 团队模式tabs
   const [isLargeScreen, setIsLargeScreen] = useState(false);
-  const prevFilledRef = useRef<boolean>(false);
+  // 🚀 初始化为 undefined，这样第一次比较时会触发回调
+  const prevFilledRef = useRef<boolean | undefined>(undefined);
   
   // 🎯 团队模式判断
   const isTeamMode = battleType === 'team';
@@ -240,7 +243,8 @@ export default function ParticipantsWithPrizes({
       // Pass all participants (including bots) when all slots are filled
       onAllSlotsFilledChange?.(filled, filled ? slotParticipants.filter(p => p !== null) : undefined);
     }
-  }, [slotParticipants, onAllSlotsFilledChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotParticipants]);
 
   const handleSummonBot = (slotIndex: number, teamId?: string) => {
     setSlotParticipants((prev) => {
@@ -266,7 +270,7 @@ export default function ParticipantsWithPrizes({
   };
 
   const isBotParticipant = (participant?: Participant | null) =>
-    Boolean(participant?.id?.startsWith("bot-"));
+    Boolean(participant?.id && String(participant.id).startsWith("bot-"));
 
   const roundResultMap = roundResults.reduce<Record<string, Record<string, SlotSymbol | undefined>>>(
     (acc, result) => {
@@ -507,7 +511,8 @@ export default function ParticipantsWithPrizes({
                       const shouldShowEliminationOverlay = isEliminatedPlayer && 
                         packIndex >= eliminatedAtRound;
                       
-                      // 所有有结果的轮次都显示物品
+                      // 🚀 性能优化：判断是否已完成（用于控制显示）
+                      const isRoundCompleted = completedRounds?.has(packIndex) || false;
                       const shouldShowPlayerResult = playerResult;
 
   return (
@@ -532,7 +537,14 @@ export default function ParticipantsWithPrizes({
                                   }}
                                 />
                                 
-                                <div className="absolute inset-0 flex w-full h-full flex-col justify-between items-center p-3 text-center" style={{ zIndex: 1 }}>
+                                {/* 🚀 性能优化：使用 opacity 控制显示，而不是条件渲染 */}
+                                <div 
+                                  className="absolute inset-0 flex w-full h-full flex-col justify-between items-center p-3 text-center transition-opacity duration-300" 
+                                  style={{ 
+                                    zIndex: 1,
+                                    opacity: isRoundCompleted ? 1 : 0
+                                  }}
+                                >
                                   {/* 中奖百分比 */}
                                   <p className="text-sm text-gray-400 font-semibold h-6">
                                     {playerResult.dropProbability 
@@ -824,8 +836,8 @@ export default function ParticipantsWithPrizes({
                     const shouldShowEliminationOverlay = isEliminatedPlayer && 
                       roundIndex >= eliminatedAtRound;
                     
-                    // 如果玩家被淘汰了，但当前轮次 < 淘汰轮次，显示正常物品
-                    // 如果玩家被淘汰了，且当前轮次 >= 淘汰轮次，仍然显示物品但加覆盖层
+                    // 🚀 性能优化：判断是否已完成（用于控制显示）
+                    const isRoundCompleted = completedRounds?.has(roundIndex) || false;
                     const shouldShowPlayerResult = playerResult;
                     
                     return (
@@ -850,7 +862,14 @@ export default function ParticipantsWithPrizes({
                                 }}
                               />
                               
-                              <div className="absolute inset-0 flex w-full h-full flex-col justify-center items-center gap-1 p-2 text-center" style={{ zIndex: 1 }}>
+                              {/* 🚀 性能优化：使用 opacity 控制显示，而不是条件渲染 */}
+                              <div 
+                                className="absolute inset-0 flex w-full h-full flex-col justify-center items-center gap-1 p-2 text-center transition-opacity duration-300" 
+                                style={{ 
+                                  zIndex: 1,
+                                  opacity: isRoundCompleted ? 1 : 0
+                                }}
+                              >
                                 {/* 中奖百分比 */}
                                 <p className="text-xs text-gray-400 font-semibold">
                                   {playerResult.dropProbability 

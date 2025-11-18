@@ -59,7 +59,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   
   // 🚀 Virtual scrolling constants
   const BUFFER_SIZE = 5; // Render 5 extra items above and below viewport
-  const UPDATE_THROTTLE = 16; // ~60fps throttle for updateVirtualItems
+  const UPDATE_THROTTLE = 50; // 🔥 提高节流间隔到 50ms (~20fps)，降低多老虎机并发压力
   
   // 性能优化：节流时间戳
   const lastUpdateTimeRef = useRef<number>(0);
@@ -565,8 +565,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         
         frameCount++;
         
-        // 🚀 跳帧优化：每3帧更新一次 DOM 和音效
-        if (frameCount % 3 === 0) {
+        // 🚀 跳帧优化：每5帧更新一次 DOM 和音效（降低多老虎机并发压力）
+        if (frameCount % 5 === 0) {
           checkAndResetPosition(container);
           updateVirtualItems();
           updateSelection(); // 正常播放音效
@@ -695,8 +695,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         frameCount++;
         
         if (progress < 1) {
-          // 🚀 跳帧优化：每3帧更新一次 DOM 和音效
-          if (frameCount % 3 === 0) {
+          // 🚀 跳帧优化：每5帧更新一次 DOM 和音效（降低多老虎机并发压力）
+          if (frameCount % 5 === 0) {
             updateVirtualItems();
             updateSelection(); // 正常播放音效
           }
@@ -919,6 +919,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           z-index: 1;
           opacity: 0;
           transition: opacity 0.08s ease-out;
+          will-change: opacity;
+          transform: translateZ(0);
         }
 
         .lucky-slot-machine-container .item-image-wrapper {
@@ -926,7 +928,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           width: 55%;
           height: 55%;
           z-index: 2;
-          transition: transform 0.08s ease-out;
+          transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          will-change: transform;
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          -webkit-font-smoothing: antialiased;
         }
 
         .lucky-slot-machine-container .item-image-wrapper img {
@@ -971,7 +977,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         }
 
         .lucky-slot-machine-container .slot-item.selected .item-image-wrapper {
-          transform: scale(1.3);
+          transform: scale(1.3) translateZ(0);
         }
 
         .lucky-slot-machine-container .slot-item.show-info .item-info {

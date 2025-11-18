@@ -189,10 +189,10 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     const element = renderedItemsMapRef.current.get(virtualClosestIndex);
     if (element) {
       element.classList.add('selected');
-      // 放大scale
+      // 放大scale（使用GPU加速）
       const wrapper = element.querySelector('.img-wrapper') as HTMLElement;
       if (wrapper) {
-        wrapper.style.transform = 'scale(1.25)';
+        wrapper.style.transform = 'scale(1.3) translateZ(0)';
       }
       // 增强光晕
       const glow = element.querySelector('.glow') as HTMLElement;
@@ -301,7 +301,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           glow.style.borderRadius = '50%';
           glow.style.filter = 'blur(25px)';
           glow.style.opacity = '0.4';
-          glow.style.transition = 'opacity 0.2s ease-out';
+          glow.style.transition = 'opacity 0.08s ease-out';
+          glow.style.willChange = 'opacity';
+          glow.style.transform = 'translate(-50%, -50%) translateZ(0)';
           glow.style.zIndex = '1'; // 确保光晕在图片后面
         }
         
@@ -314,8 +316,11 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         imgWrapper.style.justifyContent = 'center'; // 水平居中
         imgWrapper.style.width = '55%';
         imgWrapper.style.height = '55%';
-        imgWrapper.style.transition = 'transform 0.2s ease-out';
-        imgWrapper.style.transform = 'scale(1)';
+        imgWrapper.style.transition = 'transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+        imgWrapper.style.transform = 'scale(1) translateZ(0)';
+        imgWrapper.style.willChange = 'transform';
+        imgWrapper.style.backfaceVisibility = 'hidden';
+        imgWrapper.style.webkitFontSmoothing = 'antialiased';
         imgWrapper.style.zIndex = '2'; // 确保图片在光晕上方
         
         // 根据模式渲染不同的图片结构

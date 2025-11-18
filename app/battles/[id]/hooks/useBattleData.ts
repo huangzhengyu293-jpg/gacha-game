@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/app/lib/api';
@@ -53,12 +54,27 @@ export function useBattleData(): BattleData {
     staleTime: 30_000,
   });
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: api.getCurrentUser,
-    staleTime: 30_000,
-    retry: false,
-  });
+  // 🔍 从 localStorage 读取用户信息（因为接口已更新，使用本地缓存）
+  const currentUser = typeof window !== 'undefined' 
+    ? (() => {
+        try {
+          const userData = localStorage.getItem('user');
+          if (userData) {
+          const user = JSON.parse(userData);
+          return {
+            id: String(user.userInfo?.id || user.id || 'local-user'),  // 🔧 确保是字符串
+            username: user.userInfo?.name || user.username || '我的账号',
+            name: user.userInfo?.name || user.name || '我的账号',
+            avatar: user.userInfo?.avatar || user.avatar || '',
+          };
+          }
+        } catch {}
+        return null;
+      })()
+    : null;
+  
+  // 🔍 调试：检查用户数据
+  console.log('🔍 [useBattleData] currentUser:', currentUser);
 
   const selectedPacks = packIds
     .map((id) => allPacks.find((pack: CatalogPack) => pack.id === id))
@@ -115,11 +131,12 @@ export function useBattleData(): BattleData {
     }
   }
 
-  return {
+  // 🚀 使用 useMemo 稳定返回对象，避免每次渲染都创建新对象导致无限循环
+  return useMemo(() => ({
     id: params.id || '',
     title,
     mode: gameMode,
-    status: 'pending',
+    status: 'pending' as const,
     cost: `$${totalCost.toFixed(2)}`,
     totalOpened: '$0.00',
     battleType,
@@ -131,6 +148,20 @@ export function useBattleData(): BattleData {
     isFastMode,
     isLastChance,
     isInverted,
-  };
+  }), [
+    params.id,
+    title,
+    gameMode,
+    totalCost,
+    battleType,
+    teamStructure,
+    normalizedPacks.length,
+    currentUserId,
+    currentUserName,
+    playersCount,
+    isFastMode,
+    isLastChance,
+    isInverted,
+  ]);
 }
 

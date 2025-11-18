@@ -59,7 +59,8 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
   useEffect(() => {
     const interval = setInterval(() => {
       const spinning = (window as any).__isSlotMachineSpinning || false;
-      setIsSlotMachineSpinning(spinning);
+      // 🔒 只在值真正变化时才更新状态
+      setIsSlotMachineSpinning(prev => prev === spinning ? prev : spinning);
     }, 100);
     return () => clearInterval(interval);
   }, []);
