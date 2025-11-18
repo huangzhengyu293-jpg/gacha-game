@@ -629,9 +629,34 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       const distance = startLeft - targetLeft;
       const startTime = Date.now();
+      let lastFrameTime = Date.now();
       
       const animate = () => {
-        const elapsed = Date.now() - startTime;
+        const now = Date.now();
+        const frameDelta = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
+        if (frameDelta > 200) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const easedProgress = customEase(progress);
+          const currentLeft = startLeft - distance * easedProgress;
+          container.style.left = currentLeft + 'px';
+          checkAndResetPosition(container);
+          updateVirtualItems();
+          // 跳跃后不播放音效
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            resolve();
+          }
+          return;
+        }
+        
+        // 正常流程
+        const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const easedProgress = customEase(progress);
         
@@ -640,7 +665,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         
         checkAndResetPosition(container);
         updateVirtualItems();
-        updateSelection(); // 选中变化时会自动播放tick音效
+        updateSelection(); // 正常播放音效
         
         if (progress < 1) {
           requestAnimationFrame(animate);
@@ -724,8 +749,52 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       const exactTargetLeft = reelCenterRef.current - (closestIndex * 195);
       const distance = exactTargetLeft - currentLeft;
       
+      let lastFrameTime = Date.now();
+      
       const animate = () => {
-        const elapsed = Date.now() - startTime;
+        const now = Date.now();
+        const frameDelta = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
+        if (frameDelta > 200) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 
+            ? 4 * progress * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          const newLeft = currentLeft + distance * eased;
+          container.style.left = newLeft + 'px';
+          updateVirtualItems();
+          // 跳跃后不播放音效
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            container.style.left = exactTargetLeft + 'px';
+            void container.offsetWidth;
+            updateVirtualItems();
+            selectionLockedRef.current = true;
+            
+            // 🎵 播放回正音效
+            if (typeof window !== 'undefined') {
+              const ctx = (window as any).__audioContext;
+              const buffer = (window as any).__basicWinAudioBuffer;
+              if (ctx && buffer) {
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+              }
+            }
+            
+            setTimeout(() => { resolve(); }, 100);
+          }
+          return;
+        }
+        
+        // 正常流程
+        const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         
         const eased = progress < 0.5 
@@ -737,7 +806,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         
         if (progress < 1) {
           updateVirtualItems();
-          updateSelection();
+          updateSelection(); // 正常播放音效
           requestAnimationFrame(animate);
         } else {
           container.style.left = exactTargetLeft + 'px';

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { CatalogPack } from '../../lib/api';
@@ -30,12 +30,20 @@ export default function SelectPackModal({
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
   const { data: packs = [] as CatalogPack[] , refetch } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  const isInitializingRef = useRef(false);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  
+  // 保持 onSelectionChange 引用最新
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
 
   // 初始化数量：根据当前选中的 packId 列表
   React.useEffect(() => {
     if (!open) return;
     // 打开时拉取一次最新 packs（JSON 优先）
     refetch();
+    isInitializingRef.current = true;
     const next: Record<string, number> = {};
     selectedPackIds.forEach((id) => {
       next[id] = (next[id] || 0) + 1;
@@ -46,6 +54,10 @@ export default function SelectPackModal({
       next[first] = 1;
     }
     setQtyMap(next);
+    // 使用 setTimeout 确保初始化完成后再允许触发回调
+    setTimeout(() => {
+      isInitializingRef.current = false;
+    }, 0);
   }, [open, selectedPackIds, packs.length, refetch, effectiveMinPacks]);
 
   const filtered: CatalogPack[] = useMemo(() => {
@@ -66,8 +78,9 @@ export default function SelectPackModal({
   }, [qtyMap, packs]);
 
   const getQty = (id: string) => qtyMap[id] || 0;
-  const emitFromMap = (map: Record<string, number>) => {
-    // 以当前选中顺序为优先，生成 id 列表
+  
+  // 从 qtyMap 生成 id 列表的函数
+  const generateListFromMap = (map: Record<string, number>): string[] => {
     const list: string[] = [];
     // 先按 selectedPackIds 的去重顺序推入（避免重复顺序导致重复累加）
     const orderedUnique = Array.from(new Set(selectedPackIds));
@@ -104,17 +117,23 @@ export default function SelectPackModal({
         if (firstKey) list.push(firstKey);
       }
     }
-    onSelectionChange(list);
+    return list;
   };
+
+  // 监听 qtyMap 变化，在渲染完成后触发回调
+  useEffect(() => {
+    if (isInitializingRef.current) return;
+    const list = generateListFromMap(qtyMap);
+    onSelectionChangeRef.current(list);
+  }, [qtyMap, selectedPackIds, effectiveMaxPacks, effectiveMinPacks]);
+
   const inc = (id: string) => {
     setQtyMap(prev => {
       if (effectiveMaxPacks !== undefined) {
         const total = Object.values(prev).reduce((a, b) => a + (b || 0), 0);
         if (total >= effectiveMaxPacks) return prev;
       }
-      const next = { ...prev, [id]: (prev[id] || 0) + 1 };
-      emitFromMap(next);
-      return next;
+      return { ...prev, [id]: (prev[id] || 0) + 1 };
     });
   };
   const dec = (id: string) => {
@@ -127,7 +146,6 @@ export default function SelectPackModal({
         const total = Object.values(map).reduce((a, b) => a + (b || 0), 0);
         if (total <= effectiveMinPacks && curr <= 1) return prev;
       }
-      emitFromMap(map);
       return map;
     });
   };

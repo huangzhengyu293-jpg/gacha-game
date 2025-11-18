@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { type ReactNode, useEffect, useRef } from "react";
+import React, { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 
 export interface PackImage {
   src: string;
@@ -50,9 +50,21 @@ export default function BattleHeader({
   onFairnessClick,
   onShareClick,
 }: BattleHeaderProps) {
-  const packScrollRef = useRef<HTMLDivElement>(null);
+  const packScrollRefDesktop = useRef<HTMLDivElement>(null);
+  const packScrollRefMobile = useRef<HTMLDivElement>(null);
   const packRefs = useRef<(HTMLImageElement | null)[]>([]);
   const isHighlighted = (index: number) => highlightedIndices.includes(index);
+  
+  // 虚拟滚动状态
+  const BUFFER_SIZE = 3; // 缓冲区大小（减少渲染数量）
+  const PACK_WIDTH = 42; // 卡包宽度
+  const GAP = 8; // gap-2 = 8px
+  const VIRTUAL_THRESHOLD = 15; // 超过15个启用虚拟滚动
+  
+  // 计算初始可见范围：顶部可视区域约 210px，每个卡包 50px，大约能看到 4-5 个
+  const VISIBLE_WIDTH = 210; // 252px - 42px padding
+  const initialVisibleCount = Math.ceil(VISIBLE_WIDTH / (PACK_WIDTH + GAP)) + BUFFER_SIZE + 1;
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: initialVisibleCount });
   
   // 根据游戏模式映射显示名称和颜色
   const getModeConfig = () => {
@@ -108,47 +120,98 @@ export default function BattleHeader({
     );
   }
 
+  // 虚拟滚动：更新可见范围
+  const updateVisibleRange = useCallback(() => {
+    // 检查桌面端或移动端的滚动容器
+    const el = packScrollRefDesktop.current || packScrollRefMobile.current;
+    if (!el || packImages.length <= VIRTUAL_THRESHOLD) return;
+    
+    const scrollLeft = el.scrollLeft;
+    // 顶部可视区域固定宽度约 252px (15.75rem)，减去 padding
+    const visibleWidth = 252 - 42; // 252px 减去右侧 padding 38px + 4px
+    
+    // 计算视口内可见的卡包数量
+    const visibleCount = Math.ceil(visibleWidth / (PACK_WIDTH + GAP));
+    
+    // 计算可见范围（当前滚动位置的卡包索引）
+    const startIndex = Math.max(0, Math.floor(scrollLeft / (PACK_WIDTH + GAP)) - BUFFER_SIZE);
+    const endIndex = Math.min(
+      packImages.length,
+      Math.floor(scrollLeft / (PACK_WIDTH + GAP)) + visibleCount + BUFFER_SIZE + 1
+    );
+    
+    setVisibleRange({ start: startIndex, end: endIndex });
+  }, [packImages.length]);
+
+  // 监听滚动事件更新可见范围（桌面端和移动端）
+  useEffect(() => {
+    const elDesktop = packScrollRefDesktop.current;
+    const elMobile = packScrollRefMobile.current;
+    
+    if (packImages.length <= VIRTUAL_THRESHOLD) return;
+
+    let rafId: number;
+    const handleScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        updateVisibleRange();
+      });
+    };
+
+    // 同时监听桌面端和移动端的滚动
+    if (elDesktop) {
+      elDesktop.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    if (elMobile) {
+      elMobile.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    
+    updateVisibleRange(); // 初始化
+    
+    return () => {
+      if (elDesktop) {
+        elDesktop.removeEventListener('scroll', handleScroll);
+      }
+      if (elMobile) {
+        elMobile.removeEventListener('scroll', handleScroll);
+      }
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [packImages.length, updateVisibleRange, VIRTUAL_THRESHOLD]);
+
   // 自动滚动到当前轮次卡包（显示在第二个位置）
   useEffect(() => {
-    console.log('🔍 [BattleHeader] 滚动检查:', {
-      hasScrollRef: !!packScrollRef.current,
-      highlightedIndices,
-      packImagesLength: packImages.length
-    });
-
-    if (!packScrollRef.current || highlightedIndices.length === 0) {
+    if (highlightedIndices.length === 0) {
       return;
     }
 
-    const currentIndex = highlightedIndices[0]; // 第一个高亮的就是当前轮次
+    const currentIndex = highlightedIndices[0];
     if (currentIndex < 0 || currentIndex >= packImages.length) {
-      console.log('❌ [BattleHeader] 索引超出范围:', currentIndex);
-      return;
-    }
-
-    const currentPackElement = packRefs.current[currentIndex];
-    if (!currentPackElement) {
-      console.log('❌ [BattleHeader] 卡包元素不存在:', currentIndex);
       return;
     }
 
     // 计算滚动位置：让当前卡包显示在第二个位置
-    const packWidth = 42; // width="42"
-    const gap = 8; // gap-2 = 8px
-    
-    // 目标位置：从左边缘开始，跳过一个卡包的宽度和gap
-    const targetScrollLeft = currentIndex * (packWidth + gap) - (packWidth + gap);
-    
-    console.log('✅ [BattleHeader] 开始滚动到:', {
-      currentIndex,
-      targetScrollLeft: Math.max(0, targetScrollLeft)
-    });
+    const targetScrollLeft = currentIndex * (PACK_WIDTH + GAP) - (PACK_WIDTH + GAP);
 
-    packScrollRef.current.scrollTo({
-      left: Math.max(0, targetScrollLeft),
-      behavior: 'smooth',
-    });
-  }, [highlightedIndices, packImages.length]);
+    // 同时滚动桌面端和移动端（只有一个会显示）
+    if (packScrollRefDesktop.current) {
+      packScrollRefDesktop.current.scrollTo({
+        left: Math.max(0, targetScrollLeft),
+        behavior: 'smooth',
+      });
+    }
+    if (packScrollRefMobile.current) {
+      packScrollRefMobile.current.scrollTo({
+        left: Math.max(0, targetScrollLeft),
+        behavior: 'smooth',
+      });
+    }
+    
+    // 滚动后更新可见范围
+    setTimeout(() => {
+      updateVisibleRange();
+    }, 500);
+  }, [highlightedIndices, packImages.length, updateVisibleRange]);
 
   return (
     <div className="flex self-stretch justify-center border-t-[1px] border-t-gray-650">
@@ -208,7 +271,7 @@ export default function BattleHeader({
               <div className="flex w-[15.75rem] rounded" style={{ backgroundColor: "#1F2428" }}>
                 <div className="flex w-full overflow-x-hidden">
                   <div
-                    ref={packScrollRef}
+                    ref={packScrollRefDesktop}
                     className="rounded-lg m-[1px] flex gap-2 overflow-x-auto hide-scrollbar"
                     style={{
                       height: "72px",
@@ -226,23 +289,39 @@ export default function BattleHeader({
                         `,
                       }}
                     />
-                    {packImages.map((pack, index) => (
-                      <img
-                        key={pack.id}
-                        ref={(el) => { packRefs.current[index] = el; }}
-                        alt={pack.alt}
-                        loading="eager"
-                        width="42"
-                        height="64"
-                        decoding="async"
-                        src={pack.src}
-                        className="cursor-pointer flex-shrink-0"
-                        style={{
-                          color: "transparent",
-                          opacity: isHighlighted(index) ? 1 : 0.32,
-                        }}
-                      />
-                    ))}
+                    {packImages.map((pack, index) => {
+                      // 虚拟滚动：只渲染可见范围内的卡包
+                      const isVisible = packImages.length <= VIRTUAL_THRESHOLD || (index >= visibleRange.start && index < visibleRange.end);
+                      
+                      if (!isVisible) {
+                        // 不可见的卡包：只渲染占位符保持布局
+                        return (
+                          <div
+                            key={`pack-header-${index}-${pack.id}`}
+                            className="flex-shrink-0"
+                            style={{ width: '42px', height: '64px', visibility: 'hidden' }}
+                          />
+                        );
+                      }
+                      
+                      return (
+                        <img
+                          key={`pack-header-${index}-${pack.id}`}
+                          ref={(el) => { packRefs.current[index] = el; }}
+                          alt={pack.alt}
+                          loading="eager"
+                          width="42"
+                          height="64"
+                          decoding="async"
+                          src={pack.src}
+                          className="cursor-pointer flex-shrink-0"
+                          style={{
+                            color: "transparent",
+                            opacity: isHighlighted(index) ? 1 : 0.32,
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -411,7 +490,7 @@ export default function BattleHeader({
             <div className="flex rounded" style={{ backgroundColor: "#1F2428" }}>
               <div className="flex w-full overflow-x-hidden">
                 <div
-                  ref={packScrollRef}
+                  ref={packScrollRefMobile}
                   className="rounded-lg m-[1px] flex gap-2 overflow-x-auto hide-scrollbar"
                   style={{
                     height: "72px",
@@ -420,23 +499,37 @@ export default function BattleHeader({
                     msOverflowStyle: 'none',
                   }}
                 >
-                  {packImages.map((pack, index) => (
-                    <img
-                      key={pack.id}
-                      ref={(el) => { packRefs.current[index] = el; }}
-                      alt={pack.alt}
-                      loading="eager"
-                      width="42"
-                      height="64"
-                      decoding="async"
-                      src={pack.src}
-                      className="cursor-pointer flex-shrink-0"
-                      style={{
-                        color: "transparent",
-                        opacity: isHighlighted(index) ? 1 : 0.32,
-                      }}
-                    />
-                  ))}
+                  {packImages.map((pack, index) => {
+                    const isVisible = packImages.length <= VIRTUAL_THRESHOLD || (index >= visibleRange.start && index < visibleRange.end);
+                    
+                    if (!isVisible) {
+                      // 不可见的卡包：只渲染占位符保持布局
+                      return (
+                        <div
+                          key={`pack-header-mobile-${index}-${pack.id}`}
+                          className="flex-shrink-0"
+                          style={{ width: '42px', height: '64px', visibility: 'hidden' }}
+                        />
+                      );
+                    }
+                    
+                    return (
+                      <img
+                        key={`pack-header-mobile-${index}-${pack.id}`}
+                        alt={pack.alt}
+                        loading="eager"
+                        width="42"
+                        height="64"
+                        decoding="async"
+                        src={pack.src}
+                        className="cursor-pointer flex-shrink-0"
+                        style={{
+                          color: "transparent",
+                          opacity: isHighlighted(index) ? 1 : 0.32,
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>

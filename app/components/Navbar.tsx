@@ -8,12 +8,14 @@ import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useToast } from './ToastProvider';
 
 
 export default function Navbar() {
   const { t } = useI18n();
   const { data: session, status } = useSession();
   const router = useRouter();
+  const toast = useToast();
   const enableDevLogin = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === 'true';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -37,12 +39,16 @@ export default function Navbar() {
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
   const [regLoading, setRegLoading] = useState(false); // 注册加载状态
-  const [regError, setRegError] = useState(''); // 注册错误信息
+  const [showVerifyCode, setShowVerifyCode] = useState(false); // 显示验证码弹窗
+  const [verifyCode, setVerifyCode] = useState(''); // 验证码输入
+  const [verifyCodeLoading, setVerifyCodeLoading] = useState(false); // 验证码提交加载状态
+  const [verifyEmail, setVerifyEmail] = useState(''); // 存储需要验证的邮箱
   const [showLogin, setShowLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginShowPass, setLoginShowPass] = useState(false);
   const [loginRemember, setLoginRemember] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false); // 登录加载状态
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [showCart, setShowCart] = useState(false);
@@ -127,7 +133,6 @@ export default function Navbar() {
     if (!canRegister || regLoading) return;
     
     setRegLoading(true);
-    setRegError('');
     
     try {
       const result = await api.register({
@@ -136,21 +141,28 @@ export default function Navbar() {
         password: regPass
       });
       
-      // 注册成功
+      // 注册成功（200响应）
       console.log('注册成功:', result);
       // 关闭注册弹窗
       setShowRegister(false);
-      // 清空表单
+      // 保存邮箱用于验证码弹窗
+      setVerifyEmail(regEmail.trim());
+      // 清空注册表单
       setRegUsername('');
       setRegEmail('');
       setRegPass('');
       setAgreed(false);
-      // 可以选择自动登录或显示成功消息
-      alert('注册成功！请登录。');
-      setShowLogin(true);
+      // 显示验证码输入弹窗
+      setShowVerifyCode(true);
+      setVerifyCode('');
     } catch (error) {
       console.error('注册失败:', error);
-      setRegError(error instanceof Error ? error.message : '注册失败，请稍后重试');
+      const errorMessage = error instanceof Error ? error.message : '注册失败，请稍后重试';
+      toast.show({
+        variant: 'error',
+        title: '注册失败',
+        description: errorMessage,
+      });
     } finally {
       setRegLoading(false);
     }
@@ -179,14 +191,128 @@ export default function Navbar() {
     return s; // 0..5
   })();
 
+  // 重新发送验证邮件
+  const handleResendCode = async () => {
+    if (!verifyEmail) return;
+    
+    try {
+      await api.sendVerificationEmail({
+        to: verifyEmail,
+        type: '2', // 固定值
+      });
+      
+      toast.show({
+        variant: 'success',
+        title: '发送成功',
+        description: '验证码已发送到您的邮箱',
+      });
+    } catch (error) {
+      console.error('发送邮件失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '发送失败，请稍后重试';
+      toast.show({
+        variant: 'error',
+        title: '发送失败',
+        description: errorMessage,
+      });
+    }
+  };
+
+  // 验证码提交处理
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyCode.trim() || verifyCodeLoading) return;
+    
+    setVerifyCodeLoading(true);
+    
+    try {
+      // 调用激活账户API
+      await api.activateAccount({ code: verifyCode.trim() });
+      
+      // 验证成功，关闭弹窗并显示登录
+      setShowVerifyCode(false);
+      setVerifyCode('');
+      setVerifyEmail('');
+      toast.show({
+        variant: 'success',
+        title: '验证成功',
+        description: '邮箱验证成功！请登录。',
+      });
+      setShowLogin(true);
+    } catch (error) {
+      console.error('验证码验证失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '验证码错误，请重试';
+      toast.show({
+        variant: 'error',
+        title: '验证失败',
+        description: errorMessage,
+      });
+    } finally {
+      setVerifyCodeLoading(false);
+    }
+  };
+
+  // 登录处理函数
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginCanSubmit || loginLoading) return;
+    
+    setLoginLoading(true);
+    
+    try {
+      const result = await api.login({
+        email: loginEmail.trim(),
+        password: loginPass
+      });
+      
+      // 登录成功
+      console.log('登录成功:', result);
+      
+      // 保存用户信息到 localStorage
+      if (typeof window !== 'undefined') {
+        const userData = {
+          email: loginEmail.trim(),
+          data: result.data,
+          loginTime: new Date().toISOString()
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        console.log('[Login] 用户信息已保存:', userData);
+      }
+      
+      // 显示成功提示
+      toast.show({
+        variant: 'success',
+        title: '登录成功',
+        description: '欢迎回来！',
+      });
+      
+      // 关闭登录弹窗
+      setShowLogin(false);
+      // 清空表单
+      setLoginEmail('');
+      setLoginPass('');
+      setLoginShowPass(false);
+      
+    } catch (error: any) {
+      console.error('登录失败:', error);
+      toast.show({
+        variant: 'error',
+        title: '登录失败',
+        description: error.message || '登录失败，请检查邮箱和密码',
+      });
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   // 统一滚动锁定（任一弹框打开）
   useEffect(() => {
-    const anyOpen = showRegister || showLogin || showForgot || showTerms;
+    const anyOpen = showRegister || showLogin || showForgot || showTerms || showVerifyCode;
     if (anyOpen) {
       document.body.style.overflow = 'hidden';
       const onKey = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           if (showTerms) setShowTerms(false);
+          else if (showVerifyCode) setShowVerifyCode(false);
           else if (showForgot) setShowForgot(false);
           else if (showLogin) setShowLogin(false);
           else if (showRegister) setShowRegister(false);
@@ -198,7 +324,7 @@ export default function Navbar() {
         document.body.style.overflow = '';
       };
     }
-  }, [showRegister, showLogin, showForgot, showTerms]);
+  }, [showRegister, showLogin, showForgot, showTerms, showVerifyCode]);
 
   useEffect(() => {
     if (activeIndex < 0) {
@@ -721,16 +847,20 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
       )}
 
       {/* 单一遮罩（Auth） */}
-      {(showRegister || showLogin || showForgot) && (
+      {(showRegister || showLogin || showForgot || showVerifyCode) && (
         <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { 
           setShowRegister(false); 
           setShowLogin(false); 
-          setShowForgot(false); 
+          setShowForgot(false);
+          setShowVerifyCode(false);
           // 清空注册表单
           setRegUsername('');
           setRegEmail('');
           setRegPass('');
           setAgreed(false);
+          // 清空验证码表单
+          setVerifyCode('');
+          setVerifyEmail('');
         }} />
       )}
 
@@ -776,11 +906,6 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   </label>
                 </div>
               </div>
-              {regError && (
-                <div className="mt-3 p-3 rounded-md" style={{ backgroundColor: '#FEE2E2' }}>
-                  <p className="text-sm" style={{ color: '#DC2626' }}>{regError}</p>
-                </div>
-              )}
               <div className="flex items-center my-4">
                 <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
                 <p className="text-base px-3" style={{ color: '#33363A' }}>或</p>
@@ -920,7 +1045,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <p className="text-base px-3 italic" style={{ color: '#33363A' }}>或</p>
               <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
             </div>
-            <form className="flex flex-col gap-4">
+            <form className="flex flex-col gap-4" onSubmit={handleLogin}>
               <div className="flex flex-col gap-2">
                 <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
                 <input id="login-email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
@@ -945,7 +1070,14 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                 </label>
                 <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>忘记密码？</span>
               </div>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: loginCanSubmit ? 'pointer' : 'not-allowed', opacity: loginCanSubmit ? 1 : 0.8 }} disabled={!loginCanSubmit}>登录</button>
+              <button 
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" 
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !loginLoading) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !loginLoading) ? 1 : 0.8 }} 
+                disabled={!loginCanSubmit || loginLoading}
+              >
+                {loginLoading ? '登录中...' : '登录'}
+              </button>
             </form>
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
@@ -972,6 +1104,74 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
           <div className="flex flex-row justify-center py-2 gap-1">
             <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
             <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>注册</span>
+          </div>
+        </div>
+      )}
+
+      {/* Email Verification Code Modal 内容 */}
+      {showVerifyCode && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 sm:rounded-lg"
+          style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
+        >
+          <div className="flex flex-col justify-center items-center pt-2 pb-1">
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>验证邮箱</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>请输入发送到您邮箱的验证码</p>
+          </div>
+          <div className="flex flex-col justify-center px-2 md:px-10">
+            <form className="flex flex-col" onSubmit={handleVerifyCode}>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="verify-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                  <input 
+                    id="verify-email" 
+                    type="email" 
+                    value={verifyEmail} 
+                    disabled
+                    className="flex h-10 w-full rounded-md px-3 py-2 text-base" 
+                    style={{ backgroundColor: '#3B4248', color: '#7A8084', border: 0, cursor: 'not-allowed' }} 
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="verify-code" style={{ color: '#FFFFFF' }}>验证码</label>
+                  <input 
+                    id="verify-code" 
+                    type="text" 
+                    autoComplete="one-time-code"
+                    value={verifyCode} 
+                    onChange={(e) => setVerifyCode(e.target.value)} 
+                    className="flex h-10 w-full rounded-md px-3 py-2 text-base" 
+                    style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} 
+                    placeholder="输入验证码"
+                  />
+                </div>
+              </div>
+              <button 
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !verifyCodeLoading) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !verifyCodeLoading) ? 1 : 0.8 }} 
+                disabled={verifyCode.trim().length === 0 || verifyCodeLoading}
+              >
+                {verifyCodeLoading ? '验证中...' : '验证'}
+              </button>
+            </form>
+            <div className="flex flex-row justify-center py-2 gap-1 mt-4">
+              <p className="text-base" style={{ color: '#FFFFFF' }}>没有收到验证码？</p>
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={handleResendCode}>
+                重新发送
+              </span>
+            </div>
+            <div className="flex flex-row justify-center py-2 gap-1">
+              <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { 
+                setShowVerifyCode(false); 
+                setVerifyCode('');
+                setVerifyEmail('');
+                setShowLogin(true); 
+              }}>登录</span>
+            </div>
           </div>
         </div>
       )}

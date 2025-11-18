@@ -39,25 +39,85 @@ export async function POST(request: NextRequest) {
     }
 
     // 代理请求到外部API
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // 如果后端需要API Key，可以在这里添加（前端不可见）
-        // 'X-API-Key': process.env.API_SECRET_KEY || '',
-      },
-      body: JSON.stringify({ name, email, password }),
-    });
+    const apiUrl = `${API_BASE_URL}/api/auth/register`;
+    console.log('\n========================================');
+    console.log('🔄 [注册API] 开始代理请求');
+    console.log('📍 目标URL:', apiUrl);
+    console.log('📦 请求数据:', { name, email, password: '***隐藏***' });
+    console.log('========================================\n');
 
-    const data = await response.json();
+    let response: Response;
+    let data: any;
 
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      console.log('\n========================================');
+      console.log('✅ [注册API] 成功连接到服务器！');
+      console.log('📊 HTTP状态码:', response.status, response.statusText);
+      console.log('📋 响应头:', Object.fromEntries(response.headers.entries()));
+      console.log('========================================\n');
+
+    } catch (fetchError: any) {
+      console.error('\n========================================');
+      console.error('❌ [注册API] 无法连接到服务器！');
+      console.error('🔗 请求URL:', apiUrl);
+      console.error('⚠️  错误类型:', fetchError?.name);
+      console.error('💬 错误消息:', fetchError?.message);
+      console.error('🔍 错误代码:', fetchError?.code);
+      console.error('📚 错误堆栈:', fetchError?.stack);
+      console.error('========================================\n');
+      
+      return NextResponse.json(
+        { error: `网络连接失败: ${fetchError?.message || '未知错误'}` },
+        { status: 500 }
+      );
+    }
+
+    // 读取响应数据
+    try {
+      const text = await response.text();
+      console.log('📄 [注册API] 原始响应:', text);
+      
+      try {
+        data = JSON.parse(text);
+        console.log('📦 [注册API] 解析后的JSON:', data);
+      } catch (parseError) {
+        console.error('❌ [注册API] JSON解析失败:', parseError);
+        data = { message: text || '注册失败' };
+      }
+    } catch (readError) {
+      console.error('❌ [注册API] 读取响应失败:', readError);
+      return NextResponse.json(
+        { error: '读取服务器响应失败' },
+        { status: 500 }
+      );
+    }
+
+    // 判断响应状态
+    console.log('\n========================================');
     if (!response.ok) {
-      // 处理后端返回的错误信息
+      console.log('⚠️  [注册API] 服务器返回错误状态');
+      console.log('📊 状态码:', response.status);
+      console.log('💬 错误信息:', data.message || data.error || '未知错误');
+      console.log('========================================\n');
+      
       return NextResponse.json(
         { error: data.message || data.error || '注册失败' },
         { status: response.status }
       );
     }
+
+    console.log('✅ [注册API] 注册成功！');
+    console.log('📦 返回数据:', data);
+    console.log('========================================\n');
 
     return NextResponse.json(data, { status: 200 });
   } catch (error) {

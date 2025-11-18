@@ -1,185 +1,51 @@
-# Cursor Rules for Gacha Game Project
+GLOBAL PROJECT RULES
 
-## Project Overview
-This is a Next.js project using TypeScript and Tailwind CSS. Follow these rules when writing code.
+1. Component Reusability
+- Do not duplicate components or logic already existing in the project.
+- Always search the project (especially the components/ folder) before creating a new component.
+- If a similar component exists, extend it via props instead of copying code.
+- New UI components must follow existing code style and patterns.
 
-## Framework & Technology Stack
+2. Code Structure & Style
+- All frontend code must use TypeScript and React function components.
+- Large components over 300 lines must be split into smaller components.
+- Keep code clean: no redundant logic, no unused imports, no meaningless comments.
+- UI components must be placed in /components, logic in /hooks, and API in /api.
 
-### 1. Next.js Framework
-- Use Next.js 16.0.0 App Router architecture
-- All pages should be in the `app/` directory
-- Use Server Components by default, Client Components only when necessary (add `'use client'` directive)
-- Use Next.js built-in features:
-  - `next/image` for images
-  - `next/font` for fonts
-  - `next/link` for navigation
-  - Route handlers in `app/api/` directory
+3. Logging Rules
+- Do NOT add console.log, console.warn, or console.error unless explicitly requested by me.
+- Debug logs must be temporary and removable.
+- Do not pollute production code with uncontrolled logs.
 
-### 2. TypeScript
-- Always use TypeScript for all files (`.ts`, `.tsx`)
-- Define proper types and interfaces for all props, state, and data structures
-- Avoid using `any` type - use `unknown` or proper types instead
-- Use type inference where appropriate, but be explicit for function parameters and return types
-- Export types/interfaces when they're used across multiple files
+4. API & Data Management
+- All API calls must use @tanstack/react-query.
+- Do not call fetch or axios directly inside components.
+- All API wrappers must be created under the /api directory.
+- UseQuery for GET, useMutation for POST/PUT/PATCH/DELETE.
+- Every react-query usage must include queryKey and queryFn, with optional enabled, staleTime, and select.
+- Components must not contain raw API logic. Separate data layer and UI layer strictly.
 
-### 3. Tailwind CSS
-- **PRIORITY: Use Tailwind CSS for ALL styling** - avoid inline styles and CSS modules unless absolutely necessary
-- Use Tailwind utility classes for layout, spacing, colors, typography, etc.
-- Use Tailwind's responsive breakpoints: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`
-- Use Tailwind's dark mode: `dark:` prefix when needed
-- Custom styles should be added to `app/globals.css` only when Tailwind utilities are insufficient
-- Avoid creating separate CSS files for components
+5. Styling & Tailwind Rules
+- Tailwind CSS must be used for styling.
+- Keep class names clean and avoid unnecessary width/height definitions.
+- Prefer flex and grid layouts with responsive behavior.
 
-## File Organization & Structure
+6. Animation Rules
+- Avoid magic numbers in animations.
+- Complex animation logic must be moved into custom hooks (e.g., useSlotAnimation).
+- Animations must be configurable rather than hard-coded.
 
-### 4. Page Creation
-When creating a new page:
-1. Create a folder in `app/` directory (e.g., `app/feature-name/`)
-2. Create `page.tsx` inside that folder
-3. If the page needs related components, create a `components/` subfolder:
-   ```
-   app/feature-name/
-     ├── page.tsx
-     └── components/
-         ├── FeatureComponent1.tsx
-         └── FeatureComponent2.tsx
-   ```
+7. File Naming & Structure
+- Component filenames must start with an uppercase letter (e.g., MyComponent.tsx).
+- Hooks must follow the useXxx naming convention.
+- API files must be stored under /api.
+- Type definitions must be stored under /types.
 
-### 5. Component Creation
-When creating a new component:
-1. If component is page-specific, create it in the page's `components/` folder
-2. If component is shared across multiple pages, create it in `app/components/`
-3. Create a folder for the component if it needs related files:
-   ```
-   app/components/ComponentName/
-     ├── ComponentName.tsx
-     ├── ComponentName.types.ts (if types are complex)
-     ├── hooks/
-     │   └── useComponentName.ts
-     └── utils/
-         └── componentNameUtils.ts
-   ```
+8. AI Code Generation Rules
+- Do not create unrelated files unless I explicitly request it.
+- Do not modify existing project structure unless instructed.
+- Follow the existing architecture, coding style, and component conventions.
+- All code must be runnable and should not include pseudocode.
+- Every new file must include its intended path in the project.
 
-### 6. Code Organization Within Files
-- **Single File Limit: Maximum 200 lines**
-- Split large components into smaller sub-components
-- Extract complex logic into custom hooks (place in `hooks/` folder or component-specific folder)
-- Extract utility functions into separate files (place in `utils/` folder or component-specific folder)
-- Group related functionality:
-  - Imports (React, Next.js, third-party, local)
-  - Types/Interfaces
-  - Constants
-  - Component definition
-  - Helper functions
-  - Exports
-
-### 7. Hooks Organization
-- Create custom hooks in `hooks/` folder at component level or in `app/hooks/` for shared hooks
-- Naming: `useFeatureName.ts` or `useComponentName.ts`
-- Each hook should have a single responsibility
-
-### 8. API Routes
-- API routes in `app/api/` directory
-- Follow RESTful conventions
-- Use TypeScript for request/response types
-- Handle errors properly with appropriate HTTP status codes
-
-## Code Style Guidelines
-
-### TypeScript Best Practices
-```typescript
-// ✅ Good: Explicit types for props
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-}
-
-// ✅ Good: Type inference for simple cases
-const count = 0; // inferred as number
-
-// ❌ Bad: Using any
-const data: any = fetchData();
-```
-
-### Component Structure
-```typescript
-// ✅ Good: Well-organized component
-'use client'; // Only if needed
-
-import { useState } from 'react';
-import type { ComponentProps } from './Component.types';
-import { useComponentHook } from './hooks/useComponentHook';
-
-export default function Component({ prop1, prop2 }: ComponentProps) {
-  const { data, loading } = useComponentHook();
-  
-  return (
-    <div className="container mx-auto p-4">
-      {/* Component JSX */}
-    </div>
-  );
-}
-```
-
-### Tailwind CSS Usage
-```typescript
-// ✅ Good: Using Tailwind classes
-<div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-  <h1 className="text-2xl font-bold text-gray-900">Title</h1>
-</div>
-
-// ❌ Bad: Inline styles (avoid unless absolutely necessary)
-<div style={{ display: 'flex', padding: '16px' }}>
-```
-
-## File Naming Conventions
-- Components: `PascalCase.tsx` (e.g., `UserProfile.tsx`)
-- Pages: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`
-- Hooks: `useFeatureName.ts` (e.g., `useUserData.ts`)
-- Utils: `camelCase.ts` (e.g., `formatDate.ts`)
-- Types: `PascalCase.types.ts` or `types.ts` in component folder
-- Constants: `UPPER_SNAKE_CASE.ts` or `constants.ts`
-
-## Before Writing Code Checklist
-1. ✅ Is this a Server Component or Client Component? (add `'use client'` if needed)
-2. ✅ Are all types/interfaces properly defined?
-3. ✅ Can I use Tailwind CSS instead of custom CSS?
-4. ✅ Is the file structure following the organization rules?
-5. ✅ Will this file exceed 200 lines? (if yes, split into smaller modules)
-6. ✅ Are related components/hooks/utils properly organized in folders?
-7. ✅ Is the component/page in the correct location (page-specific vs shared)?
-
-## Examples
-
-### Example 1: Creating a New Page
-```
-app/products/
-  ├── page.tsx (main page component, < 200 lines)
-  ├── components/
-  │   ├── ProductList.tsx
-  │   ├── ProductCard.tsx
-  │   └── ProductFilters.tsx
-  └── hooks/
-      └── useProducts.ts
-```
-
-### Example 2: Creating a Shared Component
-```
-app/components/
-  └── Modal/
-      ├── Modal.tsx (main component, < 200 lines)
-      ├── ModalHeader.tsx (sub-component)
-      ├── ModalBody.tsx (sub-component)
-      ├── ModalFooter.tsx (sub-component)
-      └── hooks/
-          └── useModal.ts
-```
-
-## Important Reminders
-- **Always check file length** - if approaching 200 lines, refactor immediately
-- **Prefer Tailwind CSS** - only use custom CSS when Tailwind utilities are insufficient
-- **Organize by feature** - keep related files together in folders
-- **Type everything** - use TypeScript types for all props, state, and data
-- **Split complex logic** - extract into hooks and utility functions
-
+END OF RULES

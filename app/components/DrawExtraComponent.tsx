@@ -82,6 +82,75 @@ export default function DrawExtraComponent() {
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();
+
+  // 🎵 音频初始化
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const initAudio = async () => {
+      try {
+        const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+
+        if (!(window as any).__audioContext) {
+          (window as any).__audioContext = new AudioContext();
+        }
+        const ctx = (window as any).__audioContext;
+
+        // 加载 flip.mp3
+        if (!(window as any).__flipAudioBuffer) {
+          const flipRes = await fetch('/flip.mp3');
+          const flipArrayBuffer = await flipRes.arrayBuffer();
+          (window as any).__flipAudioBuffer = await ctx.decodeAudioData(flipArrayBuffer);
+        }
+
+        // 加载 claim.mp3
+        if (!(window as any).__claimAudioBuffer) {
+          const claimRes = await fetch('/claim.mp3');
+          const claimArrayBuffer = await claimRes.arrayBuffer();
+          (window as any).__claimAudioBuffer = await ctx.decodeAudioData(claimArrayBuffer);
+        }
+      } catch (err) {
+        // 音频加载失败不影响游戏
+      }
+    };
+
+    initAudio();
+  }, []);
+
+  // 🎵 播放翻牌音效
+  const playFlipSound = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const ctx = (window as any).__audioContext;
+      const buffer = (window as any).__flipAudioBuffer;
+      if (ctx && buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      }
+    } catch (err) {
+      // 忽略音频播放错误
+    }
+  };
+
+  // 🎵 播放选择商品音效
+  const playClaimSound = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const ctx = (window as any).__audioContext;
+      const buffer = (window as any).__claimAudioBuffer;
+      if (ctx && buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      }
+    } catch (err) {
+      // 忽略音频播放错误
+    }
+  };
   const collectMutation = useMutation({
     mutationFn: async (items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
       return api.collectLotteryItems(items as any);
@@ -489,6 +558,8 @@ export default function DrawExtraComponent() {
     if (!canSelect || selectedLocked[idx]) return;
     const visibleRound = cardBack[idx] ? backRound[idx] : frontRound[idx];
     if (visibleRound === null) return;
+    // 🎵 播放选择商品音效
+    playClaimSound();
     const newLocked = selectedLocked.slice();
     newLocked[idx] = true;
     // 两面都记录为当前显示轮次，以便再翻一次也显示同一商品
@@ -558,6 +629,8 @@ export default function DrawExtraComponent() {
     setBackRound(nextBackRound);
     setFaceGlowIdxFront(nextFaceGlowFront);
     setFaceGlowIdxBack(nextFaceGlowBack);
+    // 🎵 播放翻牌音效
+    playFlipSound();
     setTimeout(() => {
       setCardBack(toggled);
     }, 10);
@@ -633,6 +706,8 @@ export default function DrawExtraComponent() {
     setRoundIndex(nextRound);
     // 重置hover状态
     setBackCardHovered(Array(9).fill(false));
+    // 🎵 播放翻牌音效
+    playFlipSound();
     // 触发动画
     setTimeout(() => {
       setCardWonRound(newWon);

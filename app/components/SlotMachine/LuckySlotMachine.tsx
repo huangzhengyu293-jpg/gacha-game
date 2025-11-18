@@ -501,9 +501,34 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       const distance = startTop - targetTop;
       const startTime = Date.now();
+      let lastFrameTime = Date.now();
       
       const animate = () => {
-        const elapsed = Date.now() - startTime;
+        const now = Date.now();
+        const frameDelta = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
+        if (frameDelta > 200) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const easedProgress = customEase(progress);
+          const currentTop = startTop - distance * easedProgress;
+          container.style.top = currentTop + 'px';
+          checkAndResetPosition(container);
+          updateVirtualItems();
+          // 跳跃后不播放音效，避免爆炸
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            resolve();
+          }
+          return;
+        }
+        
+        // 正常流程
+        const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const easedProgress = customEase(progress);
         
@@ -511,10 +536,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         container.style.top = currentTop + 'px';
         
         checkAndResetPosition(container);
-        
-        // 🚀 Update virtual items every frame
         updateVirtualItems();
-        updateSelection();
+        updateSelection(); // 正常播放音效
         
         if (progress < 1) {
           requestAnimationFrame(animate);
@@ -536,7 +559,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       }
       
       const duration = 500; // Fixed duration for synchronized stopping
-      const startTime = Date.now();
       const container = reelContainerRef.current;
       let currentTop = parseFloat(container.style.top || '0');
       
@@ -592,10 +614,40 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // Calculate distance to exact center
       const distance = exactTargetTop - currentTop;
       
-     
+      const startTime = Date.now();
+      let lastFrameTime = Date.now();
       
       const animate = () => {
-        const elapsed = Date.now() - startTime;
+        const now = Date.now();
+        const frameDelta = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
+        if (frameDelta > 200) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 
+            ? 4 * progress * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          const newTop = currentTop + distance * eased;
+          container.style.top = newTop + 'px';
+          updateVirtualItems();
+          // 跳跃后不播放音效
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            container.style.top = exactTargetTop + 'px';
+            void container.offsetHeight;
+            updateVirtualItems();
+            selectionLockedRef.current = true;
+            setTimeout(() => { resolve(); }, 100);
+          }
+          return;
+        }
+        
+        // 正常流程
+        const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         
         const eased = progress < 0.5 
@@ -608,7 +660,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         if (progress < 1) {
           // 🚀 Update virtual items and selection during animation
           updateVirtualItems();
-          updateSelection();
+          updateSelection(); // 正常播放音效
           requestAnimationFrame(animate);
         } else {
           // Animation finished - ensure we're at the EXACT position (no correction needed)

@@ -27,12 +27,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+
 interface SortablePackItemProps {
   pack: CatalogPack;
   onRemove: () => void;
+  uniqueId: string; // 添加唯一 ID
 }
 
-function SortablePackItem({ pack, onRemove }: SortablePackItemProps) {
+function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
   const {
     attributes,
     listeners,
@@ -40,7 +42,7 @@ function SortablePackItem({ pack, onRemove }: SortablePackItemProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: pack.id });
+  } = useSortable({ id: uniqueId });
   const [isHovered, setIsHovered] = useState(false);
 
   const style = {
@@ -257,6 +259,11 @@ function CreateBattleContent() {
     return selectedPackIds.map(id => packs.find((p: CatalogPack) => p.id === id)).filter(Boolean) as CatalogPack[];
   }, [selectedPackIds, packs]);
   
+  // 生成唯一 ID 数组用于 SortableContext
+  const uniqueIds = useMemo(() => {
+    return selectedPacks.map((pack, index) => `${pack.id}-${index}`);
+  }, [selectedPacks]);
+  
   const totalCost = useMemo(() => {
     return selectedPacks.reduce((sum, pack) => sum + pack.price, 0);
   }, [selectedPacks]);
@@ -275,18 +282,19 @@ function CreateBattleContent() {
       return;
     }
 
-    setSelectedPackIds((items) => {
-      const oldIndex = items.indexOf(active.id as string);
-      const newIndex = items.indexOf(over.id as string);
-      
-      // 只有当两个索引都有效时才执行移动
-      if (oldIndex !== -1 && newIndex !== -1) {
-        return arrayMove(items, oldIndex, newIndex);
-      }
-      
-      // 如果 newIndex 无效（比如拖拽到了"添加礼包"按钮），不执行任何操作
-      return items;
-    });
+    // 从唯一 ID 中提取索引（格式：packId-index）
+    const extractIndex = (uniqueId: string): number => {
+      const match = uniqueId.match(/-(\d+)$/);
+      return match ? parseInt(match[1], 10) : -1;
+    };
+
+    const oldIndex = extractIndex(active.id as string);
+    const newIndex = extractIndex(over.id as string);
+    
+    // 只有当两个索引都有效时才执行移动
+    if (oldIndex !== -1 && newIndex !== -1) {
+      setSelectedPackIds((items) => arrayMove(items, oldIndex, newIndex));
+    }
   };
 
   return (
@@ -1997,7 +2005,7 @@ function CreateBattleContent() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={selectedPackIds}
+                items={uniqueIds}
                 strategy={rectSortingStrategy}
               >
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 w-full">
@@ -2039,15 +2047,20 @@ function CreateBattleContent() {
                       <p className="font-medium">添加礼包</p>
                     </div>
                   </div>
-                  {selectedPacks.map((pack) => (
-                    <SortablePackItem
-                      key={pack.id}
-                      pack={pack}
-                      onRemove={() => {
-                        setSelectedPackIds(prev => prev.filter(id => id !== pack.id));
-                      }}
-                    />
-                  ))}
+                  {selectedPacks.map((pack, index) => {
+                    const uniqueId = `${pack.id}-${index}`;
+                    return (
+                      <SortablePackItem
+                        key={uniqueId}
+                        uniqueId={uniqueId}
+                        pack={pack}
+                        onRemove={() => {
+                          // 找到该 pack 在 selectedPackIds 中对应位置并删除
+                          setSelectedPackIds(prev => prev.filter((_, i) => i !== index));
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </SortableContext>
             </DndContext>
