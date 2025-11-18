@@ -5,13 +5,16 @@ import DealsPaginationBar from './DealsPaginationBar';
 import ProductDetailsModal from './ProductDetailsModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { SearchFilters } from '../deals/page';
 
 export interface ProductItem {
   id: string;
   name: string;
   image: string;
-  price: number; // USD
+  price: number; // USD (原价 steam.bean)
   percent: number; // 1..80
+  originalPrice?: number; // 商品原价 (steam.bean)
+  rate?: number; // 系数
   subtitle?: string;
   description?: string;
   brand?: string;
@@ -88,20 +91,52 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
   );
 }
 
-export default function DealsProductGridSection({ onSelectProduct, selectedId }: { onSelectProduct?: (p: ProductItem) => void; selectedId?: string }) {
+export default function DealsProductGridSection({ filters, onSelectProduct, selectedId }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string }) {
   const { data: products = [] as ProductItem[] } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['lucky-list', filters],
     queryFn: async () => {
-      const data = await api.getProducts();
-      return data.map((prod) => ({
-        id: prod.id,
-        name: prod.name,
-        image: `${prod.image}?tr=w-3840,c-at_max`,
-        price: prod.price,
-        percent: Math.max(1, Math.min(80, Math.round((prod.dropProbability ?? 0) * 1000))),
-        description: prod.description,
-        category: 'catalog',
-      })) as ProductItem[];
+      const result = await api.getLuckyList({
+        name: filters.name,
+        price_sort: filters.priceSort,
+        price_min: filters.priceMin,
+        price_max: filters.priceMax,
+      });
+      
+      console.log('💎 商品列表数据:', result);
+      
+      // 将后端返回的数据映射为ProductItem格式
+      // 数据结构：
+      // - 商品id: item.id
+      // - 商品名: item.steam.name
+      // - 商品图片: item.steam.cover
+      // - 价格: item.steam.bean
+      // - 用户转动获取金额: item.steam.bean × item.rate × 1%
+      if (result.data && Array.isArray(result.data)) {
+        return result.data.map((item: any) => {
+          const steamBean = item.steam?.bean || 0;
+          const rate = item.rate || 1;
+          const probability = 0.01; // 1%
+          const userEarnings = steamBean * rate * probability;
+          
+          return {
+            id: item.id || String(Math.random()),
+            name: item.steam?.name || 'Unknown',
+            image: item.steam?.cover || '',
+            price: steamBean, // 原价
+            originalPrice: steamBean, // 保存原价
+            rate: rate, // 保存系数
+            percent: 1, // 默认1%概率
+            description: item.description || '',
+            subtitle: `转动获取: ¥${userEarnings.toFixed(2)}`,
+            brand: item.brand || '',
+            category: item.category || 'catalog',
+            badge: item.badge || '',
+            rating: item.rating || 0,
+          } as ProductItem;
+        });
+      }
+      
+      return [];
     },
     staleTime: 60_000,
   });

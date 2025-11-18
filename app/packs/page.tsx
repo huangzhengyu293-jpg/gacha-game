@@ -75,8 +75,8 @@ export default function PacksPage() {
                   index={idx}
                   href={`/packs/${pack.id}`}
                   avatarUrl={"https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"}
-                  productImageUrl={`${(product as any).image}?tr=w-1080,c-at_max`}
-                  packImageUrl={`${pack.image}?tr=w-1080,c-at_max`}
+                  productImageUrl={(product as any).image}
+                  packImageUrl={pack.image}
                   title={(product as any).name}
                   priceLabel={`$${(product as any).price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   glowColor={getGlowColorFromProbability((product as any).dropProbability ?? (product as any).probability)}

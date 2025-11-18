@@ -4,26 +4,21 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dev-api.fl
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ error: '请输入邮箱和密码' }, { status: 400 });
+    // 从 header 中获取 authorization token
+    const authorization = request.headers.get('authorization');
+    
+    if (!authorization) {
+      return NextResponse.json({ error: '缺少 token' }, { status: 401 });
     }
 
-    const apiUrl = `${API_BASE_URL}/api/auth/login`;
-
-    // 使用 URLSearchParams 发送 form-data 格式
-    const formData = new URLSearchParams();
-    formData.append('email', email);
-    formData.append('password', password);
+    const apiUrl = `${API_BASE_URL}/api/auth/logout`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': authorization,
+        'Content-Type': 'application/json',
       },
-      body: formData.toString(),
     });
 
     const text = await response.text();
@@ -32,20 +27,22 @@ export async function POST(request: NextRequest) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { code: 500, message: text || '登录失败', data: [] };
+      data = { code: 500, message: text || '退出登录失败', data: [] };
     }
 
-    // 如果 HTTP 状态码是 200，就认为成功（不管 data.code 是多少）
+    // 如果 HTTP 状态码是 200，就认为成功
     if (response.ok) {
       return NextResponse.json(data, { status: 200 });
     }
 
     // HTTP 状态码不是 200，返回错误
     return NextResponse.json(
-      { error: data.message || '登录失败' },
+      { error: data.message || '退出登录失败' },
       { status: response.status }
     );
   } catch (error) {
     return NextResponse.json({ error: '服务器错误，请稍后重试' }, { status: 500 });
   }
 }
+
+

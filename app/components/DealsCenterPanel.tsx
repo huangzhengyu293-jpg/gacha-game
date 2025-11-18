@@ -5,6 +5,8 @@ import { Urbanist } from 'next/font/google';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useSession } from 'next-auth/react';
+import { useToast } from './ToastProvider';
+import FireworkArea, { type FireworkAreaHandle } from './FireworkArea';
 
 interface DealsCenterPanelProps {
   percent?: number;
@@ -24,7 +26,10 @@ interface DealsCenterPanelProps {
 const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '600', '700', '800', '900'], display: 'swap' });
 
 export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const fireworkRef = useRef<FireworkAreaHandle>(null);
   const [dragging, setDragging] = useState<null | 'start' | 'end' | 'body' | 'percent'>(null);
   const [centerDeg, setCenterDeg] = useState<number>(90);
   const lastAngleRef = useRef<number | null>(null);
@@ -37,15 +42,193 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   const demoRafRef = useRef<number | null>(null);
   const demoActiveRef = useRef<boolean>(false);
   const [demoOutcome, setDemoOutcome] = useState<'win' | 'lose'>('win');
-  const queryClient = useQueryClient();
   const { status } = useSession();
   const isAuthed = status === 'authenticated';
+  
+  // 🎵 初始化音效（spin.mp3 和 win.wav）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const initAudio = async () => {
+      if (!(window as any).__audioContext) {
+        (window as any).__audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // 加载 spin.mp3
+      if (!(window as any).__spinAudioBuffer) {
+        try {
+          const response = await fetch('/spin.mp3');
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await (window as any).__audioContext.decodeAudioData(arrayBuffer);
+          (window as any).__spinAudioBuffer = audioBuffer;
+        } catch (error) {
+          console.error('加载 spin.mp3 失败:', error);
+        }
+      }
+      
+      // 加载 win.wav
+      if (!(window as any).__winAudioBuffer) {
+        try {
+          const response = await fetch('/win.wav');
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await (window as any).__audioContext.decodeAudioData(arrayBuffer);
+          (window as any).__winAudioBuffer = audioBuffer;
+        } catch (error) {
+          console.error('加载 win.wav 失败:', error);
+        }
+      }
+    };
+    
+    initAudio();
+  }, []);
   const addToWarehouse = useMutation({
     mutationFn: async (item: { productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }) => {
       return api.addUserWarehouseItems([item]);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+    },
+  });
+
+  // 执行转动动画
+  const runSpinAnimation = (winResult: boolean) => {
+    // 🎵 播放 spin.mp3 音效
+    if (typeof window !== 'undefined') {
+      const ctx = (window as any).__audioContext;
+      const buffer = (window as any).__spinAudioBuffer;
+      if (ctx && buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      }
+    }
+    
+    const start = performance.now();
+    const duration = 7000; // 7s
+    const startAngle = demoVisible ? demoAngle : -Math.PI / 2;
+    const startDeg = arc.startDeg;
+    const endDeg = arc.endDeg;
+    const arcSpan = endDeg - startDeg;
+    const margin = 3;
+    setDemoOutcome(winResult ? 'win' : 'lose');
+    let targetDeg: number;
+    if (winResult) {
+      const min = startDeg + margin;
+      const max = endDeg - margin;
+      const pick = min + Math.random() * Math.max(1, (max - min));
+      targetDeg = pick;
+    } else {
+      const graySpan = 360 - arcSpan;
+      const pick = (endDeg + margin + Math.random() * Math.max(1, (graySpan - 2 * margin))) % 360;
+      targetDeg = pick;
+    }
+    const targetRad = degToRad(targetDeg);
+    const fullTurn = 2 * Math.PI;
+    const extraTurns = 3;
+    const deltaToTarget = cwDeltaRad(startAngle, targetRad);
+    const totalDelta = deltaToTarget + extraTurns * fullTurn;
+    const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+    const step = (t: number) => {
+      if (!demoActiveRef.current) return;
+      const elapsed = t - start;
+      const p = Math.min(Math.max(elapsed / duration, 0), 1);
+      const eased = easeOutCubic(p);
+      const ang = startAngle + eased * totalDelta;
+      setDemoAngle(ang);
+      if (p < 1) {
+        demoRafRef.current = requestAnimationFrame(step);
+      } else {
+        demoActiveRef.current = false;
+        setDemoRunning(false);
+        demoRafRef.current = null;
+        onLockChange && onLockChange(false);
+        
+        // 🎉 如果中奖，在指针停住后触发礼花和音效
+        if (winResult) {
+          // 触发礼花
+          fireworkRef.current?.triggerFirework();
+          
+          // 🎵 播放 win.wav 音效
+          if (typeof window !== 'undefined') {
+            const ctx = (window as any).__audioContext;
+            const buffer = (window as any).__winAudioBuffer;
+            if (ctx && buffer) {
+              const source = ctx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(ctx.destination);
+              source.start(0);
+            }
+          }
+        }
+        
+        if (winResult && !inactive && productTitle && (productImage || '') !== '' && (productPrice != null)) {
+          const pid = String(productId ?? productTitle);
+          addToWarehouse.mutate({
+            productId: pid,
+            name: productTitle,
+            image: String(productImage),
+            price: Number(productPrice || 0),
+            quantity: 1,
+          });
+        }
+      }
+    };
+    demoRafRef.current = requestAnimationFrame(step);
+  };
+
+  // 转动 mutation
+  const goLuckyMutation = useMutation({
+    mutationFn: async (params: { id: string | number; type: string | number; percent: string | number }) => {
+      return await api.goLucky(params);
+    },
+    onSuccess: (result: any) => {
+      console.log('🎰 转动接口返回:', result);
+      
+      // 检查返回的 code，如果是 200000 表示有问题
+      if (result.code === 200000) {
+        toast.show({
+          variant: 'error',
+          title: '转动失败',
+          description: result.message || '转动失败，请稍后重试',
+        });
+        return;
+      }
+      
+      // 检查返回的 code，如果是 100000 表示成功
+      if (result.code === 100000) {
+        // 从返回结果中获取 win 字段
+        // win === 0 表示没中奖，win === 1 表示中奖
+        const winValue = (result.data as any)?.win ?? 0;
+        const winResult = winValue === 1;
+        console.log('🎯 中奖结果:', winResult ? '中奖' : '未中奖', 'win值:', winValue);
+        
+        // 转动成功后更新钱包数据
+        queryClient.invalidateQueries({ queryKey: ['walletInfo'] });
+        
+        // 执行转动动画
+        onLockChange && onLockChange(true);
+        setDemoVisible(true);
+        setDemoRunning(true);
+        demoActiveRef.current = true;
+        runSpinAnimation(winResult);
+      } else {
+        // 其他 code 值，也视为错误
+        toast.show({
+          variant: 'error',
+          title: '转动失败',
+          description: result.message || '转动失败，请稍后重试',
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error('❌ 转动接口失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '转动失败，请稍后重试';
+      toast.show({
+        variant: 'error',
+        title: '转动失败',
+        description: errorMessage,
+      });
     },
   });
 
@@ -230,65 +413,17 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   }
 
   // 实际转动：结束后若中奖则入库
-  function startRealSpin() {
-    if (demoRunning) return;
-    onLockChange && onLockChange(true);
-    setDemoVisible(true);
-    setDemoRunning(true);
-    demoActiveRef.current = true;
-    const start = performance.now();
-    const duration = 7000; // 7s
-    const startAngle = demoVisible ? demoAngle : -Math.PI / 2;
-    const startDeg = arc.startDeg;
-    const endDeg = arc.endDeg;
-    const arcSpan = endDeg - startDeg;
-    const margin = 3;
-    const win = Math.random() * 100 < Math.max(0, Math.min(100, percent));
-    setDemoOutcome(win ? 'win' : 'lose');
-    let targetDeg: number;
-    if (win) {
-      const min = startDeg + margin;
-      const max = endDeg - margin;
-      const pick = min + Math.random() * Math.max(1, (max - min));
-      targetDeg = pick;
-    } else {
-      const graySpan = 360 - arcSpan;
-      const pick = (endDeg + margin + Math.random() * Math.max(1, (graySpan - 2 * margin))) % 360;
-      targetDeg = pick;
+  const startRealSpin = () => {
+    if (demoRunning || uiLocked || !isAuthed || !productId || percent <= 0) {
+      return;
     }
-    const targetRad = degToRad(targetDeg);
-    const fullTurn = 2 * Math.PI;
-    const extraTurns = 3;
-    const deltaToTarget = cwDeltaRad(startAngle, targetRad);
-    const totalDelta = deltaToTarget + extraTurns * fullTurn;
-    const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
-    const step = (t: number) => {
-      if (!demoActiveRef.current) return;
-      const elapsed = t - start;
-      const p = Math.min(Math.max(elapsed / duration, 0), 1);
-      const eased = easeOutCubic(p);
-      const ang = startAngle + eased * totalDelta;
-      setDemoAngle(ang);
-      if (p < 1) {
-        demoRafRef.current = requestAnimationFrame(step);
-      } else {
-        demoActiveRef.current = false;
-        setDemoRunning(false);
-        demoRafRef.current = null;
-        onLockChange && onLockChange(false);
-        if (win && !inactive && productTitle && (productImage || '') !== '' && (productPrice != null)) {
-          const pid = String(productId ?? productTitle);
-          addToWarehouse.mutate({
-            productId: pid,
-            name: productTitle,
-            image: String(productImage),
-            price: Number(productPrice || 0),
-            quantity: 1,
-          });
-        }
-      }
-    };
-    demoRafRef.current = requestAnimationFrame(step);
+    
+    // 使用 mutation 调用转动接口
+    goLuckyMutation.mutate({
+      id: productId,
+      type: 0,
+      percent: percent.toFixed(2),
+    });
   }
   useEffect(() => {
     return () => {
@@ -429,6 +564,9 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       <p className="text-xl select-none font-extrabold mb-0 lg:hidden text-white">{percent.toFixed(2)}%</p>
 
       <div className="relative select-none touch-none" style={{ width: 320, height: 320 }}>
+        {/* 🎉 礼花组件 */}
+        <FireworkArea ref={fireworkRef} />
+        
         <div>
           <svg
             ref={svgRef}

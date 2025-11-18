@@ -6,26 +6,19 @@ interface DealsRightPanelProps {
   percent?: number;
   product?: { name: string; image: string; price: number } | null;
   inactive?: boolean;
+  originalPrice?: number; // 商品原价 (steam.bean)
+  rate?: number; // 系数
 }
 
-export default function DealsRightPanel({ percent = 35.04, product = null, inactive = false }: DealsRightPanelProps) {
+export default function DealsRightPanel({ percent = 35.04, product = null, inactive = false, originalPrice = 0, rate = 1 }: DealsRightPanelProps) {
+  // 计算：商品金额 / 转动花费金额
+  // 商品金额 = 商品原价 = originalPrice
+  // 转动花费金额 = spinPrice = 百分比 × 商品原价 × 系数 = product.price
+  // 比值 = 商品金额 / 转动花费金额 = originalPrice / spinPrice
   const multiplier = useMemo(() => {
-    // 1% -> 92.59, 80% -> 1.16
-    const minPercent = 1;
-    const maxPercent = 80;
-    const minMultiplier = 1.16;
-    const maxMultiplier = 92.59;
-
-    if (percent <= minPercent) return maxMultiplier;
-    if (percent >= maxPercent) return minMultiplier;
-
-    // Linear interpolation
-    const range = maxPercent - minPercent;
-    const multiplierRange = maxMultiplier - minMultiplier;
-    const interpolated = maxMultiplier - ((percent - minPercent) / range) * multiplierRange;
-
-    return interpolated;
-  }, [percent]);
+    if (inactive || !product || originalPrice <= 0 || product.price <= 0) return 0;
+    return originalPrice / product.price;
+  }, [product, inactive, originalPrice]);
 
   const fixedPriceLabel = product ? ('$' + product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '$0.00';
 

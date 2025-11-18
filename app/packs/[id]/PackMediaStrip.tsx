@@ -39,7 +39,7 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
   const slotUrls = useMemo(() => {
     return slotPackIds.map((id) => {
       const pack = packMap[id];
-      return pack ? `${pack.image}?tr=w-256,c-at_max` : '';
+      return pack ? pack.image : '';
     });
   }, [slotPackIds, packMap]);
 
@@ -214,7 +214,7 @@ export default function PackMediaStrip({ primaryPackId, primaryImageUrl, title }
                       alt={pack.title}
                       loading="lazy"
                       decoding="async"
-                      src={`${pack.image}?tr=w-3840,c-at_max`}
+                      src={pack.image}
                       style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, objectFit: 'contain', color: 'transparent' }}
                     />
                   </div>

@@ -15,7 +15,8 @@ interface DealsLeftPanelProps {
   onSliderInteractionEnd?: () => void;
   disabled?: boolean;
   inactive?: boolean; // 无产品时：显示 0 值并禁用交互
-  onReset?: () => void; // 重置：让父级按“重新选择当前物品”处理
+  onReset?: () => void; // 重置：让父级按"重新选择当前物品"处理
+  calculatedPrice?: number; // 计算出的价格（spinPrice）
 }
 
 export default function DealsLeftPanel({
@@ -32,6 +33,7 @@ export default function DealsLeftPanel({
   disabled = false,
   inactive = false,
   onReset,
+  calculatedPrice = 0,
 }: DealsLeftPanelProps) {
   const baseAtOnePercent = 3780; // 1% 对应金额
   const [priceInput, setPriceInput] = useState<string>(formatCurrency(initialPrice));
@@ -70,11 +72,12 @@ export default function DealsLeftPanel({
     }
   }, [selectedPercent, sliderValue, onPercentChange, inactive]);
 
-  // 百分比变化时，实时计算价格显示（1% -> 3780.00，线性映射到 80%）
+  // 使用外部传入的计算价格（spinPrice）
   useEffect(() => {
-    const computedPrice = baseAtOnePercent * selectedPercent;
-    setPriceInput(formatCurrency(computedPrice));
-  }, [selectedPercent]);
+    if (calculatedPrice !== undefined && calculatedPrice !== null) {
+      setPriceInput(formatCurrency(calculatedPrice));
+    }
+  }, [calculatedPrice]);
 
   const sliderBg = useMemo(() => ({
     background: 'transparent',
@@ -159,7 +162,7 @@ export default function DealsLeftPanel({
             <div className="rounded-tl rounded-bl px-4 text-sm font-bold flex items-center" style={{ backgroundColor: '#34383C', color: disabled ? '#7A8084' : '#FFFFFF' }}>$</div>
             <input
               className="flex h-10 w-full rounded-md border-gray-600 focus:border-gray-600 px-3 py-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 rounded-tl-none rounded-bl-none font-black text-lg border-0"
-              style={{ backgroundColor: '#1D2125', color: disabled ? '#7A8084' : '#FFFFFF' }}
+              style={{ backgroundColor: '#1D2125', color: '#7A8084' }}
               inputMode="decimal"
               placeholder="0.00"
               step={priceStep}
@@ -168,16 +171,14 @@ export default function DealsLeftPanel({
               value={inactive ? '0.00' : priceInput}
               onChange={onPriceChange}
               onBlur={onPriceBlur}
-              disabled={disabled}
+              disabled={true}
             />
             <button
               type="button"
               onClick={setPriceToMax}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none font-bold text-sm !rounded-md absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2"
-              style={{ backgroundColor: disabled ? '#34383C' : '#2A2D35', color: disabled ? '#7A8084' : '#FFFFFF', cursor: disabled ? 'default' : 'pointer' }}
-              onMouseEnter={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-              onMouseLeave={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
-              disabled={disabled}
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none font-bold text-sm !rounded-md absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 opacity-50"
+              style={{ backgroundColor: '#34383C', color: '#7A8084', cursor: 'not-allowed' }}
+              disabled={true}
             >
               max
             </button>

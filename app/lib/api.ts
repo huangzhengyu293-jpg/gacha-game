@@ -19,18 +19,6 @@ export type CatalogPack = {
   items: CatalogItem[];
 };
 
-export type WarehouseItem = {
-  id: string;
-  productId: string;
-  name: string;
-  image: string;
-  price: number;
-  qualityId?: string;
-  quantity: number;
-  obtainedAt: string;
-  updatedAt?: string;
-};
-
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 export interface RequestConfig extends Omit<RequestInit, 'body' | 'method'> {
@@ -55,34 +43,47 @@ const DEFAULT_CONFIG: RequestInit = {
   },
 };
 
+// ==================== Token 工具函数 ====================
+
+/**
+ * 从 localStorage 获取用户 token
+ * 很多接口都需要使用这个 token
+ */
+export function getToken(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      return user.data?.token || user.token || '';
+    }
+  } catch {}
+  return '';
+}
+
 // ==================== 拦截器 ====================
 
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
   if (typeof window !== 'undefined') {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        const token = user.data?.token || user.token;
-        if (token) {
-          config.headers = {
-            ...config.headers,
-            'Authorization': `Bearer ${token}`,
-          };
-        }
-      } catch {}
+    const headers = config.headers as Record<string, string> || {};
+    const hasAuth = headers['Authorization'] || headers['authorization'];
+    
+    // 只有在用户没有手动传入 Authorization 时，才自动添加
+    if (!hasAuth) {
+      const token = getToken();
+      if (token) {
+        config.headers = {
+          ...config.headers,
+          'Authorization': `Bearer ${token}`,
+        };
+      }
     }
   }
   return { url, config };
 }
 
 function responseInterceptor<T>(data: T): T {
-  if (data && typeof data === 'object' && 'code' in data && 'message' in data) {
-    const apiData = data as any;
-    if (apiData.code !== 200) {
-      throw new Error(apiData.message || `API Error: ${apiData.code}`);
-    }
-  }
+  // 不再检查 code，由各个接口自己处理业务逻辑
   return data;
 }
 
@@ -115,7 +116,16 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
   };
 
   if (data !== undefined) {
-    requestConfig.body = JSON.stringify(data);
+    // 如果 Content-Type 是 application/x-www-form-urlencoded，直接使用 data（已经是字符串）
+    // 否则使用 JSON.stringify
+    const headersObj = headers as Record<string, string> | undefined;
+    const defaultHeadersObj = DEFAULT_CONFIG.headers as Record<string, string> | undefined;
+    const contentType = headersObj?.['Content-Type'] || defaultHeadersObj?.['Content-Type'];
+    if (contentType === 'application/x-www-form-urlencoded' && typeof data === 'string') {
+      requestConfig.body = data;
+    } else {
+      requestConfig.body = JSON.stringify(data);
+    }
   }
 
   const intercepted = requestInterceptor(url, requestConfig);
@@ -180,6 +190,48 @@ export const api = {
     post<ApiResponse>('/api/auth/activation', payload),
   login: (payload: { email: string; password: string }) =>
     post<ApiResponse>('/api/auth/login', payload),
+  getUserInfo: (token: string) =>
+    request<ApiResponse>('/api/auth/userinfo', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }),
+  getUserBean: (token: string) =>
+    request<ApiResponse>('/api/user/bean', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }),
+  logout: (token: string) =>
+    request<ApiResponse>('/api/auth/logout', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }),
+
+  // Lucky (交易页面)
+  getLuckyList: (params: {
+    name?: string;
+    price_sort?: string | number;
+    price_min?: string | number;
+    price_max?: string | number;
+  }) =>
+    post<ApiResponse>('/api/lucky/list', params),
+  goLucky: (params: {
+    id: string | number;
+    type?: string | number;
+    percent: string | number;
+  }) =>
+    request<ApiResponse>('/api/lucky/go', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+      },
+      data: params,
+    }),
 
   // Packs
   getPacks: () => get<CatalogPack[]>('/api/packs'),
@@ -193,12 +245,41 @@ export const api = {
     patchRequest<CatalogPack>(`/api/packs/${id}`, patchData),
   deletePack: (id: string) => del<{ ok: true }>(`/api/packs/${id}`),
 
-  // Products
-  getProducts: () => get<CatalogItem[]>('/api/products'),
+  // Products (使用新的后端接口)
+  getProducts: async () => {
+    // 构造 form-data 格式的请求体
+    const formData = new URLSearchParams();
+    formData.append('name', '');
+    formData.append('price_sort', '1');
+    formData.append('price_min', '200');
+    formData.append('price_max', '5888');
+    
+    const result = await request<ApiResponse>('/api/lucky/list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    // 将后端返回的数据映射为 CatalogItem 格式
+    if (result.data && Array.isArray(result.data)) {
+      return result.data.map((item: any) => ({
+        id: String(item.id || Math.random()),
+        name: item.steam?.name || 'Unknown',
+        image: item.steam?.cover || '',
+        price: item.steam?.bean || 0,
+        dropProbability: 0.01, // 默认概率
+        qualityId: item.qualityId || '',
+        description: item.description || '',
+      })) as CatalogItem[];
+    }
+    return [];
+  },
   getProductById: async (id: string) => {
-    const all = await get<CatalogItem[]>('/api/products');
+    const all = await api.getProducts();
     return all.find(p => p.id === id);
   },
+  // 以下方法保留但不再使用（新后端不支持）
   createProduct: (payload: CatalogItem) =>
     post<CatalogItem>('/api/products', payload),
   updateProduct: (id: string, patchData: Partial<CatalogItem>) =>
@@ -208,21 +289,16 @@ export const api = {
   // Pack Backgrounds
   getPackBackgroundUrls: () => get<string[]>('/api/packbg'),
 
-  // User & Warehouse
-  getCurrentUser: () => get<{ id: string; username: string; balance: number; warehouse: WarehouseItem[] }>('/api/user'),
-  updateUser: (patchData: Partial<{ balance: number }>) =>
-    patchRequest<{ id: string; username: string; balance: number; warehouse: WarehouseItem[] }>('/api/user', patchData),
-  getUserWarehouse: () => get<WarehouseItem[]>('/api/user/warehouse'),
-  addUserWarehouseItems: (items: Array<Partial<WarehouseItem>>) =>
-    post<{ ok: true }>('/api/user/warehouse', { items }),
-  getUserWarehouseItem: (id: string) => get<WarehouseItem>(`/api/user/warehouse/${id}`),
-  updateUserWarehouseItem: (id: string, patchData: Partial<WarehouseItem>) =>
-    patchRequest<WarehouseItem>(`/api/user/warehouse/${id}`, patchData),
-  deleteUserWarehouseItem: (id: string) => del<{ ok: true }>(`/api/user/warehouse/${id}`),
-  sellUserWarehouseItems: (items: Array<{ id: string; count?: number }>) =>
-    post<{ ok: true; sold: number; gained: number; balance: number }>('/api/user/warehouse/sell', { items }),
-  collectLotteryItems: (items: Array<Partial<WarehouseItem>>) =>
-    post<{ ok: true; inserted: number; updated: number }>('/api/user/warehouse/collect', { items }),
+  // 旧的用户相关API（占位方法，待对接新后端）
+  getCurrentUser: () => Promise.resolve({ id: '', username: '', balance: 0, warehouse: [] } as any),
+  updateUser: (_patchData: any) => Promise.resolve({ id: '', username: '', balance: 0, warehouse: [] } as any),
+  getUserWarehouse: () => Promise.resolve([] as any),
+  addUserWarehouseItems: (_items: any) => Promise.resolve({ ok: true } as any),
+  getUserWarehouseItem: (_id: string) => Promise.resolve({} as any),
+  updateUserWarehouseItem: (_id: string, _patchData: any) => Promise.resolve({} as any),
+  deleteUserWarehouseItem: (_id: string) => Promise.resolve({ ok: true } as any),
+  sellUserWarehouseItems: (_items: any) => Promise.resolve({ ok: true, sold: 0, gained: 0, balance: 0 } as any),
+  collectLotteryItems: (_items: any) => Promise.resolve({ ok: true, inserted: 0, updated: 0 } as any),
 };
 
 export { request, get, post, put, del as delete, patchRequest as patch };

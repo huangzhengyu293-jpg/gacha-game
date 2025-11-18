@@ -120,8 +120,16 @@ export default function BattleHeader({
     );
   }
 
-  // 虚拟滚动：更新可见范围
+  // 虚拟滚动：更新可见范围（节流优化）
+  const lastUpdateTimeRef = useRef(0);
   const updateVisibleRange = useCallback(() => {
+    // 🚀 节流：每100ms最多更新一次虚拟滚动范围
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current < 100) {
+      return;
+    }
+    lastUpdateTimeRef.current = now;
+    
     // 检查桌面端或移动端的滚动容器
     const el = packScrollRefDesktop.current || packScrollRefMobile.current;
     if (!el || packImages.length <= VIRTUAL_THRESHOLD) return;
@@ -193,24 +201,29 @@ export default function BattleHeader({
     // 计算滚动位置：让当前卡包显示在第二个位置
     const targetScrollLeft = currentIndex * (PACK_WIDTH + GAP) - (PACK_WIDTH + GAP);
 
-    // 同时滚动桌面端和移动端（只有一个会显示）
-    if (packScrollRefDesktop.current) {
-      packScrollRefDesktop.current.scrollTo({
-        left: Math.max(0, targetScrollLeft),
-        behavior: 'smooth',
-      });
-    }
-    if (packScrollRefMobile.current) {
-      packScrollRefMobile.current.scrollTo({
-        left: Math.max(0, targetScrollLeft),
-        behavior: 'smooth',
-      });
-    }
-    
-    // 滚动后更新可见范围
-    setTimeout(() => {
-      updateVisibleRange();
-    }, 500);
+    // 🚀 使用 requestAnimationFrame 延迟滚动，避免阻塞主线程
+    const rafId = requestAnimationFrame(() => {
+      // 同时滚动桌面端和移动端（只有一个会显示）
+      if (packScrollRefDesktop.current) {
+        packScrollRefDesktop.current.scrollTo({
+          left: Math.max(0, targetScrollLeft),
+          behavior: 'smooth',
+        });
+      }
+      if (packScrollRefMobile.current) {
+        packScrollRefMobile.current.scrollTo({
+          left: Math.max(0, targetScrollLeft),
+          behavior: 'smooth',
+        });
+      }
+      
+      // 滚动后更新可见范围
+      setTimeout(() => {
+        updateVisibleRange();
+      }, 500);
+    });
+
+    return () => cancelAnimationFrame(rafId);
   }, [highlightedIndices, packImages.length, updateVisibleRange]);
 
   return (

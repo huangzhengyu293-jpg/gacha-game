@@ -8,23 +8,21 @@ export async function POST(request: NextRequest) {
     const { code } = body;
 
     if (!code) {
-      return NextResponse.json(
-        { error: '请输入验证码' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '请输入验证码' }, { status: 400 });
     }
 
     const apiUrl = `${API_BASE_URL}/api/auth/activation`;
-    console.log('[Activation API] 请求URL:', apiUrl);
-    console.log('[Activation API] 验证码:', code);
+
+    // 使用 URLSearchParams 发送 form-data 格式
+    const formData = new URLSearchParams();
+    formData.append('code', code);
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({ code }),
+      body: formData.toString(),
     });
 
     const text = await response.text();
@@ -36,23 +34,17 @@ export async function POST(request: NextRequest) {
       data = { code: 500, message: text || '验证失败', data: [] };
     }
 
-    console.log('[Activation API] 响应数据:', data);
-
-    // 根据API响应格式处理
-    if (!response.ok || (data.code && data.code !== 200)) {
-      return NextResponse.json(
-        { error: data.message || '验证失败' },
-        { status: response.ok ? 400 : response.status }
-      );
+    // 如果 HTTP 状态码是 200，就认为成功
+    if (response.ok) {
+      return NextResponse.json(data, { status: 200 });
     }
 
-    return NextResponse.json(data, { status: 200 });
-  } catch (error) {
-    console.error('验证API错误:', error);
+    // HTTP 状态码不是 200，返回错误
     return NextResponse.json(
-      { error: '服务器错误，请稍后重试' },
-      { status: 500 }
+      { error: data.message || '验证失败' },
+      { status: response.status }
     );
+  } catch (error) {
+    return NextResponse.json({ error: '服务器错误，请稍后重试' }, { status: 500 });
   }
 }
-

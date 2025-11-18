@@ -6,8 +6,8 @@ import { useI18n } from './I18nProvider';
 import { signIn, useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, getToken } from '../lib/api';
 import { useToast } from './ToastProvider';
 
 
@@ -16,7 +16,7 @@ export default function Navbar() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const enableDevLogin = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === 'true';
+  const queryClient = useQueryClient();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number; visible: boolean }>({ left: 0, width: 0, visible: false });
@@ -31,6 +31,8 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [showRegister, setShowRegister] = useState(false);
+  // 钱包数据（bean 和 integral）
+  const [walletData, setWalletData] = useState<{ bean?: number; integral?: number }>({});
   const [agreed, setAgreed] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [regPass, setRegPass] = useState('');
@@ -38,17 +40,46 @@ export default function Navbar() {
   const [showTerms, setShowTerms] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
-  const [regLoading, setRegLoading] = useState(false); // 注册加载状态
+
+  // 退出登录 mutation
+  const logoutMutation = useMutation({
+    mutationFn: async (token: string) => {
+      return await api.logout(token);
+    },
+    onSuccess: () => {
+      // 清除本地存储
+      localStorage.removeItem('user');
+      // 调用 NextAuth 的 signOut
+      signOut({ callbackUrl: '/' });
+    },
+    onError: (error: any) => {
+      // 即使接口失败，也继续执行退出登录流程
+      console.error('退出登录接口调用失败:', error);
+      localStorage.removeItem('user');
+      signOut({ callbackUrl: '/' });
+    },
+  });
+
+  // 统一的退出登录处理函数
+  const handleLogout = () => {
+    const token = getToken();
+    if (token) {
+      logoutMutation.mutate(token);
+    } else {
+      // 没有 token 也执行退出流程
+      localStorage.removeItem('user');
+      signOut({ callbackUrl: '/' });
+    }
+  };
+
   const [showVerifyCode, setShowVerifyCode] = useState(false); // 显示验证码弹窗
   const [verifyCode, setVerifyCode] = useState(''); // 验证码输入
-  const [verifyCodeLoading, setVerifyCodeLoading] = useState(false); // 验证码提交加载状态
   const [verifyEmail, setVerifyEmail] = useState(''); // 存储需要验证的邮箱
   const [showLogin, setShowLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginShowPass, setLoginShowPass] = useState(false);
   const [loginRemember, setLoginRemember] = useState(true);
-  const [loginLoading, setLoginLoading] = useState(false); // 登录加载状态
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [showCart, setShowCart] = useState(false);
@@ -114,6 +145,80 @@ export default function Navbar() {
     }
   }, [status, session]);
 
+  // 使用 useQuery 获取用户信息（页面刷新时自动更新）
+  const { data: userInfo } = useQuery({
+    queryKey: ['userInfo'],
+    queryFn: async () => {
+      const token = getToken();
+      if (!token) throw new Error('No token');
+      return await api.getUserInfo(token);
+    },
+    enabled: status === 'authenticated',
+    staleTime: 5 * 60 * 1000, // 5分钟内不重新获取
+    refetchOnMount: true, // 组件挂载时重新获取
+    refetchOnWindowFocus: true, // 窗口获得焦点时重新获取
+  });
+
+  // 使用 useQuery 获取钱包数据（页面刷新时自动更新）
+  const { data: walletInfo } = useQuery({
+    queryKey: ['walletInfo'],
+    queryFn: async () => {
+      const token = getToken();
+      if (!token) throw new Error('No token');
+      return await api.getUserBean(token);
+    },
+    enabled: status === 'authenticated',
+    staleTime: 5 * 60 * 1000, // 5分钟内不重新获取
+    refetchOnMount: true, // 组件挂载时重新获取
+    refetchOnWindowFocus: true, // 窗口获得焦点时重新获取
+  });
+
+  // 当用户信息更新时，同步到 localStorage 和 session
+  useEffect(() => {
+    if (userInfo?.data && status === 'authenticated') {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        userData.userInfo = userInfo.data;
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch {}
+    }
+  }, [userInfo, status]);
+
+  // 当钱包数据更新时，同步到 localStorage 和 state
+  useEffect(() => {
+    if (walletInfo?.data) {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        userData.bean = walletInfo.data;
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // 更新 state
+        setWalletData({
+          bean: walletInfo.data?.bean || 0,
+          integral: walletInfo.data?.integral || 0,
+        });
+      } catch {}
+    }
+  }, [walletInfo]);
+
+  // 初始化时从 localStorage 读取钱包数据（作为默认值）
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !walletInfo?.data) {
+      try {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.bean) {
+            setWalletData({
+              bean: user.bean?.bean || 0,
+              integral: user.bean?.integral || 0,
+            });
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
   // 头像下拉 - 点击外部关闭
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -127,20 +232,12 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [showUserMenu]);
 
-  // 注册处理函数
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canRegister || regLoading) return;
-    
-    setRegLoading(true);
-    
-    try {
-      const result = await api.register({
-        name: regUsername.trim(),
-        email: regEmail.trim(),
-        password: regPass
-      });
-      
+  // 注册 mutation
+  const registerMutation = useMutation({
+    mutationFn: async (payload: { name: string; email: string; password: string }) => {
+      return await api.register(payload);
+    },
+    onSuccess: (result: any) => {
       // 注册成功（200响应）
       console.log('注册成功:', result);
       // 关闭注册弹窗
@@ -155,7 +252,8 @@ export default function Navbar() {
       // 显示验证码输入弹窗
       setShowVerifyCode(true);
       setVerifyCode('');
-    } catch (error) {
+    },
+    onError: (error: any) => {
       console.error('注册失败:', error);
       const errorMessage = error instanceof Error ? error.message : '注册失败，请稍后重试';
       toast.show({
@@ -163,9 +261,19 @@ export default function Navbar() {
         title: '注册失败',
         description: errorMessage,
       });
-    } finally {
-      setRegLoading(false);
-    }
+    },
+  });
+
+  // 注册处理函数
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canRegister || registerMutation.isPending) return;
+    
+    registerMutation.mutate({
+      name: regUsername.trim(),
+      email: regEmail.trim(),
+      password: regPass
+    });
   };
 
   const usernameValid = regUsername.trim().length >= 3; // 用户名至少3个字符
@@ -191,22 +299,19 @@ export default function Navbar() {
     return s; // 0..5
   })();
 
-  // 重新发送验证邮件
-  const handleResendCode = async () => {
-    if (!verifyEmail) return;
-    
-    try {
-      await api.sendVerificationEmail({
-        to: verifyEmail,
-        type: '2', // 固定值
-      });
-      
+  // 重新发送验证邮件 mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (payload: { to: string; type: string }) => {
+      return await api.sendVerificationEmail(payload);
+    },
+    onSuccess: () => {
       toast.show({
         variant: 'success',
         title: '发送成功',
         description: '验证码已发送到您的邮箱',
       });
-    } catch (error) {
+    },
+    onError: (error: any) => {
       console.error('发送邮件失败:', error);
       const errorMessage = error instanceof Error ? error.message : '发送失败，请稍后重试';
       toast.show({
@@ -214,20 +319,24 @@ export default function Navbar() {
         title: '发送失败',
         description: errorMessage,
       });
-    }
+    },
+  });
+
+  // 重新发送验证邮件
+  const handleResendCode = () => {
+    if (!verifyEmail || sendEmailMutation.isPending) return;
+    sendEmailMutation.mutate({
+      to: verifyEmail,
+      type: '2', // 固定值
+    });
   };
 
-  // 验证码提交处理
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verifyCode.trim() || verifyCodeLoading) return;
-    
-    setVerifyCodeLoading(true);
-    
-    try {
-      // 调用激活账户API
-      await api.activateAccount({ code: verifyCode.trim() });
-      
+  // 激活账户 mutation
+  const activateAccountMutation = useMutation({
+    mutationFn: async (payload: { code: string }) => {
+      return await api.activateAccount(payload);
+    },
+    onSuccess: () => {
       // 验证成功，关闭弹窗并显示登录
       setShowVerifyCode(false);
       setVerifyCode('');
@@ -238,7 +347,8 @@ export default function Navbar() {
         description: '邮箱验证成功！请登录。',
       });
       setShowLogin(true);
-    } catch (error) {
+    },
+    onError: (error: any) => {
       console.error('验证码验证失败:', error);
       const errorMessage = error instanceof Error ? error.message : '验证码错误，请重试';
       toast.show({
@@ -246,43 +356,78 @@ export default function Navbar() {
         title: '验证失败',
         description: errorMessage,
       });
-    } finally {
-      setVerifyCodeLoading(false);
-    }
+    },
+  });
+
+  // 验证码提交处理
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyCode.trim() || activateAccountMutation.isPending) return;
+    activateAccountMutation.mutate({ code: verifyCode.trim() });
   };
 
-  // 登录处理函数
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginCanSubmit || loginLoading) return;
-    
-    setLoginLoading(true);
-    
-    try {
-      const result = await api.login({
+  // 登录 mutation
+  const loginMutation = useMutation({
+    mutationFn: async (payload: { email: string; password: string }) => {
+      return await api.login(payload);
+    },
+    onSuccess: async (result: any) => {
+      // 登录成功，获取 token
+      const accessToken = result.data?.access_token;
+      
+      if (!accessToken) {
+        throw new Error('未获取到访问令牌');
+      }
+      
+      // 先保存基本信息
+      const userData: any = {
+        token: accessToken,
+        refreshToken: result.data?.refresh_token,
+        tokenType: result.data?.token_type || 'Bearer',
+        expiresIn: result.data?.expires_in,
+        loginTime: new Date().toISOString()
+      };
+      
+      // 保存到 localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // 使用 queryClient 触发用户信息和钱包数据的重新获取
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['userInfo'] }),
+        queryClient.invalidateQueries({ queryKey: ['walletInfo'] }),
+      ]);
+      
+      // 等待一下让数据获取完成
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // 从 localStorage 读取最新的用户信息
+      const latestUserData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userName = latestUserData.userInfo?.name || '';
+      
+      // 使用 NextAuth 的 signIn 来更新 session
+      await signIn('credentials', {
+        redirect: false,
         email: loginEmail.trim(),
-        password: loginPass
+        name: userName,
+        token: accessToken,
+        userInfo: JSON.stringify(latestUserData.userInfo || {}),
       });
       
-      // 登录成功
-      console.log('登录成功:', result);
-      
-      // 保存用户信息到 localStorage
-      if (typeof window !== 'undefined') {
-        const userData = {
-          email: loginEmail.trim(),
-          data: result.data,
-          loginTime: new Date().toISOString()
-        };
-        localStorage.setItem('user', JSON.stringify(userData));
-        console.log('[Login] 用户信息已保存:', userData);
+      // 更新钱包数据 state
+      if (latestUserData.bean) {
+        setWalletData({
+          bean: latestUserData.bean?.bean || 0,
+          integral: latestUserData.bean?.integral || 0,
+        });
       }
       
       // 显示成功提示
       toast.show({
         variant: 'success',
         title: '登录成功',
-        description: '欢迎回来！',
+        description: userName ? `欢迎回来，${userName}！` : '欢迎回来！',
       });
       
       // 关闭登录弹窗
@@ -291,17 +436,24 @@ export default function Navbar() {
       setLoginEmail('');
       setLoginPass('');
       setLoginShowPass(false);
-      
-    } catch (error: any) {
-      console.error('登录失败:', error);
+    },
+    onError: (error: any) => {
       toast.show({
         variant: 'error',
         title: '登录失败',
         description: error.message || '登录失败，请检查邮箱和密码',
       });
-    } finally {
-      setLoginLoading(false);
-    }
+    },
+  });
+
+  // 登录处理函数
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginCanSubmit || loginMutation.isPending) return;
+    loginMutation.mutate({
+      email: loginEmail.trim(),
+      password: loginPass
+    });
   };
 
   // 统一滚动锁定（任一弹框打开）
@@ -514,7 +666,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24">
-                  <p className="text-sm text-white font-bold">{balanceText}</p>
+                  <p className="text-sm text-white font-bold">{walletData.bean?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0'}</p>
+                </button>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24">
+                  <p className="text-sm text-white font-bold">{walletData.integral?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0'}</p>
                 </button>
                 <div className="flex relative" ref={userMenuRef}>
                   <div className="flex justify-center items-center">
@@ -584,7 +739,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                     </div>
                     <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
                     <div className="flex flex-col px-2 py-1.5 gap-2">
-                      <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowUserMenu(false); signOut({ callbackUrl: '/' }); }}>
+                      <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                         <p className="text-base text-white">注销</p>
                       </div>
@@ -742,7 +897,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                     {status === 'authenticated' ? (
                       <>
                         <div className="flex flex-col px-2 py-1.5 gap-2">
-                          <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg" onClick={() => { setShowMidMenu(false); signOut({ callbackUrl: '/' }); }}>
+                          <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg" onClick={() => { setShowMidMenu(false); handleLogout(); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                             <p className="text-base text-white">注销</p>
                           </div>
@@ -805,7 +960,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                 </div>
               </div>
               <div className="flex flex-col p-4 gap-4">
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => signOut({ callbackUrl: '/' })}>
+                <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                   <p className="text-lg text-white font-semibold">登出</p>
                 </div>
@@ -877,24 +1032,6 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             <p className="text-md" style={{ color: '#9CA3AF' }}>注册以开始</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
-            <button
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6"
-              style={{ backgroundColor: '#34383C', cursor: agreed ? 'pointer' : 'not-allowed', opacity: agreed ? 1 : 0.8 }}
-              disabled={!agreed}
-              onClick={() => {
-                if (!agreed) return;
-                if (enableDevLogin) {
-                  signIn('credentials', { email: 'demo@local.test', name: 'Demo User', callbackUrl: '/' });
-                } else {
-                  signIn('google', { callbackUrl: '/' });
-                }
-              }}
-            >
-              <div className="mr-3" style={{ width: 16, height: 16 }}>
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
-              </div>
-              <p style={{ color: agreed ? '#FFFFFF' : '#9CA3AF' }}>使用 Google 登录</p>
-            </button>
             <form className="flex flex-col" onSubmit={handleRegister}>
               <div className="space-y-2">
                 <div className="flex justify-start items-center gap-2 mt-2">
@@ -962,10 +1099,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !regLoading) ? 'pointer' : 'not-allowed', opacity: (canRegister && !regLoading) ? 1 : 0.8 }} 
-                disabled={!canRegister || regLoading}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !registerMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (canRegister && !registerMutation.isPending) ? 1 : 0.8 }} 
+                disabled={!canRegister || registerMutation.isPending}
               >
-                {regLoading ? '注册中...' : '注册'}
+                {registerMutation.isPending ? '注册中...' : '注册'}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
@@ -1014,25 +1151,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
-            <button
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none relative text-base font-bold select-none h-10 px-6 mt-4 mb-2"
-              style={{ backgroundColor: '#34383C', cursor: agreed ? 'pointer' : 'not-allowed', opacity: agreed ? 1 : 0.8 }}
-              disabled={!agreed}
-              onClick={() => {
-                if (!agreed) return;
-                if (enableDevLogin) {
-                  signIn('credentials', { email: 'demo@local.test', name: 'Demo User', callbackUrl: '/' });
-                } else {
-                  signIn('google', { callbackUrl: '/' });
-                }
-              }}
-            >
-              <div className="mr-3" style={{ width: 16, height: 16 }}>
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.99987 6.54543V9.64362H12.3053C12.1163 10.64 11.5489 11.4837 10.698 12.0509L13.2944 14.0655C14.8071 12.6692 15.6798 10.6182 15.6798 8.18188C15.6798 7.61461 15.6289 7.06911 15.5344 6.54552L7.99987 6.54543Z" fill="#4285F4"></path><path d="M3.51645 9.52268L2.93087 9.97093L0.858112 11.5854C2.17447 14.1963 4.87245 16 7.9997 16C10.1596 16 11.9705 15.2873 13.2942 14.0655L10.6978 12.0509C9.98512 12.5309 9.07602 12.8219 7.9997 12.8219C5.91971 12.8219 4.15249 11.4182 3.51972 9.5273L3.51645 9.52268Z" fill="#34A853"></path><path d="M0.858119 4.41455C0.312695 5.49087 0 6.70543 0 7.99995C0 9.29448 0.312695 10.509 0.858119 11.5854C0.858119 11.5926 3.51998 9.51991 3.51998 9.51991C3.35998 9.03991 3.26541 8.53085 3.26541 7.99987C3.26541 7.46889 3.35998 6.95983 3.51998 6.47984L0.858119 4.41455Z" fill="#FBBC05"></path><path d="M7.99987 3.18545C9.17806 3.18545 10.2253 3.59271 11.0617 4.37818L13.3526 2.0873C11.9635 0.792777 10.1599 0 7.99987 0C4.87262 0 2.17448 1.79636 0.858119 4.41455L3.51989 6.48001C4.15258 4.58908 5.91988 3.18545 7.99987 3.18545Z" fill="#EA4335"></path></svg>
-              </div>
-              <p style={{ color: agreed ? '#FFFFFF' : '#9CA3AF' }}>使用 Google 登录</p>
-            </button>
-            <div className="flex justify-start items-center gap-2">
+            <div className="flex justify-start items-center gap-2 mt-4 mb-2">
               <input id="login-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
               <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="login-agree">
                 <span>通过访问网站，我确认我已年满 18 岁并同意</span>
@@ -1040,12 +1159,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                 <span>。</span>
               </label>
             </div>
-            <div className="flex items-center my-4">
-              <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
-              <p className="text-base px-3 italic" style={{ color: '#33363A' }}>或</p>
-              <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
-            </div>
-            <form className="flex flex-col gap-4" onSubmit={handleLogin}>
+            <form className="flex flex-col gap-4 mt-4" onSubmit={handleLogin}>
               <div className="flex flex-col gap-2">
                 <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
                 <input id="login-email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
@@ -1073,10 +1187,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !loginLoading) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !loginLoading) ? 1 : 0.8 }} 
-                disabled={!loginCanSubmit || loginLoading}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !loginMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !loginMutation.isPending) ? 1 : 0.8 }} 
+                disabled={!loginCanSubmit || loginMutation.isPending}
               >
-                {loginLoading ? '登录中...' : '登录'}
+                {loginMutation.isPending ? '登录中...' : '登录'}
               </button>
             </form>
           </div>
@@ -1151,10 +1265,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !verifyCodeLoading) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !verifyCodeLoading) ? 1 : 0.8 }} 
-                disabled={verifyCode.trim().length === 0 || verifyCodeLoading}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !activateAccountMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !activateAccountMutation.isPending) ? 1 : 0.8 }} 
+                disabled={verifyCode.trim().length === 0 || activateAccountMutation.isPending}
               >
-                {verifyCodeLoading ? '验证中...' : '验证'}
+                {activateAccountMutation.isPending ? '验证中...' : '验证'}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1 mt-4">

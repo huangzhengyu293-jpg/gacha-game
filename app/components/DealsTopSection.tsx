@@ -9,7 +9,9 @@ export interface SelectedProduct {
   id: string;
   name: string;
   image: string;
-  price: number;
+  price: number; // 显示价格（会根据百分比动态计算）
+  originalPrice: number; // 商品原价
+  rate: number; // 系数
   percent: number; // 1..80
 }
 
@@ -31,14 +33,23 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
       setUiLocked(true);
     } else {
       setUiLocked(false);
-      const p = Number((selectedProduct.percent ?? 0).toFixed(2));
+      // 默认百分比为1%
+      const p = selectedProduct?.percent ?? 1;
       const clamped = Math.min(80, Math.max(1, p));
       setPercent(clamped);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
-  const spinPrice = useMemo(() => 3780 * percent, [percent]);
+  // 价格计算：百分比 × 商品原价 × 系数
+  // 没选择商品时价格为0
+  const spinPrice = useMemo(() => {
+    if (!selectedProduct) return 0;
+    const originalPrice = selectedProduct.originalPrice || 0;
+    const rate = selectedProduct.rate || 1;
+    const percentValue = percent / 100; // 转换为小数（1% = 0.01）
+    return originalPrice * rate * percentValue;
+  }, [selectedProduct, percent]);
 
   function updatePercentFrom(source: 'left' | 'center', p: number) {
     if (inactive) return; // ignore updates when no product selected
@@ -59,6 +70,7 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             disabled={uiLocked || inactive}
             inactive={inactive}
             onReset={onReselectSelectedProduct}
+            calculatedPrice={spinPrice}
           />
         </div>
         <div className="w-full lg:flex-1 xl:w-[521.14px] order-0 lg:order-1">
@@ -74,11 +86,17 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             productId={selectedProduct?.id || null}
             productImage={selectedProduct?.image || null}
             productTitle={selectedProduct?.name || null}
-            productPrice={selectedProduct?.price ?? null}
+            productPrice={spinPrice}
           />
         </div>
         <div className="hidden lg:block lg:w-[339.44px] lg:order-2">
-          <DealsRightPanel percent={percent} inactive={inactive} product={selectedProduct ? { name: selectedProduct.name, image: selectedProduct.image, price: selectedProduct.price } : null} />
+          <DealsRightPanel 
+            percent={percent} 
+            inactive={inactive} 
+            product={selectedProduct ? { name: selectedProduct.name, image: selectedProduct.image, price: spinPrice } : null}
+            originalPrice={selectedProduct?.originalPrice || 0}
+            rate={selectedProduct?.rate || 1}
+          />
         </div>
       </div>
     </div>

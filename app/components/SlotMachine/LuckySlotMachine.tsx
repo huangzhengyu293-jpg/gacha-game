@@ -59,6 +59,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   
   // 🚀 Virtual scrolling constants
   const BUFFER_SIZE = 5; // Render 5 extra items above and below viewport
+  const UPDATE_THROTTLE = 16; // ~60fps throttle for updateVirtualItems
+  
+  // 性能优化：节流时间戳
+  const lastUpdateTimeRef = useRef<number>(0);
   
   // Dynamically update item height and count based on parent container width
   useEffect(() => {
@@ -338,6 +342,13 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const container = reelContainerRef.current;
     if (!container || virtualItemsRef.current.length === 0) return;
     
+    // 🚀 节流优化：限制更新频率到 ~60fps
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current < UPDATE_THROTTLE) {
+      return;
+    }
+    lastUpdateTimeRef.current = now;
+    
     const containerTop = parseFloat(container.style.top || '0');
     const viewportStart = -containerTop;
     const viewportEnd = viewportStart + REEL_HEIGHT;
@@ -366,6 +377,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     });
     itemsToRemove.forEach(index => renderedItemsMapRef.current.delete(index));
     
+    // 🚀 批量DOM操作：使用 DocumentFragment
+    const fragment = document.createDocumentFragment();
+    const newItems: Array<{ index: number; element: HTMLDivElement }> = [];
+    
     // Add/update items in visible range
     for (let i = startIndex; i <= endIndex; i++) {
       const symbol = virtualItemsRef.current[i];
@@ -376,9 +391,15 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         // Create new DOM element
         item = createItemElement(symbol, i);
         renderedItemsMapRef.current.set(i, item);
-        container.appendChild(item);
+        newItems.push({ index: i, element: item });
+        fragment.appendChild(item);
       }
       // Position is set in createItemElement, no need to update unless changed
+    }
+    
+    // 一次性插入所有新元素
+    if (newItems.length > 0) {
+      container.appendChild(fragment);
     }
   }, [createItemElement, REEL_HEIGHT]);
 
@@ -430,6 +451,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateVirtualItems, updateSelection, itemsPerReel, repeatTimes, itemHeight, isSpinning]);
 
+  // 🚀 缓存 actualItemHeight
+  const actualItemHeightRef = useRef<number>(0);
+  
   // 第一阶段旋转
   const spinPhase1 = useCallback((duration: number, targetSymbol: SlotSymbol | null = null): Promise<void> => {
     return new Promise(resolve => {
@@ -443,8 +467,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       let targetTop: number;
       
-      // Get actual item height from DOM
-      const actualItemHeight = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
+      // 🚀 优化：缓存 actualItemHeight，只在第一次查询
+      if (actualItemHeightRef.current === 0) {
+        actualItemHeightRef.current = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
+      }
+      const actualItemHeight = actualItemHeightRef.current;
       
       if (targetSymbol) {
         // 🚀 Search in virtual items array instead of DOM
@@ -502,6 +529,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       const distance = startTop - targetTop;
       const startTime = Date.now();
       let lastFrameTime = Date.now();
+      let frameCount = 0; // 🚀 帧计数器
       
       const animate = () => {
         const now = Date.now();
@@ -535,9 +563,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         const currentTop = startTop - distance * easedProgress;
         container.style.top = currentTop + 'px';
         
-        checkAndResetPosition(container);
-        updateVirtualItems();
-        updateSelection(); // 正常播放音效
+        frameCount++;
+        
+        // 🚀 跳帧优化：每3帧更新一次 DOM 和音效
+        if (frameCount % 3 === 0) {
+          checkAndResetPosition(container);
+          updateVirtualItems();
+          updateSelection(); // 正常播放音效
+        }
         
         if (progress < 1) {
           requestAnimationFrame(animate);
@@ -573,7 +606,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       let closestIndex = findClosestItem(container);
       
-      const actualItemHeight = container.querySelector('.slot-item')?.getBoundingClientRect().height || itemHeightRef.current;
+      // 🚀 优化：使用缓存的 actualItemHeight
+      const actualItemHeight = actualItemHeightRef.current || itemHeightRef.current;
       
       if (targetSymbol) {
         const targetIndices: number[] = [];
@@ -616,6 +650,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       const startTime = Date.now();
       let lastFrameTime = Date.now();
+      let frameCount = 0; // 🚀 帧计数器
       
       const animate = () => {
         const now = Date.now();
@@ -657,10 +692,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         const newTop = currentTop + distance * eased;
         container.style.top = newTop + 'px';
         
+        frameCount++;
+        
         if (progress < 1) {
-          // 🚀 Update virtual items and selection during animation
-          updateVirtualItems();
-          updateSelection(); // 正常播放音效
+          // 🚀 跳帧优化：每3帧更新一次 DOM 和音效
+          if (frameCount % 3 === 0) {
+            updateVirtualItems();
+            updateSelection(); // 正常播放音效
+          }
           requestAnimationFrame(animate);
         } else {
           // Animation finished - ensure we're at the EXACT position (no correction needed)
@@ -695,6 +734,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
     
     setIsSpinning(true);
+    
+    // 🚀 重置 actualItemHeight 缓存
+    actualItemHeightRef.current = 0;
     
     // 触发开始回调
     if (onSpinStart) {

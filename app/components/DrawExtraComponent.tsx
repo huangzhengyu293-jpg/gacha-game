@@ -40,18 +40,38 @@ const ROUND_PRICES: number[] = [
   0.55, 0.72, 0.94, 1.38, 2.22, 3.61, 5.55, 11.11, 27.77, 83.33,
 ];
 
-// 参考产品从后端 /api/products 读取
+// 参考产品从新的后端接口读取
 function useSourceProducts() {
   const [items, setItems] = React.useState<Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>>([]);
   React.useEffect(() => {
     let aborted = false;
     (async () => {
       try {
-        const res = await fetch('/api/products', { cache: 'no-store' });
+        // 使用新的后端接口
+        const formData = new URLSearchParams();
+        formData.append('name', '');
+        formData.append('price_sort', '1');
+        formData.append('price_min', '200');
+        formData.append('price_max', '5888');
+        
+        const res = await fetch('/api/lucky/list', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString(),
+          cache: 'no-store',
+        });
         if (!res.ok) throw new Error('fail');
-        const data = await res.json();
-        if (!aborted && Array.isArray(data)) {
-          setItems(data.map((p: any) => ({ id: p.id, name: p.name, image: p.image, price: p.price, qualityId: p.qualityId })));
+        const result = await res.json();
+        if (!aborted && result.data && Array.isArray(result.data)) {
+          setItems(result.data.map((item: any) => ({
+            id: String(item.id || Math.random()),
+            name: item.steam?.name || 'Unknown',
+            image: item.steam?.cover || '',
+            price: item.steam?.bean || 0,
+            qualityId: item.qualityId || '',
+          })));
         }
       } catch {
         setItems([]);
@@ -921,11 +941,8 @@ export default function DrawExtraComponent() {
                               alt={it.name}
                               loading="lazy"
                               decoding="async"
-                              data-nimg="fill"
                               className="pointer-events-none"
-                              sizes="(min-width: 0px) 100px"
-                              srcSet={`${it.image}?tr=w-16,c-at_max 16w, ${it.image}?tr=w-32,c-at_max 32w, ${it.image}?tr=w-48,c-at_max 48w, ${it.image}?tr=w-64,c-at_max 64w, ${it.image}?tr=w-96,c-at_max 96w, ${it.image}?tr=w-128,c-at_max 128w, ${it.image}?tr=w-256,c-at_max 256w, ${it.image}?tr=w-384,c-at_max 384w, ${it.image}?tr=w-640,c-at_max 640w, ${it.image}?tr=w-750,c-at_max 750w, ${it.image}?tr=w-828,c-at_max 828w, ${it.image}?tr=w-1080,c-at_max 1080w, ${it.image}?tr=w-1200,c-at_max 1200w, ${it.image}?tr=w-1920,c-at_max 1920w, ${it.image}?tr=w-2048,c-at_max 2048w, ${it.image}?tr=w-3840,c-at_max 3840w`}
-                              src={`${it.image}?tr=w-3840,c-at_max`}
+                              src={it.image}
                               style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
                             />
                           </div>
@@ -1022,13 +1039,10 @@ export default function DrawExtraComponent() {
                                   }}></div>
                                   <img 
                                     alt={prod.name} 
-                                    loading="lazy" 
-                                    decoding="async" 
-                                    data-nimg="fill" 
+                                    loading="lazy"
+                                    decoding="async"
                                     className="pointer-events-none" 
-                                    sizes="(min-width: 0px) 100px" 
-                                    srcSet={`${prod.image}?tr=w-16,c-at_max 16w, ${prod.image}?tr=w-32,c-at_max 32w, ${prod.image}?tr=w-48,c-at_max 48w, ${prod.image}?tr=w-64,c-at_max 64w, ${prod.image}?tr=w-96,c-at_max 96w, ${prod.image}?tr=w-128,c-at_max 128w, ${prod.image}?tr=w-256,c-at_max 256w, ${prod.image}?tr=w-384,c-at_max 384w, ${prod.image}?tr=w-640,c-at_max 640w, ${prod.image}?tr=w-750,c-at_max 750w, ${prod.image}?tr=w-828,c-at_max 828w, ${prod.image}?tr=w-1080,c-at_max 1080w, ${prod.image}?tr=w-1200,c-at_max 1200w, ${prod.image}?tr=w-1920,c-at_max 1920w, ${prod.image}?tr=w-2048,c-at_max 2048w, ${prod.image}?tr=w-3840,c-at_max 3840w`} 
-                                    src={`${prod.image}?tr=w-3840,c-at_max`} 
+                                    src={prod.image}
                                     style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
                                 </div>
@@ -1097,13 +1111,10 @@ export default function DrawExtraComponent() {
                                   }}></div>
                                   <img 
                                     alt={prod.name} 
-                                    loading="lazy" 
-                                    decoding="async" 
-                                    data-nimg="fill" 
+                                    loading="lazy"
+                                    decoding="async"
                                     className="pointer-events-none" 
-                                    sizes="(min-width: 0px) 100px" 
-                                    srcSet={`${prod.image}?tr=w-16,c-at_max 16w, ${prod.image}?tr=w-32,c-at_max 32w, ${prod.image}?tr=w-48,c-at_max 48w, ${prod.image}?tr=w-64,c-at_max 64w, ${prod.image}?tr=w-96,c-at_max 96w, ${prod.image}?tr=w-128,c-at_max 128w, ${prod.image}?tr=w-256,c-at_max 256w, ${prod.image}?tr=w-384,c-at_max 384w, ${prod.image}?tr=w-640,c-at_max 640w, ${prod.image}?tr=w-750,c-at_max 750w, ${prod.image}?tr=w-828,c-at_max 828w, ${prod.image}?tr=w-1080,c-at_max 1080w, ${prod.image}?tr=w-1200,c-at_max 1200w, ${prod.image}?tr=w-1920,c-at_max 1920w, ${prod.image}?tr=w-2048,c-at_max 2048w, ${prod.image}?tr=w-3840,c-at_max 3840w`} 
-                                    src={`${prod.image}?tr=w-3840,c-at_max`} 
+                                    src={prod.image}
                                     style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
                                 </div>

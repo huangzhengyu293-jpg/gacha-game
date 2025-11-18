@@ -12,6 +12,7 @@ import { useBattleData } from "./hooks/useBattleData";
 import type { PackItem, Participant } from "./types";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
+import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
 
 // 🎰 大奖模式内联进度条组件（避免重复挂载问题）
 function JackpotProgressBarInline({ 
@@ -256,12 +257,35 @@ export default function BattleDetailPage() {
   const jackpotWinnerSet = useRef(false); // 防止重复设置获胜者
   const completedWinnerSetRef = useRef(false); // 🎯 防止COMPLETED状态下重复设置获胜者
   
+  // 🎉 烟花动画 ref
+  const winnerFireworkRef = useRef<FireworkAreaHandle>(null);
+  
+  // 🎵 播放胜利音效的辅助函数
+  const playWinSound = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const ctx = (window as any).__audioContext;
+      const buffer = (window as any).__winAudioBuffer;
+      if (ctx && buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      }
+    }
+  }, []);
+  
   // 🎉 大奖模式：动画完成回调（稳定引用）
   const handleJackpotAnimationComplete = useCallback(() => {
     setTimeout(() => {
       setJackpotPhase('winner');
+      
+      // 🎉 播放烟花动画 + 🎵 音效
+      setTimeout(() => {
+        playWinSound();
+        winnerFireworkRef.current?.triggerFirework();
+      }, 100);
     }, 1000);
-  }, []);
+  }, [playWinSound]);
   
   // 🔥 淘汰模式：已淘汰的玩家ID集合
   const [eliminatedPlayerIds, setEliminatedPlayerIds] = useState<Set<string>>(new Set());
@@ -429,6 +453,33 @@ export default function BattleDetailPage() {
   const [hidePacks, setHidePacks] = useState(false);
   const [showSlotMachines, setShowSlotMachines] = useState(false);
   const currentRoundRef = useRef(0);
+  
+  // 🎵 初始化胜利音效（win.wav）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const initWinAudio = async () => {
+      // 初始化 AudioContext
+      if (!(window as any).__audioContext) {
+        (window as any).__audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // 加载 win.wav
+      if (!(window as any).__winAudioBuffer) {
+        try {
+          const response = await fetch('/win.wav');
+          const arrayBuffer = await response.arrayBuffer();
+          const ctx = (window as any).__audioContext;
+          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          (window as any).__winAudioBuffer = audioBuffer;
+        } catch (error) {
+          console.error('加载 win.wav 失败:', error);
+        }
+      }
+    };
+    
+    initWinAudio();
+  }, []);
 
   // 检测屏幕宽度是否小于1024px
   useEffect(() => {
@@ -958,6 +1009,12 @@ export default function BattleDetailPage() {
   // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
     if (mainState === 'IDLE' && allSlotsFilled && allParticipants.length > 0) {
+      // 🛡️ 守卫：确保参与者数量正确（避免在参与者未完全加入时就开始）
+      if (allParticipants.length !== battleData.playersCount) {
+        console.warn(`⚠️ [IDLE → LOADING] 参与者数量不匹配！当前: ${allParticipants.length}, 预期: ${battleData.playersCount}`);
+        return;
+      }
+      
       setMainState('LOADING');
     } else if (mainState !== 'IDLE' && mainState !== 'COMPLETED' && !allSlotsFilled) {
       // 状态守卫：玩家离开，重置到IDLE（但COMPLETED状态不重置）
@@ -976,14 +1033,19 @@ export default function BattleDetailPage() {
     }
   }, [mainState, allSlotsFilled, allParticipants.length]);
 
-  // 🎯 STATE TRANSITION: LOADING → COUNTDOWN
+  // 🎯 STATE TRANSITION: LOADING → COUNTDOWN（只执行一次）
+  const participantsSnapshotRef = useRef<any[]>([]);
+  
   useEffect(() => {
-    if (mainState === 'LOADING') {
-   
+    if (mainState === 'LOADING' && !hasGeneratedResultsRef.current) {
+      // 🔒 标记已生成，防止重复执行
+      hasGeneratedResultsRef.current = true;
       
-      // 生成所有轮次数据
-      const rounds = generateAllResults(allParticipants);
+      // 🔒 关键：锁定当前的 allParticipants 快照
+      participantsSnapshotRef.current = [...allParticipants];
       
+      // 生成所有轮次数据（使用快照）
+      const rounds = generateAllResults(participantsSnapshotRef.current);
       
       setGameData({
         currentRound: 0,
@@ -994,7 +1056,7 @@ export default function BattleDetailPage() {
       setMainState('COUNTDOWN');
       setCountdownValue(3);
     }
-  }, [mainState, allParticipants, generateAllResults, battleData.packs.length]);
+  }, [mainState, generateAllResults, battleData.packs.length]);
 
   // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
   useEffect(() => {
@@ -1530,6 +1592,25 @@ export default function BattleDetailPage() {
       const nextRound = currentRound + 1;
       
       if (nextRound < gameData.totalRounds) {
+        // 🎯 提前准备下一轮的奖品数据（避免竞态条件）
+        const nextRoundData = gameData.rounds[nextRound];
+        if (nextRoundData) {
+          const nextPrizes: Record<string, string> = {};
+          
+          // 🎯 为所有参与者设置奖品ID
+          Object.keys(nextRoundData.results).forEach(participantId => {
+            const result = nextRoundData.results[participantId];
+            // 第一段期间显示占位符，第二段显示真实ID
+            if (result.needsSecondSpin) {
+              nextPrizes[participantId] = 'golden_placeholder';
+            } else {
+              nextPrizes[participantId] = result.itemId;
+            }
+          });
+          
+          setCurrentRoundPrizes(nextPrizes);
+        }
+        
         // 重置玩家数据源和key后缀
         setPlayerSymbols({});
         setSlotMachineKeySuffix({});
@@ -1594,9 +1675,14 @@ export default function BattleDetailPage() {
   const handleAllSlotsFilledChange = useCallback((filled: boolean, participants?: any[]) => {
     setAllSlotsFilled(filled);
     if (participants) {
+      // 🔒 守卫：一旦进入 LOADING 或之后的状态，就不再更新参与者列表
+      if (mainState !== 'IDLE') {
+        return;
+      }
+      
       setAllParticipants(participants);
     }
-  }, []);
+  }, [mainState]);
 
   // Handle when a slot machine completes
   const handleSlotComplete = useCallback((participantId: string, result: SlotSymbol) => {
@@ -1691,21 +1777,20 @@ export default function BattleDetailPage() {
         }
       }
       
-      // 🏆 根据游戏模式判定获胜者
-      setTimeout(() => {
-        // 计算总奖池（使用 participantValues）
-        let totalPrize = 0;
-        allParticipants.forEach(p => {
-          if (p && p.id) {
-            const value = participantValues[p.id] || 0;
-            totalPrize += value;
-          }
-        });
-        
-        console.log(`💰 [总奖池] $${totalPrize.toFixed(2)}`);
-        
-        // 🎁 分享模式：所有人都是获胜者，平分奖金
-        if (gameMode === 'share') {
+      // 🏆 根据游戏模式判定获胜者（立即执行，无延迟）
+      // 计算总奖池（使用 participantValues）
+      let totalPrize = 0;
+      allParticipants.forEach(p => {
+        if (p && p.id) {
+          const value = participantValues[p.id] || 0;
+          totalPrize += value;
+        }
+      });
+      
+      console.log(`💰 [总奖池] $${totalPrize.toFixed(2)}`);
+      
+      // 🎁 分享模式：所有人都是获胜者，平分奖金
+      if (gameMode === 'share') {
           console.log('🎁 [分享模式] 所有玩家都是获胜者，平分奖金');
           
           // 标记所有玩家为获胜者
@@ -1719,6 +1804,12 @@ export default function BattleDetailPage() {
           
           // 🎯 标记已设置获胜者
           completedWinnerSetRef.current = true;
+          
+          // 🎉 播放烟花动画 + 🎵 音效
+          setTimeout(() => {
+            playWinSound();
+            winnerFireworkRef.current?.triggerFirework();
+          }, 100);
         }
         // 🏆 大奖模式：标记获胜者
         else if (gameMode === 'jackpot') {
@@ -1777,6 +1868,12 @@ export default function BattleDetailPage() {
             
             // 🎯 标记已设置获胜者
             completedWinnerSetRef.current = true;
+            
+            // 🎉 播放烟花动画 + 🎵 音效
+            setTimeout(() => {
+              playWinSound();
+              winnerFireworkRef.current?.triggerFirework();
+            }, 100);
           } else {
             console.error('⚠️ [积分冲刺模式] 未找到预计算的获胜者数据');
           }
@@ -1815,6 +1912,12 @@ export default function BattleDetailPage() {
               
               // 🎯 标记已设置获胜者
               completedWinnerSetRef.current = true;
+              
+              // 🎉 播放烟花动画 + 🎵 音效
+              setTimeout(() => {
+                playWinSound();
+                winnerFireworkRef.current?.triggerFirework();
+              }, 100);
             }
           } else {
             console.error('⚠️ [淘汰模式] 未找到预先计算的获胜者数据');
@@ -1890,6 +1993,12 @@ export default function BattleDetailPage() {
               
               // 🎯 标记已设置获胜者
               completedWinnerSetRef.current = true;
+              
+              // 🎉 播放烟花动画 + 🎵 音效
+              setTimeout(() => {
+                playWinSound();
+                winnerFireworkRef.current?.triggerFirework();
+              }, 100);
             }
           } else {
             // 单人模式：根据倒置模式找出比较值最高/最低的玩家
@@ -1925,41 +2034,46 @@ export default function BattleDetailPage() {
               
               // 🎯 标记已设置获胜者
               completedWinnerSetRef.current = true;
+              
+              // 🎉 播放烟花动画 + 🎵 音效
+              setTimeout(() => {
+                playWinSound();
+                winnerFireworkRef.current?.triggerFirework();
+              }, 100);
             }
           }
         }
+      
+      // 最终统计验证
+      const preGenerated = (window as any).__preGeneratedDetailedResults;
+      
+      if (preGenerated && roundResults) {
+        let matchCount = 0;
+        let totalCount = 0;
         
-        // 延迟显示最终统计
-        const preGenerated = (window as any).__preGeneratedDetailedResults;
-        
-        if (preGenerated && roundResults) {
-          let matchCount = 0;
-          let totalCount = 0;
+        Object.keys(preGenerated).forEach(roundStr => {
+          const round = parseInt(roundStr);
           
-          Object.keys(preGenerated).forEach(roundStr => {
-            const round = parseInt(roundStr);
+          Object.keys(preGenerated[round] || {}).forEach(participantId => {
+            const expected = preGenerated[round][participantId];
+            const actual = roundResults[round]?.[participantId];
+            totalCount++;
             
-            Object.keys(preGenerated[round] || {}).forEach(participantId => {
-              const expected = preGenerated[round][participantId];
-              const actual = roundResults[round]?.[participantId];
-              totalCount++;
-              
-              if (actual) {
-                const match = expected.id === actual.id;
-                if (match) matchCount++;
-              }
-            });
+            if (actual) {
+              const match = expected.id === actual.id;
+              if (match) matchCount++;
+            }
           });
-          
-          console.log(`📊 [最终统计] ${matchCount}/${totalCount} 匹配 (${(matchCount/totalCount*100).toFixed(1)}%)`);
-          
-          if (matchCount !== totalCount) {
-            console.error('⚠️ 发现结果不一致！');
-          } else {
-            console.log('✅ 所有结果完全匹配！');
-          }
+        });
+        
+        console.log(`📊 [最终统计] ${matchCount}/${totalCount} 匹配 (${(matchCount/totalCount*100).toFixed(1)}%)`);
+        
+        if (matchCount !== totalCount) {
+          console.error('⚠️ 发现结果不一致！');
+        } else {
+          console.log('✅ 所有结果完全匹配！');
         }
-      }, 1000);
+      }
     }
   }, [mainState, roundResults, allParticipants, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.totalRounds, playerColors, sprintScores]);
 
@@ -2118,7 +2232,10 @@ export default function BattleDetailPage() {
             };
             
             return (
-              <div className="flex flex-col items-center justify-center gap-6 w-[1280px]" style={{ minHeight: '450px' }}>
+              <div className="flex flex-col items-center justify-center gap-6 w-[1280px] relative" style={{ minHeight: '450px' }}>
+                {/* 🎉 烟花动画层 */}
+                <FireworkArea ref={winnerFireworkRef} />
+                
                 {/* 获胜者展示 */}
                 <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4">
                   {winners.map((member, index) => (
@@ -2614,13 +2731,22 @@ export default function BattleDetailPage() {
                         className="flex flex-col items-center gap-2 flex-1 min-w-0 relative"
                         style={{ marginTop: `${-(450 - 216.5) / 2}px` }}
                       >
-                        {/* 渲染所有轮次的老虎机 */}
-                        {gameData.rounds.map((roundData, roundIndex) => {
-                          const isCurrentRound = roundIndex === gameData.currentRound;
-                          const selectedPrizeId = isCurrentRound ? currentRoundPrizes[participant.id] : null;
+                        {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
+                        {(() => {
+                          const roundIndex = gameData.currentRound;
+                          const roundData = gameData.rounds[roundIndex];
+                          if (!roundData) return null;
+                          
+                          const selectedPrizeId = currentRoundPrizes[participant.id];
+                          
+                          // 🛡️ 守卫：如果奖品ID未设置，不渲染老虎机
+                          if (!selectedPrizeId) {
+                            console.warn(`⚠️ selectedPrizeId 未设置，参与者: ${participant.name}, 轮次: ${roundIndex}`);
+                            return null;
+                          }
+                          
                           const keySuffix = slotMachineKeySuffix[participant.id] || '';
                           const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
-                          const participantSymbols = playerSymbols[participant.id] || currentSlotSymbols;
                           
                           return (
                             <div key={`round-${roundIndex}`} className="absolute inset-0">
@@ -2628,50 +2754,50 @@ export default function BattleDetailPage() {
                               <div 
                                 className="w-full transition-opacity duration-300 absolute inset-0" 
                                 style={{ 
-                                  opacity: isCurrentRound && !keySuffix ? 1 : 0,
-                                  pointerEvents: isCurrentRound && !keySuffix ? 'auto' : 'none',
-                                  zIndex: isCurrentRound && !keySuffix ? 1 : 0
+                                  opacity: !keySuffix ? 1 : 0,
+                                  pointerEvents: !keySuffix ? 'auto' : 'none',
+                                  zIndex: !keySuffix ? 1 : 0
                                 }}
                               >
                                 <LuckySlotMachine
                                   key={`${participant.id}-${roundIndex}-first`}
                                   ref={(ref) => {
-                                    if (ref && isCurrentRound && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                    if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
                                   symbols={roundData.pools.normal}
-                                  selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
+                                  selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                   height={450}
                                   spinDuration={spinDuration}
-                                  onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
+                                  onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                                 />
                               </div>
                               
-                              {/* 第二段老虎机（预加载） */}
+                              {/* 第二段老虎机 */}
                               {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
                                 <div 
                                   className="w-full transition-opacity duration-300 absolute inset-0" 
                                   style={{ 
-                                    opacity: isCurrentRound && keySuffix ? 1 : 0,
-                                    pointerEvents: isCurrentRound && keySuffix ? 'auto' : 'none',
-                                    zIndex: isCurrentRound && keySuffix ? 1 : 0
+                                    opacity: keySuffix ? 1 : 0,
+                                    pointerEvents: keySuffix ? 'auto' : 'none',
+                                    zIndex: keySuffix ? 1 : 0
                                   }}
                                 >
                                   <LuckySlotMachine
                                     key={`${participant.id}-${roundIndex}-second`}
                                     ref={(ref) => {
-                                      if (ref && isCurrentRound && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                      if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
                                     symbols={roundData.pools.legendary}
-                                    selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
+                                    selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
                                     spinDuration={spinDuration}
-                                    onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
+                                    onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                   />
                                 </div>
                               )}
                             </div>
                           );
-                        })}
+                        })()}
                       </div>
                     );
                   })}
@@ -2688,13 +2814,22 @@ export default function BattleDetailPage() {
                         className="flex flex-col items-center gap-2 flex-1 min-w-0 relative"
                         style={{ marginTop: `${-(450 - 216.5) / 2}px` }}
                       >
-                        {/* 渲染所有轮次的老虎机 */}
-                        {gameData.rounds.map((roundData, roundIndex) => {
-                          const isCurrentRound = roundIndex === gameData.currentRound;
-                          const selectedPrizeId = isCurrentRound ? currentRoundPrizes[participant.id] : null;
+                        {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
+                        {(() => {
+                          const roundIndex = gameData.currentRound;
+                          const roundData = gameData.rounds[roundIndex];
+                          if (!roundData) return null;
+                          
+                          const selectedPrizeId = currentRoundPrizes[participant.id];
+                          
+                          // 🛡️ 守卫：如果奖品ID未设置，不渲染老虎机
+                          if (!selectedPrizeId) {
+                            console.warn(`⚠️ selectedPrizeId 未设置，参与者: ${participant.name}, 轮次: ${roundIndex}`);
+                            return null;
+                          }
+                          
                           const keySuffix = slotMachineKeySuffix[participant.id] || '';
                           const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
-                          const participantSymbols = playerSymbols[participant.id] || currentSlotSymbols;
                           
                           return (
                             <div key={`round-${roundIndex}`} className="absolute inset-0">
@@ -2702,50 +2837,50 @@ export default function BattleDetailPage() {
                               <div 
                                 className="w-full transition-opacity duration-300 absolute inset-0" 
                                 style={{ 
-                                  opacity: isCurrentRound && !keySuffix ? 1 : 0,
-                                  pointerEvents: isCurrentRound && !keySuffix ? 'auto' : 'none',
-                                  zIndex: isCurrentRound && !keySuffix ? 1 : 0
+                                  opacity: !keySuffix ? 1 : 0,
+                                  pointerEvents: !keySuffix ? 'auto' : 'none',
+                                  zIndex: !keySuffix ? 1 : 0
                                 }}
                               >
                                 <LuckySlotMachine
                                   key={`${participant.id}-${roundIndex}-first`}
                                   ref={(ref) => {
-                                    if (ref && isCurrentRound && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                    if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
                                   symbols={roundData.pools.normal}
-                                  selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
+                                  selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                   height={450}
                                   spinDuration={spinDuration}
-                                  onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
+                                  onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                                 />
                               </div>
                               
-                              {/* 第二段老虎机（预加载） */}
+                              {/* 第二段老虎机 */}
                               {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
                                 <div 
                                   className="w-full transition-opacity duration-300 absolute inset-0" 
                                   style={{ 
-                                    opacity: isCurrentRound && keySuffix ? 1 : 0,
-                                    pointerEvents: isCurrentRound && keySuffix ? 'auto' : 'none',
-                                    zIndex: isCurrentRound && keySuffix ? 1 : 0
+                                    opacity: keySuffix ? 1 : 0,
+                                    pointerEvents: keySuffix ? 'auto' : 'none',
+                                    zIndex: keySuffix ? 1 : 0
                                   }}
                                 >
                                   <LuckySlotMachine
                                     key={`${participant.id}-${roundIndex}-second`}
                                     ref={(ref) => {
-                                      if (ref && isCurrentRound && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                      if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
                                     symbols={roundData.pools.legendary}
-                                    selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
+                                    selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
                                     spinDuration={spinDuration}
-                                    onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
+                                    onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                   />
                                 </div>
                               )}
                             </div>
                           );
-                        })}
+                        })()}
                       </div>
                     );
                   })}
@@ -2758,10 +2893,13 @@ export default function BattleDetailPage() {
                   
                   return (
                     <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ height: '450px' }}>
-                      {/* 渲染所有轮次的老虎机 */}
-                      {gameData.rounds.map((roundData, roundIndex) => {
-                        const isCurrentRound = roundIndex === gameData.currentRound;
-                        const selectedPrizeId = isCurrentRound ? currentRoundPrizes[participant.id] : null;
+                      {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
+                      {(() => {
+                        const roundIndex = gameData.currentRound;
+                        const roundData = gameData.rounds[roundIndex];
+                        if (!roundData) return null;
+                        
+                        const selectedPrizeId = currentRoundPrizes[participant.id];
                         const keySuffix = slotMachineKeySuffix[participant.id] || '';
                         const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
                         
@@ -2771,50 +2909,50 @@ export default function BattleDetailPage() {
                             <div 
                               className="w-full transition-opacity duration-300 absolute inset-0" 
                               style={{ 
-                                opacity: isCurrentRound && !keySuffix ? 1 : 0,
-                                pointerEvents: isCurrentRound && !keySuffix ? 'auto' : 'none',
-                                zIndex: isCurrentRound && !keySuffix ? 1 : 0
+                                opacity: !keySuffix ? 1 : 0,
+                                pointerEvents: !keySuffix ? 'auto' : 'none',
+                                zIndex: !keySuffix ? 1 : 0
                               }}
                             >
                              <LuckySlotMachine
                                key={`${participant.id}-${roundIndex}-first`}
                                ref={(ref) => {
-                                 if (ref && isCurrentRound && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                 if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                }}
                                symbols={roundData.pools.normal}
-                               selectedPrizeId={isCurrentRound && !keySuffix ? selectedPrizeId : null}
+                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                height={450}
                                spinDuration={spinDuration}
-                              onSpinComplete={(result) => isCurrentRound && !keySuffix && handleSlotComplete(participant.id, result)}
+                              onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
                             />
                             </div>
                             
-                            {/* 第二段老虎机（预加载） */}
+                            {/* 第二段老虎机 */}
                             {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
                               <div 
                                 className="w-full transition-opacity duration-300 absolute inset-0" 
                                 style={{ 
-                                  opacity: isCurrentRound && keySuffix ? 1 : 0,
-                                  pointerEvents: isCurrentRound && keySuffix ? 'auto' : 'none',
-                                  zIndex: isCurrentRound && keySuffix ? 1 : 0
+                                  opacity: keySuffix ? 1 : 0,
+                                  pointerEvents: keySuffix ? 'auto' : 'none',
+                                  zIndex: keySuffix ? 1 : 0
                                 }}
                               >
                                 <LuckySlotMachine
                                   key={`${participant.id}-${roundIndex}-second`}
                                   ref={(ref) => {
-                                    if (ref && isCurrentRound && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                    if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
                                   symbols={roundData.pools.legendary}
-                                  selectedPrizeId={isCurrentRound && keySuffix ? selectedPrizeId : null}
+                                  selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                   height={450}
                                   spinDuration={spinDuration}
-                                  onSpinComplete={(result) => isCurrentRound && keySuffix && handleSlotComplete(participant.id, result)}
+                                  onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                 />
                               </div>
                             )}
                           </div>
                         );
-                      })}
+                      })()}
                     </div>
                   );
                 })}

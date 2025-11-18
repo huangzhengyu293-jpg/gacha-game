@@ -177,7 +177,7 @@ export default function SelectPackModal({
             {filtered.map((p) => (
               <div key={p.id} className="flex flex-col gap-2 relative items-stretch cursor-pointer w-full">
                 <PackCard
-                  imageUrl={`${p.image}?tr=q-50,w-640,c-at_max`}
+                  imageUrl={p.image}
                   alt={p.title}
                   width={200}
                   height={304}

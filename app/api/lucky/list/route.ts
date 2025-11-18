@@ -4,19 +4,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dev-api.fl
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body;
+    const body = await request.json().catch(() => ({}));
 
-    if (!email || !password) {
-      return NextResponse.json({ error: '请输入邮箱和密码' }, { status: 400 });
-    }
-
-    const apiUrl = `${API_BASE_URL}/api/auth/login`;
-
-    // 使用 URLSearchParams 发送 form-data 格式
+    // 构造 form-data 格式的请求体
     const formData = new URLSearchParams();
-    formData.append('email', email);
-    formData.append('password', password);
+    formData.append('name', body.name || '');
+    formData.append('price_sort', String(body.price_sort || '1'));
+    formData.append('price_min', String(body.price_min || '200'));
+    formData.append('price_max', String(body.price_max || '5888'));
+
+    const apiUrl = `${API_BASE_URL}/api/lucky/list`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -32,20 +29,20 @@ export async function POST(request: NextRequest) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { code: 500, message: text || '登录失败', data: [] };
+      data = { code: 500, message: text || '获取商品列表失败', data: [] };
     }
 
-    // 如果 HTTP 状态码是 200，就认为成功（不管 data.code 是多少）
     if (response.ok) {
       return NextResponse.json(data, { status: 200 });
     }
 
-    // HTTP 状态码不是 200，返回错误
     return NextResponse.json(
-      { error: data.message || '登录失败' },
+      { error: data.message || '获取商品列表失败' },
       { status: response.status }
     );
   } catch (error) {
     return NextResponse.json({ error: '服务器错误，请稍后重试' }, { status: 500 });
   }
 }
+
+

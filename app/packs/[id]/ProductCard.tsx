@@ -96,7 +96,7 @@ export default function ProductCard({ prod, compact = false }: { prod: DisplayPr
             alt={prod.name}
             loading="lazy"
             decoding="async"
-            src={`${prod.image}?tr=w-3840,c-at_max`}
+            src={prod.image}
             style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, objectFit: 'contain', color: 'transparent', zIndex: 1 }}
           />
         </div>
@@ -111,7 +111,7 @@ export default function ProductCard({ prod, compact = false }: { prod: DisplayPr
         open={open}
         onClose={() => setOpen(false)}
         name={prod.name}
-        image={`${prod.image}?tr=w-3840,c-at_max`}
+        image={prod.image}
         price={prod.price}
         description={(prod as any).description}
       />

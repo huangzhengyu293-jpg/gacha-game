@@ -8,23 +8,22 @@ export async function POST(request: NextRequest) {
     const { to, type } = body;
 
     if (!to || !type) {
-      return NextResponse.json(
-        { error: '缺少必填字段' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '缺少必填字段' }, { status: 400 });
     }
 
     const apiUrl = `${API_BASE_URL}/api/index/sendemail`;
-    console.log('[SendEmail API] 请求URL:', apiUrl);
-    console.log('[SendEmail API] 请求数据:', { to, type });
+
+    // 使用 URLSearchParams 发送 form-data 格式
+    const formData = new URLSearchParams();
+    formData.append('to', to);
+    formData.append('type', String(type));
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({ to, type }),
+      body: formData.toString(),
     });
 
     const text = await response.text();
@@ -36,23 +35,17 @@ export async function POST(request: NextRequest) {
       data = { code: 500, message: text || '发送失败', data: [] };
     }
 
-    console.log('[SendEmail API] 响应数据:', data);
-
-    // 根据API响应格式处理
-    if (!response.ok || (data.code && data.code !== 200)) {
-      return NextResponse.json(
-        { error: data.message || '发送邮件失败' },
-        { status: response.ok ? 400 : response.status }
-      );
+    // 如果 HTTP 状态码是 200，就认为成功
+    if (response.ok) {
+      return NextResponse.json(data, { status: 200 });
     }
 
-    return NextResponse.json(data, { status: 200 });
-  } catch (error) {
-    console.error('发送邮件API错误:', error);
+    // HTTP 状态码不是 200，返回错误
     return NextResponse.json(
-      { error: '服务器错误，请稍后重试' },
-      { status: 500 }
+      { error: data.message || '发送邮件失败' },
+      { status: response.status }
     );
+  } catch (error) {
+    return NextResponse.json({ error: '服务器错误，请稍后重试' }, { status: 500 });
   }
 }
-

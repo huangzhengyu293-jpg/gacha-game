@@ -45,7 +45,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ id:
         <ActionBarClient price={pack.price} />
       </div>
       {/* Media strip */}
-      <PackMediaStrip primaryPackId={pack.id} primaryImageUrl={`${pack.image}?tr=w-256,c-at_max`} title={pack.title} />
+      <PackMediaStrip primaryPackId={pack.id} primaryImageUrl={pack.image} title={pack.title} />
       {/* 下面的卡包信息与物品列表由 PackMediaStrip 动态渲染（顺序与格子一致） */}
       </div>
      

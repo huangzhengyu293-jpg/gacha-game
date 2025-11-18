@@ -268,8 +268,7 @@ export default function CreatePackPage() {
                                   loading="lazy"
                                   decoding="async"
                                   className="object-contain pointer-events-none"
-                                  sizes="(min-width: 0px) 100px"
-                                  src={`${prod.image}?tr=w-3840,c-at_max`}
+                                  src={prod.image}
                                   style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, color: 'transparent' }}
                                 />
                               </div>
@@ -351,7 +350,7 @@ export default function CreatePackPage() {
                       <div className="flex flex-col items-center justify-center h-full w-full p-6">
                         <div className="relative flex items-center justify-center w-24 h-24">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img alt={item.name} loading="lazy" decoding="async" className="object-contain pointer-events-none" sizes="(min-width: 0px) 100px" src={`${item.image}?tr=w-3840,c-at_max`} style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, color: 'transparent' }} />
+                          <img alt={item.name} loading="lazy" decoding="async" className="object-contain pointer-events-none" src={item.image} style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, color: 'transparent' }} />
                         </div>
                         <div className="flex flex-col items-center space-y-0 max-w-full">
                           <span className="text-sm font-bold truncate max-w-full" style={{ color: '#7A8084' }}>{item.name}</span>
@@ -398,7 +397,7 @@ export default function CreatePackPage() {
                   open={!!detailsItem}
                   onClose={()=>setDetailsItemId(null)}
                   name={detailsItem.name}
-                  image={`${detailsItem.image}?tr=w-1024,c-at_max`}
+                  image={detailsItem.image}
                   price={detailsItem.price}
                   description={detailsItem.description}
                 />

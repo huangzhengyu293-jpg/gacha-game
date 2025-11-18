@@ -36,8 +36,16 @@ export default function PacksGallery({
   const initialVisibleCount = 8 + BUFFER_SIZE + 1;
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: initialVisibleCount });
 
-  // 虚拟滚动：更新可见范围
+  // 虚拟滚动：更新可见范围（节流优化）
+  const lastUpdateTimeRef = useRef(0);
   const updateVisibleRange = useCallback(() => {
+    // 🚀 节流：每100ms最多更新一次虚拟滚动范围
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current < 100) {
+      return;
+    }
+    lastUpdateTimeRef.current = now;
+    
     const el = scrollRef.current;
     if (!el || packs.length <= VIRTUAL_THRESHOLD) return;
     
