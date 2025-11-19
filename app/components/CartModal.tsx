@@ -3,7 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { api, type WarehouseItem } from '../lib/api';
+import { api } from '../lib/api';
+
+// 🎯 定义WarehouseItem类型
+interface WarehouseItem {
+  id: string;
+  productId: string;
+  name: string;
+  price: number;
+  image: string;
+  quantity?: number;
+}
 import { useRouter } from 'next/navigation';
 
 interface CartItem {
