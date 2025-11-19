@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import LiveFeedElement from "./LiveFeedElement";
 import { useLiveFeed } from "./live-feed/LiveFeedProvider";
 
@@ -11,62 +12,91 @@ interface LiveFeedTickerProps {
 
 export default function LiveFeedTicker({ maxItems = 9, intervalMs = 2000 }: LiveFeedTickerProps) {
   const { items, enteringId, visibleCount, cardHeight, gapPx, oneStep, viewportPx } = useLiveFeed();
-  const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // 播放进入动画：当 enteringId 存在时，对应节点从 -oneStep 滑入
+  // 当新项目进入时，触发动画完成事件
   useEffect(() => {
     if (!enteringId) return;
-    const node = nodeRefs.current.get(enteringId);
-    if (!node) return;
-    node.style.transition = 'none';
-    node.style.top = `${-oneStep}px`;
-    node.style.opacity = '0';
-    void node.offsetHeight;
-    node.style.transition = `top 700ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease`;
-    node.style.top = `0px`;
-    node.style.opacity = '1';
     const endTimer = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent('livefeed:enter-finish'));
       window.clearTimeout(endTimer);
     }, 760);
-  }, [enteringId, oneStep]);
+  }, [enteringId]);
 
   // 视口高度
   const viewportPxMemo = useMemo(() => viewportPx, [viewportPx]);
 
   return (
     <div className="relative" style={{ height: viewportPxMemo + "px", overflow: "hidden" }}>
-      {items.map((it, index) => (
-        <div
-          key={it.id}
-          ref={(el) => {
-            if (el) nodeRefs.current.set(it.id, el);
-            else nodeRefs.current.delete(it.id);
-          }}
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: `${index * oneStep}px`,
-            transition: 'top 700ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 300ms ease',
-          }}
-          // 不对卡片内部做缩放；仅通过 top/opacity 完成滑入与淡入
-        >
-          <LiveFeedElement
-            index={index}
-            href={it.href}
-            avatarUrl={it.avatarUrl}
-            productImageUrl={it.productImageUrl}
-            packImageUrl={it.packImageUrl}
-            title={it.title}
-            priceLabel={it.priceLabel}
-            glowColor={it.glowColor}
-          />
-        </div>
-      ))}
+      <AnimatePresence initial={false}>
+        {items.map((it, index) => (
+          <motion.div
+            key={it.id}
+            layout
+            initial={{ 
+              opacity: 0, 
+              y: -80,
+              scale: 0.85,
+              filter: "blur(4px)"
+            }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+              scale: 1,
+              filter: "blur(0px)"
+            }}
+            exit={{ 
+              opacity: 0, 
+              scale: 0.85,
+              filter: "blur(4px)",
+              transition: { duration: 0.3 }
+            }}
+            transition={{
+              layout: { 
+                duration: 0.6, 
+                ease: [0.16, 1, 0.3, 1],
+                type: "spring",
+                stiffness: 100,
+                damping: 15
+              },
+              opacity: { duration: 0.4, ease: "easeOut" },
+              y: { 
+                duration: 0.6, 
+                ease: [0.16, 1, 0.3, 1],
+                type: "spring",
+                stiffness: 120,
+                damping: 18
+              },
+              scale: { 
+                duration: 0.5, 
+                ease: [0.34, 1.56, 0.64, 1],
+                type: "spring",
+                stiffness: 150,
+                damping: 12
+              },
+              filter: { duration: 0.3 }
+            }}
+            style={{
+              marginBottom: index < items.length - 1 ? `${gapPx}px` : 0,
+              transformOrigin: "top center",
+              willChange: "transform, opacity"
+            }}
+          >
+            <LiveFeedElement
+              index={index}
+              href={it.href}
+              avatarUrl={it.avatarUrl}
+              productImageUrl={it.productImageUrl}
+              packImageUrl={it.packImageUrl}
+              title={it.title}
+              priceLabel={it.priceLabel}
+              glowColor={it.glowColor}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
-// 删除本地 mock 与裁剪逻辑，交给 Provider 管理
+// framer-motion 完全支持 React 19，提供更强大的动画控制
 
 

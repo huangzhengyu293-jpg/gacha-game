@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/app/lib/api';
 import HorizontalLuckySlotMachine from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
 import type { SlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
-import LuckySlotMachine from '@/app/components/SlotMachine/LuckySlotMachine';
+import LuckySlotMachine from '@/app/components/SlotMachine/CanvasSlotMachine';
 
 const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
 

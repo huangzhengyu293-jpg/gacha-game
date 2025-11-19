@@ -3,7 +3,7 @@
 import type { BattleData, Participant } from "../types";
 import Image from "next/image";
 import { useEffect, useState, useMemo, useRef } from "react";
-import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
+import type { SlotSymbol } from "@/app/components/SlotMachine/CanvasSlotMachine";
 
 interface ParticipantsWithPrizesProps {
   battleData: BattleData;
@@ -491,154 +491,20 @@ export default function ParticipantsWithPrizes({
                 {/* 为每个成员槽位创建一列 */}
                 {memberSlotsWithIndex.map(({ member }, memberIndex) => (
                   <div key={`${team.id}-member-${memberIndex}`} className="grid gap-2 w-full grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]">
-                    {packs.map((pack, packIndex) => {
-                      const roundId = `round-${packIndex}`;
-                      const roundPlayerItems = roundResultMap[roundId] || {};
-                      
-                      // 获取这个成员在这轮的结果
-                      const playerResult = member ? roundPlayerItems[member.id] : undefined;
-                      
-                      // 🔥 淘汰模式：检查这个成员是否被淘汰
-                      const isEliminatedPlayer = member && 
-                        gameMode === 'elimination' && 
-                        eliminationRounds[member.id] !== undefined;
-                      
-                      const eliminatedAtRound = isEliminatedPlayer 
-                        ? eliminationRounds[member!.id] 
-                        : -1;
-                      
-                      // 如果成员被淘汰了，且当前轮次 >= 淘汰轮次，显示覆盖层
-                      const shouldShowEliminationOverlay = isEliminatedPlayer && 
-                        packIndex >= eliminatedAtRound;
-                      
-                      // 🚀 性能优化：判断是否已完成（用于控制显示）
-                      const isRoundCompleted = completedRounds?.has(packIndex) || false;
-                      const shouldShowPlayerResult = playerResult;
-
-  return (
-                        <div
-                          key={`${team.id}-member-${memberIndex}-pack-${packIndex}`}
-                          data-component="BattleResultsRound"
-                          className="group flex flex-1 relative rounded-lg overflow-hidden cursor-pointer min-h-[7rem] sm:min-h-[8rem] md:min-h-[10rem]"
-                          style={{ backgroundColor: "#22272B" }}
-                        >
-                          <div className="flex relative w-full h-full overflow-hidden">
-                            {shouldShowPlayerResult ? (
-                              <>
-                                {/* 光晕背景 - 根据品质变色 */}
-                                <div 
-                                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 group-hover:opacity-90 filter blur-[25px]"
-                                  style={{ 
-                                    backgroundColor: playerResult.qualityId === 'legendary' ? '#FFD700' 
-                                      : playerResult.qualityId === 'epic' ? '#A335EE'
-                                      : playerResult.qualityId === 'rare' ? '#0070DD'
-                                      : playerResult.qualityId === 'uncommon' ? '#1EFF00'
-                                      : '#9D9D9D'
-                                  }}
-                                />
-                                
-                                {/* 🚀 性能优化：使用 opacity 控制显示，而不是条件渲染 */}
-                                <div 
-                                  className="absolute inset-0 flex w-full h-full flex-col justify-between items-center p-3 text-center transition-opacity duration-300" 
-                                  style={{ 
-                                    zIndex: 1,
-                                    opacity: isRoundCompleted ? 1 : 0
-                                  }}
-                                >
-                                  {/* 中奖百分比 */}
-                                  <p className="text-sm text-gray-400 font-semibold h-6">
-                                    {playerResult.dropProbability 
-                                      ? `${(playerResult.dropProbability * 100).toFixed(4)}%`
-                                      : '0.0000%'}
-                                  </p>
-                                  
-                                  {/* 道具图片 - 占据剩余空间 */}
-                                  {playerResult.image && (
-                                    <div className="relative w-full flex-1 flex items-center justify-center">
-                                      <Image
-                                        alt={playerResult.name}
-                                        src={playerResult.image}
-                                        fill
-                                        sizes="(min-width: 0px) 100px"
-                                        className="object-contain"
-                                      />
-                                    </div>
-                                  )}
-                                  
-                                  {/* 底部信息 */}
-                                  <div className="flex flex-col w-full gap-0.5">
-                                    {/* 道具名称 */}
-                                    <p className="text-sm text-gray-400 font-semibold truncate max-w-full text-center">
-                                      {playerResult.name}
-                                    </p>
-                                    
-                                    {/* 价格 */}
-                                    <div className="flex justify-center">
-                                      <p className="text-sm text-white font-extrabold">
-                                        ${playerResult.price || '0.00'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {/* 🔥 淘汰覆盖层 - 被淘汰后的所有轮次都显示 */}
-                                {shouldShowEliminationOverlay && (
-                                  <>
-                                    {/* 深色遮罩背景 */}
-                                    <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[2]" />
-                                    
-                                    {/* 橙色警告图标 */}
-                                    <div className="flex absolute inset-0 text-[#FF9C49] z-[3] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
-                                      <div className="flex w-full max-w-16 max-h-16">
-                                        <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                          <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 45.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
-                                        </svg>
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
-                              </>
-                            ) : (
-                              // 没有结果，显示Round文字和hover时显示包裹
-                              <>
-                                {/* Round文字 - hover时消失 */}
-                                <div
-                                  data-component="RoundCard"
-                                  className="absolute inset-0 flex w-full h-full justify-center items-center text-center transition duration-300 group-hover:opacity-0 group-hover:translate-y-4"
-                                >
-                                  <p className="text-xs sm:text-sm text-white font-bold">Round {packIndex + 1}</p>
-                                </div>
-                                
-                                {/* 包裹图片 - hover时出现 */}
-                                <div
-                                  data-component="PackCard"
-                                  className="absolute inset-0 opacity-0 translate-y-6 group-hover:opacity-100 group-hover:translate-y-0 transition duration-300 flex w-full h-full justify-center p-2 md:p-5"
-                                >
-                                  <Image
-                                    alt={pack.name}
-                                    src={pack.image}
-                                    width={150}
-                                    height={300}
-                                    className="object-contain h-full w-auto pointer-events-none"
-                                  />
-                                </div>
-                                
-                                {/* 🔥 淘汰后且没有物品数据的轮次 - 右上角小灰色警告图标 */}
-                                {shouldShowEliminationOverlay && !shouldShowPlayerResult && (
-                                  <div className="flex size-5 absolute top-3 right-3 pointer-events-none z-10" style={{ color: '#7A8084' }}>
-                                    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                      <path d="M11.4416 3.33334C11.2951 3.08078 11.0848 2.87113 10.8318 2.7254C10.5788 2.57967 10.2919 2.50296 9.99996 2.50296C9.70798 2.50296 9.42112 2.57967 9.1681 2.7254C8.91509 2.87113 8.7048 3.08078 8.55829 3.33334L1.89163 15C1.74542 15.2532 1.66841 15.5405 1.66834 15.8329C1.66826 16.1253 1.74512 16.4126 1.8912 16.6659C2.03728 16.9192 2.24743 17.1297 2.50056 17.2761C2.75369 17.4225 3.04088 17.4997 3.33329 17.5H16.6666C16.959 17.4997 17.2462 17.4225 17.4994 17.2761C17.7525 17.1297 17.9626 16.9192 18.1087 16.6659C18.2548 16.4126 18.3317 16.1253 18.3316 15.8329C18.3315 15.5405 18.2545 15.2532 18.1083 15L11.4416 3.33334Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                                      <path d="M12 10L8 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                                      <path d="M8 10L12 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                                    </svg>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {packs.map((pack, packIndex) => (
+                      <LazyRoundCard
+                        key={`${team.id}-member-${memberIndex}-pack-${packIndex}`}
+                        pack={pack}
+                        packIndex={packIndex}
+                        member={member}
+                        completedRounds={completedRounds}
+                        roundResultMap={roundResultMap}
+                        gameMode={gameMode}
+                        eliminationRounds={eliminationRounds}
+                        teamId={team.id}
+                        memberIndex={memberIndex}
+                      />
+                    ))}
                   </div>
                 ))}
               </div>
@@ -814,161 +680,167 @@ export default function ParticipantsWithPrizes({
             </div>
               <div className="flex flex-row gap-2 mt-2 items-stretch">
                 <div className="grid gap-2 w-full grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]">
-                  {packs.map((pack, roundIndex) => {
-                    const key = participant ? `${participant.id}-${roundIndex}` : `${slotKey}-round-${roundIndex}`;
-                    // Use round index to get results
-                    const resultForRound = roundResultMap[`round-${roundIndex}`] || {};
-                    const playerResult =
-                      participant && resultForRound
-                        ? resultForRound[participant.id]
-                        : undefined;
+                  {packs.map((pack, roundIndex) => (
+                    <LazyRoundCard
+                      key={participant ? `${participant.id}-${roundIndex}` : `${slotKey}-round-${roundIndex}`}
+                      pack={pack}
+                      packIndex={roundIndex}
+                      member={participant}
+                      completedRounds={completedRounds}
+                      roundResultMap={roundResultMap}
+                      gameMode={gameMode}
+                      eliminationRounds={eliminationRounds}
+                    />
+                  ))}
                     
-                    // 🔥 淘汰模式：检查这个玩家是否在这一轮或之前被淘汰
-                    const isEliminatedPlayer = participant && 
-                      gameMode === 'elimination' && 
-                      eliminationRounds[participant.id] !== undefined;
-                    
-                    const eliminatedAtRound = isEliminatedPlayer 
-                      ? eliminationRounds[participant!.id] 
-                      : -1;
-                    
-                    // 如果玩家被淘汰了，且当前轮次 >= 淘汰轮次，显示覆盖层
-                    const shouldShowEliminationOverlay = isEliminatedPlayer && 
-                      roundIndex >= eliminatedAtRound;
-                    
-                    // 🚀 性能优化：判断是否已完成（用于控制显示）
-                    const isRoundCompleted = completedRounds?.has(roundIndex) || false;
-                    const shouldShowPlayerResult = playerResult;
-                    
-                    return (
-                      <div
-                        key={`${key}-${pack.id}`}
-                        data-component="BattleResultsRound"
-                        className="group flex flex-1 relative rounded-lg overflow-hidden cursor-pointer min-h-[7rem] sm:min-h-[8rem] md:min-h-[10rem]"
-                        style={{ backgroundColor: "#22272B" }}
-                      >
-                        <div className="flex relative w-full h-full overflow-hidden">
-                          {shouldShowPlayerResult ? (
-                            <>
-                              {/* 光晕背景 - 根据品质变色 */}
-                              <div 
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 md:group-hover:opacity-90 filter blur-[25px]"
-                  style={{
-                                  backgroundColor: playerResult.qualityId === 'legendary' ? '#FFD700' 
-                                    : playerResult.qualityId === 'epic' ? '#A335EE'
-                                    : playerResult.qualityId === 'rare' ? '#0070DD'
-                                    : playerResult.qualityId === 'uncommon' ? '#1EFF00'
-                                    : '#9D9D9D' // common
-                                }}
-                              />
-                              
-                              {/* 🚀 性能优化：使用 opacity 控制显示，而不是条件渲染 */}
-                              <div 
-                                className="absolute inset-0 flex w-full h-full flex-col justify-center items-center gap-1 p-2 text-center transition-opacity duration-300" 
-                                style={{ 
-                                  zIndex: 1,
-                                  opacity: isRoundCompleted ? 1 : 0
-                                }}
-                              >
-                                {/* 中奖百分比 */}
-                                <p className="text-xs text-gray-400 font-semibold">
-                                  {playerResult.dropProbability 
-                                    ? `${(playerResult.dropProbability * 100).toFixed(4)}%`
-                                    : '0.0000%'}
-                                </p>
-                                
-                                 {/* 道具图片 */}
-                                 {playerResult.image ? (
-                                   <div className="relative w-full h-12 sm:h-16 md:h-20 flex-shrink-0">
-                                     <Image
-                                       alt={playerResult.name}
-                                       src={playerResult.image}
-                                       fill
-                                       sizes="(min-width: 0px) 100px"
-                            className="object-contain"
-                                       unoptimized
-                          />
-                        </div>
-                                 ) : (
-                                   <span className="text-2xl sm:text-3xl md:text-4xl text-white">{playerResult.name?.slice(0, 2) || '?'}</span>
-                                 )}
-                                
-                                {/* 道具名称 */}
-                                <p className="text-xs text-white font-bold truncate w-full">{playerResult.name}</p>
-                                
-                                {/* 道具价格 */}
-                                <p className="text-sm text-white font-extrabold">
-                                  ${typeof playerResult.price === 'number' 
-                                    ? playerResult.price.toFixed(2) 
-                                    : '0.00'}
-                            </p>
-                          </div>
-                          
-                          {/* 🔥 淘汰模式：被淘汰后的所有轮次都显示大橙色覆盖层 + 深色背景 */}
-                          {shouldShowEliminationOverlay && (
-                            <>
-                              {/* 深色遮罩背景 */}
-                              <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[2]" />
-                              
-                              {/* 橙色警告图标 */}
-                              <div className="flex absolute inset-0 text-[#FF9C49] z-[3] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
-                                <div className="flex w-full max-w-16 max-h-16">
-                                  <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 45.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
-                                  </svg>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                            </>
-                          ) : (
-                            <>
-                              <div
-                                data-component="RoundCard"
-                                className="absolute inset-0 flex w-full h-full justify-center items-center text-center transition duration-300 group-hover:opacity-0 group-hover:translate-y-4"
-                              >
-                                <p className="text-sm text-white font-bold">Round {roundIndex + 1}</p>
-                              </div>
-                              <div
-                                data-component="PackCard"
-                                className="absolute inset-0 opacity-0 translate-y-6 group-hover:opacity-100 group-hover:translate-y-0 transition duration-300 flex w-full h-full justify-center p-2 md:p-5"
-                              >
-                                <Image
-                                  alt={pack.name}
-                                  src={pack.image}
-                                  width={150}
-                                  height={300}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="h-full w-auto"
-                                  style={{ color: "transparent" }}
-                                  sizes="(min-width: 0px) 100px"
-                                  unoptimized
-                                />
-                        </div>
-                        
-                        {/* 🔥 淘汰模式：淘汰后且没有物品数据的轮次显示小灰色警告图标 */}
-                        {shouldShowEliminationOverlay && !shouldShowPlayerResult && (
-                          <div className="flex size-5 absolute top-3 right-3 pointer-events-none z-10" style={{ color: '#7A8084' }}>
-                            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M11.4416 3.33334C11.2951 3.08078 11.0848 2.87113 10.8318 2.7254C10.5788 2.57967 10.2919 2.50296 9.99996 2.50296C9.70798 2.50296 9.42112 2.57967 9.1681 2.7254C8.91509 2.87113 8.7048 3.08078 8.55829 3.33334L1.89163 15C1.74542 15.2532 1.66841 15.5405 1.66834 15.8329C1.66826 16.1253 1.74512 16.4126 1.8912 16.6659C2.03728 16.9192 2.24743 17.1297 2.50056 17.2761C2.75369 17.4225 3.04088 17.4997 3.33329 17.5H16.6666C16.959 17.4997 17.2462 17.4225 17.4994 17.2761C17.7525 17.1297 17.9626 16.9192 18.1087 16.6659C18.2548 16.4126 18.3317 16.1253 18.3316 15.8329C18.3315 15.5405 18.2545 15.2532 18.1083 15L11.4416 3.33334Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                              <path d="M12 10L8 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                              <path d="M8 10L12 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                            </svg>
-                          </div>
-                        )}
-                            </>
-                          )}
-                        </div>
-                    </div>
-                    );
-                  })}
+                   
                 </div>
               </div>
           </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// 🚀 懒加载的 Round 卡片组件 - 使用 Intersection Observer 优化性能
+function LazyRoundCard({ 
+  pack, 
+  packIndex, 
+  member, 
+  completedRounds,
+  roundResultMap,
+  gameMode,
+  eliminationRounds,
+  teamId,
+  memberIndex
+}: {
+  pack: any;
+  packIndex: number;
+  member: any;
+  completedRounds?: Set<number>;
+  roundResultMap: Record<string, Record<string, SlotSymbol | undefined>>;
+  gameMode?: string;
+  eliminationRounds?: Record<string, number>;
+  teamId?: string;
+  memberIndex?: number;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      {
+        rootMargin: '300px',
+        threshold: 0.01
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const roundId = `round-${packIndex}`;
+  const roundPlayerItems = roundResultMap[roundId] || {};
+  const playerResult = member ? roundPlayerItems[member.id] : undefined;
+  const isRoundCompleted = completedRounds?.has(packIndex) || false;
+  const shouldShowPlayerResult = !!playerResult;
+
+  const isEliminatedPlayer = member && gameMode === 'elimination' && eliminationRounds?.[member.id] !== undefined;
+  const eliminatedAtRound = isEliminatedPlayer ? eliminationRounds![member.id] : -1;
+  const shouldShowEliminationOverlay = isEliminatedPlayer && packIndex >= eliminatedAtRound;
+
+  // 🎯 统一返回：根据可见性决定渲染内容
+  return (
+    <div
+      ref={cardRef}
+      data-component="BattleResultsRound"
+      className="group flex flex-1 relative rounded-lg overflow-hidden cursor-pointer min-h-[7rem] sm:min-h-[8rem] md:min-h-[10rem]"
+      style={{ backgroundColor: "#22272B" }}
+    >
+      {/* 🔥 关键：只有可见 && 完成时才渲染完整内容 */}
+      {isVisible && (
+        <div className="flex relative w-full h-full overflow-hidden">
+          {isRoundCompleted && shouldShowPlayerResult ? (
+            <>
+              <div 
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 group-hover:opacity-90 filter blur-[25px]"
+                style={{ 
+                  backgroundColor: playerResult.qualityId === 'legendary' ? '#FFD700' :
+                    playerResult.qualityId === 'epic' ? '#A335EE' :
+                    playerResult.qualityId === 'rare' ? '#0070DD' :
+                    playerResult.qualityId === 'uncommon' ? '#1EFF00' :
+                    '#9D9D9D'
+                }}
+              />
+              
+              <div className="absolute inset-0 flex w-full h-full flex-col justify-between items-center p-3 text-center">
+              <p className="text-sm text-gray-400 font-semibold h-6">
+                {playerResult.dropProbability ? `${(playerResult.dropProbability * 100).toFixed(4)}%` : '0.0000%'}
+              </p>
+              
+              {playerResult.image && (
+                <div className="relative w-full flex-1 flex items-center justify-center">
+                  <Image alt={playerResult.name} src={playerResult.image} fill sizes="(min-width: 0px) 100px" className="object-contain" />
+                </div>
+              )}
+              
+              <div className="flex flex-col w-full gap-0.5">
+                <p className="text-sm text-gray-400 font-semibold truncate max-w-full text-center">{playerResult.name}</p>
+                <div className="flex justify-center">
+                  <p className="text-sm text-white font-extrabold">${playerResult.price || '0.00'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {shouldShowEliminationOverlay && (
+              <>
+                <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[2]" />
+                <div className="flex absolute inset-0 text-[#FF9C49] z-[3] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
+                  <div className="flex w-full max-w-16 max-h-16">
+                    <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 75.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
+                    </svg>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div data-component="RoundCard" className="absolute inset-0 flex w-full h-full justify-center items-center text-center transition duration-300 group-hover:opacity-0 group-hover:translate-y-4">
+              <p className="text-xs sm:text-sm text-white font-bold">Round {packIndex + 1}</p>
+            </div>
+            
+            <div data-component="PackCard" className="absolute inset-0 opacity-0 translate-y-6 group-hover:opacity-100 group-hover:translate-y-0 transition duration-300 flex w-full h-full justify-center p-2 md:p-5">
+              <Image alt={pack.name} src={pack.image} width={150} height={300} className="object-contain h-full w-auto pointer-events-none" />
+            </div>
+            
+            {shouldShowEliminationOverlay && !shouldShowPlayerResult && (
+              <div className="flex size-5 absolute top-3 right-3 pointer-events-none z-10" style={{ color: '#7A8084' }}>
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.4416 3.33334C11.2951 3.08078 11.0848 2.87113 10.8318 2.7254C10.5788 2.57967 10.2919 2.50296 9.99996 2.50296C9.70798 2.50296 9.42112 2.57967 9.1681 2.7254C8.91509 2.87113 8.7048 3.08078 8.55829 3.33334L1.89163 15C1.74542 15.2532 1.66841 15.5405 1.66834 15.8329C1.66826 16.1253 1.74512 16.4126 1.8912 16.6659C2.03728 16.9192 2.24743 17.1297 2.50056 17.2761C2.75369 17.4225 3.04088 17.4997 3.33329 17.5H16.6666C16.959 17.4997 17.2462 17.4225 17.4994 17.2761C17.7525 17.1297 17.9626 16.9192 18.1087 16.6659C18.2548 16.4126 18.3315 16.1253 18.3316 15.8329C18.3315 15.5405 18.2545 15.2532 18.1083 15L11.4416 3.33334Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                  <path d="M12 10L8 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                  <path d="M8 10L12 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                </svg>
+              </div>
+            )}
+          </>
+        )}
+        </div>
+      )}
     </div>
   );
 }

@@ -837,20 +837,76 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   // 处理奖品选择
  
 
+  // 🚀 优化：无缝更新转轮内容，无需卸载重新挂载
   const updateReelContent = useCallback((newSymbols: SlotSymbol[]) => {
-    if (!reelContainerRef.current || newSymbols.length === 0) return;
+    if (!reelContainerRef.current || newSymbols.length === 0 || isSpinning) return;
     
+    // 保存当前滚动位置
+    const currentTop = parseFloat(reelContainerRef.current.style.top || '0');
     
-    // Update initialSymbolsRef to new symbols
+    // 更新初始符号引用
     initialSymbolsRef.current = newSymbols;
     
-    // Reset selection cache
+    // 重新生成虚拟项目数组（保持相同的结构）
+    const symbolSequence: SlotSymbol[] = [];
+    for (let j = 0; j < itemsPerReelRef.current; j++) {
+      symbolSequence.push(newSymbols[Math.floor(Math.random() * newSymbols.length)]);
+    }
+    
+    virtualItemsRef.current = [];
+    for (let repeat = 0; repeat < repeatTimes; repeat++) {
+      virtualItemsRef.current.push(...symbolSequence);
+    }
+    
+    // 🔥 关键：逐个更新已渲染的 DOM 元素，而不是全部重建
+    renderedItemsMapRef.current.forEach((element, index) => {
+      const symbol = virtualItemsRef.current[index];
+      if (!symbol) return;
+      
+      // 更新数据属性
+      element.dataset.id = symbol.id;
+      element.dataset.name = symbol.name;
+      element.dataset.price = symbol.price.toString();
+      element.dataset.index = index.toString();
+      
+      // 更新图片
+      const img = element.querySelector('img');
+      if (img && img.src !== symbol.image) {
+        img.src = symbol.image;
+        img.alt = symbol.name;
+      }
+      
+      // 更新光晕颜色
+      const glow = element.querySelector('.item-glow') as HTMLElement;
+      if (glow) {
+        const glowColor = symbol.qualityId === 'legendary' ? '255, 215, 0' :
+          symbol.qualityId === 'epic' ? '163, 53, 238' :
+          symbol.qualityId === 'rare' ? '0, 112, 221' :
+          symbol.qualityId === 'uncommon' ? '30, 255, 0' :
+          '157, 157, 157';
+        glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
+      }
+      
+      // 更新文字信息
+      if (symbol.id !== 'golden_placeholder') {
+        const info = element.querySelector('.item-info');
+        if (info) {
+          const namePara = info.querySelector('.item-name');
+          const pricePara = info.querySelector('p:last-child');
+          if (namePara) namePara.textContent = symbol.name;
+          if (pricePara) pricePara.textContent = `¥${symbol.price}`;
+        }
+      }
+    });
+    
+    // 保持当前滚动位置，实现无缝切换
+    reelContainerRef.current.style.top = currentTop + 'px';
+    
+    // 重置选中状态
     currentSelectedIndexRef.current = -1;
     currentSelectedElementRef.current = null;
-    
-    // Reinitialize the reel with new symbols
-    initReels();
-  }, [initReels]);
+    selectionLockedRef.current = false;
+  }, [repeatTimes]);
 
   // Expose startSpin and updateReelContent methods to parent
   useImperativeHandle(ref, () => ({
