@@ -24,7 +24,7 @@ export default function PacksGallery({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const packRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [isOverflowing, setIsOverflowing] = useState(false);
-  
+
   // 虚拟滚动状态
   const BUFFER_SIZE = 2; // 缓冲区大小（减少渲染数量）
   const PACK_WIDTH = 160; // 卡包宽度
@@ -178,29 +178,29 @@ export default function PacksGallery({
               }
               
               return (
-                <div
+          <div
                   key={`pack-${index}-${pack.id}`}
-                  ref={(el) => { packRefs.current[index] = el; }}
-                  className="min-w-[160px] max-w-[160px] flex-shrink-0"
-                >
-                  <div className="relative">
-                    <Image
-                      alt={pack.name || 'pack'}
-                      src={pack.image}
-                      width={200}
-                      height={304}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-auto"
-                      style={{ color: 'transparent' }}
-                      sizes="(max-width: 640px) 160px, 160px"
-                      unoptimized
-                    />
-                    <div className="flex justify-center pt-3 pb-4">
-                      <div className="font-bold text-base text-white">{pack.value}</div>
-                    </div>
-                  </div>
-                </div>
+                ref={(el) => { packRefs.current[index] = el; }}
+                className="min-w-[160px] max-w-[160px] flex-shrink-0"
+          >
+                <div className="relative">
+                  <Image
+                    alt={pack.name || 'pack'}
+                    src={pack.image}
+                    width={200}
+                    height={304}
+                loading="lazy"
+                decoding="async"
+                    className="w-full h-auto"
+                    style={{ color: 'transparent' }}
+                    sizes="(max-width: 640px) 160px, 160px"
+                    unoptimized
+                  />
+                  <div className="flex justify-center pt-3 pb-4">
+                    <div className="font-bold text-base text-white">{pack.value}</div>
+            </div>
+            </div>
+          </div>
               );
             })}
           </div>

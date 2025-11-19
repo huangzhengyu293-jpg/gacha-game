@@ -320,7 +320,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         imgWrapper.style.transform = 'scale(1) translateZ(0)';
         imgWrapper.style.willChange = 'transform';
         imgWrapper.style.backfaceVisibility = 'hidden';
-        imgWrapper.style.webkitFontSmoothing = 'antialiased';
+        (imgWrapper.style as any).webkitFontSmoothing = 'antialiased';
         imgWrapper.style.zIndex = '2'; // 确保图片在光晕上方
         
         // 根据模式渲染不同的图片结构
