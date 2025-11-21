@@ -1,21 +1,19 @@
 /**
- * 对战详情页面（时间轴驱动）
- * 访问: http://localhost:3000/battles/[id]
- * 
- * 中途加入测试: ?simulateJoinTime=10
+ * 时间轴系统测试页面
+ * 访问: http://localhost:3000/battles/timeline-test?packIds=1,2,3&players=4
  */
 
 "use client";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import BattleHeader from "./components/BattleHeader";
-import ParticipantsWithPrizes from "./components/ParticipantsWithPrizes";
-import WinnerDisplay from "./components/WinnerDisplay";
-import Countdown from "./components/Countdown";
-import { useBattleData } from "./hooks/useBattleData";
-import { useBattleTimeline } from "./hooks/useBattleTimeline";
-import SlotMachinesGrid from "./components/SlotMachinesGrid";
-import { calculatePlaybackState } from "./timeline";
+import BattleHeader from "../[id]/components/BattleHeader";
+import ParticipantsWithPrizes from "../[id]/components/ParticipantsWithPrizes";
+import WinnerDisplay from "../[id]/components/WinnerDisplay";
+import Countdown from "../[id]/components/Countdown";
+import { useBattleData } from "../[id]/hooks/useBattleData";
+import { useBattleTimeline } from "../[id]/hooks/useBattleTimeline";
+import SlotMachinesGrid from "../[id]/components/SlotMachinesGrid";
+import { calculatePlaybackState } from "../[id]/timeline";
 import { FIXED_PARTICIPANTS, FIXED_PACKS_DATA, FIXED_RESULTS, EXPECTED_SUMMARY, TIMELINE_EXPLANATION, FIXED_GAME_CONFIG } from "./FIXED_TEST_DATA";
 import LuckySlotMachine, { type SlotSymbol, type LuckySlotMachineHandle } from "@/app/components/SlotMachine/Luckyslotmachinev2";
 
@@ -54,7 +52,7 @@ const MOCK_PACKS_DATA = [
   },
 ];
 
-export default function BattleDetailPage() {
+export default function TimelineTestPage() {
   const router = useRouter();
   const originalBattleData = useBattleData();
   
@@ -64,6 +62,7 @@ export default function BattleDetailPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+  console.log(111);
   
   // ✅ 直接使用固定的测试数据
   const battleData = useMemo(() => ({
@@ -88,44 +87,6 @@ export default function BattleDetailPage() {
   
   // 记录实际结果（用于对比）
   const [actualResults, setActualResults] = useState<Record<number, Record<string, { itemId: string; name: string; price: number }>>>({});
-  
-  // ✅ 响应式item尺寸（单人模式4人及以下）
-  const [itemSize, setItemSize] = useState(() => {
-    if (typeof window === 'undefined') return 160;
-    const width = window.innerWidth;
-    if (width >= 1024) return 160;
-    if (width >= 768) return 140;
-    if (width >= 640) return 120;
-    return 90;
-  });
-  
-  useEffect(() => {
-    if (battleData.battleType !== 'solo' || battleData.playersCount > 4) {
-      return;
-    }
-    
-    const updateItemSize = () => {
-      const width = window.innerWidth;
-      
-      let newSize = 90;
-      if (width >= 1024) {
-        newSize = 160;
-      } else if (width >= 768) {
-        newSize = 140;
-      } else if (width >= 640) {
-        newSize = 120;
-      }
-      
-      setItemSize(newSize);
-    };
-    
-    updateItemSize();
-    window.addEventListener('resize', updateItemSize);
-    
-    return () => {
-      window.removeEventListener('resize', updateItemSize);
-    };
-  }, [battleData.battleType, battleData.playersCount]);
   
   // 测试选项 - 从 URL 参数读取模拟时间
   const [testServerTime, setTestServerTime] = useState<string | undefined>(() => {
@@ -358,97 +319,159 @@ export default function BattleDetailPage() {
     // ✅ 获取当前是第几段（从时间轴事件中获取）
     const currentStageFromEvent = state.currentEvent?.data?.stage || 1;
     
-    return allParticipants.map((participant) => {
-      const result = currentRoundResults[participant.id];
-      if (!result) {
-        return null;
-      }
-      
-      // ✅ 从时间轴事件获取当前阶段
-      const currentStageFromEvent = state.currentEvent?.data?.stage || 1;
-      
-      // 验证物品是否存在
-      const targetItem = pack.items?.find((it: any) => it.id === result.itemId);
-      
-      // ✅ 决定老虎机的 key
-      // 不需要二段的玩家：永远用 stage-1 的 key，组件不会重新挂载
-      // 需要二段的玩家：第一段和第二段用不同的 key，会重新挂载
-      const slotMachineKey = result.needsSecondSpin
-        ? `${participant.id}-round-${currentRound}-stage-${currentStageFromEvent}`
-        : `${participant.id}-round-${currentRound}-stage-1`;
-      
-      // ✅ 决定是否应该触发新动画
-      const shouldStartSpin = 
-        currentStageFromEvent === 1 ||  // 第一段所有人都转
-        (currentStageFromEvent === 2 && result.needsSecondSpin);  // 第二段只有需要二段的人转
-      
-      // ✅ 决定物品池和目标物品
-      let selectedPrizeId: string | null;
-      let symbols: SlotSymbol[];
-      
-      const goldenPlaceholder: SlotSymbol = {
-        id: 'golden_placeholder',
-        name: '金色神秘',
-        image: '/theme/default/hidden-gold.webp',
-        price: 0,
-        qualityId: 'placeholder',
-        description: '',
-        dropProbability: 0
-      };
-      
-      if (result.needsSecondSpin && currentStageFromEvent === 1) {
-        selectedPrizeId = 'golden_placeholder';
-        const normalItems = pack.items?.filter((it: any) => it.qualityId !== 'legendary') || [];
-        symbols = [...normalItems, goldenPlaceholder] as SlotSymbol[];
-        
-      } else if (result.needsSecondSpin && currentStageFromEvent === 2) {
-        selectedPrizeId = result.itemId;
-        const legendaryItems = pack.items?.filter((it: any) => it.qualityId === 'legendary') || [];
-        symbols = legendaryItems as SlotSymbol[];
-        
-      } else if (!result.needsSecondSpin) {
-        selectedPrizeId = currentStageFromEvent === 1 ? result.itemId : null;
-        symbols = pack.items as SlotSymbol[];
-      } else {
-        selectedPrizeId = null;
-        symbols = pack.items as SlotSymbol[];
-      }
-      
-      return (
-        <div key={participant.id} className="flex flex-col items-center">
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {allParticipants.map((participant) => {
+          const result = currentRoundResults[participant.id];
+          if (!result) {
+            return null;
+          }
           
-          <div className="relative">
-            <LuckySlotMachine
-              key={slotMachineKey}
-              ref={(el) => {
-                slotMachineRefs.current[participant.id] = el;
-              }}
-              symbols={symbols}
-              selectedPrizeId={selectedPrizeId || undefined}
-              height={450}
-              itemSize={itemSize}
-              spinDuration={battleData.isFastMode ? 1000 : 4500}
-              onSpinComplete={(prize) => {
-                // 记录结果（无日志）
-                setActualResults(prev => ({
-                  ...prev,
-                  [currentRound]: {
-                    ...prev[currentRound],
-                    [participant.id]: {
-                      itemId: prize.id,
-                      name: prize.name,
-                      price: prize.price
-                    }
-                  }
-                }));
-              }}
-            />
+          // ✅ 从时间轴事件获取当前阶段
+          const currentStageFromEvent = state.currentEvent?.data?.stage || 1;
+          
+          // 验证物品是否存在
+          const targetItem = pack.items?.find((it: any) => it.id === result.itemId);
+          
+          // ✅ 决定老虎机的 key
+          // 不需要二段的玩家：永远用 stage-1 的 key，组件不会重新挂载
+          // 需要二段的玩家：第一段和第二段用不同的 key，会重新挂载
+          const slotMachineKey = result.needsSecondSpin
+            ? `${participant.id}-round-${currentRound}-stage-${currentStageFromEvent}`
+            : `${participant.id}-round-${currentRound}-stage-1`;
+          
+          // ✅ 决定是否应该触发新动画
+          const shouldStartSpin = 
+            currentStageFromEvent === 1 ||  // 第一段所有人都转
+            (currentStageFromEvent === 2 && result.needsSecondSpin);  // 第二段只有需要二段的人转
+          
+          // ✅ 决定物品池和目标物品
+          let selectedPrizeId: string | null;
+          let symbols: SlotSymbol[];
+          
+          const goldenPlaceholder: SlotSymbol = {
+            id: 'golden_placeholder',
+            name: '金色神秘',
+            image: '/theme/default/hidden-gold.webp',
+            price: 0,
+            qualityId: 'placeholder',
+            description: '',
+            dropProbability: 0
+          };
+          
+          if (result.needsSecondSpin && currentStageFromEvent === 1) {
+            selectedPrizeId = 'golden_placeholder';
+            const normalItems = pack.items?.filter((it: any) => it.qualityId !== 'legendary') || [];
+            symbols = [...normalItems, goldenPlaceholder] as SlotSymbol[];
             
-           
-          </div>
-        </div>
-      );
-    });
+          } else if (result.needsSecondSpin && currentStageFromEvent === 2) {
+            selectedPrizeId = result.itemId;
+            const legendaryItems = pack.items?.filter((it: any) => it.qualityId === 'legendary') || [];
+            symbols = legendaryItems as SlotSymbol[];
+            
+          } else if (!result.needsSecondSpin) {
+            selectedPrizeId = currentStageFromEvent === 1 ? result.itemId : null;
+            symbols = pack.items as SlotSymbol[];
+          } else {
+            selectedPrizeId = null;
+            symbols = pack.items as SlotSymbol[];
+          }
+          
+          return (
+            <div key={participant.id} className="flex flex-col items-center">
+              <div className="mb-2 text-center">
+                <div className="w-10 h-10 rounded-full bg-gray-700 mx-auto mb-2 overflow-hidden">
+                  {participant.avatar ? (
+                    <img src={participant.avatar} alt={participant.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white font-bold">
+                      {participant.name.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <p className="text-white font-bold text-sm">{participant.name}</p>
+                <p className="text-green-400 text-xs font-bold">
+                  累计: ${(playerValues[participant.id] || 0).toFixed(2)}
+                </p>
+                {/* ✅ 只在需要转动时显示预设答案 */}
+                {selectedPrizeId && (
+                  <div className="mt-2 p-2 bg-yellow-900 rounded text-xs">
+                    <p className="text-yellow-300 font-bold">
+                      📋 预设答案 
+                      {result.needsSecondSpin && (
+                        <span className="ml-1">
+                          ({currentStageFromEvent === 1 ? '第1段' : '第2段'})
+                          {currentStageFromEvent === 1 && ' 💛占位符'}
+                        </span>
+                      )}:
+                    </p>
+                    <p className="text-white truncate">
+                      {selectedPrizeId === 'golden_placeholder'
+                        ? '金色占位符 💛' 
+                        : targetItem?.name || result.itemId
+                      }
+                    </p>
+                    <p className="text-green-400">
+                      {selectedPrizeId === 'golden_placeholder'
+                        ? '$0.00' 
+                        : `$${targetItem?.price?.toFixed(2) || '0.00'}`
+                      }
+                    </p>
+                  </div>
+                )}
+                
+                {/* ✅ 如果是第二段且这个玩家不需要转，显示"已完成"状态 */}
+                {currentStageFromEvent === 2 && !result.needsSecondSpin && (
+                  <div className="mt-2 p-2 bg-green-900 rounded text-xs">
+                    <p className="text-green-300 font-bold">✅ 已完成</p>
+                    <p className="text-gray-300 text-xs">等待其他玩家...</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="relative">
+                <LuckySlotMachine
+                  key={slotMachineKey}
+                  ref={(el) => {
+                    slotMachineRefs.current[participant.id] = el;
+                  }}
+                  symbols={symbols}
+                  selectedPrizeId={selectedPrizeId || undefined}
+                  height={450}
+                  spinDuration={battleData.isFastMode ? 1000 : 4500}
+                  onSpinComplete={(prize) => {
+                    // 记录结果（无日志）
+                    setActualResults(prev => ({
+                      ...prev,
+                      [currentRound]: {
+                        ...prev[currentRound],
+                        [participant.id]: {
+                          itemId: prize.id,
+                          name: prize.name,
+                          price: prize.price
+                        }
+                      }
+                    }));
+                  }}
+                />
+                
+                {/* 实际结果显示（老虎机完成后）*/}
+                {actualResults[currentRound]?.[participant.id] && (
+                  <div className="mt-2 p-2 bg-green-900 rounded text-xs">
+                    <p className="text-green-300 font-bold">✅ 实际结果:</p>
+                    <p className="text-white truncate">{actualResults[currentRound][participant.id].name}</p>
+                    <p className={actualResults[currentRound][participant.id].itemId === result.itemId ? 'text-green-400' : 'text-red-400'}>
+                      ${actualResults[currentRound][participant.id].price.toFixed(2)}
+                      {actualResults[currentRound][participant.id].itemId === result.itemId ? ' ✅' : ' ❌ 不匹配！'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   }, [
     currentRoundResults, 
     currentRound, 
@@ -457,8 +480,7 @@ export default function BattleDetailPage() {
     state.currentEvent?.type,  // ✅ 只依赖 type，不依赖整个 event 对象
     state.currentEvent?.data?.stage,  // ✅ 只依赖 stage
     playerValues, 
-    actualResults,
-    itemSize  // ✅ item尺寸变化时重新渲染
+    actualResults
   ]);
   
   // ✅ 确保只在客户端渲染，避免 hydration 错误
@@ -512,38 +534,47 @@ export default function BattleDetailPage() {
         isInverted={battleData.isInverted}
       />
       
-      {/* 动画播放区域 - 占满可视宽度 */}
-      {allSlotsFilled && (
-        <div className="w-full h-[450px]" style={{ backgroundColor: '#191d21' }}>
-          <div className="flex h-full w-full max-w-screen-xl px-4 mx-auto items-center justify-center">
-            {/* 倒计时 */}
-            {isCountingDown && <Countdown duration={3000} />}
-            
-            {/* 老虎机网格 */}
-            {state.phase === 'playing' && state.currentEvent?.type?.startsWith('round_') && slotMachinesContent && Array.isArray(slotMachinesContent) && slotMachinesContent.length > 0 && (
-              <SlotMachinesGrid
-                playersCount={battleData.playersCount}
-                battleType={battleData.battleType as 'solo' | 'team'}
-                teamStructure={battleData.teamStructure}
-              >
-                {slotMachinesContent}
-              </SlotMachinesGrid>
-            )}
-            
-            {/* 🏆 获胜者展示（对战完成后） */}
-            {winnerData && state.phase === 'completed' && (
-              <WinnerDisplay 
-                winner={winnerData} 
-                battleCost={battleData.cost}
-              />
-            )}
-          </div>
-        </div>
-      )}
-      
       {/* 主内容区 */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-      
+        
+        {/* 标题 */}
+        <div className="text-center py-6">
+          <h2 className="text-4xl font-bold text-white mb-2">
+            🎮 时间轴系统测试页面
+          </h2>
+          <p className="text-gray-400">
+            使用固定测试数据，验证时间轴驱动和中途加入功能
+          </p>
+        </div>
+        
+        {/* 动画播放区域 */}
+        {allSlotsFilled && (
+          <div className="w-full h-[450px]" style={{ backgroundColor: '#191d21' }}>
+            <div className="flex h-full w-full max-w-screen-xl px-4 mx-auto items-center justify-center">
+              {/* 倒计时 */}
+              {isCountingDown && <Countdown duration={3000} />}
+              
+              {/* 老虎机网格 */}
+              {state.phase === 'playing' && state.currentEvent?.type?.startsWith('round_') && slotMachinesContent && Array.isArray(slotMachinesContent) && slotMachinesContent.length > 0 && (
+                <SlotMachinesGrid
+                  playersCount={battleData.playersCount}
+                  battleType={battleData.battleType as 'solo' | 'team'}
+                  teamStructure={battleData.teamStructure}
+                >
+                  {slotMachinesContent}
+                </SlotMachinesGrid>
+              )}
+              
+              {/* 🏆 获胜者展示（对战完成后） */}
+              {winnerData && state.phase === 'completed' && (
+                <WinnerDisplay 
+                  winner={winnerData} 
+                  battleCost={battleData.cost}
+                />
+              )}
+            </div>
+          </div>
+        )}
         
         {/* 参与者列表（显示已完成轮次的结果）*/}
         {allSlotsFilled && (
@@ -565,3 +596,4 @@ export default function BattleDetailPage() {
     </div>
   );
 }
+

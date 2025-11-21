@@ -41,18 +41,32 @@ export function useBattleData(): BattleData {
   const isInvertedParam = searchParams?.get('upsideDown') || 'false';
   const isInverted = isInvertedParam === 'true';
   
-  console.log('🚀 [useBattleData] fastBattle参数:', isFastModeParam);
-  console.log('🚀 [useBattleData] isFastMode:', isFastMode);
-  console.log('🎯 [useBattleData] lastChance参数:', isLastChanceParam);
-  console.log('🎯 [useBattleData] isLastChance:', isLastChance);
-  console.log('🔄 [useBattleData] upsideDown参数:', isInvertedParam);
-  console.log('🔄 [useBattleData] isInverted:', isInverted);
+  
 
-  const { data: allPacks = [] } = useQuery({
-    queryKey: ['packs'],
-    queryFn: api.getPacks,
+  // ✅ 使用新的 getBoxList 接口
+  const { data: boxListData } = useQuery({
+    queryKey: ['boxList', {}],
+    queryFn: () => api.getBoxList({
+      sort_type: '1',
+      volatility: '1',
+    }),
     staleTime: 30_000,
   });
+
+  // 将新接口数据映射为礼包格式（注意：没有items，需要单独获取）
+  const allPacks = useMemo(() => {
+    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
+      return boxListData.data.map((box: any) => ({
+        id: String(box.id || box.box_id),
+        title: box.name || box.title || '',
+        image: box.cover || '',
+        price: Number(box.bean || 0),
+        itemCount: 0,
+        items: [],  // 暂时为空，测试页面会添加模拟数据
+      }));
+    }
+    return [];
+  }, [boxListData]);
 
   // 🔍 从 localStorage 读取用户信息（因为接口已更新，使用本地缓存）
   const currentUser = typeof window !== 'undefined' 
@@ -74,7 +88,6 @@ export function useBattleData(): BattleData {
     : null;
   
   // 🔍 调试：检查用户数据
-  console.log('🔍 [useBattleData] currentUser:', currentUser);
 
   const selectedPacks = packIds
     .map((id) => allPacks.find((pack: CatalogPack) => pack.id === id))
