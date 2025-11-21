@@ -282,11 +282,12 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         let glow: HTMLDivElement | null = null;
         
         if (item.qualityId) {
-          const glowColor = item.qualityId === 'legendary' ? '#FFD700' 
-            : item.qualityId === 'epic' ? '#A335EE'
-            : item.qualityId === 'rare' ? '#0070DD'
-            : item.qualityId === 'uncommon' ? '#1EFF00'
-            : '#9D9D9D';
+          // 🔥 根据新的品质系统设置光晕颜色
+          const glowColor = item.qualityId === 'legendary' ? '#E4AE33'  // 传说 - 金色
+            : item.qualityId === 'mythic' ? '#EB4B4B'      // 神话 - 红色
+            : item.qualityId === 'epic' ? '#8847FF'        // 史诗 - 紫色
+            : item.qualityId === 'rare' ? '#4B69FF'        // 稀有 - 蓝色
+            : '#829DBB';  // 普通 - 灰色
           
           glow = document.createElement('div');
           glow.className = 'glow';

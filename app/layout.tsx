@@ -7,6 +7,7 @@ import Footer from "./components/Footer";
 import { LiveFeedProvider } from "./components/live-feed/LiveFeedProvider";
 import QueryProvider from "./components/QueryProvider";
 import ToastProvider from "./components/ToastProvider";
+import AuthProvider from "./providers/AuthProvider";
 import Providers from "./providers";
 
 const geistSans = Geist({
@@ -61,16 +62,18 @@ export default function RootLayout({
           <Providers>
             <QueryProvider>
               <ToastProvider>
-                {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
-                <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
-                  <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
-                    <Navbar />
-                    <div className="flex-1 pt-8">
-                      {children}
+                <AuthProvider>
+                  {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
+                  <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
+                    <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
+                      <Navbar />
+                      <div className="flex-1 pt-8">
+                        {children}
+                      </div>
+                      <Footer />
                     </div>
-                    <Footer />
-                  </div>
-                </LiveFeedProvider>
+                  </LiveFeedProvider>
+                </AuthProvider>
               </ToastProvider>
             </QueryProvider>
           </Providers>

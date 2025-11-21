@@ -3,20 +3,32 @@
 import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
-import { signIn, useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, getToken } from '../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
+import { useAuth } from '../hooks/useAuth';
 
 
 export default function Navbar() {
   const { t } = useI18n();
-  const { data: session, status } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const queryClient = useQueryClient();
+  
+  // 使用新的认证系统
+  const { 
+    user, 
+    isAuthenticated, 
+    isLoading: authLoading,
+    isSubmitting,
+    login, 
+    register, 
+    logout: authLogout,
+    sendVerificationEmail,
+    activateAccount,
+  } = useAuth();
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number; visible: boolean }>({ left: 0, width: 0, visible: false });
@@ -31,8 +43,6 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [showRegister, setShowRegister] = useState(false);
-  // 钱包数据（bean 和 integral）
-  const [walletData, setWalletData] = useState<{ bean?: number; integral?: number }>({});
   const [agreed, setAgreed] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [regPass, setRegPass] = useState('');
@@ -41,35 +51,14 @@ export default function Navbar() {
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
 
-  // 退出登录 mutation
-  const logoutMutation = useMutation({
-    mutationFn: async (token: string) => {
-      return await api.logout(token);
-    },
-    onSuccess: () => {
-      // 清除本地存储
-      localStorage.removeItem('user');
-      // 调用 NextAuth 的 signOut
-      signOut({ callbackUrl: '/' });
-    },
-    onError: (error: any) => {
-      // 即使接口失败，也继续执行退出登录流程
-      console.error('退出登录接口调用失败:', error);
-      localStorage.removeItem('user');
-      signOut({ callbackUrl: '/' });
-    },
-  });
-
   // 统一的退出登录处理函数
-  const handleLogout = () => {
-    const token = getToken();
-    if (token) {
-      logoutMutation.mutate(token);
-    } else {
-      // 没有 token 也执行退出流程
-      localStorage.removeItem('user');
-      signOut({ callbackUrl: '/' });
-    }
+  const handleLogout = async () => {
+    await authLogout();
+    toast.show({
+      variant: 'success',
+      title: '已登出',
+      description: '您已成功登出',
+    });
   };
 
   const [showVerifyCode, setShowVerifyCode] = useState(false); // 显示验证码弹窗
@@ -83,6 +72,7 @@ export default function Navbar() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [showCart, setShowCart] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -132,93 +122,6 @@ export default function Navbar() {
     return () => window.removeEventListener('keydown', onKey);
   }, [showMidMenu]);
 
-  // 登录后在控制台打印用户信息
-  useEffect(() => {
-    if (typeof window !== 'undefined' && status === 'authenticated') {
-      // eslint-disable-next-line no-console
-      console.log('[Auth] 当前用户', {
-        name: session?.user?.name,
-        email: session?.user?.email,
-        image: (session?.user as any)?.image,
-        role: (session?.user as any)?.role,
-      });
-    }
-  }, [status, session]);
-
-  // 使用 useQuery 获取用户信息（页面刷新时自动更新）
-  const { data: userInfo } = useQuery({
-    queryKey: ['userInfo'],
-    queryFn: async () => {
-      const token = getToken();
-      if (!token) throw new Error('No token');
-      return await api.getUserInfo(token);
-    },
-    enabled: status === 'authenticated',
-    staleTime: 5 * 60 * 1000, // 5分钟内不重新获取
-    refetchOnMount: true, // 组件挂载时重新获取
-    refetchOnWindowFocus: true, // 窗口获得焦点时重新获取
-  });
-
-  // 使用 useQuery 获取钱包数据（页面刷新时自动更新）
-  const { data: walletInfo } = useQuery({
-    queryKey: ['walletInfo'],
-    queryFn: async () => {
-      const token = getToken();
-      if (!token) throw new Error('No token');
-      return await api.getUserBean(token);
-    },
-    enabled: status === 'authenticated',
-    staleTime: 5 * 60 * 1000, // 5分钟内不重新获取
-    refetchOnMount: true, // 组件挂载时重新获取
-    refetchOnWindowFocus: true, // 窗口获得焦点时重新获取
-  });
-
-  // 当用户信息更新时，同步到 localStorage 和 session
-  useEffect(() => {
-    if (userInfo?.data && status === 'authenticated') {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
-        userData.userInfo = userInfo.data;
-        localStorage.setItem('user', JSON.stringify(userData));
-      } catch {}
-    }
-  }, [userInfo, status]);
-
-  // 当钱包数据更新时，同步到 localStorage 和 state
-  useEffect(() => {
-    if (walletInfo?.data) {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
-        userData.bean = walletInfo.data;
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // 更新 state
-        setWalletData({
-          bean: walletInfo.data?.bean || 0,
-          integral: walletInfo.data?.integral || 0,
-        });
-      } catch {}
-    }
-  }, [walletInfo]);
-
-  // 初始化时从 localStorage 读取钱包数据（作为默认值）
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !walletInfo?.data) {
-      try {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          const user = JSON.parse(userData);
-          if (user.bean) {
-            setWalletData({
-              bean: user.bean?.bean || 0,
-              integral: user.bean?.integral || 0,
-            });
-          }
-        }
-      } catch {}
-    }
-  }, []);
-
   // 头像下拉 - 点击外部关闭
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -232,48 +135,80 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [showUserMenu]);
 
-  // 注册 mutation
-  const registerMutation = useMutation({
-    mutationFn: async (payload: { name: string; email: string; password: string }) => {
-      return await api.register(payload);
-    },
-    onSuccess: (result: any) => {
-      // 注册成功（200响应）
-      console.log('注册成功:', result);
-      // 关闭注册弹窗
+  // 监听全局登录弹窗事件（当 token 过期时）
+  useEffect(() => {
+    const handleShowLogin = () => {
+      // 关闭其他弹窗
       setShowRegister(false);
-      // 保存邮箱用于验证码弹窗
-      setVerifyEmail(regEmail.trim());
-      // 清空注册表单
-      setRegUsername('');
-      setRegEmail('');
-      setRegPass('');
-      setAgreed(false);
-      // 显示验证码输入弹窗
-      setShowVerifyCode(true);
-      setVerifyCode('');
-    },
-    onError: (error: any) => {
-      console.error('注册失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '注册失败，请稍后重试';
-      toast.show({
-        variant: 'error',
-        title: '注册失败',
-        description: errorMessage,
-      });
-    },
-  });
+      setShowForgot(false);
+      setShowVerifyCode(false);
+      setShowUserMenu(false);
+      setShowMidMenu(false);
+      setIsMenuOpen(false);
+      // 打开登录弹窗
+      setShowLogin(true);
+    };
+    
+    window.addEventListener('auth:show-login', handleShowLogin);
+    return () => window.removeEventListener('auth:show-login', handleShowLogin);
+  }, []);
+
+  // 重新发送验证码倒计时
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => {
+        setResendCountdown(resendCountdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCountdown]);
+
+
+
 
   // 注册处理函数
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canRegister || registerMutation.isPending) return;
+    if (!canRegister) return;
     
-    registerMutation.mutate({
+    const result = await register({
       name: regUsername.trim(),
       email: regEmail.trim(),
       password: regPass
     });
+    
+    // code === 100000: 注册成功
+    if (result.success) {
+      setShowRegister(false);
+      setVerifyEmail(regEmail.trim());
+      setRegUsername('');
+      setRegEmail('');
+      setRegPass('');
+      setAgreed(false);
+      setShowVerifyCode(true);
+      setVerifyCode('');
+      toast.show({
+        variant: 'success',
+        title: '注册成功',
+        description: result.message || '请查收验证邮件',
+      });
+    }
+    // code === 200000: 邮箱已注册但未验证，弹出验证码弹窗
+    else if ((result as any).code === 200000) {
+      setShowRegister(false);
+      setVerifyEmail(regEmail.trim());
+      setRegUsername('');
+      setRegEmail('');
+      setRegPass('');
+      setAgreed(false);
+      setShowVerifyCode(true);
+      setVerifyCode('');
+      toast.show({
+        variant: 'success',
+        title: '邮箱已注册',
+        description: result.message || '请验证您的邮箱',
+      });
+    }
   };
 
   const usernameValid = regUsername.trim().length >= 3; // 用户名至少3个字符
@@ -299,161 +234,62 @@ export default function Navbar() {
     return s; // 0..5
   })();
 
-  // 重新发送验证邮件 mutation
-  const sendEmailMutation = useMutation({
-    mutationFn: async (payload: { to: string; type: string }) => {
-      return await api.sendVerificationEmail(payload);
-    },
-    onSuccess: () => {
+  // 重新发送验证邮件
+  const handleResendCode = async () => {
+    if (!verifyEmail || resendCountdown > 0) return;
+    const result = await sendVerificationEmail(verifyEmail, '2');
+    if (result.success) {
+      // 启动60秒倒计时
+      setResendCountdown(60);
       toast.show({
         variant: 'success',
         title: '发送成功',
-        description: '验证码已发送到您的邮箱',
+        description: result.message || '验证码已发送到您的邮箱',
       });
-    },
-    onError: (error: any) => {
-      console.error('发送邮件失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '发送失败，请稍后重试';
-      toast.show({
-        variant: 'error',
-        title: '发送失败',
-        description: errorMessage,
-      });
-    },
-  });
-
-  // 重新发送验证邮件
-  const handleResendCode = () => {
-    if (!verifyEmail || sendEmailMutation.isPending) return;
-    sendEmailMutation.mutate({
-      to: verifyEmail,
-      type: '2', // 固定值
-    });
+    }
   };
 
-  // 激活账户 mutation
-  const activateAccountMutation = useMutation({
-    mutationFn: async (payload: { code: string }) => {
-      return await api.activateAccount(payload);
-    },
-    onSuccess: () => {
-      // 验证成功，关闭弹窗并显示登录
+  // 验证码提交处理
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyCode.trim()) return;
+    
+    const result = await activateAccount(verifyCode.trim());
+    if (result.success) {
       setShowVerifyCode(false);
       setVerifyCode('');
       setVerifyEmail('');
       toast.show({
         variant: 'success',
         title: '验证成功',
-        description: '邮箱验证成功！请登录。',
+        description: result.message || '邮箱验证成功！请登录。',
       });
       setShowLogin(true);
-    },
-    onError: (error: any) => {
-      console.error('验证码验证失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '验证码错误，请重试';
-      toast.show({
-        variant: 'error',
-        title: '验证失败',
-        description: errorMessage,
-      });
-    },
-  });
-
-  // 验证码提交处理
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verifyCode.trim() || activateAccountMutation.isPending) return;
-    activateAccountMutation.mutate({ code: verifyCode.trim() });
+    }
   };
 
-  // 登录 mutation
-  const loginMutation = useMutation({
-    mutationFn: async (payload: { email: string; password: string }) => {
-      return await api.login(payload);
-    },
-    onSuccess: async (result: any) => {
-      // 登录成功，获取 token
-      const accessToken = result.data?.access_token;
-      
-      if (!accessToken) {
-        throw new Error('未获取到访问令牌');
-      }
-      
-      // 先保存基本信息
-      const userData: any = {
-        token: accessToken,
-        refreshToken: result.data?.refresh_token,
-        tokenType: result.data?.token_type || 'Bearer',
-        expiresIn: result.data?.expires_in,
-        loginTime: new Date().toISOString()
-      };
-      
-      // 保存到 localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
-      
-      // 使用 queryClient 触发用户信息和钱包数据的重新获取
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['userInfo'] }),
-        queryClient.invalidateQueries({ queryKey: ['walletInfo'] }),
-      ]);
-      
-      // 等待一下让数据获取完成
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // 从 localStorage 读取最新的用户信息
-      const latestUserData = JSON.parse(localStorage.getItem('user') || '{}');
-      const userName = latestUserData.userInfo?.name || '';
-      
-      // 使用 NextAuth 的 signIn 来更新 session
-      await signIn('credentials', {
-        redirect: false,
-        email: loginEmail.trim(),
-        name: userName,
-        token: accessToken,
-        userInfo: JSON.stringify(latestUserData.userInfo || {}),
-      });
-      
-      // 更新钱包数据 state
-      if (latestUserData.bean) {
-        setWalletData({
-          bean: latestUserData.bean?.bean || 0,
-          integral: latestUserData.bean?.integral || 0,
-        });
-      }
-      
-      // 显示成功提示
+  // 登录处理函数
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginCanSubmit) return;
+    
+    const result = await login({
+      email: loginEmail.trim(),
+      password: loginPass
+    });
+    
+    if (result.success) {
+      const userName = result.data?.userInfo?.name || '';
       toast.show({
         variant: 'success',
         title: '登录成功',
         description: userName ? `欢迎回来，${userName}！` : '欢迎回来！',
       });
-      
-      // 关闭登录弹窗
       setShowLogin(false);
-      // 清空表单
       setLoginEmail('');
       setLoginPass('');
       setLoginShowPass(false);
-    },
-    onError: (error: any) => {
-      toast.show({
-        variant: 'error',
-        title: '登录失败',
-        description: error.message || '登录失败，请检查邮箱和密码',
-      });
-    },
-  });
-
-  // 登录处理函数
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginCanSubmit || loginMutation.isPending) return;
-    loginMutation.mutate({
-      email: loginEmail.trim(),
-      password: loginPass
-    });
+    }
   };
 
   // 统一滚动锁定（任一弹框打开）
@@ -556,14 +392,13 @@ export default function Navbar() {
   };
 
   const isOpaque = (isSmall || isMidViewport || isMenuOpen || showMidMenu || showUserMenu || showRegister || showLogin || showForgot || showTerms);
-  const { data: currentUser } = useQuery({
-    queryKey: ['user'],
-    queryFn: api.getCurrentUser,
-    enabled: status === 'authenticated',
-    staleTime: 0,
-  });
-  const warehouseCount = (currentUser?.warehouse ?? []).reduce((s: number, w: any) => s + Math.max(0, Number(w?.quantity ?? 0)), 0);
-  const balanceText = typeof currentUser?.balance === 'number' ? `$${(currentUser.balance || 0).toFixed(2)}` : '$0.00';
+  
+  // ✅ 仓库数量暂时设为 0，等待后续实现仓库接口
+  const warehouseCount = 0;
+  
+  // 钱包数据（从 user.bean 中获取）
+  const beanDisplay = (user?.bean as any)?.bean || 0;
+  const integralDisplay = (user?.bean as any)?.integral || 0;
 
   return (
     <div className="flex flex-col sticky z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
@@ -654,7 +489,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             </div>
 
             {/* 桌面/中屏：登录状态 */}
-            {status === 'authenticated' ? (
+            {isAuthenticated ? (
               <div className="hidden sm:flex gap-2 items-center">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9" onClick={() => setShowCart(true)}>
                   <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
@@ -666,19 +501,19 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24">
-                  <p className="text-sm text-white font-bold">{walletData.bean?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0'}</p>
+                  <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24">
-                  <p className="text-sm text-white font-bold">{walletData.integral?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0'}</p>
+                  <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 <div className="flex relative" ref={userMenuRef}>
                   <div className="flex justify-center items-center">
                     <div className="hidden lg:flex">
                       <button onClick={() => setShowUserMenu((v) => !v)} className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }} aria-label="用户菜单">
                         <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
-                          {session?.user && (session.user as any).image ? (
+                          {user?.userInfo?.avatar ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                            <img src={user.userInfo.avatar} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
                           ) : (
                             <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
                               <mask id="avt-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
@@ -706,9 +541,9 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                         <div className="relative size-8">
                           <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
                             <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
-                              {session?.user && (session.user as any).image ? (
+                              {user?.userInfo?.avatar ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                                <img src={user.userInfo.avatar} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
                                   <mask id="avt-mask2" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
@@ -732,7 +567,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                           </div>
                         </div>
                         <div className="flex flex-1 flex-col overflow-hidden">
-                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
                           <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
                         </div>
                       </div>
@@ -768,7 +603,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             )}
 
             {/* 小屏右侧组件（登录） */}
-            {status === 'authenticated' && (
+            {isAuthenticated && (
               <div className="flex sm:hidden flex-row gap-3 items-center">
                 <div className="nav-vol flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center max-[390px]:hidden">
                   <button
@@ -792,9 +627,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                   </button>
                 </div>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-3 h-8 xs:h-9 min-w-24">
-                  <p className="text-sm text-white font-bold">{balanceText}</p>
-                </button>
+                {/* ✅ 暂时隐藏余额按钮 */}
+                {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-3 h-8 xs:h-9 min-w-24">
+                  <p className="text-sm text-white font-bold">{user?.bean?.bean?.toFixed(2) || '0.00'}</p>
+                </button> */}
                 <div className="flex relative">
                   <div className="flex justify-center items-center">
                     {!(isMenuOpen || showMidMenu) ? (
@@ -808,7 +644,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             )}
 
             {/* 小屏右侧：未登录时显示菜单开关 */}
-            {status !== 'authenticated' && (
+            {!isAuthenticated && (
               <div className="flex sm:hidden items-center">
                 <div className="flex relative">
                   <div className="flex justify-center items-center">
@@ -845,15 +681,15 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                     style={{ backgroundColor: '#22272B', zIndex: 60 }}
                   >
                     {/* 顶部用户卡或登录注册 */}
-                    {status === 'authenticated' ? (
+                    {isAuthenticated ? (
                       <div className="flex flex-col px-2 py-1.5 gap-2">
                         <div className="flex items-center gap-4 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowMidMenu(false); router.push('/account'); }}>
                           <div className="relative size-8">
                             <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
                               <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
-                                {session?.user && (session.user as any).image ? (
+                                {user?.userInfo?.avatar ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                                  <img src={user.userInfo.avatar} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
                                 ) : (
                                   <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
                                     <mask id="mid-avt-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
@@ -867,7 +703,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                             </div>
                           </div>
                           <div className="flex flex-1 flex-col overflow-hidden">
-                            <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                            <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
                             <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
                           </div>
                         </div>
@@ -894,7 +730,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                     <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
 
                     {/* 登录状态下的注销与促销码 */}
-                    {status === 'authenticated' ? (
+                    {isAuthenticated ? (
                       <>
                         <div className="flex flex-col px-2 py-1.5 gap-2">
                           <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg" onClick={() => { setShowMidMenu(false); handleLogout(); }}>
@@ -923,15 +759,15 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ backgroundColor: '#1D2125' }}>
-          {status === 'authenticated' ? (
+          {isAuthenticated ? (
             <div className="flex flex-col rounded-lg m-4 mb-6 mt-6" style={{ backgroundColor: '#22272B' }}>
               <div className="flex gap-4 p-4 cursor-pointer" style={{ borderBottom: '1px solid #34383C' }} onClick={() => { setIsMenuOpen(false); router.push('/account'); }}>
                 <div className="relative size-8">
                   <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
                     <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
-                      {session?.user && (session.user as any).image ? (
+                      {user?.userInfo?.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={(session.user as any).image} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
+                        <img src={user.userInfo.avatar} alt="avatar" width={32} height={32} style={{ width: 32, height: 32, objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
                           <mask id="avt-mask-mm" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
@@ -955,7 +791,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
                   </div>
                 </div>
                 <div className="flex flex-1 flex-col">
-                  <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{session?.user?.name || (session?.user?.email ?? '用户')}</p>
+                  <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
                   <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
                 </div>
               </div>
@@ -1033,21 +869,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
             <form className="flex flex-col" onSubmit={handleRegister}>
-              <div className="space-y-2">
-                <div className="flex justify-start items-center gap-2 mt-2">
-                  <input id="agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
-                  <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="agree">
-                    <span>通过访问网站，我确认我已年满 18 岁并同意</span>
-                    <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
-                    <span>。</span>
-                  </label>
-                </div>
-              </div>
-              <div className="flex items-center my-4">
-                <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
-                <p className="text-base px-3" style={{ color: '#33363A' }}>或</p>
-                <div className="flex flex-1" style={{ backgroundColor: '#33363A', height: 1 }}></div>
-              </div>
+              
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-base font-medium" htmlFor="reg-username" style={{ color: '#FFFFFF' }}>用户名</label>
@@ -1099,10 +921,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !registerMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (canRegister && !registerMutation.isPending) ? 1 : 0.8 }} 
-                disabled={!canRegister || registerMutation.isPending}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (canRegister && !isSubmitting) ? 1 : 0.8 }} 
+                disabled={!canRegister || isSubmitting}
               >
-                {registerMutation.isPending ? '注册中...' : '注册'}
+                {isSubmitting ? '注册中...' : '注册'}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
@@ -1151,14 +973,7 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
             <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
-            <div className="flex justify-start items-center gap-2 mt-4 mb-2">
-              <input id="login-agree" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
-              <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="login-agree">
-                <span>通过访问网站，我确认我已年满 18 岁并同意</span>
-                <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
-                <span>。</span>
-              </label>
-            </div>
+           
             <form className="flex flex-col gap-4 mt-4" onSubmit={handleLogin}>
               <div className="flex flex-col gap-2">
                 <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
@@ -1187,10 +1002,10 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !loginMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !loginMutation.isPending) ? 1 : 0.8 }} 
-                disabled={!loginCanSubmit || loginMutation.isPending}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }} 
+                disabled={!loginCanSubmit || isSubmitting}
               >
-                {loginMutation.isPending ? '登录中...' : '登录'}
+                {isSubmitting ? '登录中...' : '登录'}
               </button>
             </form>
           </div>
@@ -1265,17 +1080,23 @@ c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
               <button 
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !activateAccountMutation.isPending) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !activateAccountMutation.isPending) ? 1 : 0.8 }} 
-                disabled={verifyCode.trim().length === 0 || activateAccountMutation.isPending}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }} 
+                disabled={verifyCode.trim().length === 0 || isSubmitting}
               >
-                {activateAccountMutation.isPending ? '验证中...' : '验证'}
+                {isSubmitting ? '验证中...' : '验证'}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1 mt-4">
               <p className="text-base" style={{ color: '#FFFFFF' }}>没有收到验证码？</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={handleResendCode}>
-                重新发送
-              </span>
+              {resendCountdown > 0 ? (
+                <span className="text-base" style={{ color: '#7A8084' }}>
+                  重新发送 ({resendCountdown}s)
+                </span>
+              ) : (
+                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={handleResendCode}>
+                  重新发送
+                </span>
+              )}
             </div>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>

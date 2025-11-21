@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Urbanist } from 'next/font/google';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastProvider';
 import FireworkArea, { type FireworkAreaHandle } from './FireworkArea';
 
@@ -42,8 +42,8 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   const demoRafRef = useRef<number | null>(null);
   const demoActiveRef = useRef<boolean>(false);
   const [demoOutcome, setDemoOutcome] = useState<'win' | 'lose'>('win');
-  const { status } = useSession();
-  const isAuthed = status === 'authenticated';
+  const { isAuthenticated, fetchUserBean } = useAuth();
+  const isAuthed = isAuthenticated;
   
   // 🎵 初始化音效（spin.mp3 和 win.wav）
   useEffect(() => {
@@ -203,8 +203,8 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         const winResult = winValue === 1;
         console.log('🎯 中奖结果:', winResult ? '中奖' : '未中奖', 'win值:', winValue);
         
-        // 转动成功后更新钱包数据
-        queryClient.invalidateQueries({ queryKey: ['walletInfo'] });
+        // 转动成功后刷新用户余额
+        fetchUserBean();
         
         // 执行转动动画
         onLockChange && onLockChange(true);

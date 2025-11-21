@@ -63,10 +63,24 @@ export function getToken(): string {
 
 // ==================== 拦截器 ====================
 
+// 需要登录的接口路径（不完全匹配，只要包含这些路径即可）
+const AUTH_REQUIRED_PATHS = [
+  '/api/box/favorite',
+  '/api/box/open',
+  '/api/box/userrecord',
+  '/api/user/bean',
+  '/api/user/storage',
+  '/api/auth/userinfo',
+  '/api/auth/logout',
+  '/api/lucky/go',
+];
+
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
   if (typeof window !== 'undefined') {
     const headers = config.headers as Record<string, string> || {};
     const hasAuth = headers['Authorization'] || headers['authorization'];
+    
+    let hasToken = false;
     
     // 只有在用户没有手动传入 Authorization 时，才自动添加
     if (!hasAuth) {
@@ -76,6 +90,32 @@ function requestInterceptor(url: string, config: RequestInit): { url: string; co
           ...config.headers,
           'Authorization': `Bearer ${token}`,
         };
+        hasToken = true;
+      }
+    } else {
+      hasToken = true;
+    }
+    
+    // ✅ 检查是否需要登录但没有 token
+    if (!hasToken) {
+      const needsAuth = AUTH_REQUIRED_PATHS.some(path => url.includes(path));
+      
+      if (needsAuth) {
+        // 触发显示登录弹窗
+        window.dispatchEvent(new CustomEvent('auth:show-login'));
+        
+        // 显示提示
+        import('../components/ToastProvider').then(({ showGlobalToast }) => {
+          showGlobalToast({
+            title: '提示',
+            description: '请先登录',
+            variant: 'error',
+            durationMs: 2000,
+          });
+        });
+        
+        // 抛出错误，阻止请求继续
+        throw new Error('未登录');
       }
     }
   }
@@ -83,7 +123,45 @@ function requestInterceptor(url: string, config: RequestInit): { url: string; co
 }
 
 function responseInterceptor<T>(data: T): T {
-  // 不再检查 code，由各个接口自己处理业务逻辑
+  // 检查业务状态码
+  if (typeof window !== 'undefined' && data && typeof data === 'object' && 'code' in data) {
+    const response = data as any;
+    
+    // code === 300000: token 过期
+    if (response.code === 300000) {
+      // 删除用户信息
+      localStorage.removeItem('user');
+      
+      // 触发全局事件通知 AuthProvider
+      window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'token_expired' } }));
+      
+      // 触发显示登录弹窗
+      window.dispatchEvent(new CustomEvent('auth:show-login'));
+      
+      // 显示错误提示
+      import('../components/ToastProvider').then(({ showGlobalToast }) => {
+        showGlobalToast({
+          title: '登录已过期',
+          description: response.message || '请重新登录',
+          variant: 'error',
+          durationMs: 3000,
+        });
+      });
+    }
+    // code !== 100000 且 !== 300000 且 !== 200000: 显示通用错误提示
+    // 300000: token 过期，已单独处理
+    // 200000: 邮箱已注册未验证，由业务层处理
+    else if (response.code !== 100000 ) {
+      import('../components/ToastProvider').then(({ showGlobalToast }) => {
+        showGlobalToast({
+          title: '错误',
+          description: response.message || '请求失败',
+          variant: 'error',
+          durationMs: 3000,
+        });
+      });
+    }
+  }
   return data;
 }
 
@@ -92,7 +170,9 @@ function responseInterceptor<T>(data: T): T {
 async function request<T = any>(endpoint: string, config: RequestConfig = {}): Promise<T> {
   const { method = 'GET', data, params, headers, ...restConfig } = config;
 
-  let url = endpoint;
+  // ✅ 如果是 /api/ 开头的路径，添加后端 API 地址
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dev-api.flamedraw.com';
+  let url = endpoint.startsWith('/api/') ? `${API_BASE_URL}${endpoint}` : endpoint;
   
   if (params) {
     const searchParams = new URLSearchParams();
@@ -213,46 +293,17 @@ export const api = {
     }),
 
   // Lucky (交易页面)
-  getLuckyList: (params: {
+  getLuckyList: async (params: {
     name?: string;
     price_sort?: string | number;
     price_min?: string | number;
     price_max?: string | number;
-  }) =>
-    post<ApiResponse>('/api/lucky/list', params),
-  goLucky: (params: {
-    id: string | number;
-    type?: string | number;
-    percent: string | number;
-  }) =>
-    request<ApiResponse>('/api/lucky/go', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getToken()}`,
-      },
-      data: params,
-    }),
-
-  // Packs
-  getPacks: () => get<CatalogPack[]>('/api/packs'),
-  getPackById: async (id: string) => {
-    const all = await get<CatalogPack[]>('/api/packs');
-    return all.find(p => p.id === id);
-  },
-  createPack: (payload: { title: string; image: string; price: number; items: CatalogItem[]; id?: string }) =>
-    post<CatalogPack>('/api/packs', payload),
-  updatePack: (id: string, patchData: Partial<Omit<CatalogPack, 'id'>>) =>
-    patchRequest<CatalogPack>(`/api/packs/${id}`, patchData),
-  deletePack: (id: string) => del<{ ok: true }>(`/api/packs/${id}`),
-
-  // Products (使用新的后端接口)
-  getProducts: async () => {
-    // 构造 form-data 格式的请求体
+  }) => {
     const formData = new URLSearchParams();
-    formData.append('name', '');
-    formData.append('price_sort', '1');
-    formData.append('price_min', '200');
-    formData.append('price_max', '5888');
+    if (params.name !== undefined) formData.append('name', String(params.name));
+    if (params.price_sort !== undefined) formData.append('price_sort', String(params.price_sort));
+    if (params.price_min !== undefined) formData.append('price_min', String(params.price_min));
+    if (params.price_max !== undefined) formData.append('price_max', String(params.price_max));
     
     const result = await request<ApiResponse>('/api/lucky/list', {
       method: 'POST',
@@ -261,44 +312,127 @@ export const api = {
       },
       data: formData.toString(),
     });
-    // 将后端返回的数据映射为 CatalogItem 格式
-    if (result.data && Array.isArray(result.data)) {
-      return result.data.map((item: any) => ({
-        id: String(item.id || Math.random()),
-        name: item.steam?.name || 'Unknown',
-        image: item.steam?.cover || '',
-        price: item.steam?.bean || 0,
-        dropProbability: 0.01, // 默认概率
-        qualityId: item.qualityId || '',
-        description: item.description || '',
-      })) as CatalogItem[];
-    }
-    return [];
+    return result;
   },
-  getProductById: async (id: string) => {
-    const all = await api.getProducts();
-    return all.find(p => p.id === id);
+  goLucky: async (params: {
+    id: string | number;
+    type?: string | number;
+    percent: string | number;
+  }) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(params.id));
+    if (params.type !== undefined) formData.append('type', String(params.type));
+    formData.append('percent', String(params.percent));
+    
+    const result = await request<ApiResponse>('/api/lucky/go', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
   },
-  // 以下方法保留但不再使用（新后端不支持）
-  createProduct: (payload: CatalogItem) =>
-    post<CatalogItem>('/api/products', payload),
-  updateProduct: (id: string, patchData: Partial<CatalogItem>) =>
-    patchRequest<CatalogItem>(`/api/products/${id}`, patchData),
-  deleteProduct: (id: string) => del<{ ok: true }>(`/api/products/${id}`),
 
-  // Pack Backgrounds
-  getPackBackgroundUrls: () => get<string[]>('/api/packbg'),
-
-  // 旧的用户相关API（占位方法，待对接新后端）
-  getCurrentUser: () => Promise.resolve({ id: '', username: '', balance: 0, warehouse: [] } as any),
-  updateUser: (_patchData: any) => Promise.resolve({ id: '', username: '', balance: 0, warehouse: [] } as any),
-  getUserWarehouse: () => Promise.resolve([] as any),
-  addUserWarehouseItems: (_items: any) => Promise.resolve({ ok: true } as any),
-  getUserWarehouseItem: (_id: string) => Promise.resolve({} as any),
-  updateUserWarehouseItem: (_id: string, _patchData: any) => Promise.resolve({} as any),
-  deleteUserWarehouseItem: (_id: string) => Promise.resolve({ ok: true } as any),
-  sellUserWarehouseItems: (_items: any) => Promise.resolve({ ok: true, sold: 0, gained: 0, balance: 0 } as any),
+  getBoxList: async (params: {
+    search_type?: string;  // 1官方 2社区 3最喜欢
+    sort_type?: string;     // 1最受欢迎 2最新
+    price_sort?: string;    // 1由高到低 2由低到高
+    volatility?: string;    // 波动性 1-9
+    price_min?: string;
+    price_max?: string;
+  }) => {
+    const formData = new URLSearchParams();
+    if (params.search_type) formData.append('search_type', params.search_type);
+    if (params.sort_type) formData.append('sort_type', params.sort_type);
+    if (params.price_sort) formData.append('price_sort', params.price_sort);
+    if (params.price_min) formData.append('price_min', params.price_min);
+    if (params.price_max) formData.append('price_max', params.price_max);
+    if (params.volatility) formData.append('volatility', params.volatility);
+    
+    const result = await request<ApiResponse>('/api/box/list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  
+  // 收藏/取消收藏礼包
+  toggleFavorite: async (id: string | number) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(id));
+    
+    const result = await request<ApiResponse>('/api/box/favorite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  
+  // 获取收藏列表（使用 search_type=3）
+  getFavoriteList: async () => {
+    const formData = new URLSearchParams();
+    formData.append('search_type', '3');
+    
+    const result = await request<ApiResponse>('/api/box/list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  getBoxDetail: async (boxId: string) => {
+    const result = await request<ApiResponse>(`/api/box/detail?id=${boxId}`, {
+      method: 'GET',
+    });
+    return result;
+  },
+  openBox: async (params: {
+    ids: string;
+    multiple: number;
+    anim: number;
+    authorization?: string;
+  }) => {
+    const formData = new URLSearchParams();
+    formData.append('ids', params.ids);
+    formData.append('multiple', String(params.multiple));
+    formData.append('anim', String(params.anim));
+    
+    const result = await request<ApiResponse>('/api/box/open', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(params.authorization ? { 'authorization': params.authorization } : {}),
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
   collectLotteryItems: (_items: any) => Promise.resolve({ ok: true, inserted: 0, updated: 0 } as any),
+  
+  // ✅ 获取用户箱子记录
+  getBoxUserRecord: async () => {
+    const result = await request<ApiResponse>('/api/box/userrecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  
+  // ✅ 获取用户仓库
+  getUserStorage: async () => {
+    const result = await request<ApiResponse>('/api/user/storage', {
+      method: 'GET',
+    });
+    return result;
+  },
 };
 
 export { request, get, post, put, del as delete, patchRequest as patch };

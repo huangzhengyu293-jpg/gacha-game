@@ -29,6 +29,11 @@ const nextConfig: NextConfig = {
         hostname: "www.nncsgp.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.c5game.com",
+        pathname: "/**",
+      },
     ],
   },
 };

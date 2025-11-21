@@ -167,13 +167,13 @@ const CanvasSlotMachine = forwardRef<CanvasSlotMachineHandle, CanvasSlotMachineP
     const centerY = itemY + itemH / 2;
     const centerX = width / 2;
 
-    // 绘制光晕（径向渐变）- 使用动画透明度
+    // 🔥 绘制光晕（径向渐变）- 使用动画透明度，根据新的品质系统
     if (symbol.qualityId) {
       const glowColor = 
-        symbol.qualityId === 'legendary' ? [255, 215, 0] :
-        symbol.qualityId === 'epic' ? [163, 53, 238] :
-        symbol.qualityId === 'rare' ? [0, 112, 221] :
-        symbol.qualityId === 'uncommon' ? [30, 255, 0] :
+        symbol.qualityId === 'legendary' ? [228, 174, 51] :  // 传说 - 金色 #E4AE33
+        symbol.qualityId === 'mythic' ? [235, 75, 75] :      // 神话 - 红色 #EB4B4B
+        symbol.qualityId === 'epic' ? [136, 71, 255] :       // 史诗 - 紫色 #8847FF
+        symbol.qualityId === 'rare' ? [75, 105, 255] :       // 稀有 - 蓝色 #4B69FF
         [157, 157, 157];
 
       const glowRadius = width * 0.3;

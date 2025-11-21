@@ -1032,6 +1032,22 @@ export function getGlowColorFromProbability(probability: number | undefined): st
     return '#829DBB';
 }
 
+// 🔥 根据 lv 等级返回光晕颜色和品质ID
+export function getQualityFromLv(lv: number | undefined): { qualityId: string; color: string } {
+    switch (lv) {
+        case 1:
+            return { qualityId: 'legendary', color: '#E4AE33' }; // 传说 - 金色
+        case 2:
+            return { qualityId: 'mythic', color: '#EB4B4B' };     // 神话 - 红色
+        case 3:
+            return { qualityId: 'epic', color: '#8847FF' };       // 史诗 - 紫色
+        case 4:
+            return { qualityId: 'rare', color: '#4B69FF' };       // 稀有 - 蓝色
+        default:
+            return { qualityId: 'common', color: '#829DBB' };     // 普通 - 灰色
+    }
+}
+
 // 显示用标准商品类型（供 UI 组件消费，不依赖旧 packs.ts）
 export interface DisplayProduct {
     id: string;

@@ -290,12 +290,12 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const glow = document.createElement('div');
     glow.className = 'item-glow';
     
-    // 根据品质设置光晕颜色
-    const glowColor = symbol.qualityId === 'legendary' ? '255, 215, 0' // 金色
-      : symbol.qualityId === 'epic' ? '163, 53, 238'      // 紫色
-      : symbol.qualityId === 'rare' ? '0, 112, 221'       // 蓝色
-      : symbol.qualityId === 'uncommon' ? '30, 255, 0'    // 绿色
-      : '157, 157, 157'; // 灰色 (common)
+    // 🔥 根据新的品质系统设置光晕颜色（RGB 格式）
+    const glowColor = symbol.qualityId === 'legendary' ? '228, 174, 51'  // 传说 - 金色 #E4AE33
+      : symbol.qualityId === 'mythic' ? '235, 75, 75'     // 神话 - 红色 #EB4B4B
+      : symbol.qualityId === 'epic' ? '136, 71, 255'      // 史诗 - 紫色 #8847FF
+      : symbol.qualityId === 'rare' ? '75, 105, 255'      // 稀有 - 蓝色 #4B69FF
+      : '130, 157, 187'; // 普通 - 灰色 #829DBB
     
     glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
     
@@ -876,14 +876,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         img.alt = symbol.name;
       }
       
-      // 更新光晕颜色
+      // 🔥 更新光晕颜色
       const glow = element.querySelector('.item-glow') as HTMLElement;
       if (glow) {
-        const glowColor = symbol.qualityId === 'legendary' ? '255, 215, 0' :
-          symbol.qualityId === 'epic' ? '163, 53, 238' :
-          symbol.qualityId === 'rare' ? '0, 112, 221' :
-          symbol.qualityId === 'uncommon' ? '30, 255, 0' :
-          '157, 157, 157';
+        const glowColor = symbol.qualityId === 'legendary' ? '228, 174, 51'  // 传说 - 金色
+          : symbol.qualityId === 'mythic' ? '235, 75, 75'     // 神话 - 红色
+          : symbol.qualityId === 'epic' ? '136, 71, 255'      // 史诗 - 紫色
+          : symbol.qualityId === 'rare' ? '75, 105, 255'      // 稀有 - 蓝色
+          : '130, 157, 187'; // 普通 - 灰色
         glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
       }
       

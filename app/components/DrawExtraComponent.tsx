@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '../hooks/useAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 
 
@@ -47,24 +47,15 @@ function useSourceProducts() {
     let aborted = false;
     (async () => {
       try {
-        // 使用新的后端接口
-        const formData = new URLSearchParams();
-        formData.append('name', '');
-        formData.append('price_sort', '1');
-        formData.append('price_min', '200');
-        formData.append('price_max', '5888');
-        
-        const res = await fetch('/api/lucky/list', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString(),
-          cache: 'no-store',
+        // ✅ 使用 api.getLuckyList
+        const result = await api.getLuckyList({
+          name: '',
+          price_sort: '1',
+          price_min: '200',
+          price_max: '5888',
         });
-        if (!res.ok) throw new Error('fail');
-        const result = await res.json();
-        if (!aborted && result.data && Array.isArray(result.data)) {
+        
+        if (!aborted && result.code === 100000 && result.data && Array.isArray(result.data)) {
           setItems(result.data.map((item: any) => ({
             id: String(item.id || Math.random()),
             name: item.steam?.name || 'Unknown',
@@ -97,8 +88,8 @@ function formatCurrency(num: number) {
 }
 
 export default function DrawExtraComponent() {
-  const { status } = useSession();
-  const isAuthed = status === 'authenticated';
+  const { isAuthenticated } = useAuth();
+  const isAuthed = isAuthenticated;
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();

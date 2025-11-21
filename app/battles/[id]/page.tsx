@@ -10,7 +10,7 @@ import PacksGallery from "./components/PacksGallery";
 import PackDetailModal from "./components/PackDetailModal";
 import { useBattleData } from "./hooks/useBattleData";
 import type { PackItem, Participant } from "./types";
-import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/CanvasSlotMachine";
+import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
 import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
 

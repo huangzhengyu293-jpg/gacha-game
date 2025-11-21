@@ -75,12 +75,9 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
 
-  // 仓库数据（作为购物车弹窗展示的数据源）
-  const { data: warehouse = [], isLoading: warehouseLoading } = useQuery({
-    queryKey: ['warehouse'],
-    queryFn: api.getUserWarehouse,
-    staleTime: 0,
-  });
+  // ✅ 仓库数据暂时为空，等待后续实现仓库接口
+  const warehouse: WarehouseItem[] = [];
+  const warehouseLoading = false;
 
   // 将仓库项展开（按 quantity 次数展开为多件），若外部未传入 items 则使用仓库数据
   const expandedWarehouseItems: CartItem[] = (warehouse as WarehouseItem[]).flatMap((w) => {
@@ -138,31 +135,10 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   function toCents(v: number) { return Math.round(v * 100); }
   function fromCents(c: number) { return Math.max(0.01, Math.round(c) / 100); }
 
+  // ✅ 暂时禁用分割功能，等待后续实现仓库接口
   const splitMutation = useMutation({
     mutationFn: async (item: CartItem) => {
-      const warehouseId = item.id.split('#')[0];
-      const base = await api.getUserWarehouseItem(warehouseId);
-      const depth = getDepthFromProductId(item.productId);
-      if (depth >= 2) return;
-      const sourceProductId = getSourceProductId(item.productId || base.productId);
-      const denomCents = Math.floor(toCents(item.price) / 2);
-      const denom = fromCents(denomCents);
-      const newVoucherKey = `voucher:${sourceProductId}:${denomCents}:${depth + 1}`;
-
-      // decrement one from original stack
-      const nextQty = Math.max(0, (base.quantity ?? 1) - 1);
-      await api.updateUserWarehouseItem(base.id, { quantity: nextQty });
-
-      // add two vouchers (merged by productId)
-      await api.addUserWarehouseItems([
-        {
-          productId: newVoucherKey,
-          name: 'Voucher',
-          image: '',
-          price: denom,
-          quantity: 2,
-        },
-      ]);
+      throw new Error('仓库功能暂未开放');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouse'] });
@@ -176,10 +152,10 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   const [confirmGain, setConfirmGain] = useState(0);
   const [confirmPayload, setConfirmPayload] = useState<Array<{ id: string; count: number }>>([]);
 
+  // ✅ 暂时禁用出售功能，等待后续实现仓库接口
   const confirmSellMutation = useMutation({
     mutationFn: async (payload: Array<{ id: string; count: number }>) => {
-      if (!payload.length) return;
-      await api.sellUserWarehouseItems(payload);
+      throw new Error('仓库功能暂未开放');
     },
     onSuccess: () => {
       setSelectedItems(new Set());

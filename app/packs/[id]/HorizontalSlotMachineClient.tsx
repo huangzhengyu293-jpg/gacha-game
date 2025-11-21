@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/app/lib/api';
+import { getQualityFromLv } from '@/app/lib/catalogV2';
 import HorizontalLuckySlotMachine from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
 import type { SlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
-import LuckySlotMachine from '@/app/components/SlotMachine/CanvasSlotMachine';
+import LuckySlotMachine from '@/app/components/SlotMachine/LuckySlotMachine';
 
 const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
 
@@ -20,7 +21,8 @@ const createGoldenPlaceholder = (): SlotSymbol => ({
 });
 
 interface HorizontalSlotMachineClientProps {
-  packId: string;
+  slotPackIds: string[];
+  allPacksData: Record<string, any>;
 }
 
 interface PackSlotData {
@@ -34,25 +36,15 @@ interface PackSlotData {
   spinKey: number;
 }
 
-export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMachineClientProps) {
-  const [packSlots, setPackSlots] = useState<PackSlotData[]>([{
-    packId,
-    allSymbols: [],
-    normalSymbols: [],
-    legendarySymbols: [],
-    stage: 'normal',
-    selectedPrizeId: null,
-    pendingLegendaryId: null,
-    spinKey: 0
-  }]);
+export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData }: HorizontalSlotMachineClientProps) {
+  const [packSlots, setPackSlots] = useState<PackSlotData[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const completedCountRef = useRef(0);
   const expectedCountRef = useRef(0);
   
-  // 多轮抽奖相关
-  const currentRoundRef = useRef(0); // 当前正在播放的轮次（从1开始）
-  const totalRoundsRef = useRef(1); // 总轮数
-  const allRoundsPlansRef = useRef<Array<Array<{ firstStageId: string; finalId: string; needsSecondStage: boolean } | null>>>([]); // 所有轮次的预设结果
+  const currentRoundRef = useRef(0);
+  const totalRoundsRef = useRef(1);
+  const allRoundsPlansRef = useRef<Array<Array<{ firstStageId: string; finalId: string; needsSecondStage: boolean } | null>>>([]);
   
   const [viewportWidth, setViewportWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
   const verticalContainerRef = useRef<HTMLDivElement | null>(null);
@@ -99,132 +91,67 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
     initAudio();
   }, []);
   
-  // 获取所有卡包数据
-  const { data: packs } = useQuery({ 
-    queryKey: ['packs'], 
-    queryFn: api.getPacks,
-    staleTime: 30_000 
-  });
+  const packsLoadedRef = useRef(new Set<string>());
   
-  // 监听PackMediaStrip的卡包选择
-  const lastPackIdsRef = useRef<string>('');
-  
+  // 根据 slotPackIds 更新 packSlots
   useEffect(() => {
-    const updateSlots = () => {
-      const selectedPackIds = (window as any).__slotPackIds || [packId];
-      const currentPackIdsKey = selectedPackIds.join(',');
+    setPackSlots(prev => {
+      const newSlots = slotPackIds.map((pid: string, index: number) => {
+        const existing = prev[index];
+        if (existing && existing.packId === pid) {
+          return existing;
+        }
+        return { 
+          packId: pid, 
+          allSymbols: [],
+          normalSymbols: [],
+          legendarySymbols: [],
+          stage: 'normal' as const,
+          selectedPrizeId: null,
+          pendingLegendaryId: null,
+          spinKey: 0 
+        };
+      });
       
-      // 如果 packIds 没有变化，不更新
-      if (lastPackIdsRef.current === currentPackIdsKey) {
-        return;
+      if (newSlots.length === prev.length && 
+          newSlots.every((slot: any, i: number) => slot === prev[i])) {
+        return prev;
       }
       
-      console.log(`📦 [updateSlots] selectedPackIds数量: ${selectedPackIds.length}`);
-      console.log(`🔄 [updateSlots] packIds变化: "${lastPackIdsRef.current}" -> "${currentPackIdsKey}"`);
-      
-      lastPackIdsRef.current = currentPackIdsKey;
-      
-      setPackSlots(prev => {
-        // 使用index来区分，即使packId相同
-        const newSlots = selectedPackIds.map((pid: string, index: number) => {
-          const existing = prev[index];
-          // 如果位置上的packId相同，保留数据
-          if (existing && existing.packId === pid) {
-            return existing;
-          }
-          // 否则创建新的slot
-          console.log(`➕ [updateSlots] 位置${index}创建新slot: ${pid.slice(-6)}`);
-          return { 
-            packId: pid, 
-            allSymbols: [],
-            normalSymbols: [],
-            legendarySymbols: [],
-            stage: 'normal' as const,
-            selectedPrizeId: null,
-            pendingLegendaryId: null,
-            spinKey: 0 
-          };
-        });
-        
-        // 检查是否真的有变化（长度或内容）
-        if (newSlots.length === prev.length && 
-            newSlots.every((slot: any, i: number) => slot === prev[i])) {
-          console.log('⏸️ [updateSlots] 内容没变化，不更新');
-          return prev; // 返回原数组，避免触发重渲染
-        }
-        
-        console.log(`✅ [updateSlots] 更新slots: ${newSlots.length}个`);
-        return newSlots;
-      });
-    };
-    
-    updateSlots();
-    const interval = setInterval(updateSlots, 200);
-    
-    return () => clearInterval(interval);
-  }, [packId]);
+      return newSlots;
+    });
+  }, [slotPackIds]);
   
-  // 加载每个卡包的物品数据
-  const packsLoadedRef = useRef<Set<string>>(new Set());
-  
+  // 使用 allPacksData 填充 allSymbols
   useEffect(() => {
-    if (!packs || packs.length === 0) {
-      console.log('⚠️ [数据加载] packs未加载');
-      return;
-    }
-    
-    if (packSlots.length === 0) {
-      console.log('⚠️ [数据加载] packSlots为空');
-      return;
-    }
-    
-    console.log(`🔍 [数据加载] 检查${packSlots.length}个slots的数据`);
-    console.log(`🔍 [数据加载] packs数量: ${packs.length}`, packs.map((p: any) => p.id.slice(-6)));
+    if (packSlots.length === 0) return;
     
     setPackSlots(prev => {
       let hasChanges = false;
       
       const updated = prev.map((slot, index) => {
-        // 如果已经加载过，直接返回
         if (slot.allSymbols.length > 0) {
-          console.log(`✓ [数据加载] Slot${index} (${slot.packId.slice(-6)}) 已有${slot.allSymbols.length}个物品`);
           return slot;
         }
         
-        console.log(`🔍 [数据加载] Slot${index} packId: ${slot.packId}`);
-        
-        const pack = packs.find((p: any) => p.id === slot.packId);
-        if (!pack) {
-          console.log(`⚠️ [数据加载] Slot${index} 找不到卡包 ${slot.packId}`);
-          console.log(`   可用的packIds:`, packs.map((p: any) => p.id));
+        const packData = allPacksData[slot.packId];
+        if (!packData || !packData.items || packData.items.length === 0) {
           return slot;
         }
         
-        if (!pack.items || pack.items.length === 0) {
-          console.log(`⚠️ [数据加载] Slot${index} 卡包 ${slot.packId.slice(-6)} 没有items数据`);
-          return slot;
-        }
+        const packItems = packData.items;
         
         hasChanges = true;
         packsLoadedRef.current.add(slot.packId);
         
-        const allSymbols: SlotSymbol[] = pack.items.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          image: item.image,
-          price: item.price || 0,
-          qualityId: item.qualityId || 'common',
-          description: item.description || '',
-          dropProbability: item.dropProbability
-        }));
+        // 直接使用已处理好的数据
+        const allSymbols: SlotSymbol[] = packItems;
         
         const legendarySymbols = allSymbols.filter(symbol => symbol.qualityId === 'legendary');
         const nonLegendarySymbols = allSymbols.filter(symbol => symbol.qualityId !== 'legendary');
         const normalSymbols = legendarySymbols.length > 0
           ? [...nonLegendarySymbols, createGoldenPlaceholder()]
           : [...nonLegendarySymbols];
-        
-        console.log(`✅ [数据加载] Slot${index} 卡包 ${slot.packId.slice(-6)} 加载${allSymbols.length}个物品，传奇${legendarySymbols.length}`);
         
         return { 
           ...slot, 
@@ -236,7 +163,7 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
       
       return hasChanges ? updated : prev;
     });
-  }, [packs, packSlots.length]);
+  }, [allPacksData, packSlots.length]);
   
   // 快速模式状态（从ActionBarClient的闪电按钮控制）
   const [isFastMode, setIsFastMode] = useState(false);
@@ -322,12 +249,8 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
     const plans = allRoundsPlansRef.current[roundIndex];
     if (!plans) return;
     
-    console.log(`🎰 [第${roundIndex + 1}轮/${totalRoundsRef.current}轮] 开始动画`);
-    
-    const totalSpins = plans.reduce((sum, plan) => {
-      if (!plan || !plan.firstStageId) return sum;
-      return sum + (plan.needsSecondStage ? 2 : 1);
-    }, 0);
+    // 修正计数：每个 slot 最终只计数一次（无论是否有第二阶段）
+    const totalSpins = plans.filter(plan => plan && plan.firstStageId).length;
     
     completedCountRef.current = 0;
     expectedCountRef.current = totalSpins;
@@ -355,35 +278,54 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
   }, []);
 
   useEffect(() => {
-    const handleDemoSpin = (rounds: number = 1) => {
+    const handleDemoSpin = (roundsOrPresetResults: number | any[] = 1) => {
       if (isSpinning) {
-        console.log('⚠️ [演示转动] 老虎机正在运行中');
         return;
       }
       
+      // 判断是随机模式还是预设模式
+      const isPresetMode = Array.isArray(roundsOrPresetResults);
+      const rounds = isPresetMode ? roundsOrPresetResults.length : roundsOrPresetResults;
+      
       // 生成所有轮次的结果
       const allPlans: Array<Array<{ firstStageId: string; finalId: string; needsSecondStage: boolean } | null>> = [];
-      console.log(`🎰 [演示转动] 生成${rounds}轮结果...`);
       
-      for (let i = 0; i < rounds; i++) {
-        const roundPlans = generateRoundPlans();
-        allPlans.push(roundPlans);
-        console.log(`📋 [第${i + 1}轮结果]:`);
-        roundPlans.forEach((plan, index) => {
-          if (plan) {
-            const slot = packSlots[index];
-            if (slot) {
-              const result = slot.allSymbols.find(s => s.id === plan.finalId);
-              if (result) {
-                console.log(`  Slot${index + 1}: ${result.name} ¥${result.price} ${plan.needsSecondStage ? '(传奇)' : ''}`);
-              }
-            }
-          }
+      if (isPresetMode) {
+        // 预设模式：根据开箱接口返回的结果生成计划
+        roundsOrPresetResults.forEach((roundResults: any[], roundIndex: number) => {
+          const roundPlans = packSlots.map((slot, slotIndex) => {
+            if (slot.allSymbols.length === 0) return null;
+            
+            // 获取该位置的预设结果
+            const presetResult = roundResults[slotIndex];
+            if (!presetResult) return null;
+            
+            // 物品ID在 awards.id 字段中
+            const awardId = presetResult.awards?.id || presetResult.id;
+            if (!awardId) return null;
+            
+            // 在 allSymbols 中查找对应的物品
+            const targetItem = slot.allSymbols.find(s => String(s.id) === String(awardId));
+            if (!targetItem) return null;
+            
+            const isLegendaryResult = targetItem.qualityId === 'legendary' && slot.legendarySymbols.length > 0;
+            return {
+              firstStageId: isLegendaryResult ? GOLDEN_PLACEHOLDER_ID : targetItem.id,
+              finalId: targetItem.id,
+              needsSecondStage: isLegendaryResult
+            };
+          });
+          allPlans.push(roundPlans);
         });
+      } else {
+        // 随机模式：使用原有逻辑
+        for (let i = 0; i < rounds; i++) {
+          const roundPlans = generateRoundPlans();
+          allPlans.push(roundPlans);
+        }
       }
       
       if (allPlans.length === 0 || allPlans[0].every(p => !p)) {
-        console.warn('⚠️ [演示转动] 没有可用数据');
         return;
       }
       
@@ -391,7 +333,6 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
       totalRoundsRef.current = rounds;
       currentRoundRef.current = 1;
       
-      console.log(`🎰 [演示转动] 开始播放${rounds}轮动画`);
       setIsSpinning(true);
       (window as any).__isSlotMachineSpinning = true;
       
@@ -461,9 +402,11 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
 
   const handleSpinComplete = (result: SlotSymbol, index: number) => {
     const slotSnapshot = packSlots[index];
-    const packLabel = slotSnapshot ? slotSnapshot.packId.slice(-6) : '';
+    const packLabel = slotSnapshot ? String(slotSnapshot.packId).slice(-6) : '';
     let triggeredSecondStage = false;
     let finalResult: SlotSymbol | null = null;
+    
+    console.log(`🏁 [Slot${index}] 滚动完成:`, result.name, `stage: ${slotSnapshot?.stage}, pendingLegendaryId: ${slotSnapshot?.pendingLegendaryId}`);
     
     setPackSlots(prev => {
       if (index < 0 || index >= prev.length) return prev;
@@ -472,6 +415,7 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
       
       const nextSlots = [...prev];
       const shouldEnterLegendary = slot.stage === 'normal' && !!slot.pendingLegendaryId;
+      console.log(`   检查是否进入第二阶段: ${shouldEnterLegendary}`);
       
       if (shouldEnterLegendary) {
         triggeredSecondStage = true;
@@ -495,14 +439,16 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
       return nextSlots;
     });
     
-    completedCountRef.current += 1;
-    const expectedCount = expectedCountRef.current || packSlots.length;
-    console.log(`🎰 [完成进度] ${completedCountRef.current}/${expectedCount}`);
-    
+    // 🔥 如果触发第二阶段，不增加计数，直接返回
     if (triggeredSecondStage) {
-      console.log(`✨ [老虎机${index + 1}] 卡包${packLabel} 抽到金色占位符，切换传奇奖池`);
+      console.log(`✨ [老虎机${index + 1}] 卡包${packLabel} 抽到金色占位符，切换传奇奖池（不增加完成计数）`);
       return;
     }
+    
+    // 只有真正完成时才增加计数
+    completedCountRef.current += 1;
+    const expectedCount = expectedCountRef.current || packSlots.length;
+    console.log(`🎰 [完成进度] ${completedCountRef.current}/${expectedCount}, isSpinning: ${isSpinning}`);
     
     const displayResult = finalResult || result;
     console.log(`🎰 [老虎机${index + 1}] 卡包${packLabel} 抽中:`, displayResult.name, '$' + displayResult.price);
@@ -510,6 +456,8 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
     if (showVerticalGrid) {
       playWinSound();
     }
+    
+    console.log(`🔍 [检查完成] completedCountRef.current(${completedCountRef.current}) >= expectedCount(${expectedCount})?`, completedCountRef.current >= expectedCount);
     
     if (completedCountRef.current >= expectedCount) {
       // 当前轮完成
@@ -579,7 +527,7 @@ export default function HorizontalSlotMachineClient({ packId }: HorizontalSlotMa
   const renderVerticalGrid = () => {
     console.log(`🎯 [renderVerticalGrid] packSlots数量: ${packSlots.length}`);
     packSlots.forEach((slot, i) => {
-      console.log(`  ${i}: packId=${slot.packId.slice(-6)}, symbols=${slot.allSymbols.length}`);
+      console.log(`  ${i}: packId=${String(slot.packId).slice(-6)}, symbols=${slot.allSymbols.length}`);
     });
     
     if (isMobileTwoRowMode) {

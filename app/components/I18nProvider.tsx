@@ -23,6 +23,7 @@ const dict: Dict = {
   privacy: { zh: "隐私政策", en: "Privacy Policy", ko: "プライバシーポリシー", ja: "プライバシーポリシー" },
   terms: { zh: "服务条款", en: "Terms of Service", ko: "利用規約", ja: "利用規約" },
   community: { zh: "社区", en: "Community", ko: "コミュニティ", ja: "コミュニティ" },
+  favorite: { zh: "最喜欢", en: "Favorite", ko: "즐겨찾기", ja: "お気に入り" },
   support: { zh: "支持", en: "Support", ko: "サポート", ja: "サポート" },
   email: { zh: "support@flamedraw.com", en: "support@flamedraw.com", ko: "support@flamedraw.com", ja: "support@flamedraw.com" },
   chooseLanguage: { zh: "選擇語言", en: "Choose Language", ko: "言語を選択", ja: "言語を選択" },

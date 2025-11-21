@@ -26,6 +26,19 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
+// 全局 toast 函数（供非 React 组件使用）
+let globalToastFn: ((opts: ToastOptions) => void) | null = null;
+
+export function setGlobalToast(fn: (opts: ToastOptions) => void) {
+  globalToastFn = fn;
+}
+
+export function showGlobalToast(opts: ToastOptions) {
+  if (globalToastFn) {
+    globalToastFn(opts);
+  }
+}
+
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Array<ToastItem & { entering: boolean; closing: boolean }>>([]);
 
@@ -54,6 +67,14 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
     // auto dismiss
     window.setTimeout(() => close(id), item.durationMs);
   }, [close]);
+
+  // 注册全局 toast 函数
+  React.useEffect(() => {
+    setGlobalToast(show);
+    return () => {
+      setGlobalToast(() => {});
+    };
+  }, [show]);
 
   const value = React.useMemo<ToastContextValue>(() => ({ show, close }), [show, close]);
 

@@ -48,11 +48,29 @@ export function useBattleData(): BattleData {
   console.log('🔄 [useBattleData] upsideDown参数:', isInvertedParam);
   console.log('🔄 [useBattleData] isInverted:', isInverted);
 
-  const { data: allPacks = [] } = useQuery({
-    queryKey: ['packs'],
-    queryFn: api.getPacks,
+  const { data: boxListData } = useQuery({
+    queryKey: ['boxList', {}],
+    queryFn: () => api.getBoxList({
+      sort_type: '1',
+      volatility: '1',
+    }),
     staleTime: 30_000,
   });
+
+  // 将新接口数据映射为旧格式
+  const allPacks = useMemo(() => {
+    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
+      return boxListData.data.map((box: any) => ({
+        id: String(box.id || box.box_id), // ✅ 统一转为字符串
+        title: box.name || box.title || '',
+        image: box.cover || '',
+        price: Number(box.bean || 0),
+        itemCount: 0,
+        items: [],
+      }));
+    }
+    return [];
+  }, [boxListData]);
 
   // 🔍 从 localStorage 读取用户信息（因为接口已更新，使用本地缓存）
   const currentUser = typeof window !== 'undefined' 

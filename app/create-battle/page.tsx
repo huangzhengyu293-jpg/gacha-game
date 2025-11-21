@@ -253,10 +253,33 @@ function CreateBattleContent() {
     return [];
   });
   const [isSelectPackModalOpen, setIsSelectPackModalOpen] = useState(false);
-  const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  
+  const { data: boxListData } = useQuery({
+    queryKey: ['boxList', {}],
+    queryFn: () => api.getBoxList({
+      sort_type: '1',
+      volatility: '1',
+    }),
+    staleTime: 30_000,
+  });
+
+  // 将新接口数据映射为旧格式
+  const packs = useMemo(() => {
+    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
+      return boxListData.data.map((box: any) => ({
+        id: String(box.id || box.box_id), // ✅ 统一转为字符串
+        title: box.name || box.title || '',
+        image: box.cover || '',
+        price: Number(box.bean || 0),
+        itemCount: 0,
+        items: [],
+      }));
+    }
+    return [];
+  }, [boxListData]);
   
   const selectedPacks = useMemo(() => {
-    return selectedPackIds.map(id => packs.find((p: CatalogPack) => p.id === id)).filter(Boolean) as CatalogPack[];
+    return selectedPackIds.map(id => packs.find((p: CatalogPack) => String(p.id) === String(id))).filter(Boolean) as CatalogPack[];
   }, [selectedPackIds, packs]);
   
   // 生成唯一 ID 数组用于 SortableContext

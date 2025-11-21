@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import PackContentsModal from './PackContentsModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
+import { showGlobalToast } from './ToastProvider';
 
 interface PackCardProps {
   imageUrl: string;
@@ -13,9 +15,9 @@ interface PackCardProps {
   height?: number;
   href?: string;
   className?: string;
-  hoverTilt?: boolean; // 是否启用“鼠标吸附/倾斜”动画
+  hoverTilt?: boolean; // 是否启用"鼠标吸附/倾斜"动画
   showActions?: boolean; // 是否显示右上角操作按钮（hover 时展示）
-  packId?: string; // 用于“眼睛”弹出商品列表
+  packId?: string; // 用于"眼睛"弹出商品列表
   packTitle?: string;
   packPrice?: number;
 }
@@ -37,12 +39,64 @@ export default function PackCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ rotateX: 0, rotateY: 0, scale: 1 });
   const [showModal, setShowModal] = useState(false);
-  const { data: modalPack } = useQuery({
-    queryKey: ['pack-by-id', packId, showModal],
-    queryFn: async () => packId ? await api.getPackById(packId) : undefined,
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  
+  const { favoriteIds, toggleFavorite } = useAuth();
+  const isFavorited = packId ? favoriteIds.includes(String(packId)) : false;
+  
+  const { data: modalPackData } = useQuery({
+    queryKey: ['box-detail', packId, showModal],
+    queryFn: async () => packId ? await api.getBoxDetail(packId) : undefined,
     enabled: !!packId && showModal,
     staleTime: 30_000,
   });
+
+  // 将新接口数据映射为旧格式
+  const modalPack = useMemo(() => {
+    if (!modalPackData || modalPackData.code !== 100000 || !modalPackData.data) return undefined;
+    const box = modalPackData.data;
+    return {
+      id: box.id,
+      title: box.name || box.title || '',
+      image: box.cover || '',
+      price: Number(box.bean || 0),
+      itemCount: box.awards?.length || 0,
+      items: (box.awards || []).map((award: any) => {
+        const item = award.awards || {};
+        return {
+          id: item.id,
+          name: item.name || '',
+          image: item.cover || '',
+          price: Number(item.bean || 0),
+          dropProbability: 0.01,
+          qualityId: '',
+        };
+      }),
+    };
+  }, [modalPackData]);
+  
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!packId || isTogglingFavorite) return;
+    
+    setIsTogglingFavorite(true);
+    
+    // 调用收藏接口（全局拦截器会自动处理未登录的情况）
+    const result = await toggleFavorite(packId);
+    
+    setIsTogglingFavorite(false);
+    
+    if (result.success) {
+      showGlobalToast({
+        title: '成功',
+        description: '操作成功',
+        variant: 'success',
+        durationMs: 2000,
+      });
+    }
+  };
 
   useEffect(() => {
     if (!hoverTilt) return;
@@ -96,15 +150,30 @@ export default function PackCard({
       {showActions ? (
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           <button
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-opacity duration-100 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-all duration-200 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
             aria-label="收藏"
             style={{ backgroundColor: '#34383C' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+            onClick={handleFavoriteClick}
+            disabled={isTogglingFavorite}
             type="button"
           >
             <div className="flex justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-star size-4"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill={isFavorited ? '#EDD75A' : 'none'}
+                stroke={isFavorited ? '#EDD75A' : 'white'}
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="lucide lucide-star size-4 transition-all duration-200"
+              >
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
             </div>
           </button>
           <button

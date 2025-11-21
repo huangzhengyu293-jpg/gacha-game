@@ -10,43 +10,54 @@ import PacksToolbar from '../components/PacksToolbar';
 import PacksGrid from '../components/PacksGrid';
 import RouteToast from '../components/RouteToast';
 import { getGlowColorFromProbability } from '../lib/catalogV2';
+import { usePacksFilters } from '../hooks/usePacksFilters';
 
 export default function PacksPage() {
   const { t } = useI18n();
-  const { data: packs = [] as CatalogPack[] } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  
+  // 使用筛选 hook
+  const { filters, updateFilters, reset } = usePacksFilters();
+  
+  // 使用新接口 box/list
+  const { data: boxListData } = useQuery({
+    queryKey: ['boxList', filters],
+    queryFn: () => api.getBoxList(filters as any),
+    // 收藏列表不使用缓存，其他列表使用 30 秒缓存
+    staleTime: filters.search_type === '3' ? 0 : 30_000,
+  });
 
-  const bestOpenData = useMemo(() => {
-    const count = Math.min(3, packs.length);
-    const chosen: number[] = [];
-    while (chosen.length < count) {
-      const idx = Math.floor(Math.random() * packs.length);
-      if (!chosen.includes(idx)) chosen.push(idx);
+  // 使用新接口数据
+  const displayPacks = useMemo(() => {
+    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
+      return boxListData.data.map((box: any) => ({
+        id: box.id || box.box_id,
+        coverSrc: box.cover,
+        price: `$${Number(box.bean || 0).toFixed(2)}`,
+        title: box.name || box.title || '',
+        priceNumber: Number(box.bean || 0),
+      }));
     }
-    return chosen.map((i) => {
-      const pack = packs[i];
-      const items = pack.items || [];
-      if (!items.length) return null;
-      const product = items[Math.floor(Math.random() * items.length)];
-      return { product, pack };
-    }).filter(Boolean) as Array<{ product: (typeof packs[number]['items'])[number]; pack: typeof packs[number] }>;
-  }, []);
+    return [];
+  }, [boxListData]);
+
+  // 暂时禁用 bestOpenData（新接口不包含 items 数据）
+  const bestOpenData: any[] = [];
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
       <div className="flex gap-8 max-w-[1248px] mx-auto">
         <div className="flex-1 xl:max-w-[992px]">
           <div>
-            <PacksToolbar />
+            <PacksToolbar filters={filters} onFilterChange={updateFilters} onReset={reset} />
           </div>
-          <div className="mt-6">
-            <PacksGrid
-              items={packs.map((p: CatalogPack) => ({
-                id: p.id,
-                coverSrc: `${p.image}?tr=q-50,w-640,c-at_max`,
-                price: `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                title: p.title,
-                priceNumber: p.price,
-              }))}
-            />
+          <div 
+            className="mt-6 overflow-y-auto custom-scrollbar" 
+            style={{ 
+              maxHeight: '2600px',
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#4B5563 #1F2937'
+            }}
+          >
+            <PacksGrid items={displayPacks} />
           </div>
         </div>
         <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>

@@ -1,8 +1,25 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { api } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
 
-export default function ActionBarClient({ price }: { price: number }) {
+interface PackData {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  items: any[];
+}
+
+export default function ActionBarClient({ 
+  allPacksData, 
+  slotPackIds 
+}: { 
+  allPacksData: Record<string, PackData>; 
+  slotPackIds: string[] 
+}) {
+  const { fetchUserBean } = useAuth();
   const [quantity, setQuantity] = useState<number>(1);
   const [hoverMinus, setHoverMinus] = useState<boolean>(false);
   const [hoverPlus, setHoverPlus] = useState<boolean>(false);
@@ -25,11 +42,19 @@ export default function ActionBarClient({ price }: { price: number }) {
     return () => clearInterval(interval);
   }, []);
 
+  // 计算所有选中礼包的总价格
+  const totalPacksPrice = useMemo(() => {
+    return slotPackIds.reduce((sum, packId) => {
+      const pack = allPacksData[packId];
+      return sum + (pack?.price || 0);
+    }, 0);
+  }, [slotPackIds, allPacksData]);
+
   const canDec = quantity > 1;
   const canInc = quantity < 15;
   const totalLabel = useMemo(
-    () => `$${(quantity * price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    [quantity, price]
+    () => `$${(quantity * totalPacksPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    [quantity, totalPacksPrice]
   );
 
   const btnBaseBg = '#34383C';
@@ -89,13 +114,48 @@ export default function ActionBarClient({ price }: { price: number }) {
       <div className="flex w-full sm:w-auto sm:flex-1 items-center justify-center">
         <button
           type="button"
-          onMouseEnter={() => setHoverOpen(true)}
+          disabled={isSlotMachineSpinning}
+          onMouseEnter={() => !isSlotMachineSpinning && setHoverOpen(true)}
           onMouseLeave={() => setHoverOpen(false)}
+          onClick={async () => {
+            if (isSlotMachineSpinning) return;
+            
+            const isFastMode = (window as any).__slotMachineFastMode || false;
+            const animTime = isFastMode ? 1000 : 4500;
+            const ids = slotPackIds.join('|');
+            
+            try {
+              const result = await api.openBox({
+                ids: ids,
+                multiple: quantity,
+                anim: animTime,
+              });
+              
+              if (result.code === 100000 && result.data && Array.isArray(result.data)) {
+                // 开启成功后刷新用户余额
+                fetchUserBean();
+                
+                const spinFunction = (window as any).spinSlotMachine;
+                if (spinFunction && typeof spinFunction === 'function') {
+                  // 将一维数组按照礼包数量分组成二维数组
+                  // 比如：3个礼包，开2次 => [结果1, 结果2, 结果3, 结果4, 结果5, 结果6]
+                  // 转换为：[[结果1, 结果2, 结果3], [结果4, 结果5, 结果6]]
+                  const packsCount = slotPackIds.length;
+                  const rounds: any[][] = [];
+                  for (let i = 0; i < result.data.length; i += packsCount) {
+                    rounds.push(result.data.slice(i, i + packsCount));
+                  }
+                  spinFunction(rounds);
+                }
+              }
+            } catch (error) {
+            }
+          }}
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-11 px-6 w-full sm:max-w-56"
           style={{
-            backgroundColor: hoverOpen ? '#38a169' : '#48BB78',
-            color: '#FFFFFF',
-            cursor: 'pointer',
+            backgroundColor: isSlotMachineSpinning ? '#34383C' : (hoverOpen ? '#38a169' : '#48BB78'),
+            color: isSlotMachineSpinning ? '#7A8084' : '#FFFFFF',
+            cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
           }}
         >
           开启 {quantity} 次价格 {totalLabel}

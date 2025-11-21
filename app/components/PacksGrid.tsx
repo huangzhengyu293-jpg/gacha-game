@@ -53,12 +53,11 @@ const DEFAULT_ITEMS: PackItem[] = [
 ];
 
 export default function PacksGrid({ items = DEFAULT_ITEMS }: { items?: PackItem[] }) {
-  // 限制最多渲染 12 个（2~3 行，视列数而定）
-  const limited = items.slice(0, 12);
+  // ✅ 渲染所有数据，不再限制数量
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 self-stretch">
-        {limited.map((p) => (
+        {items.map((p) => (
           <div className="relative w-full" key={p.id}>
             <div className="relative w-full">
 

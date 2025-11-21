@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import type { CatalogPack } from '../../lib/api';
 import PacksToolbar from '../../components/PacksToolbar';
 import PackCard from '../../components/PackCard';
+import { usePacksFilters } from '../../hooks/usePacksFilters';
 
 export default function SelectPackModal({
   open,
@@ -22,54 +23,88 @@ export default function SelectPackModal({
   maxPacks?: number;
   minPacks?: number;
 }) {
-  // 如果 maxPacks 是 undefined 且 minPacks 是 0，说明是对战页面，无限制
-  // 如果 maxPacks 是 undefined 但 minPacks 不是 0（或未传入），说明是礼包页面，默认 6
   const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
   const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;
-  const [query, setQuery] = useState('');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
-  const { data: packs = [] as CatalogPack[] , refetch } = useQuery({ queryKey: ['packs'], queryFn: api.getPacks, staleTime: 30_000 });
+  
+  // 使用筛选 hook
+  const { filters, updateFilters, reset } = usePacksFilters();
+  
+  const { data: boxListData, isLoading, error, refetch } = useQuery({
+    queryKey: ['boxList', filters],
+    queryFn: () => {
+      // 确保至少传递默认参数
+      const params = {
+        sort_type: '1',
+        volatility: '1',
+        ...filters,
+      };
+      return api.getBoxList(params);
+    },
+    // 收藏列表不使用缓存，其他列表使用 30 秒缓存
+    staleTime: filters.search_type === '3' ? 0 : 30_000,
+    retry: 1,
+  });
+  
+  const packs = useMemo(() => {
+    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
+      return boxListData.data.map((box: any) => ({
+        id: String(box.id || box.box_id), // ✅ 统一转为字符串
+        title: box.name || box.title || '',
+        price: Number(box.bean || 0),
+        image: box.cover || '',
+        items: [],
+      }));
+    }
+    return [] as CatalogPack[];
+  }, [boxListData]);
+  
   const isInitializingRef = useRef(false);
   const onSelectionChangeRef = useRef(onSelectionChange);
-  const lastEmittedListRef = useRef<string>(''); // 🚀 追踪上一次输出的列表（用字符串比较）
   
-  // 保持 onSelectionChange 引用最新
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
   }, [onSelectionChange]);
 
-  // 初始化数量：根据当前选中的 packId 列表
+  // 初始化：只在打开弹窗时初始化一次
+  const openedRef = useRef(false);
+  const firstPackIdRef = useRef<string | null>(null);
+  
   React.useEffect(() => {
-    if (!open) return;
-    // 打开时拉取一次最新 packs（JSON 优先）
+    if (!open) {
+      openedRef.current = false;
+      return;
+    }
+    
+    if (openedRef.current) return;
+    openedRef.current = true;
+    
+    // 记录第一个卡包ID（不能被删除）
+    firstPackIdRef.current = selectedPackIds[0] || null;
+    
     refetch();
     isInitializingRef.current = true;
+    
     const next: Record<string, number> = {};
     selectedPackIds.forEach((id) => {
       next[id] = (next[id] || 0) + 1;
     });
-    // 至少 effectiveMinPacks 个（仅对礼包页面有效）
-    if (effectiveMinPacks > 0 && Object.values(next).reduce((a, b) => a + b, 0) === 0 && packs.length > 0) {
-      const first = packs[0].id;
-      next[first] = 1;
-    }
+    
     setQtyMap(next);
-    // 使用 setTimeout 确保初始化完成后再允许触发回调
+    
     setTimeout(() => {
       isInitializingRef.current = false;
-    }, 0);
-  }, [open, selectedPackIds, packs.length, refetch, effectiveMinPacks]);
+    }, 50);
+  }, [open]);
 
-  const filtered: CatalogPack[] = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return packs;
-    return packs.filter((p: CatalogPack) => p.title.toLowerCase().includes(q));
-  }, [query, packs]);
+  // PacksToolbar 内部管理搜索，这里不需要过滤
+  const filtered: CatalogPack[] = packs;
 
   const selectedCount = useMemo(() => {
     return Object.values(qtyMap).reduce((a, b) => a + (b || 0), 0);
   }, [qtyMap]);
+  
   const selectedTotal = useMemo(() => {
     return Object.entries(qtyMap).reduce((sum: number, [id, q]: [string, number]) => {
       if (!q) return sum;
@@ -80,59 +115,25 @@ export default function SelectPackModal({
 
   const getQty = (id: string) => qtyMap[id] || 0;
   
-  // 从 qtyMap 生成 id 列表的函数
+  // 从 qtyMap 生成列表
   const generateListFromMap = (map: Record<string, number>): string[] => {
     const list: string[] = [];
-    // 先按 selectedPackIds 的去重顺序推入（避免重复顺序导致重复累加）
-    const orderedUnique = Array.from(new Set(selectedPackIds));
-    orderedUnique.forEach((id) => {
-      const c = map[id] || 0;
-      for (let i = 0; i < c; i++) {
-        // 如果 effectiveMaxPacks 是 undefined，允许无限添加；否则检查是否超过限制
-        if (effectiveMaxPacks === undefined) {
-          list.push(id);
-        } else if (list.length < effectiveMaxPacks) {
+    Object.entries(map).forEach(([id, count]) => {
+      for (let i = 0; i < count; i++) {
+        if (effectiveMaxPacks === undefined || list.length < effectiveMaxPacks) {
           list.push(id);
         }
       }
     });
-    // 再补充其他在 map 中但不在 selectedPackIds 的 id
-    Object.keys(map).forEach((id) => {
-      if (orderedUnique.includes(id)) return;
-      const c = map[id] || 0;
-      for (let i = 0; i < c; i++) {
-        // 如果 effectiveMaxPacks 是 undefined，允许无限添加；否则检查是否超过限制
-        if (effectiveMaxPacks === undefined) {
-          list.push(id);
-        } else if (list.length < effectiveMaxPacks) {
-          list.push(id);
-        }
-      }
-    });
-    // 至少 effectiveMinPacks 个（仅对礼包页面有效）
-    if (effectiveMinPacks > 0 && list.length === 0) {
-      if (selectedPackIds.length > 0) {
-        list.push(selectedPackIds[0]);
-      } else {
-        const firstKey = Object.keys(map)[0];
-        if (firstKey) list.push(firstKey);
-      }
-    }
     return list;
   };
 
-  // 监听 qtyMap 变化，在渲染完成后触发回调
+  // qtyMap 变化时通知父组件
   useEffect(() => {
     if (isInitializingRef.current) return;
     const list = generateListFromMap(qtyMap);
-    const listStr = list.join(',');
-    
-    // 🔒 只在列表真正变化时才调用回调，避免无限循环
-    if (lastEmittedListRef.current !== listStr) {
-      lastEmittedListRef.current = listStr;
-      onSelectionChangeRef.current(list);
-    }
-  }, [qtyMap, selectedPackIds, effectiveMaxPacks, effectiveMinPacks]);
+    onSelectionChangeRef.current(list);
+  }, [qtyMap]);
 
   const inc = (id: string) => {
     setQtyMap(prev => {
@@ -143,17 +144,18 @@ export default function SelectPackModal({
       return { ...prev, [id]: (prev[id] || 0) + 1 };
     });
   };
+  
   const dec = (id: string) => {
     setQtyMap(prev => {
       const curr = prev[id] || 0;
-      const next = Math.max(0, curr - 1);
-      const map = { ...prev, [id]: next };
-      // 全局最少 effectiveMinPacks：若总数为 effectiveMinPacks 且当前为 1，则不再递减（仅对礼包页面有效）
-      if (effectiveMinPacks > 0) {
-        const total = Object.values(map).reduce((a, b) => a + (b || 0), 0);
-        if (total <= effectiveMinPacks && curr <= 1) return prev;
+      if (curr <= 0) return prev;
+      
+      // 保护第一个卡包（使用打开弹窗时记录的第一个ID）
+      if (id === firstPackIdRef.current && curr <= 1) {
+        return prev;
       }
-      return map;
+      
+      return { ...prev, [id]: Math.max(0, curr - 1) };
     });
   };
 
@@ -172,16 +174,26 @@ export default function SelectPackModal({
           </button>
         </div>
 
-     
-
-        {/* 可选：复用筛选组件（仅展示，不强制影响数据），满足“复用内部筛选组件” */}
-        <div className="hidden md:block px-6">
-          <PacksToolbar showCreateButton={false} />
+        <div className="px-6">
+          <PacksToolbar showCreateButton={false} filters={filters} onFilterChange={updateFilters} onReset={reset} />
         </div>
 
-        <div className="px-6 pb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto">
-            {filtered.map((p) => (
+        <div className="px-6 pt-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[555px]">
+              <p className="text-white">加载中...</p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-[555px]">
+              <p className="text-red-500">加载失败，请重试</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex items-center justify-center h-[555px]">
+              <p className="text-gray-400">暂无礼包</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto">
+              {filtered.map((p) => (
               <div key={p.id} className="flex flex-col gap-2 relative items-stretch cursor-pointer w-full">
                 <PackCard
                   imageUrl={p.image}
@@ -247,7 +259,8 @@ export default function SelectPackModal({
                 )}
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="px-6">
@@ -268,5 +281,3 @@ export default function SelectPackModal({
     </div>
   );
 }
-
-
