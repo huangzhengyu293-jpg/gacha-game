@@ -13,6 +13,24 @@ interface ApiResponse<T = any> {
   data: T;
 }
 
+function normalizeHeaders(input?: HeadersInit): Record<string, string> {
+  if (!input) return {};
+  if (input instanceof Headers) {
+    const result: Record<string, string> = {};
+    input.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  }
+  if (Array.isArray(input)) {
+    return input.reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+  return { ...input };
+}
+
 /**
  * 服务端 fetch 封装
  * 用于 Server Components 和 API Routes
@@ -37,10 +55,10 @@ export async function serverFetch<T = any>(
     }
   }
 
-  const requestHeaders: HeadersInit = {
+  const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    ...headers,
+    ...normalizeHeaders(headers),
   };
 
   // 添加 token

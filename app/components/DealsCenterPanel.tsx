@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Urbanist } from 'next/font/google';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastProvider';
@@ -27,7 +27,6 @@ const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '600', '700', '8
 
 export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
   const toast = useToast();
-  const queryClient = useQueryClient();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const fireworkRef = useRef<FireworkAreaHandle>(null);
   const [dragging, setDragging] = useState<null | 'start' | 'end' | 'body' | 'percent'>(null);
@@ -81,15 +80,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
     
     initAudio();
   }, []);
-  const addToWarehouse = useMutation({
-    mutationFn: async (item: { productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }) => {
-      return api.addUserWarehouseItems([item]);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
-    },
-  });
-
   // 执行转动动画
   const runSpinAnimation = (winResult: boolean) => {
     // 🎵 播放 spin.mp3 音效
@@ -162,16 +152,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           }
         }
         
-        if (winResult && !inactive && productTitle && (productImage || '') !== '' && (productPrice != null)) {
-          const pid = String(productId ?? productTitle);
-          addToWarehouse.mutate({
-            productId: pid,
-            name: productTitle,
-            image: String(productImage),
-            price: Number(productPrice || 0),
-            quantity: 1,
-          });
-        }
+        // 落地奖励逻辑将在新仓库系统接入后再实现
       }
     };
     demoRafRef.current = requestAnimationFrame(step);

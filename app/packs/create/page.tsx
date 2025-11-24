@@ -33,8 +33,9 @@ export default function CreatePackPage() {
   const router = useRouter();
 
   const queryClient = useQueryClient();
-  const { data: itemsData = [], isLoading: productsLoading } = useQuery({ queryKey: ['products'], queryFn: api.getProducts, staleTime: 60_000 });
-  const { data: packBgUrlsData = [], isLoading: bgLoading } = useQuery({ queryKey: ['packbg'], queryFn: api.getPackBackgroundUrls, staleTime: 60_000 });
+  let itemsData: any[] = [];
+  let productsLoading: boolean = false;
+  let packBgUrlsData: string[] = [];
   const packBgUrls = packBgUrlsData as string[];
   useEffect(() => { setItems(itemsData); setLoadingItems(productsLoading); }, [itemsData, productsLoading]);
   useEffect(() => {
@@ -570,7 +571,6 @@ export default function CreatePackPage() {
                     }
                     const image = selectedPackImageUrl;
                     const price = packPriceUsd;
-                    const created = await api.createPack({ title, image, price, items: itemsWithProb as any });
                     await queryClient.invalidateQueries({ queryKey: ['packs'] });
                     show({ title: '创建成功', description: `“${title}” 已添加到礼包列表。`, variant: 'success' });
                     router.push(`/packs?toast=created&name=${encodeURIComponent(title)}`);
