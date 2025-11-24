@@ -31,6 +31,16 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "www.nncsgo.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "oss.66images.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "i.c5game.com",
         pathname: "/**",
       },

@@ -1,18 +1,45 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { gsap } from "gsap";
 import BattleHeader from "./components/BattleHeader";
 import ParticipantsWithPrizes from "./components/ParticipantsWithPrizes";
 import PacksGallery from "./components/PacksGallery";
 import PackDetailModal from "./components/PackDetailModal";
-import { useBattleData } from "./hooks/useBattleData";
-import type { PackItem, Participant } from "./types";
+import type { PackItem, Participant, BattleData } from "./types";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
 import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
+import { getDynamicBattleSource } from '../dynamicBattleSource';
+import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
+import type {
+  BackendBattlePayload,
+  BackendRoundPlan,
+  BackendRoundDrop,
+  BattleConfigPayload,
+  GameplayMode,
+  MatchVariant,
+  SoloSeatSize,
+  DuoVariant,
+  SpecialOption,
+} from './battlePayloadTypes';
+
+function resolveEntryRoundIndex(totalRounds: number, entryRoundSetting: number): number | null {
+  if (entryRoundSetting <= 0 || totalRounds <= 0) {
+    return null;
+  }
+  const normalized = Math.min(entryRoundSetting, totalRounds);
+  return Math.max(0, normalized - 1);
+}
+
+type BattleDataSourceConfig = {
+  id: string;
+  entryRound: number;
+  buildData: () => BattleData;
+  buildPayload: () => BackendBattlePayload;
+};
 
 // 🎰 大奖模式内联进度条组件（避免重复挂载问题）
 function JackpotProgressBarInline({ 
@@ -32,7 +59,6 @@ function JackpotProgressBarInline({
   // 只在组件首次渲染时打印一次
   if (!loggedOnce.current) {
     loggedOnce.current = true;
-    console.log('🎰 [Jackpot进度条] 组件渲染 - 玩家数:', players.length, '获胜者ID:', winnerId || '(空)');
   }
   
   useEffect(() => {
@@ -86,7 +112,7 @@ function JackpotProgressBarInline({
         });
       }
     }, 500);
-  }, []);
+  }, [players, winnerId, onComplete]);
   
   // 渲染色块（使用 flex 布局形成连续的色条）
   const renderSegments = () => {
@@ -146,7 +172,119 @@ function JackpotProgressBarInline({
   );
 }
 
+const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
 // 🎯 主状态机类型
+type RuntimeRoundPlan = BackendRoundPlan;
+
+interface TimelineCursor {
+  phase: 'COUNTDOWN' | 'ROUND' | 'COMPLETED';
+  roundIndex: number;
+  roundElapsedMs: number;
+}
+
+interface TimelinePlan {
+  startAt: number;
+  countdownMs: number;
+  roundDurationMs: number;
+  totalRounds: number;
+  fastMode: boolean;
+  getRoundByTimestamp: (ts: number) => TimelineCursor;
+}
+
+interface ParticipantRuntimeState {
+  id: string;
+  name: string;
+  avatar: string;
+  teamId?: string;
+  totalValue: number;
+  sprintScore: number;
+  eliminatedAtRound?: number;
+  roundHistory: Array<{
+    roundIndex: number;
+    itemId: string;
+    itemName: string;
+    value: number;
+    rarity: 'normal' | 'legendary';
+  }>;
+}
+
+interface BattleStateData {
+  mainState: MainState;
+  roundState: RoundState;
+  game: {
+    currentRound: number;
+    totalRounds: number;
+    rounds: Array<{
+      pools: {
+        normal: SlotSymbol[];
+        legendary: SlotSymbol[];
+        placeholder: SlotSymbol;
+      };
+      results: Record<string, {
+        itemId: string;
+        qualityId: string | null;
+        poolType: 'normal' | 'legendary';
+        needsSecondSpin: boolean;
+      }>;
+      spinStatus: {
+        firstStage: {
+          completed: Set<string>;
+          gotLegendary: Set<string>;
+        };
+        secondStage: {
+          active: Set<string>;
+          completed: Set<string>;
+        };
+      };
+    }>;
+  };
+  spinning: {
+    activeCount: number;
+    completed: Set<string>;
+  };
+}
+
+interface BattleRuntime {
+  config: BattleConfigPayload;
+  participants: Record<string, ParticipantRuntimeState>;
+  rounds: RuntimeRoundPlan[];
+  timeline: TimelinePlan;
+  jackpot?: BackendBattlePayload['jackpot'];
+  sprint?: BackendBattlePayload['sprint'];
+  classic?: BackendBattlePayload['classic'];
+  eliminationMeta?: BackendBattlePayload['eliminationMeta'];
+}
+
+type JackpotRuntimeData = {
+  id: string;
+  name: string;
+  totalValue: number;
+  teamIds: string[];
+  contenderIds?: string[];
+  usedLastChance?: boolean;
+};
+
+type SprintRuntimeData = {
+  scores: Record<string, number>;
+  roundWinners: Record<number, string[]>;
+  finalWinnerId: string;
+  needsTiebreaker: boolean;
+  tiebreakerPlayers: string[];
+};
+
+type EliminationRuntimeData = {
+  eliminations: Record<number, {
+    eliminatedPlayerId: string;
+    eliminatedPlayerName: string;
+    needsSlotMachine: boolean;
+    tiedPlayerIds?: string[];
+  }>;
+  eliminationStartRound: number;
+  finalWinnerId?: string;
+};
+
 type MainState = 'IDLE' | 'LOADING' | 'COUNTDOWN' | 'ROUND_LOOP' | 'COMPLETED';
 
 // 🎯 轮次子状态机类型
@@ -163,42 +301,395 @@ type RoundState =
   | 'ROUND_NEXT' 
   | null;
 
-// 🎯 状态数据结构
-interface BattleStateData {
-  mainState: MainState;
-  roundState: RoundState;
-  game: {
-    currentRound: number;
-    totalRounds: number;
-    rounds: Array<{
-      pools: {
-        normal: SlotSymbol[];        // 普通池（legendary被占位符替换）
-        legendary: SlotSymbol[];     // 传奇池（仅legendary道具）
-        placeholder: SlotSymbol;     // 占位符对象
-      };
-      results: Record<string, {      // 原始中奖结果
-        itemId: string;
-        qualityId: string | null;
-        poolType: 'normal' | 'legendary';
-        needsSecondSpin: boolean;
-      }>;
-      spinStatus: {
-        firstStage: {
-          completed: Set<string>;
-          gotLegendary: Set<string>;  // 第一段抽中占位符的玩家
-        };
-        secondStage: {
-          active: Set<string>;
-          completed: Set<string>;
-        };
-      };
-    }>;
-  };
-  spinning: {
-    activeCount: number;
-    completed: Set<string>; // participant IDs
+type CountdownUpdater = number | null | ((prev: number | null) => number | null);
+
+type BattleViewState = {
+  main: MainState;
+  round: RoundState;
+  countdown: number | null;
+};
+
+type BattleViewAction =
+  | { type: 'SET_MAIN'; next: MainState }
+  | { type: 'SET_ROUND'; next: RoundState }
+  | { type: 'SET_COUNTDOWN'; value: CountdownUpdater };
+
+const battleViewInitialState: BattleViewState = {
+  main: 'IDLE',
+  round: null,
+  countdown: null,
+};
+
+function battleViewReducer(state: BattleViewState, action: BattleViewAction): BattleViewState {
+  switch (action.type) {
+    case 'SET_MAIN': {
+      if (state.main === action.next) return state;
+      return { ...state, main: action.next };
+    }
+    case 'SET_ROUND': {
+      if (state.round === action.next) return state;
+      return { ...state, round: action.next };
+    }
+    case 'SET_COUNTDOWN': {
+      const nextValue =
+        typeof action.value === 'function' ? action.value(state.countdown) : action.value;
+      if (nextValue === state.countdown) return state;
+      return { ...state, countdown: nextValue };
+    }
+    default:
+      return state;
+  }
+}
+
+type RoundResultsMap = Record<number, Record<string, SlotSymbol>>;
+
+type SpinTracker = {
+  activeCount: number;
+  completed: Set<string>;
+};
+
+type RoundExecutionFlags = {
+  renderStarted?: boolean;
+  firstSpinStarted?: boolean;
+  secondSpinStarted?: boolean;
+  settleExecuted?: boolean;
+};
+
+type RoundEventType =
+  | 'ROUND_RENDER_START'
+  | 'ROUND_SPIN_FIRST_START'
+  | 'ROUND_SPIN_SECOND_START'
+  | 'ROUND_SETTLE_START'
+  | 'ROUND_SPIN_FIRST_STOP'
+  | 'ROUND_SPIN_SECOND_STOP';
+
+type RoundEvent = {
+  id: string;
+  roundIndex: number;
+  type: RoundEventType;
+  timestamp: number;
+};
+
+type TieBreakerPlan = {
+  mode: 'classic' | 'jackpot' | 'sprint';
+  contenderIds: string[];
+  winnerId: string;
+};
+
+type BattleProgressState = {
+  currentRound: number;
+  totalRounds: number;
+  participantValues: Record<string, number>;
+  roundResults: RoundResultsMap;
+  completedRounds: Set<number>;
+  spinState: SpinTracker;
+  playerSymbols: Record<string, SlotSymbol[]>;
+  slotMachineKeySuffix: Record<string, string>;
+  currentRoundPrizes: Record<string, string>;
+  roundExecutionFlags: Record<number, RoundExecutionFlags>;
+  roundEventLog: RoundEvent[];
+};
+
+type BattleProgressAction =
+  | { type: 'RESET_PROGRESS' }
+  | { type: 'SET_TOTAL_ROUNDS'; totalRounds: number }
+  | { type: 'SET_CURRENT_ROUND'; currentRound: number }
+  | { type: 'SET_PARTICIPANT_VALUES'; values: Record<string, number> }
+  | { type: 'ACCUMULATE_PARTICIPANT_VALUES'; deltas: Record<string, number> }
+  | { type: 'SET_ROUND_RESULTS'; roundResults: RoundResultsMap }
+  | { type: 'UPSERT_ROUND_RESULT'; roundIndex: number; results: Record<string, SlotSymbol> }
+  | { type: 'SET_COMPLETED_ROUNDS'; completedRounds: Set<number> }
+  | { type: 'MARK_ROUND_COMPLETED'; roundIndex: number }
+  | { type: 'RESET_SPIN_STATE' }
+  | { type: 'SET_SPIN_STATE'; state: SpinTracker }
+  | { type: 'ADD_SPIN_COMPLETED'; participantId: string }
+  | { type: 'SET_PLAYER_SYMBOLS'; symbols: Record<string, SlotSymbol[]> }
+  | { type: 'RESET_PLAYER_SYMBOLS' }
+  | { type: 'SET_SLOT_KEY_SUFFIX'; suffixMap: Record<string, string> }
+  | { type: 'RESET_SLOT_KEY_SUFFIX' }
+  | { type: 'SET_CURRENT_ROUND_PRIZES'; prizes: Record<string, string> }
+  | { type: 'RESET_CURRENT_ROUND_PRIZES' }
+  | { type: 'PUSH_ROUND_EVENT'; event: RoundEvent }
+  | { type: 'RESET_ROUND_EVENT_LOG' }
+  | { type: 'SET_ROUND_FLAG'; roundIndex: number; flag: keyof RoundExecutionFlags; value: boolean }
+  | { type: 'RESET_ROUND_FLAGS'; roundIndex: number }
+  | { type: 'RESET_ALL_ROUND_FLAGS' }
+  | { type: 'APPLY_PROGRESS_SNAPSHOT'; snapshot: BattleProgressState };
+
+function createBattleProgressInitialState(): BattleProgressState {
+  return {
+    currentRound: 0,
+    totalRounds: 0,
+    participantValues: {},
+    roundResults: {},
+    completedRounds: new Set<number>(),
+    spinState: {
+      activeCount: 0,
+      completed: new Set<string>(),
+    },
+    playerSymbols: {},
+    slotMachineKeySuffix: {},
+    currentRoundPrizes: {},
+    roundExecutionFlags: {},
+    roundEventLog: [],
   };
 }
+
+function cloneCompletedRounds(source: Set<number>): Set<number> {
+  return new Set<number>(source);
+}
+
+function cloneStringSet(source: Set<string>): Set<string> {
+  return new Set<string>(source);
+}
+
+function battleProgressReducer(state: BattleProgressState, action: BattleProgressAction): BattleProgressState {
+  switch (action.type) {
+    case 'RESET_PROGRESS':
+      return createBattleProgressInitialState();
+    case 'SET_TOTAL_ROUNDS':
+      if (state.totalRounds === action.totalRounds) return state;
+      return { ...state, totalRounds: action.totalRounds };
+    case 'SET_CURRENT_ROUND':
+      if (state.currentRound === action.currentRound) return state;
+      return { ...state, currentRound: action.currentRound };
+    case 'SET_PARTICIPANT_VALUES':
+      return { ...state, participantValues: action.values };
+    case 'ACCUMULATE_PARTICIPANT_VALUES': {
+      if (!Object.keys(action.deltas).length) return state;
+      const nextValues = { ...state.participantValues };
+      Object.entries(action.deltas).forEach(([participantId, delta]) => {
+        nextValues[participantId] = (nextValues[participantId] || 0) + delta;
+      });
+      return { ...state, participantValues: nextValues };
+    }
+    case 'SET_ROUND_RESULTS':
+      return { ...state, roundResults: action.roundResults };
+    case 'UPSERT_ROUND_RESULT':
+      return {
+        ...state,
+        roundResults: {
+          ...state.roundResults,
+          [action.roundIndex]: action.results,
+        },
+      };
+    case 'SET_COMPLETED_ROUNDS':
+      return { ...state, completedRounds: cloneCompletedRounds(action.completedRounds) };
+    case 'MARK_ROUND_COMPLETED': {
+      if (state.completedRounds.has(action.roundIndex)) return state;
+      const updated = new Set(state.completedRounds);
+      updated.add(action.roundIndex);
+      return {
+        ...state,
+        completedRounds: updated,
+      };
+    }
+    case 'RESET_SPIN_STATE':
+      if (state.spinState.activeCount === 0 && state.spinState.completed.size === 0) {
+        return state;
+      }
+      return {
+        ...state,
+        spinState: {
+          activeCount: 0,
+          completed: new Set<string>(),
+        },
+      };
+    case 'SET_SPIN_STATE':
+      return {
+        ...state,
+        spinState: {
+          activeCount: action.state.activeCount,
+          completed: cloneStringSet(action.state.completed),
+        },
+      };
+    case 'ADD_SPIN_COMPLETED': {
+      if (state.spinState.completed.has(action.participantId)) return state;
+      const completed = cloneStringSet(state.spinState.completed);
+      completed.add(action.participantId);
+      return {
+        ...state,
+        spinState: {
+          ...state.spinState,
+          completed,
+        },
+      };
+    }
+    case 'SET_PLAYER_SYMBOLS':
+      return {
+        ...state,
+        playerSymbols: action.symbols,
+      };
+    case 'RESET_PLAYER_SYMBOLS':
+      if (Object.keys(state.playerSymbols).length === 0) return state;
+      return {
+        ...state,
+        playerSymbols: {},
+      };
+    case 'SET_SLOT_KEY_SUFFIX':
+      return {
+        ...state,
+        slotMachineKeySuffix: { ...action.suffixMap },
+      };
+    case 'RESET_SLOT_KEY_SUFFIX':
+      if (Object.keys(state.slotMachineKeySuffix).length === 0) return state;
+      return {
+        ...state,
+        slotMachineKeySuffix: {},
+      };
+    case 'SET_CURRENT_ROUND_PRIZES':
+      return {
+        ...state,
+        currentRoundPrizes: { ...action.prizes },
+      };
+    case 'RESET_CURRENT_ROUND_PRIZES':
+      if (Object.keys(state.currentRoundPrizes).length === 0) return state;
+      return {
+        ...state,
+        currentRoundPrizes: {},
+      };
+    case 'PUSH_ROUND_EVENT':
+      return {
+        ...state,
+        roundEventLog: [...state.roundEventLog, action.event],
+      };
+    case 'RESET_ROUND_EVENT_LOG':
+      if (state.roundEventLog.length === 0) return state;
+      return { ...state, roundEventLog: [] };
+    case 'APPLY_PROGRESS_SNAPSHOT':
+      return {
+        currentRound: action.snapshot.currentRound,
+        totalRounds: action.snapshot.totalRounds,
+        participantValues: { ...action.snapshot.participantValues },
+        roundResults: { ...action.snapshot.roundResults },
+        completedRounds: cloneCompletedRounds(action.snapshot.completedRounds),
+        spinState: {
+          activeCount: action.snapshot.spinState?.activeCount ?? 0,
+          completed: action.snapshot.spinState
+            ? cloneStringSet(action.snapshot.spinState.completed)
+            : new Set<string>(),
+        },
+        playerSymbols: { ...action.snapshot.playerSymbols },
+        slotMachineKeySuffix: { ...action.snapshot.slotMachineKeySuffix },
+        currentRoundPrizes: { ...action.snapshot.currentRoundPrizes },
+        roundExecutionFlags: { ...action.snapshot.roundExecutionFlags },
+        roundEventLog: [...(action.snapshot.roundEventLog ?? [])],
+      };
+    case 'SET_ROUND_FLAG': {
+      const prevFlags = state.roundExecutionFlags[action.roundIndex] ?? {};
+      if (prevFlags[action.flag] === action.value) return state;
+      return {
+        ...state,
+        roundExecutionFlags: {
+          ...state.roundExecutionFlags,
+          [action.roundIndex]: { ...prevFlags, [action.flag]: action.value },
+        },
+      };
+    }
+    case 'RESET_ROUND_FLAGS': {
+      if (!state.roundExecutionFlags[action.roundIndex]) return state;
+      const nextFlags = { ...state.roundExecutionFlags };
+      delete nextFlags[action.roundIndex];
+      return { ...state, roundExecutionFlags: nextFlags };
+    }
+    case 'RESET_ALL_ROUND_FLAGS':
+      if (Object.keys(state.roundExecutionFlags).length === 0) return state;
+      return { ...state, roundExecutionFlags: {} };
+    default:
+      return state;
+  }
+}
+
+// 🎯 状态数据结构
+function createTimelinePlan(config: BattleConfigPayload): TimelinePlan {
+  const { startAt, countdownMs, roundDurationMs, roundsTotal, specialRules } = config;
+  return {
+    startAt,
+    countdownMs,
+    roundDurationMs,
+    totalRounds: roundsTotal,
+    fastMode: specialRules.fast,
+    getRoundByTimestamp(ts: number): TimelineCursor {
+      if (ts < startAt) {
+        return { phase: 'COUNTDOWN', roundIndex: 0, roundElapsedMs: countdownMs };
+      }
+      const elapsed = ts - startAt;
+      if (elapsed < countdownMs) {
+        return { phase: 'COUNTDOWN', roundIndex: 0, roundElapsedMs: countdownMs - elapsed };
+      }
+      const afterCountdown = elapsed - countdownMs;
+      if (roundsTotal === 0) {
+        return { phase: 'COMPLETED', roundIndex: 0, roundElapsedMs: 0 };
+      }
+      const totalRoundDuration = roundDurationMs * roundsTotal;
+      if (afterCountdown >= totalRoundDuration) {
+        return { phase: 'COMPLETED', roundIndex: roundsTotal - 1, roundElapsedMs: roundDurationMs };
+      }
+      const roundIndex = Math.floor(afterCountdown / roundDurationMs);
+      const roundElapsedMs = afterCountdown - roundIndex * roundDurationMs;
+      return { phase: 'ROUND', roundIndex, roundElapsedMs };
+    },
+  };
+}
+
+function buildBattleRuntime(payload: BackendBattlePayload): BattleRuntime {
+  const participantState = payload.participants.reduce<Record<string, ParticipantRuntimeState>>((acc, participant) => {
+    acc[participant.id] = {
+      id: participant.id,
+      name: participant.name,
+      avatar: participant.avatar,
+      teamId: participant.teamId,
+      totalValue: 0,
+      sprintScore: 0,
+      roundHistory: [],
+    };
+    return acc;
+  }, {});
+
+  return {
+    config: payload.config,
+    participants: participantState,
+    rounds: payload.rounds,
+    timeline: createTimelinePlan(payload.config),
+    jackpot: payload.jackpot,
+    sprint: payload.sprint,
+    classic: payload.classic,
+    eliminationMeta: payload.eliminationMeta,
+  };
+}
+
+function convertRuntimeRoundToLegacy(runtimeRound: RuntimeRoundPlan): BattleStateData['game']['rounds'][number] {
+  const results: Record<string, { itemId: string; qualityId: string | null; poolType: 'normal' | 'legendary'; needsSecondSpin: boolean }> = {};
+  Object.entries(runtimeRound.drops).forEach(([playerId, drop]) => {
+    results[playerId] = {
+      itemId: drop.itemId,
+      qualityId: drop.rarity === 'legendary' ? 'legendary' : drop.rarity,
+      poolType: drop.rarity === 'legendary' ? 'legendary' : 'normal',
+      needsSecondSpin: drop.needsSecondStage,
+    };
+  });
+
+  return {
+    pools: {
+      normal: runtimeRound.pools.normal,
+      legendary: runtimeRound.pools.legendary,
+      placeholder: runtimeRound.pools.placeholder,
+    },
+    results,
+    spinStatus: {
+      firstStage: {
+        completed: new Set(),
+        gotLegendary: new Set(),
+      },
+      secondStage: {
+        active: new Set(),
+        completed: new Set(),
+      },
+    },
+  };
+}
+
+// 修改為 0 表示從倒數 321 開始；改成 5 代表直接從第 5 輪開局
 
 // 🎵 全局Web Audio API上下文
 let audioContext: AudioContext | null = null;
@@ -207,13 +698,53 @@ let basicWinAudioBuffer: AudioBuffer | null = null;
 
 export default function BattleDetailPage() {
   const router = useRouter();
-  const battleData = useBattleData();
+  const params = useParams<{ id?: string }>();
+  const routeBattleId = params?.id ?? null;
+
+  const activeSource = useMemo<BattleDataSourceConfig>(() => {
+    return getDynamicBattleSource(routeBattleId);
+  }, [routeBattleId]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.info('[BattleDetail] 使用数据源', {
+        routeBattleId,
+        activeId: activeSource.id,
+      });
+    }
+  }, [routeBattleId, activeSource.id]);
+  const battleData = useMemo(() => activeSource.buildData(), [activeSource]);
   const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
   const [allSlotsFilled, setAllSlotsFilled] = useState(false);
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
+  const declaredWinnerIds = useMemo(
+    () =>
+      (battleData.participants || [])
+        .filter((participant) => Boolean(participant?.isWinner && participant?.id))
+        .map((participant) => String(participant!.id)),
+    [battleData.participants],
+  );
+  const hasMultipleDeclaredWinners = declaredWinnerIds.length > 1;
   
   // 💰 玩家累计金额映射 (participantId -> totalValue)
-  const [participantValues, setParticipantValues] = useState<Record<string, number>>({});
+  const [progressState, dispatchProgressState] = useReducer(
+    battleProgressReducer,
+    undefined,
+    createBattleProgressInitialState,
+  );
+  const {
+    currentRound: progressCurrentRound,
+    totalRounds: progressTotalRounds,
+    participantValues,
+    roundResults,
+    completedRounds,
+    spinState: spinningState,
+    playerSymbols,
+    slotMachineKeySuffix,
+    currentRoundPrizes,
+    roundExecutionFlags,
+    roundEventLog,
+  } = progressState;
   const isFastMode = battleData.isFastMode || false;
   const spinDuration = isFastMode ? 1000 : 4500;
   
@@ -256,6 +787,11 @@ export default function BattleDetailPage() {
   const jackpotInitialized = useRef(false);
   const jackpotWinnerSet = useRef(false); // 防止重复设置获胜者
   const completedWinnerSetRef = useRef(false); // 🎯 防止COMPLETED状态下重复设置获胜者
+  const battleRuntimeRef = useRef<BattleRuntime | null>(null);
+  const detailedResultsRef = useRef<Record<number, Record<string, any>>>({});
+  const jackpotWinnerRef = useRef<JackpotRuntimeData | null>(null);
+  const sprintDataRef = useRef<SprintRuntimeData | null>(null);
+  const eliminationDataRef = useRef<EliminationRuntimeData | null>(null);
   
   // 🎉 烟花动画 ref
   const winnerFireworkRef = useRef<FireworkAreaHandle>(null);
@@ -273,6 +809,7 @@ export default function BattleDetailPage() {
       }
     }
   }, []);
+
   
   // 🎉 大奖模式：动画完成回调（稳定引用）
   const handleJackpotAnimationComplete = useCallback(() => {
@@ -310,7 +847,6 @@ export default function BattleDetailPage() {
   
   // 🔥 淘汰模式：淘汰老虎机完成回调
   const handleEliminationSlotComplete = useCallback(() => {
-    console.log('✅ [淘汰老虎机] 动画完成');
     
     // 🔥 立即添加淘汰玩家到已淘汰集合（在老虎机组件内已经渲染了淘汰 UI）
     if (currentEliminationData) {
@@ -318,8 +854,6 @@ export default function BattleDetailPage() {
         const newSet = new Set(prev);
         if (!newSet.has(currentEliminationData.eliminatedPlayerId)) {
           newSet.add(currentEliminationData.eliminatedPlayerId);
-          console.log('✅ [淘汰老虎机完成] 已添加淘汰玩家:', currentEliminationData.eliminatedPlayerId);
-          console.log('✅ [淘汰老虎机完成] 当前已淘汰玩家:', Array.from(newSet));
         }
         return newSet;
       });
@@ -330,7 +864,6 @@ export default function BattleDetailPage() {
           ...prev,
           [currentEliminationData.eliminatedPlayerId]: currentEliminationData.roundIndex
         };
-        console.log('🔥 [淘汰老虎机完成] 记录淘汰轮次:', newRounds);
         return newRounds;
       });
     }
@@ -353,6 +886,47 @@ export default function BattleDetailPage() {
     
     return Array.from(teamMap.values());
   }, [isTeamMode, allParticipants.length]);
+
+  const teamLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    teamGroups.forEach((group, index) => {
+      const teamId = group[0]?.teamId;
+      if (teamId) {
+        map.set(teamId, `Team ${index + 1}`);
+      }
+    });
+    return map;
+  }, [teamGroups]);
+
+  const sprintLeaderboard = useMemo(() => {
+    if (gameMode !== 'sprint') return [];
+    const entries = Object.entries(sprintScores || {});
+    if (!entries.length) return [];
+
+    return entries
+      .map(([entityId, score]) => {
+        if (isTeamMode) {
+          const members = allParticipants.filter((participant) => participant?.teamId === entityId);
+          return {
+            id: entityId,
+            score,
+            label: teamLabelMap.get(entityId) || `Team ${entityId}`,
+            avatars: members.slice(0, 3),
+            subtitle: members.length ? `${members.length} 名成员` : undefined,
+          };
+        }
+
+        const participant = allParticipants.find((p) => p?.id === entityId);
+        return {
+          id: entityId,
+          score,
+          label: participant?.name || '未知玩家',
+          avatars: participant ? [participant] : [],
+          subtitle: participant?.teamId ? teamLabelMap.get(participant.teamId) || participant.teamId : undefined,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [gameMode, sprintScores, allParticipants, isTeamMode, teamLabelMap]);
   
   // 🎵 使用Web Audio API加载音频（零延迟播放）
   useEffect(() => {
@@ -401,44 +975,44 @@ export default function BattleDetailPage() {
   }, []);
   
   // 🎯 状态机核心状态
-  const [mainState, setMainState] = useState<MainState>('IDLE');
-  const [roundState, setRoundState] = useState<RoundState>(null);
-  const roundStateRef = useRef<RoundState>(null); // 实时状态ref
-  const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const [viewState, dispatchViewState] = useReducer(battleViewReducer, battleViewInitialState);
+  const mainState = viewState.main;
+  const roundState = viewState.round;
+  const countdownValue = viewState.countdown;
+  const setMainState = useCallback(
+    (next: MainState) => {
+      dispatchViewState({ type: 'SET_MAIN', next });
+    },
+    [dispatchViewState],
+  );
+  const setRoundState = useCallback(
+    (next: RoundState) => {
+      dispatchViewState({ type: 'SET_ROUND', next });
+    },
+    [dispatchViewState],
+  );
+  const setCountdownValue = useCallback(
+    (value: CountdownUpdater) => {
+      dispatchViewState({ type: 'SET_COUNTDOWN', value });
+    },
+    [dispatchViewState],
+  );
+  const roundStateRef = useRef<RoundState>(battleViewInitialState.round); // 实时状态ref
   
  
   
   // 🎯 游戏数据（优化：rounds 放在 ref，避免深度比对）
-  const [gameData, setGameData] = useState<{ currentRound: number; totalRounds: number }>({
-    currentRound: 0,
-    totalRounds: 0
-  });
+  const gameData = useMemo(
+    () => ({
+      currentRound: progressCurrentRound,
+      totalRounds: progressTotalRounds,
+    }),
+    [progressCurrentRound, progressTotalRounds],
+  );
+  const currentRound = gameData.currentRound;
+  const totalRounds = gameData.totalRounds;
   
-  // 🚀 性能优化：rounds 数据放在 ref，避免 React 深度比对
-  const gameRoundsRef = useRef<BattleStateData['game']['rounds']>([]);
-  
-  // 🎯 转动状态
-  const [spinningState, setSpinningState] = useState<BattleStateData['spinning']>({
-    activeCount: 0,
-    completed: new Set()
-  });
-  
-  // 🎯 每个玩家的专属数据源（第二段时切换）
-  const [playerSymbols, setPlayerSymbols] = useState<Record<string, SlotSymbol[]>>({});
-  
-  // 🎯 老虎机key后缀（第二段时改变以触发重新挂载）
-  const [slotMachineKeySuffix, setSlotMachineKeySuffix] = useState<Record<string, string>>({});
-  
-  // 🎯 防止重复执行的ref
-  const firstSpinStartedRef = useRef<Record<number, boolean>>({});
-  const secondSpinStartedRef = useRef<Record<number, boolean>>({});
-  const settleExecutedRef = useRef<Record<number, boolean>>({});
-  
-  // 结果存储
-  const [roundResults, setRoundResults] = useState<Record<number, Record<string, SlotSymbol>>>({});
-  
-  // 🚀 性能优化：已完成的轮次集合（只存轮次索引，避免频繁更新大对象）
-  const [completedRounds, setCompletedRounds] = useState<Set<number>>(new Set());
+  const gameRoundsRef = useRef<Array<ReturnType<typeof convertRuntimeRoundToLegacy>>>([]);
   
   // 🚀 缓存 roundResults 的转换结果，避免每次渲染都重新 map
   const roundResultsArray = useMemo(() => 
@@ -448,21 +1022,429 @@ export default function BattleDetailPage() {
     })), 
     [roundResults]
   );
+
+  const triggerWinnerCelebration = useCallback(() => {
+    setTimeout(() => {
+      playWinSound();
+      winnerFireworkRef.current?.triggerFirework();
+    }, 100);
+  }, [playWinSound]);
+
+  const markParticipantsAsWinners = useCallback(
+    (predicate: (participant: any) => boolean) => {
+      setAllParticipants((prev) =>
+        prev.map((participant) => {
+          if (!participant) return participant;
+          if (hasMultipleDeclaredWinners) {
+            return {
+              ...participant,
+              isWinner: declaredWinnerIds.includes(String(participant.id)),
+            };
+          }
+          return {
+            ...participant,
+            isWinner: Boolean(predicate(participant)),
+          };
+        }),
+      );
+    },
+    [declaredWinnerIds, hasMultipleDeclaredWinners, setAllParticipants],
+  );
+
+  const recordRoundEvent = useCallback(
+    (roundIndex: number, type: RoundEventType) => {
+      dispatchProgressState({
+        type: 'PUSH_ROUND_EVENT',
+        event: {
+          id: `${roundIndex}-${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          roundIndex,
+          type,
+          timestamp: Date.now(),
+        },
+      });
+    },
+    [dispatchProgressState],
+  );
+
+  const triggerFirstStageSpin = useCallback(() => {
+    const participantIds = allParticipants
+      .map((participant) => participant?.id)
+      .filter(Boolean) as string[];
+    if (!participantIds.length) return;
+
+    setTimeout(() => {
+      participantIds.forEach((participantId) => {
+        const slotRef = slotMachineRefs.current[participantId];
+        if (slotRef && typeof slotRef.startSpin === 'function') {
+          slotRef.startSpin();
+        }
+      });
+    }, 600);
+  }, [allParticipants]);
+
+  const triggerSecondStageSpin = useCallback(() => {
+    const roundData = gameRoundsRef.current[gameData.currentRound];
+    if (!roundData) return;
+    const goldenPlayers = Array.from(roundData.spinStatus.firstStage.gotLegendary);
+    if (!goldenPlayers.length) return;
+
+    setTimeout(() => {
+      goldenPlayers.forEach((participantId) => {
+        const slotRef = slotMachineRefs.current[participantId];
+        if (slotRef && typeof slotRef.startSpin === 'function') {
+          slotRef.startSpin();
+        }
+      });
+    }, 100);
+  }, [gameData.currentRound]);
+
+  const getClassicComparisonValues = useCallback(() => {
+    const valueMap: Record<string, number> = {};
+    if (!allParticipants.length) return valueMap;
+
+    if (isLastChance) {
+      const lastRoundIndex = Math.max(gameData.totalRounds - 1, 0);
+      const lastRoundResult = roundResults[lastRoundIndex] || {};
+      allParticipants.forEach((participant) => {
+        if (!participant?.id) return;
+        const lastPrize = lastRoundResult[participant.id] as SlotSymbol | undefined;
+        const rawPrice = lastPrize ? (lastPrize.price ?? (lastPrize as any)?.value ?? 0) : 0;
+        valueMap[participant.id] = Number(rawPrice) || 0;
+      });
+    } else {
+      allParticipants.forEach((participant) => {
+        if (!participant?.id) return;
+        valueMap[participant.id] = participantValues[participant.id] || 0;
+      });
+    }
+
+    return valueMap;
+  }, [allParticipants, gameData.totalRounds, isLastChance, participantValues, roundResults]);
+
+  const determineClassicWinnerParticipantId = useCallback(
+    (comparisonMap?: Record<string, number>) => {
+      const valueMap = comparisonMap ?? getClassicComparisonValues();
+      if (!Object.keys(valueMap).length) return null;
+
+      let targetValue = isInverted ? Infinity : -Infinity;
+      let winnerId: string | null = null;
+
+      allParticipants.forEach((participant) => {
+        if (!participant?.id) return;
+        const value = valueMap[participant.id] ?? 0;
+        const shouldReplace = isInverted ? value < targetValue : value > targetValue;
+        if (shouldReplace) {
+          targetValue = value;
+          winnerId = participant.id;
+        }
+      });
+
+      return winnerId;
+    },
+    [allParticipants, getClassicComparisonValues, isInverted],
+  );
+
+  const getLastChanceValueMap = useCallback(() => {
+    const map: Record<string, number> = {};
+    if (!Object.keys(roundResults).length) return map;
+    const lastRoundIndex = Math.max(gameData.totalRounds - 1, 0);
+    const lastRoundResult = roundResults[lastRoundIndex];
+    if (!lastRoundResult) {
+      return map;
+    }
+
+    Object.entries(lastRoundResult).forEach(([participantId, slot]) => {
+      const rawPrice = slot ? (slot.price ?? (slot as any)?.value ?? 0) : 0;
+      map[participantId] = Number(rawPrice) || 0;
+    });
+    return map;
+  }, [roundResults, gameData.totalRounds]);
+
+  const resolveEntityForDisplay = useCallback(
+    (id: string) => {
+      return (
+        allParticipants.find((participant) => participant?.id === id) ||
+        allParticipants.find((participant) => participant?.teamId === id) ||
+        null
+      );
+    },
+    [allParticipants],
+  );
+
+  const evaluateTieBreakerPlan = useCallback((): TieBreakerPlan | null => {
+    if (!allParticipants.length) return null;
+
+    if (hasMultipleDeclaredWinners) {
+      // 已經有多位獲勝者，直接顯示結果，不需要決勝
+      return null;
+    }
+
+    const declaredWinnerId = declaredWinnerIds.length === 1 ? declaredWinnerIds[0] : null;
+
+    if (gameMode === 'sprint') {
+      const sprintData = sprintDataRef.current;
+      if (
+        sprintData?.needsTiebreaker &&
+        sprintData.tiebreakerPlayers.length > 1 &&
+        sprintData.finalWinnerId
+      ) {
+        return {
+          mode: 'sprint',
+          contenderIds: sprintData.tiebreakerPlayers,
+          winnerId: sprintData.finalWinnerId,
+        };
+      }
+    }
+
+    if (gameMode === 'classic') {
+      const comparison = getClassicComparisonValues();
+      const values = Object.values(comparison);
+      if (!values.length) return null;
+      const comparator = isInverted ? Math.min : Math.max;
+      const computedWinnerValue =
+        declaredWinnerId && comparison[declaredWinnerId] !== undefined
+          ? comparison[declaredWinnerId]
+          : comparator(...values);
+
+      const contenders = Object.entries(comparison)
+        .filter(([, value]) => value === computedWinnerValue)
+        .map(([id]) => id);
+
+      if (contenders.length > 1) {
+        const winnerId =
+          declaredWinnerId ?? determineClassicWinnerParticipantId(comparison);
+        if (!winnerId) return null;
+        return {
+          mode: 'classic',
+          contenderIds: contenders,
+          winnerId,
+        };
+      }
+    }
+
+    if (gameMode === 'jackpot' && isLastChance) {
+      const comparison = getLastChanceValueMap();
+      const values = Object.values(comparison);
+      if (!values.length) return null;
+      const comparator = isInverted ? Math.min : Math.max;
+      const computedWinnerValue =
+        declaredWinnerId && comparison[declaredWinnerId] !== undefined
+          ? comparison[declaredWinnerId]
+          : comparator(...values);
+      const contenders = Object.entries(comparison)
+        .filter(([, value]) => value === computedWinnerValue)
+        .map(([id]) => id);
+      if (contenders.length > 1) {
+        const winnerPayload = jackpotWinnerRef.current;
+        const winnerId =
+          (declaredWinnerId && contenders.includes(declaredWinnerId) && declaredWinnerId) ||
+          (winnerPayload?.id && contenders.includes(winnerPayload.id)
+            ? winnerPayload.id
+            : contenders[0]);
+        return {
+          mode: 'jackpot',
+          contenderIds: contenders,
+          winnerId,
+        };
+      }
+    }
+
+    return null;
+  }, [
+    allParticipants.length,
+    declaredWinnerIds,
+    determineClassicWinnerParticipantId,
+    gameMode,
+    getClassicComparisonValues,
+    getLastChanceValueMap,
+    hasMultipleDeclaredWinners,
+    isInverted,
+    isLastChance,
+  ]);
+
+  const resolveClassicModeWinner = useCallback(() => {
+    if (!allParticipants.length) return false;
+
+    const playerCompareValues = getClassicComparisonValues();
+    if (!Object.keys(playerCompareValues).length) return false;
+
+    const winnerParticipantId = determineClassicWinnerParticipantId(playerCompareValues);
+    if (!winnerParticipantId) return false;
+
+    if (isTeamMode) {
+      const winnerParticipant = allParticipants.find((participant) => participant?.id === winnerParticipantId);
+      if (!winnerParticipant?.teamId) {
+        return false;
+      }
+
+      const winnerTeamId = winnerParticipant.teamId;
+      markParticipantsAsWinners((participant) => Boolean(participant && participant.teamId === winnerTeamId));
+      return true;
+    }
+
+    markParticipantsAsWinners((participant) => Boolean(participant && participant.id === winnerParticipantId));
+    return true;
+  }, [
+    allParticipants,
+    determineClassicWinnerParticipantId,
+    getClassicComparisonValues,
+    isTeamMode,
+    markParticipantsAsWinners,
+  ]);
+
+  const resolveJackpotWinner = useCallback(() => {
+    if (jackpotWinnerSet.current) return true;
+    const winnerPayload = jackpotWinnerRef.current;
+    if (!winnerPayload) return false;
+
+    const winnerIds = winnerPayload.teamIds?.length
+      ? winnerPayload.teamIds
+      : winnerPayload.id
+      ? [winnerPayload.id]
+      : [];
+
+    if (!winnerIds.length) return false;
+
+    markParticipantsAsWinners((participant) => Boolean(participant && winnerIds.includes(participant.id)));
+    jackpotWinnerSet.current = true;
+    return true;
+  }, [markParticipantsAsWinners]);
+
+  const resolveSprintWinner = useCallback(() => {
+    const sprintData = sprintDataRef.current;
+    if (!sprintData?.finalWinnerId) return false;
+    const winnerKey = sprintData.finalWinnerId;
+
+    if (isTeamMode) {
+      markParticipantsAsWinners((participant) => Boolean(participant && participant.teamId === winnerKey));
+    } else {
+      markParticipantsAsWinners((participant) => Boolean(participant && participant.id === winnerKey));
+    }
+
+    return true;
+  }, [isTeamMode, markParticipantsAsWinners]);
+
+  const resolveEliminationWinner = useCallback(() => {
+    const eliminationData = eliminationDataRef.current;
+    if (!eliminationData?.finalWinnerId) return false;
+    const winnerId = eliminationData.finalWinnerId;
+
+    if (isTeamMode) {
+      const winnerParticipant = allParticipants.find((participant) => participant?.id === winnerId);
+      const teamId = winnerParticipant?.teamId;
+      if (!teamId) return false;
+
+      markParticipantsAsWinners((participant) => Boolean(participant && participant.teamId === teamId));
+      return true;
+    }
+
+    markParticipantsAsWinners((participant) => Boolean(participant && participant.id === winnerId));
+    return true;
+  }, [allParticipants, isTeamMode, markParticipantsAsWinners]);
+
+  const resolveShareWinners = useCallback(() => {
+    if (!allParticipants.length) return false;
+    markParticipantsAsWinners(() => true);
+    return true;
+  }, [allParticipants.length, markParticipantsAsWinners]);
+
+  const resolveWinnersByMode = useCallback(() => {
+    if (!allParticipants.length) return false;
+
+    switch (gameMode) {
+      case 'share':
+        return resolveShareWinners();
+      case 'jackpot':
+        return resolveJackpotWinner();
+      case 'sprint':
+        return resolveSprintWinner();
+      case 'elimination':
+        return resolveEliminationWinner();
+      default:
+        return resolveClassicModeWinner();
+    }
+  }, [
+    allParticipants.length,
+    gameMode,
+    resolveClassicModeWinner,
+    resolveEliminationWinner,
+    resolveJackpotWinner,
+    resolveShareWinners,
+    resolveSprintWinner,
+  ]);
+
+  const hydrateRoundsProgress = useCallback((targetRound: number) => {
+    const runtime = battleRuntimeRef.current;
+    if (!runtime) return;
+    const totals: Record<string, number> = {};
+    const nextRoundResults: Record<number, Record<string, SlotSymbol>> = {};
+    const completed = new Set<number>();
+
+    runtime.rounds.slice(0, targetRound).forEach((roundPlan) => {
+      completed.add(roundPlan.roundIndex);
+      const perRoundSymbols: Record<string, SlotSymbol> = {};
+      Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
+        totals[playerId] = (totals[playerId] ?? 0) + drop.value;
+        perRoundSymbols[playerId] = {
+          id: drop.itemId,
+          name: drop.itemName,
+          image: drop.image,
+          price: drop.value,
+          qualityId: drop.rarity === 'legendary' ? 'legendary' : 'normal',
+        };
+      });
+      nextRoundResults[roundPlan.roundIndex] = perRoundSymbols;
+    });
+
+    const safeRound = Math.min(targetRound, runtime.config.roundsTotal);
+    dispatchProgressState({
+      type: 'APPLY_PROGRESS_SNAPSHOT',
+      snapshot: {
+        currentRound: safeRound,
+        totalRounds: runtime.config.roundsTotal,
+        participantValues: totals,
+        roundResults: nextRoundResults,
+        completedRounds: completed,
+        spinState: {
+          activeCount: 0,
+          completed: new Set<string>(),
+        },
+        playerSymbols: {},
+        slotMachineKeySuffix: {},
+        currentRoundPrizes: {},
+        roundExecutionFlags: {},
+        roundEventLog: [],
+      },
+    });
+    currentRoundRef.current = safeRound;
+  }, [dispatchProgressState]);
   
   // UI状态
   const [galleryAlert, setGalleryAlert] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
   const slotMachineRefs = useRef<Record<string, any>>({});
+  const processedRoundEventIdsRef = useRef<Set<string>>(new Set());
+  const lastRoundLogRef = useRef<string>('');
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [activeTeam, setActiveTeam] = useState(0); // 团队模式小屏幕tabs切换
+  const [tieBreakerPlan, setTieBreakerPlan] = useState<TieBreakerPlan | null>(null);
+  const [tieBreakerGateOpen, setTieBreakerGateOpen] = useState(false);
+  const tieBreakerSymbols = useMemo<HorizontalSlotSymbol[]>(() => {
+    if (!tieBreakerPlan) return [];
+    return tieBreakerPlan.contenderIds.map((id) => {
+      const entity = resolveEntityForDisplay(id);
+      return {
+        id,
+        name: entity?.name ?? `玩家 ${id}`,
+        description: '',
+        image: entity?.avatar || TRANSPARENT_PIXEL,
+        price: 0,
+        qualityId: null,
+      };
+    });
+  }, [tieBreakerPlan, resolveEntityForDisplay]);
   
   // 兼容旧代码的状态变量（会被状态机同步更新）
-  const [currentRound, setCurrentRound] = useState(0);
-  const [roundStatus, setRoundStatus] = useState<'idle' | 'spinning' | 'completed'>('idle');
-  const [preGeneratedResults, setPreGeneratedResults] = useState<Record<number, Record<string, string>>>({});
-  const [completedSpins, setCompletedSpins] = useState<Set<string>>(new Set());
-  const [currentSlotSymbols, setCurrentSlotSymbols] = useState<SlotSymbol[]>([]);
-  const [currentRoundPrizes, setCurrentRoundPrizes] = useState<Record<string, string>>({});
   const [allRoundsCompleted, setAllRoundsCompleted] = useState(false);
   const [hidePacks, setHidePacks] = useState(false);
   const [showSlotMachines, setShowSlotMachines] = useState(false);
@@ -520,41 +1502,6 @@ export default function BattleDetailPage() {
     ? [currentRound] 
     : [];
 
-  // Pre-compute all round symbols to avoid re-creating them
-  const allRoundSymbols = useMemo(() => {
-    const symbolsByRound: Record<number, SlotSymbol[]> = {};
-    
-    battleData.packs.forEach((pack, index) => {
-      if (pack.items && pack.items.length > 0) {
-        symbolsByRound[index] = pack.items.map((item) => {
-          const itemAny = item as any;
-          
-          return {
-            id: item.id || `${pack.id}-item-${item.name}`,
-            name: item.name || pack.name,
-            description: item.description || '',
-            image: item.image,
-            price: itemAny.price || 0,
-            dropProbability: itemAny.dropProbability || 0.1,
-            qualityId: itemAny.qualityId || null
-          };
-        });
-      } else {
-        symbolsByRound[index] = [{
-          id: `${pack.id}-fallback`,
-          name: pack.name,
-          description: '',
-          image: pack.image,
-          price: (pack as any).cost || 0,
-          dropProbability: 1,
-          qualityId: null
-        }];
-      }
-    });
-    
-    return symbolsByRound;
-  }, [battleData.packs]);
-
   // 🔑 缓存淘汰老虎机的玩家数据，避免每次渲染都重新生成
   const eliminationPlayers = useMemo(() => {
     if (!currentEliminationData?.tiedPlayerIds) return [];
@@ -593,404 +1540,247 @@ export default function BattleDetailPage() {
       });
   }, [currentEliminationData?.tiedPlayerIds, allParticipants.length]);
 
-  // 🎯 创建金色占位符
-  const createGoldenPlaceholder = (): SlotSymbol => ({
-    id: 'golden_placeholder',
-    name: '金色神秘',
-    image: '/theme/default/hidden-gold.webp',
-    price: 0,
-    qualityId: 'placeholder',
-    description: '',
-    dropProbability: 0
-  });
-
-  // 🎯 处理道具池（分离legendary，替换为占位符）
-  const processSymbolPools = useCallback((roundIndex: number) => {
-    const allSymbols = allRoundSymbols[roundIndex] || [];
-    
-    
-    // 提取legendary道具
-    const legendaryPool = allSymbols.filter(s => s.qualityId === 'legendary');
-    const normalSymbols = allSymbols.filter(s => s.qualityId !== 'legendary');
-    
-    
-    // 创建普通池：普通道具 + 占位符（如果有legendary）
-    const placeholder = createGoldenPlaceholder();
-    const normalPool = legendaryPool.length > 0 
-      ? [...normalSymbols, placeholder]
-      : normalSymbols;
-    
- 
-
-    return { 
-      normal: normalPool, 
-      legendary: legendaryPool, 
-      placeholder 
-    };
-  }, [allRoundSymbols]);
-
   // Pre-generate all results when countdown starts
   const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
+const timelineHydratedRef = useRef(false);
+const skipDirectlyToCompletedRef = useRef(false);
+const forceFullReplayRef = useRef(false);
   
   const generateAllResults = useCallback((allParticipants: any[]): BattleStateData['game']['rounds'] => {
-   
-    
-    const rounds: BattleStateData['game']['rounds'] = [];
+    const runtimePayload = activeSource.buildPayload();
+    const runtime = buildBattleRuntime(runtimePayload);
+    battleRuntimeRef.current = runtime;
+
+    if (typeof window !== 'undefined') {
+      const totalsDebug: Record<string, number> = {};
+      runtime.rounds.forEach((roundPlan) => {
+        Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
+          totalsDebug[playerId] = (totalsDebug[playerId] ?? 0) + drop.value;
+        });
+      });
+      console.table(
+        Object.entries(totalsDebug).map(([playerId, total]) => ({
+          玩家: allParticipants.find((p) => p.id === playerId)?.name || playerId,
+          playerId,
+          累计金额: total.toFixed(2),
+        })),
+      );
+      if (runtime.classic?.tieBreakerIds?.length) {
+        console.info('[BattleDetail] 经典模式平局玩家', runtime.classic.tieBreakerIds);
+      } else {
+        console.info('[BattleDetail] 没有平局玩家');
+      }
+    }
+
     const detailedResults: Record<number, Record<string, any>> = {};
-    
-    battleData.packs.forEach((pack, packIndex) => {
-      const pools = processSymbolPools(packIndex);
-      if (pools.normal.length === 0) return;
-      
-      const results: Record<string, any> = {};
-      detailedResults[packIndex] = {};
-      
-      allParticipants.forEach(participant => {
-        if (participant && participant.id) {
-          // 从原始完整列表随机抽取
-          const allSymbols = [...pools.normal.filter(s => s.id !== 'golden_placeholder'), ...pools.legendary];
-          const randomSymbol = allSymbols[Math.floor(Math.random() * allSymbols.length)];
-          
-          // 判断是否抽中legendary
-          const isLegendary = randomSymbol.qualityId === 'legendary';
-          
-          results[participant.id] = {
-            itemId: randomSymbol.id,
-            qualityId: randomSymbol.qualityId,
-            poolType: isLegendary ? 'legendary' : 'normal',
-            needsSecondSpin: isLegendary
-          };
-          
-          detailedResults[packIndex][participant.id] = {
-            道具: randomSymbol.name,
-            品质: randomSymbol.qualityId,
-            价格: `¥${randomSymbol.price}`,
-            需要二段: isLegendary ? '是 💛' : '否'
-          };
-          
-        }
+    runtime.rounds.forEach((roundPlan) => {
+      const roundResult: Record<string, any> = {};
+      Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
+        roundResult[playerId] = {
+          道具: drop.itemName,
+          品质: drop.rarity === 'legendary' ? 'legendary' : 'normal',
+          价格: `¥${drop.value}`,
+          需要二段: drop.needsSecondStage ? '是 💛' : '否',
+        };
       });
-      
-      
-      rounds.push({
-        pools,
-        results,
-        spinStatus: {
-          firstStage: {
-            completed: new Set(),
-            gotLegendary: new Set()
-          },
-          secondStage: {
-            active: new Set(),
-            completed: new Set()
-          }
-        }
-      });
+      detailedResults[roundPlan.roundIndex] = roundResult;
     });
-    
-    // Store detailed results globally for comparison
-    (window as any).__preGeneratedDetailedResults = detailedResults;
-    
-    console.log('📋 ========== 所有轮次预生成结果汇总 ==========');
-    console.table(detailedResults);
-    console.log('==============================================');
-    
-    // 🏆 大奖模式：计算每个玩家的总价值和获胜者
-    if (gameMode === 'jackpot') {
-      console.log('\n🎯🎯🎯 [大奖模式] 计算每个玩家的总价值和获胜者 🎯🎯🎯');
-      
-      const playerTotals: Record<string, { name: string; totalValue: number; items: any[] }> = {};
-      
-      // 遍历所有轮次，累计每个玩家的总价值
-      allParticipants.forEach(p => {
+    detailedResultsRef.current = detailedResults;
+
+    if (runtime.config.gameplay === 'jackpot') {
+      const participantMeta: Record<string, { name: string; totalValue: number }> = {};
+      allParticipants.forEach((p) => {
         if (p && p.id) {
-          playerTotals[p.id] = { name: p.name, totalValue: 0, items: [] };
-          
-          // 累计所有轮次的物品价值
-          Object.entries(detailedResults).forEach(([roundIdx, roundRes]) => {
-            const item = roundRes[p.id];
-            if (item && item.价格) {
-              const price = parseFloat(item.价格.replace('¥', ''));
-              playerTotals[p.id].totalValue += price;
-              playerTotals[p.id].items.push({
-                round: parseInt(roundIdx) + 1,
-                name: item.道具,
-                price: price
-              });
+          participantMeta[p.id] = { name: p.name, totalValue: 0 };
+        }
+      });
+
+      const specialRules = runtime.config.specialRules || { lastChance: false, inverted: false };
+      const useLastChance = Boolean(specialRules.lastChance);
+      const invertedJackpot = Boolean(specialRules.inverted);
+      const comparisonValues: Record<string, number> = {};
+
+      if (useLastChance && runtime.rounds.length > 0) {
+        const lastRoundPlan = runtime.rounds[runtime.rounds.length - 1];
+        Object.entries(lastRoundPlan.drops).forEach(([playerId, drop]) => {
+          comparisonValues[playerId] = drop.value;
+          if (!participantMeta[playerId]) {
+            const participant = allParticipants.find((p) => p.id === playerId);
+            participantMeta[playerId] = { name: participant?.name ?? 'Unknown', totalValue: 0 };
             }
           });
         }
-      });
-      
-      // 找出总价值最高的玩家
-      let maxValue = -1;
-      let topPlayerId = '';
-      
-      Object.entries(playerTotals).forEach(([id, data]) => {
-        console.log(`\n👤 ${data.name}: 总价值 $${data.totalValue.toFixed(2)}`);
-        data.items.forEach(item => {
-          console.log(`   轮次${item.round}: ${item.name} - $${item.price.toFixed(2)}`);
+
+      if (!useLastChance || Object.keys(comparisonValues).length === 0) {
+        runtime.rounds.forEach((roundPlan) => {
+          Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
+            comparisonValues[playerId] = (comparisonValues[playerId] || 0) + drop.value;
+            if (!participantMeta[playerId]) {
+              const participant = allParticipants.find((p) => p.id === playerId);
+              participantMeta[playerId] = { name: participant?.name ?? 'Unknown', totalValue: 0 };
+            }
+            participantMeta[playerId].totalValue += drop.value;
+          });
         });
-        
-        if (data.totalValue > maxValue) {
-          maxValue = data.totalValue;
-          topPlayerId = id;
-        }
-      });
-      
-      // 判断是否团队模式
-      const topPlayer = allParticipants.find(p => p.id === topPlayerId);
-      let winnerIds: string[] = [topPlayerId];
-      
-      if (topPlayer && topPlayer.teamId) {
-        // 团队模式：整个队伍获胜
-        const winningTeam = allParticipants.filter(p => p && p.teamId === topPlayer.teamId);
-        winnerIds = winningTeam.map(p => p.id);
-        console.log(`\n🏆🏆🏆 [预定获胜队伍]: 队伍 ${topPlayer.teamId}`);
-        console.log(`👥 [队伍成员]: ${winningTeam.map(p => p.name).join(', ')}`);
-      } else {
-        // 单人模式：只有一个获胜者
-        console.log(`\n🏆🏆🏆 [预定获胜者]: ${playerTotals[topPlayerId]?.name}`);
       }
-      
-      console.log(`💰 [获胜金额]: $${maxValue.toFixed(2)}`);
-      console.log(`🆔 [获胜者ID]: ${topPlayerId}`);
-      console.log('🎯🎯🎯 [大奖模式答案计算完成] 🎯🎯🎯\n');
-      
-      // 保存到全局变量供后续使用
-      (window as any).__jackpotWinner = { 
+
+      const valueEntries = Object.entries(comparisonValues);
+      if (valueEntries.length > 0) {
+        const comparator = invertedJackpot ? Math.min : Math.max;
+        const targetValue = comparator(...valueEntries.map(([, value]) => value));
+        const candidateIds = valueEntries.filter(([, value]) => value === targetValue).map(([id]) => id);
+        const topPlayerId = candidateIds[0] ?? valueEntries[0][0];
+        let winnerIds = [topPlayerId];
+        const topPlayer = allParticipants.find((p) => p.id === topPlayerId);
+        if (topPlayer?.teamId) {
+          winnerIds = allParticipants.filter((p) => p.teamId === topPlayer.teamId).map((p) => p.id);
+        }
+
+        jackpotWinnerRef.current = {
         id: topPlayerId, 
-        name: playerTotals[topPlayerId]?.name, 
-        totalValue: maxValue,
-        teamIds: winnerIds
-      };
+          name: participantMeta[topPlayerId]?.name ?? '',
+          totalValue: targetValue,
+          teamIds: winnerIds,
+          contenderIds: candidateIds,
+          usedLastChance: useLastChance,
+        };
+      }
     }
     
-    // 🏃 积分冲刺模式：预先计算所有积分和最终获胜者
-    if (gameMode === 'sprint') {
-      console.log('\n🏃🏃🏃 [积分冲刺模式] 预计算所有结果 🏃🏃🏃');
-      
-      // 初始化积分
+    if (runtime.config.gameplay === 'sprint') {
       const scores: Record<string, number> = {};
-      const roundWinners: Record<number, string[]> = {}; // 每轮的获胜者
-      
-      if (isTeamMode) {
-        // 团队模式：初始化每个团队的积分
-        const teams = new Set(allParticipants.map(p => p.teamId).filter(Boolean));
-        teams.forEach(teamId => {
-          scores[teamId!] = 0;
+      const roundWinners: Record<number, string[]> = {};
+      const isTeam = battleData.battleType === 'team';
+
+      if (isTeam) {
+        const teams = new Set(allParticipants.map((p) => p.teamId).filter(Boolean) as string[]);
+        teams.forEach((teamId) => {
+          scores[teamId] = 0;
         });
       } else {
-        // 单人模式：初始化每个玩家的积分
-        allParticipants.forEach(p => {
-          scores[p.id] = 0;
+        allParticipants.forEach((p) => {
+          if (p?.id) scores[p.id] = 0;
         });
       }
       
-      // 计算每轮的得分
-      for (let round = 0; round < battleData.packs.length; round++) {
+      runtime.rounds.forEach((roundPlan) => {
+        const roundIdx = roundPlan.roundIndex;
         const roundPrices: Record<string, number> = {};
-        const roundResult = detailedResults[round];
         
-        if (!roundResult) continue;
-        
-        if (isTeamMode) {
-          // 团队模式：计算每个团队的总价
+        if (isTeam) {
           const teamTotals: Record<string, number> = {};
-          
-          allParticipants.forEach(participant => {
-            if (!participant || !participant.id || !participant.teamId) return;
-            const item = roundResult[participant.id];
-            if (!item || !item.价格) return;
-            
-            const price = parseFloat(item.价格.replace('¥', ''));
-            teamTotals[participant.teamId] = (teamTotals[participant.teamId] || 0) + price;
+          allParticipants.forEach((participant) => {
+            if (!participant?.id || !participant.teamId) return;
+            const drop = roundPlan.drops[participant.id];
+            if (!drop) return;
+            teamTotals[participant.teamId] = (teamTotals[participant.teamId] || 0) + drop.value;
           });
-          
           Object.assign(roundPrices, teamTotals);
         } else {
-          // 单人模式：每个玩家的价格
-          allParticipants.forEach(participant => {
-            if (!participant || !participant.id) return;
-            const item = roundResult[participant.id];
-            if (!item || !item.价格) return;
-            
-            const price = parseFloat(item.价格.replace('¥', ''));
-            roundPrices[participant.id] = price;
+          Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
+            roundPrices[playerId] = drop.value;
           });
         }
-        
-        // 🔥 根据倒置选项决定得分规则
-        let targetPrice: number;
-        const winners: string[] = [];
-        
-        if (isInverted) {
-          // 倒置模式：最低价格获得1分
-          targetPrice = Math.min(...Object.values(roundPrices));
-          console.log(`  💰 [倒置模式] 最低价格: ¥${targetPrice.toFixed(2)}`);
-        } else {
-          // 正常模式：最高价格获得1分
-          targetPrice = Math.max(...Object.values(roundPrices));
-          console.log(`  💰 [正常模式] 最高价格: ¥${targetPrice.toFixed(2)}`);
+
+        if (Object.keys(roundPrices).length === 0) {
+          roundWinners[roundIdx] = [];
+          return;
         }
-        
-        // 给目标价格的玩家/团队加分
-        Object.entries(roundPrices).forEach(([id, price]) => {
-          if (price === targetPrice) {
+
+        const comparator = runtime.config.specialRules.inverted ? Math.min : Math.max;
+        const targetPrice = comparator(...Object.values(roundPrices));
+        const winners = Object.entries(roundPrices)
+          .filter(([, price]) => price === targetPrice)
+          .map(([id]) => id);
+
+        winners.forEach((id) => {
             scores[id] = (scores[id] || 0) + 1;
-            winners.push(id);
-            console.log(`  第${round + 1}轮: ${id} 获得1分 (¥${price.toFixed(2)})`);
-          }
         });
         
-        roundWinners[round] = winners;
-      }
+        roundWinners[roundIdx] = winners;
+      });
       
-      console.log('\n📊 [最终积分]:', scores);
-      
-      // 找出最高分
       const maxScore = Math.max(...Object.values(scores));
       const topScorers = Object.entries(scores)
-        .filter(([_, score]) => score === maxScore)
+        .filter(([, score]) => score === maxScore)
         .map(([id]) => id);
-      
-      console.log(`🏆 [最高分] ${maxScore}分`);
-      console.log(`👥 [最高分玩家/团队] ${topScorers.join(', ')}`);
-      
-      let finalWinnerId: string;
-      let needsTiebreaker = false;
-      
-      if (topScorers.length === 1) {
-        // 只有一个获胜者
-        finalWinnerId = topScorers[0];
-        console.log(`✅ [获胜者] ${finalWinnerId}`);
-      } else {
-        // 多人平局，随机选择一个（实际游戏中会用老虎机动画）
-        needsTiebreaker = true;
-        finalWinnerId = topScorers[Math.floor(Math.random() * topScorers.length)];
-        console.log(`🎰 [平局] ${topScorers.length}人并列，需要老虎机决胜`);
-        console.log(`🎯 [老虎机结果] ${finalWinnerId} 获胜`);
-      }
-      
-      console.log('\n🏃🏃🏃 [积分冲刺模式答案计算完成] 🏃🏃🏃\n');
-      
-      // 保存到全局变量供后续使用
-      (window as any).__sprintData = {
+      const needsTiebreaker = topScorers.length > 1;
+      const finalWinnerId = topScorers[0];
+
+      sprintDataRef.current = {
         scores,
         roundWinners,
         finalWinnerId,
         needsTiebreaker,
-        tiebreakerPlayers: needsTiebreaker ? topScorers : []
+        tiebreakerPlayers: needsTiebreaker ? topScorers : [],
       };
     }
-    
-    // 🔥 淘汰模式：计算每轮淘汰数据
-    if (gameMode === 'elimination') {
-      console.log('\n🔥🔥🔥 [淘汰模式] 计算每轮淘汰数据 🔥🔥🔥');
-      
-      const totalRounds = battleData.packs.length;
+
+    if (runtime.config.gameplay === 'elimination') {
+      const totalRounds = runtime.rounds.length;
       const playersCount = allParticipants.length;
-      const eliminationStartRound = totalRounds - (playersCount - 1); // 淘汰开始的轮次（从0开始）
-      
-      console.log(`📊 总轮次: ${totalRounds}, 玩家数: ${playersCount}`);
-      console.log(`🎯 淘汰开始轮次: 第${eliminationStartRound + 1}轮（索引${eliminationStartRound}）`);
-      
+      const eliminationStartRound = totalRounds - (playersCount - 1);
       const eliminations: Record<number, {
         eliminatedPlayerId: string;
         eliminatedPlayerName: string;
         needsSlotMachine: boolean;
         tiedPlayerIds?: string[];
       }> = {};
-      
-      let activePlayerIds = allParticipants.map(p => p.id); // 当前仍在游戏中的玩家
-      
-      // 从淘汰开始轮次到倒数第二轮（最后一轮不淘汰，因为只剩两人决出胜负）
-      // 淘汰次数 = playersCount - 1（淘汰到只剩1人）
-      const eliminationCount = playersCount - 1;
-      for (let i = 0; i < eliminationCount && (eliminationStartRound + i) < totalRounds; i++) {
+      let activePlayerIds = allParticipants.map((p) => p.id);
+
+      const eliminationCount = Math.max(0, playersCount - 1);
+      for (let i = 0; i < eliminationCount && eliminationStartRound + i < totalRounds; i++) {
         const roundIdx = eliminationStartRound + i;
         const roundResult = detailedResults[roundIdx];
         if (!roundResult) continue;
         
-        console.log(`\n📍 第${roundIdx + 1}轮淘汰计算 (当前存活玩家: ${activePlayerIds.length}人)`);
-        
-        // 获取当前存活玩家的本轮奖品价格
-        const playerPrices: Array<{ id: string; name: string; price: number }> = [];
-        
-        activePlayerIds.forEach(playerId => {
+        const playerPrices = activePlayerIds
+          .map((playerId) => {
           const item = roundResult[playerId];
-          if (item && item.价格) {
-            const price = parseFloat(item.价格.replace('¥', ''));
-            const player = allParticipants.find(p => p.id === playerId);
-            playerPrices.push({
+            if (!item || !item.价格) return null;
+            return {
               id: playerId,
-              name: player?.name || 'Unknown',
-              price: price
-            });
-            console.log(`  👤 ${player?.name}: ${item.道具} - ¥${price}`);
-          }
-        });
-        
-        // 🔥 根据倒置选项决定淘汰规则
-        let targetPlayers: typeof playerPrices;
-        let targetPrice: number;
-        
-        if (battleData.isInverted) {
-          // 倒置模式：淘汰最高价格
-          targetPrice = Math.max(...playerPrices.map(p => p.price));
-          targetPlayers = playerPrices.filter(p => p.price === targetPrice);
-          console.log(`  💰 [倒置模式] 最高价格: ¥${targetPrice}`);
-          console.log(`  🎯 最高价格玩家数: ${targetPlayers.length}人`);
-        } else {
-          // 正常模式：淘汰最低价格
-          targetPrice = Math.min(...playerPrices.map(p => p.price));
-          targetPlayers = playerPrices.filter(p => p.price === targetPrice);
-          console.log(`  💰 [正常模式] 最低价格: ¥${targetPrice}`);
-          console.log(`  🎯 最低价格玩家数: ${targetPlayers.length}人`);
-        }
+              name: allParticipants.find((p) => p.id === playerId)?.name || 'Unknown',
+              price: parseFloat(item.价格.replace('¥', '')),
+            };
+          })
+          .filter(Boolean) as Array<{ id: string; name: string; price: number }>;
+
+        if (playerPrices.length === 0) continue;
+
+        const targetPrice = runtime.config.specialRules.inverted
+          ? Math.max(...playerPrices.map((p) => p.price))
+          : Math.min(...playerPrices.map((p) => p.price));
+        const targetPlayers = playerPrices.filter((p) => p.price === targetPrice);
         
         if (targetPlayers.length === 1) {
-          // 唯一目标价格，直接淘汰
           const eliminated = targetPlayers[0];
           eliminations[roundIdx] = {
             eliminatedPlayerId: eliminated.id,
             eliminatedPlayerName: eliminated.name,
-            needsSlotMachine: false
+            needsSlotMachine: false,
           };
-          console.log(`  ❌ 直接淘汰: ${eliminated.name}`);
         } else {
-          // 多人并列目标价格，需要老虎机动画
-          const randomIndex = Math.floor(Math.random() * targetPlayers.length);
-          const eliminated = targetPlayers[randomIndex];
+          const chosen = targetPlayers[Math.floor(Math.random() * targetPlayers.length)];
           eliminations[roundIdx] = {
-            eliminatedPlayerId: eliminated.id,
-            eliminatedPlayerName: eliminated.name,
+            eliminatedPlayerId: chosen.id,
+            eliminatedPlayerName: chosen.name,
             needsSlotMachine: true,
-            tiedPlayerIds: targetPlayers.map(p => p.id)
+            tiedPlayerIds: targetPlayers.map((p) => p.id),
           };
-          console.log(`  🎰 需要老虎机动画 (${targetPlayers.length}人并列)`);
-          console.log(`  👥 并列玩家: ${targetPlayers.map(p => p.name).join(', ')}`);
-          console.log(`  ❌ 随机淘汰: ${eliminated.name}`);
         }
         
-        // 从存活列表中移除被淘汰的玩家
-        activePlayerIds = activePlayerIds.filter(id => id !== eliminations[roundIdx].eliminatedPlayerId);
+        activePlayerIds = activePlayerIds.filter((id) => id !== eliminations[roundIdx].eliminatedPlayerId);
       }
       
-      console.log('\n✅ 淘汰数据生成完成');
-      console.log(`🏆 最终获胜者: ${allParticipants.find(p => p.id === activePlayerIds[0])?.name}`);
-      console.log('🔥🔥🔥 [淘汰模式答案计算完成] 🔥🔥🔥\n');
-      
-      // 保存到全局变量供后续使用
-      (window as any).__eliminationData = {
+      eliminationDataRef.current = {
         eliminations,
         eliminationStartRound,
-        finalWinnerId: activePlayerIds[0]
+        finalWinnerId: activePlayerIds[0],
       };
     }
-    
-    return rounds;
-  }, [battleData, processSymbolPools, gameMode]);
+    return runtime.rounds.map(convertRuntimeRoundToLegacy);
+  }, [activeSource, battleData.battleType]);
 
   // 🎨 大奖模式：在所有插槽填满后分配颜色（只执行一次）
   const colorsAssignedRef = useRef(false);
@@ -1040,21 +1830,17 @@ export default function BattleDetailPage() {
       setMainState('IDLE');
       setRoundState(null);
       gameRoundsRef.current = [];
-      setGameData({ currentRound: 0, totalRounds: 0 });
-      setSpinningState({ activeCount: 0, completed: new Set() });
-      setRoundResults({});
-      setCompletedRounds(new Set());
+      dispatchProgressState({ type: 'RESET_PROGRESS' });
+      dispatchProgressState({ type: 'RESET_SPIN_STATE' });
       setCountdownValue(null);
       setGalleryAlert(false);
       hasGeneratedResultsRef.current = false;
+      timelineHydratedRef.current = false;
       colorsAssignedRef.current = false;
-      // 重置防重复标记
-      firstSpinStartedRef.current = {};
-      secondSpinStartedRef.current = {};
-      settleExecutedRef.current = {};
-      renderExecutedRef.current = {};
+      dispatchProgressState({ type: 'RESET_ALL_ROUND_FLAGS' });
+      dispatchProgressState({ type: 'RESET_ROUND_EVENT_LOG' });
     }
-  }, [mainState, allSlotsFilled, allParticipants.length]);
+  }, [mainState, allSlotsFilled, allParticipants.length, dispatchProgressState]);
 
   // 🎯 STATE TRANSITION: LOADING → COUNTDOWN（只执行一次）
   const participantsSnapshotRef = useRef<any[]>([]);
@@ -1073,15 +1859,121 @@ export default function BattleDetailPage() {
       // 🚀 性能优化：rounds 放在 ref，避免深度比对
       gameRoundsRef.current = rounds;
       
-      setGameData({
+      dispatchProgressState({
+        type: 'APPLY_PROGRESS_SNAPSHOT',
+        snapshot: {
         currentRound: 0,
-        totalRounds: rounds.length
+          totalRounds: rounds.length,
+          participantValues: {},
+          roundResults: {},
+          completedRounds: new Set(),
+          spinState: {
+            activeCount: 0,
+            completed: new Set<string>(),
+          },
+          playerSymbols: {},
+          slotMachineKeySuffix: {},
+          currentRoundPrizes: {},
+          roundExecutionFlags: {},
+          roundEventLog: [],
+        },
       });
-      
-      setMainState('COUNTDOWN');
-      setCountdownValue(3);
+      const totalRounds = rounds.length;
+      const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
+      const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
+      skipDirectlyToCompletedRef.current = entryExceedsRounds;
+
+      if (entryExceedsRounds) {
+        hydrateRoundsProgress(totalRounds);
+        setCountdownValue(null);
+        setRoundState(null);
+        setMainState('COMPLETED');
+        timelineHydratedRef.current = true;
+        return;
+      }
+
+      skipDirectlyToCompletedRef.current = false;
+      forceFullReplayRef.current = false;
+
+      const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
+      if (entryRoundIndex !== null) {
+        setCountdownValue(null);
+        setRoundState('ROUND_RENDER');
+        setMainState('ROUND_LOOP');
+      } else {
+        setMainState('COUNTDOWN');
+        setCountdownValue(3);
+      }
     }
-  }, [mainState, generateAllResults, battleData.packs.length]);
+  }, [
+    mainState,
+    generateAllResults,
+    battleData.packs.length,
+    dispatchProgressState,
+    setMainState,
+    setRoundState,
+    activeSource.entryRound,
+    hydrateRoundsProgress,
+  ]);
+
+  useEffect(() => {
+    if (!battleRuntimeRef.current || !hasGeneratedResultsRef.current) return;
+    if (timelineHydratedRef.current) return;
+
+    const runtime = battleRuntimeRef.current;
+    const totalRounds = runtime.config.roundsTotal;
+    const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
+    const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
+    skipDirectlyToCompletedRef.current = entryExceedsRounds;
+
+    if (entryExceedsRounds) {
+      hydrateRoundsProgress(totalRounds);
+      setCountdownValue(null);
+      setMainState('COMPLETED');
+      setRoundState(null);
+      timelineHydratedRef.current = true;
+      return;
+    }
+
+    skipDirectlyToCompletedRef.current = false;
+    forceFullReplayRef.current = false;
+
+    const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
+    if (entryRoundIndex !== null) {
+      hydrateRoundsProgress(entryRoundIndex);
+      setCountdownValue(null);
+      setMainState('ROUND_LOOP');
+      setRoundState('ROUND_RENDER');
+      timelineHydratedRef.current = true;
+      return;
+    }
+
+    const cursor = runtime.timeline.getRoundByTimestamp(Date.now());
+
+    if (cursor.phase === 'COUNTDOWN') {
+      const remainSeconds = Math.max(0, Math.ceil(cursor.roundElapsedMs / 1000));
+      setCountdownValue(remainSeconds);
+      setMainState('COUNTDOWN');
+      return;
+    }
+
+    if (cursor.phase === 'ROUND') {
+      const targetRound = Math.min(cursor.roundIndex, runtime.config.roundsTotal);
+      hydrateRoundsProgress(targetRound);
+      setCountdownValue(null);
+      setMainState('ROUND_LOOP');
+      setRoundState('ROUND_RENDER');
+      timelineHydratedRef.current = true;
+      return;
+    }
+
+    if (cursor.phase === 'COMPLETED') {
+      hydrateRoundsProgress(runtime.config.roundsTotal);
+      setCountdownValue(null);
+      setMainState('COMPLETED');
+      timelineHydratedRef.current = true;
+    }
+  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound]);
 
   // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
   useEffect(() => {
@@ -1091,7 +1983,6 @@ export default function BattleDetailPage() {
       setRoundState('ROUND_RENDER'); // 进入第一个轮次的渲染态
     }
   }, [mainState, countdownValue]);
-
   // 🎯 Countdown ticker (倒计时器)
   useEffect(() => {
     if (mainState === 'COUNTDOWN' && countdownValue !== null && countdownValue > 0) {
@@ -1113,17 +2004,22 @@ export default function BattleDetailPage() {
   }, [mainState, countdownValue]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_RENDER
-  const renderExecutedRef = useRef<Record<number, boolean>>({});
-  
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_RENDER') {
       const currentRound = gameData.currentRound;
       
       // 防止重复执行
-      if (renderExecutedRef.current[currentRound]) {
+      const hasRendered = roundExecutionFlags[currentRound]?.renderStarted;
+      if (hasRendered) {
         return;
       }
-      renderExecutedRef.current[currentRound] = true;
+      dispatchProgressState({
+        type: 'SET_ROUND_FLAG',
+        roundIndex: currentRound,
+        flag: 'renderStarted',
+        value: true,
+      });
+      recordRoundEvent(currentRound, 'ROUND_RENDER_START');
       
       // 状态守卫：检查轮次有效性
       if (currentRound >= gameData.totalRounds) {
@@ -1145,10 +2041,7 @@ export default function BattleDetailPage() {
       currentRoundData.spinStatus.secondStage.completed.clear();
       
       // 🎯 重置spinningState（关键！防止跨轮误触发）
-      setSpinningState({
-        activeCount: 0,
-        completed: new Set()
-      });
+      dispatchProgressState({ type: 'RESET_SPIN_STATE' });
       
       
       // 等待DOM渲染完成
@@ -1156,7 +2049,7 @@ export default function BattleDetailPage() {
         setRoundState('ROUND_SPIN_FIRST');
       }, 100);
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_FIRST（第一段转动）
   useEffect(() => {
@@ -1167,33 +2060,29 @@ export default function BattleDetailPage() {
       if (!currentRoundData) return;
       
       // 防止重复执行
-      if (firstSpinStartedRef.current[currentRound]) {
+      const firstSpinStarted = roundExecutionFlags[currentRound]?.firstSpinStarted;
+      if (firstSpinStarted) {
         return;
       }
-      
-      firstSpinStartedRef.current[currentRound] = true;
+      dispatchProgressState({
+        type: 'SET_ROUND_FLAG',
+        roundIndex: currentRound,
+        flag: 'firstSpinStarted',
+        value: true,
+      });
+      recordRoundEvent(currentRound, 'ROUND_SPIN_FIRST_START');
       
       
       // 重置转动状态
-      setSpinningState({
+      dispatchProgressState({
+        type: 'SET_SPIN_STATE',
+        state: {
         activeCount: allParticipants.length,
-        completed: new Set()
+          completed: new Set<string>(),
+        },
       });
-      
-      // 触发所有老虎机转动（使用普通池）
-      setTimeout(() => {
-        allParticipants.forEach(participant => {
-          if (participant && participant.id) {
-            const slotRef = slotMachineRefs.current[participant.id];
-            if (slotRef && slotRef.startSpin) {
-              slotRef.startSpin();
-            } else {
-            }
-          }
-        });
-      }, 600);
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_FIRST → ROUND_CHECK_LEGENDARY
   useEffect(() => {
@@ -1204,9 +2093,10 @@ export default function BattleDetailPage() {
       // 使用spinningState来监听（这个会正确触发）
       if (spinningState.completed.size === allParticipants.length && allParticipants.length > 0) {
         setRoundState('ROUND_CHECK_LEGENDARY');
+        recordRoundEvent(gameData.currentRound, 'ROUND_SPIN_FIRST_STOP');
       }
     }
-  }, [mainState, roundState, gameData.currentRound, allParticipants.length, spinningState.completed.size]);
+  }, [mainState, roundState, gameData.currentRound, allParticipants.length, spinningState.completed.size, recordRoundEvent]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_CHECK_LEGENDARY（检查legendary）
   useEffect(() => {
@@ -1267,14 +2157,14 @@ export default function BattleDetailPage() {
         }
       });
       
-      setPlayerSymbols(newPlayerSymbols);
+      dispatchProgressState({ type: 'SET_PLAYER_SYMBOLS', symbols: newPlayerSymbols });
       
       // 🎯 为金色玩家改变key，触发老虎机重新挂载
       const newKeySuffix: Record<string, string> = {};
       goldenPlayers.forEach(participantId => {
         newKeySuffix[participantId] = '-second'; // 添加后缀
       });
-      setSlotMachineKeySuffix(newKeySuffix);
+      dispatchProgressState({ type: 'SET_SLOT_KEY_SUFFIX', suffixMap: newKeySuffix });
       
       
       // 等待老虎机重新挂载完成
@@ -1283,7 +2173,7 @@ export default function BattleDetailPage() {
       }, 800); // 更长延迟等待重新挂载
     
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, currentRoundPrizes]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, currentRoundPrizes, dispatchProgressState]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_SECOND（第二段转动）
   useEffect(() => {
@@ -1293,11 +2183,17 @@ export default function BattleDetailPage() {
       if (!currentRoundData) return;
       
       // 防止重复执行
-      if (secondSpinStartedRef.current[currentRound]) {
+      const secondSpinStarted = roundExecutionFlags[currentRound]?.secondSpinStarted;
+      if (secondSpinStarted) {
         return;
       }
-      
-      secondSpinStartedRef.current[currentRound] = true;
+      dispatchProgressState({
+        type: 'SET_ROUND_FLAG',
+        roundIndex: currentRound,
+        flag: 'secondSpinStarted',
+        value: true,
+      });
+      recordRoundEvent(currentRound, 'ROUND_SPIN_SECOND_START');
       
       const goldenPlayers = Array.from(currentRoundData.spinStatus.firstStage.gotLegendary);
       
@@ -1310,47 +2206,52 @@ export default function BattleDetailPage() {
           newPrizes[participantId] = result.itemId;
         }
       });
-      setCurrentRoundPrizes(newPrizes);
+      dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes: newPrizes });
       
       // 重置第二段状态
       currentRoundData.spinStatus.secondStage.active = new Set(goldenPlayers);
       currentRoundData.spinStatus.secondStage.completed.clear();
       
       // 重置spinning状态（只追踪金色玩家）
-      setSpinningState({
+      dispatchProgressState({
+        type: 'SET_SPIN_STATE',
+        state: {
         activeCount: goldenPlayers.length,
-        completed: new Set()
+          completed: new Set<string>(),
+        },
       });
-      
-      // 等待selectedPrizeId更新完成，然后手动启动老虎机
-      setTimeout(() => {
-        goldenPlayers.forEach(participantId => {
-          const slotRef = slotMachineRefs.current[participantId];
-          if (slotRef && slotRef.startSpin) {
-            slotRef.startSpin();
-          } else {
-          }
-        });
-      }, 100); // 短暂延迟等待selectedPrizeId更新
     }
-  }, [mainState, roundState, gameData.currentRound, currentRoundPrizes]);
+  }, [mainState, roundState, gameData.currentRound, currentRoundPrizes, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_SECOND → ROUND_SETTLE
   useEffect(() => {
-    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_SPIN_SECOND') {
+    if (mainState !== 'ROUND_LOOP' || roundState !== 'ROUND_SPIN_SECOND') {
+      return;
+    }
       const currentRoundData = gameRoundsRef.current[gameData.currentRound];
       if (!currentRoundData) return;
       
       const activeCount = currentRoundData.spinStatus.secondStage.active.size;
-      
-      // 使用spinningState来监听
-      if (spinningState.completed.size === activeCount && activeCount > 0) {
-        
-        setRoundState('ROUND_SETTLE');
-        setPlayerSymbols({}); // 清空玩家数据源
-      }
+    if (activeCount <= 0) {
+      // 等待 second-stage spinner 正式初始化完畢
+      return;
     }
-  }, [mainState, roundState, gameData.currentRound, spinningState.completed.size]);
+    const completedCount = currentRoundData.spinStatus.secondStage.completed.size;
+    if (completedCount < activeCount) {
+      return;
+    }
+
+    recordRoundEvent(gameData.currentRound, 'ROUND_SPIN_SECOND_STOP');
+    setRoundState('ROUND_SETTLE');
+    dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' }); // 清空玩家数据源
+  }, [
+    mainState,
+    roundState,
+    gameData.currentRound,
+    spinningState.completed.size,
+    dispatchProgressState,
+    recordRoundEvent,
+  ]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SETTLE（统一记录所有道具）
   useEffect(() => {
@@ -1361,11 +2262,17 @@ export default function BattleDetailPage() {
       if (!currentRoundData) return;
       
       // 防止重复执行
-      if (settleExecutedRef.current[currentRound]) {
+      const settleExecuted = roundExecutionFlags[currentRound]?.settleExecuted;
+      if (settleExecuted) {
         return;
       }
-      
-      settleExecutedRef.current[currentRound] = true;
+      dispatchProgressState({
+        type: 'SET_ROUND_FLAG',
+        roundIndex: currentRound,
+        flag: 'settleExecuted',
+        value: true,
+      });
+      recordRoundEvent(currentRound, 'ROUND_SETTLE_START');
       
       // 🎵 播放回正音效（只播放一次）
       if (typeof window !== 'undefined') {
@@ -1382,6 +2289,7 @@ export default function BattleDetailPage() {
       
       // 🎯 记录所有玩家的最终道具
       const finalResults: Record<string, SlotSymbol> = {};
+      const valueDeltas: Record<string, number> = {};
       
       allParticipants.forEach(participant => {
         if (!participant || !participant.id) return;
@@ -1401,47 +2309,30 @@ export default function BattleDetailPage() {
         
         if (item) {
           finalResults[participant.id] = item;
+          const prizeValue = parseFloat(String(item.price || '0')) || 0;
+          valueDeltas[participant.id] = (valueDeltas[participant.id] || 0) + prizeValue;
         }
       });
       
       // 🚀 性能优化：标记轮次完成（轻量级state更新）
-      setCompletedRounds(prev => {
-        const newSet = new Set(prev);
-        newSet.add(currentRound);
-        return newSet;
-      });
+      dispatchProgressState({ type: 'MARK_ROUND_COMPLETED', roundIndex: currentRound });
       
       // 保存结果（但不触发 ParticipantsWithPrizes 重新渲染）
-      setRoundResults(prev => ({
-        ...prev,
-        [currentRound]: finalResults
-      }));
+      dispatchProgressState({
+        type: 'UPSERT_ROUND_RESULT',
+        roundIndex: currentRound,
+        results: finalResults,
+      });
       
       // 💰 累加玩家金额
-      setParticipantValues(prevValues => {
-        const newValues = { ...prevValues };
-        
-        allParticipants.forEach(participant => {
-          if (!participant || !participant.id) return;
-          
-          const prizeItem = finalResults[participant.id];
-          if (!prizeItem) return;
-          
-          // 解析本轮奖品价格
-          const prizeValue = parseFloat(String(prizeItem.price || '0')) || 0;
-          // 累加
-          const currentValue = newValues[participant.id] || 0;
-          const newValue = currentValue + prizeValue;
-          newValues[participant.id] = newValue;
-          
-        });
-        
-        return newValues;
+      dispatchProgressState({
+        type: 'ACCUMULATE_PARTICIPANT_VALUES',
+        deltas: valueDeltas,
       });
       
       // 🏃 积分冲刺模式：从预计算数据更新本轮积分
       if (gameMode === 'sprint') {
-        const sprintData = (window as any).__sprintData;
+    const sprintData = sprintDataRef.current;
         
         if (sprintData && sprintData.roundWinners && sprintData.roundWinners[currentRound]) {
           const roundWinners = sprintData.roundWinners[currentRound];
@@ -1452,18 +2343,15 @@ export default function BattleDetailPage() {
             
             roundWinners.forEach((winnerId: string) => {
               newScores[winnerId] = (newScores[winnerId] || 0) + 1;
-              console.log(`🏃 [积分冲刺] ${winnerId} 获得1分，当前积分: ${newScores[winnerId]}`);
             });
             
             return newScores;
           });
-        } else {
-          console.warn('⚠️ [积分冲刺] 未找到预计算的积分数据');
-        }
+        } 
       }
       
       // 清空玩家数据源（准备下一轮）
-      setPlayerSymbols({});
+      dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
       
       // 🔥 结果已预设，立即进入下一阶段
       setTimeout(() => {
@@ -1475,13 +2363,59 @@ export default function BattleDetailPage() {
         }
       }, 100);
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, gameMode, isTeamMode]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, gameMode, isTeamMode, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
+
+  useEffect(() => {
+    if (!roundEventLog.length) {
+      processedRoundEventIdsRef.current.clear();
+      return;
+    }
+    const pendingEvents = roundEventLog.filter(
+      (event) => !processedRoundEventIdsRef.current.has(event.id),
+    );
+    if (!pendingEvents.length) return;
+    pendingEvents.forEach((event) => {
+      processedRoundEventIdsRef.current.add(event.id);
+      switch (event.type) {
+        case 'ROUND_SPIN_FIRST_START':
+          triggerFirstStageSpin();
+          break;
+        case 'ROUND_SPIN_SECOND_START':
+          triggerSecondStageSpin();
+          break;
+        case 'ROUND_SPIN_FIRST_STOP':
+          dispatchProgressState({
+            type: 'SET_SPIN_STATE',
+            state: {
+              activeCount: allParticipants.length,
+              completed: new Set<string>(allParticipants.map((participant) => participant.id!).filter(Boolean)),
+            },
+          });
+          break;
+        case 'ROUND_SPIN_SECOND_STOP': {
+          const roundData = gameRoundsRef.current[event.roundIndex];
+          if (!roundData) break;
+          const goldenPlayers = Array.from(roundData.spinStatus.firstStage.gotLegendary);
+          dispatchProgressState({
+            type: 'SET_SPIN_STATE',
+            state: {
+              activeCount: goldenPlayers.length,
+              completed: new Set<string>(goldenPlayers),
+            },
+          });
+          break;
+        }
+        default:
+          break;
+      }
+    });
+  }, [roundEventLog, triggerFirstStageSpin, triggerSecondStageSpin, allParticipants.length, allParticipants, dispatchProgressState]);
 
   // 🔥 ROUND_LOOP 子状态机: ROUND_CHECK_ELIMINATION（检查是否需要淘汰）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_CHECK_ELIMINATION') {
       const currentRound = gameData.currentRound;
-      const eliminationData = (window as any).__eliminationData;
+      const eliminationData = eliminationDataRef.current;
       
       if (!eliminationData || !eliminationData.eliminations) {
         console.warn('⚠️ [淘汰检查] 未找到淘汰数据，跳过淘汰环节');
@@ -1494,7 +2428,6 @@ export default function BattleDetailPage() {
       // 检查当前轮次是否在淘汰轮次范围内
       // 淘汰应该从 eliminationStartRound 开始，一直到只剩一个人（totalRounds - 1 轮）
       if (currentRound < eliminationStartRound) {
-        console.log(`ℹ️ [淘汰检查] 第${currentRound + 1}轮还未到淘汰开始轮次（${eliminationStartRound + 1}），跳过淘汰`);
         setRoundState('ROUND_NEXT');
         return;
       }
@@ -1503,47 +2436,33 @@ export default function BattleDetailPage() {
       // 检查是否已经只剩一个人没被淘汰
       const remainingPlayers = allParticipants.filter(p => !eliminatedPlayerIds.has(p.id));
       if (remainingPlayers.length <= 1) {
-        console.log(`ℹ️ [淘汰检查] 第${currentRound + 1}轮已经只剩${remainingPlayers.length}个人，不需要继续淘汰`);
         setRoundState('ROUND_NEXT');
         return;
       }
       
       const eliminationInfo = eliminations[currentRound];
       if (!eliminationInfo) {
-        console.warn(`⚠️ [淘汰检查] 第${currentRound + 1}轮未找到淘汰信息`);
         setRoundState('ROUND_NEXT');
         return;
       }
       
-      console.log(`\n🔥 [淘汰检查] 第${currentRound + 1}轮淘汰环节`);
-      console.log(`  被淘汰玩家: ${eliminationInfo.eliminatedPlayerName}`);
-      console.log(`  需要老虎机: ${eliminationInfo.needsSlotMachine ? '是' : '否'}`);
-      if (eliminationInfo.tiedPlayerIds) {
-        console.log(`  并列玩家IDs: ${eliminationInfo.tiedPlayerIds.join(', ')}`);
-        console.log(`  并列玩家数: ${eliminationInfo.tiedPlayerIds.length}`);
-      }
+   
       
       // 保存当前淘汰数据（添加轮次索引）
       setCurrentEliminationData({
         ...eliminationInfo,
         roundIndex: currentRound
       });
-      console.log('✅ [淘汰检查] currentEliminationData 已设置', eliminationInfo);
       
       if (eliminationInfo.needsSlotMachine) {
         // 🔥 需要老虎机动画 - 不在这里添加淘汰玩家，等老虎机完成后再添加
-        console.log(`  🎰 进入淘汰老虎机动画（不立即淘汰）`);
         setTimeout(() => {
           setRoundState('ROUND_ELIMINATION_SLOT');
         }, 100); // 🔥 结果已预设，立即播放动画
       } else {
-        // 🔥 直接淘汰 - 立即添加淘汰玩家到已淘汰集合
-        console.log(`  ❌ 直接淘汰，立即渲染淘汰 UI`);
         setEliminatedPlayerIds(prev => {
           const newSet = new Set(prev);
           newSet.add(eliminationInfo.eliminatedPlayerId);
-          console.log('✅ [直接淘汰] 已添加淘汰玩家:', eliminationInfo.eliminatedPlayerId);
-          console.log('✅ [直接淘汰] 当前已淘汰玩家:', Array.from(newSet));
           return newSet;
         });
         
@@ -1553,7 +2472,6 @@ export default function BattleDetailPage() {
             ...prev,
             [eliminationInfo.eliminatedPlayerId]: currentRound
           };
-          console.log('🔥 [直接淘汰] 记录淘汰轮次:', newRounds);
           return newRounds;
         });
         
@@ -1562,18 +2480,16 @@ export default function BattleDetailPage() {
         }, 100); // 🔥 结果已预设，立即显示
       }
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, dispatchProgressState]);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_ELIMINATION_SLOT') {
-      console.log('🎰 [淘汰老虎机] 开始播放动画');
       
       // 触发淘汰老虎机组件的动画
       if (eliminationSlotMachineRef.current) {
         eliminationSlotMachineRef.current.startSpin();
       } else {
-        console.warn('⚠️ [淘汰老虎机] ref未找到，跳过动画');
         setTimeout(() => {
           setRoundState('ROUND_ELIMINATION_RESULT');
         }, 1000);
@@ -1585,19 +2501,16 @@ export default function BattleDetailPage() {
   useEffect(() => {
     if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_ELIMINATION_RESULT') {
       if (!currentEliminationData) {
-        console.warn('⚠️ [淘汰结果] 未找到淘汰数据');
         setRoundState('ROUND_NEXT');
         return;
       }
       
-      console.log(`❌ [淘汰结果] ${currentEliminationData.eliminatedPlayerName} 被淘汰`);
       
       // 将玩家添加到已淘汰列表（如果还没添加的话）
       setEliminatedPlayerIds(prev => {
         const newSet = new Set(prev);
         if (!newSet.has(currentEliminationData.eliminatedPlayerId)) {
           newSet.add(currentEliminationData.eliminatedPlayerId);
-          console.log('✅ [淘汰结果] 已添加淘汰玩家:', currentEliminationData.eliminatedPlayerId);
         }
         return newSet;
       });
@@ -1609,16 +2522,13 @@ export default function BattleDetailPage() {
             ...prev,
             [currentEliminationData.eliminatedPlayerId]: currentEliminationData.roundIndex
           };
-          console.log('🔥 [淘汰结果] 记录淘汰轮次:', newRounds);
           return newRounds;
         }
-        console.log('🔥 [淘汰结果] 淘汰轮次已存在，跳过记录');
         return prev;
       });
       
       // 🔥 结果已预设，快速进入下一轮（给用户短暂时间看到淘汰效果）
       setTimeout(() => {
-        console.log('✅ [淘汰结果] 进入下一轮');
         setCurrentEliminationData(null); // 清空当前淘汰数据
         setRoundState('ROUND_NEXT');
       }, 500);
@@ -1648,18 +2558,16 @@ export default function BattleDetailPage() {
             }
           });
           
-          setCurrentRoundPrizes(nextPrizes);
+          dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes: nextPrizes });
         }
         
         // 重置玩家数据源和key后缀
-        setPlayerSymbols({});
-        setSlotMachineKeySuffix({});
+        dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
+        dispatchProgressState({ type: 'RESET_SLOT_KEY_SUFFIX' });
+        dispatchProgressState({ type: 'RESET_ROUND_FLAGS', roundIndex: currentRound });
         
         // 更新游戏数据到下一轮
-        setGameData(prev => ({
-          ...prev,
-          currentRound: nextRound
-        }));
+        dispatchProgressState({ type: 'SET_CURRENT_ROUND', currentRound: nextRound });
         
         // 回到ROUND_RENDER开始新一轮
         setRoundState('ROUND_RENDER');
@@ -1670,9 +2578,7 @@ export default function BattleDetailPage() {
     }
   }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
 
-  // 🎯 同步新旧状态（状态机 → 兼容变量）- 优化：拆分多个 useEffect，避免连锁触发
   useEffect(() => {
-    setCurrentRound(gameData.currentRound);
     currentRoundRef.current = gameData.currentRound;
   }, [gameData.currentRound]);
   
@@ -1687,16 +2593,43 @@ export default function BattleDetailPage() {
   }, [mainState]);
   
   useEffect(() => {
-    setCompletedSpins(spinningState.completed);
-  }, [spinningState.completed]);
+    const participantList = battleData.participants || [];
+    const roundEntries = Object.entries(roundResults);
+    if (!participantList.length || !roundEntries.length) return;
+
+    const signature = roundEntries
+      .map(([roundIndex, entries]) => `${roundIndex}:${Object.keys(entries || {}).length}`)
+      .sort()
+      .join('|');
+    if (lastRoundLogRef.current === signature) return;
+    lastRoundLogRef.current = signature;
+
+    roundEntries
+      .map(([roundIndex]) => Number(roundIndex))
+      .sort((a, b) => a - b)
+      .forEach((roundIndex) => {
+        const perRound = roundResults[roundIndex] || {};
+        const tableRows = participantList.map((participant) => {
+          const prize = perRound[participant.id];
+          return {
+            玩家: participant.name,
+            道具: prize?.name ?? '尚未揭晓',
+            金额: prize ? `¥${Number(prize.price ?? 0).toFixed(2)}` : '—',
+          };
+        });
+        console.groupCollapsed(`【Battle Playback】第 ${roundIndex + 1} 轮结果`);
+        console.table(tableRows);
+        console.groupEnd();
+      });
+  }, [battleData.participants, roundResults]);
   
-  // 🎯 更新当前轮次的奖品映射（只在轮次或阶段变化时）- 防重复执行
+
+  
   const lastPrizesUpdateRef = useRef<string>('');
   
   useEffect(() => {
     const updateKey = `${gameData.currentRound}-${roundState}`;
     
-    // 🛡️ 防重复：如果key相同，跳过
     if (lastPrizesUpdateRef.current === updateKey) {
       return;
     }
@@ -1705,8 +2638,6 @@ export default function BattleDetailPage() {
     const currentRoundData = gameRoundsRef.current[gameData.currentRound];
     if (!currentRoundData) return;
     
-    // 设置全局显示列表（第一段用普通池）
-    setCurrentSlotSymbols(currentRoundData.pools.normal);
     
     // 🎯 构建奖品映射（关键：第一段期间必须显示占位符）
     const prizes: Record<string, string> = {};
@@ -1726,8 +2657,8 @@ export default function BattleDetailPage() {
         prizes[participantId] = result.itemId;
       }
     });
-    setCurrentRoundPrizes(prizes);
-  }, [gameData.currentRound, roundState]);
+    dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes });
+  }, [gameData.currentRound, roundState, dispatchProgressState]);
 
   // 旧的自动启动逻辑已被状态机接管，删除
 
@@ -1761,6 +2692,14 @@ export default function BattleDetailPage() {
     }
   }, []);
 
+  const handleTieBreakerComplete = useCallback(() => {
+    const delay = isFastMode ? 120 : 400;
+    setTimeout(() => {
+      setTieBreakerPlan(null);
+      setTieBreakerGateOpen(true);
+    }, delay);
+  }, [isFastMode, setTieBreakerGateOpen, setTieBreakerPlan]);
+
   // Handle when a slot machine completes
   const handleSlotComplete = useCallback((participantId: string, result: SlotSymbol) => {
     const round = gameData.currentRound;
@@ -1786,11 +2725,7 @@ export default function BattleDetailPage() {
       }
       
       // 更新spinning状态
-      setSpinningState(prev => {
-        const newCompleted = new Set(prev.completed);
-        newCompleted.add(participantId);
-        return { ...prev, completed: newCompleted };
-      });
+      dispatchProgressState({ type: 'ADD_SPIN_COMPLETED', participantId });
       
     } else if (currentRoundState === 'ROUND_SPIN_SECOND') {
       // 🎯 第二段完成处理
@@ -1799,339 +2734,87 @@ export default function BattleDetailPage() {
       currentRoundData.spinStatus.secondStage.completed.add(participantId);
       
       // 更新spinning状态
-      setSpinningState(prev => {
-        const newCompleted = new Set(prev.completed);
-        newCompleted.add(participantId);
-        return { ...prev, completed: newCompleted };
-      });
+      dispatchProgressState({ type: 'ADD_SPIN_COMPLETED', participantId });
     }
-  }, [gameData, roundState]);
+  }, [gameData, roundState, dispatchProgressState]);
+
+  useEffect(() => {
+    if (skipDirectlyToCompletedRef.current) {
+      if (tieBreakerPlan !== null) {
+        setTieBreakerPlan(null);
+      }
+      if (!tieBreakerGateOpen) {
+        setTieBreakerGateOpen(true);
+      }
+      return;
+    }
+
+    if (mainState !== 'COMPLETED') {
+      if (tieBreakerPlan !== null) {
+        setTieBreakerPlan(null);
+      }
+      if (tieBreakerGateOpen) {
+        setTieBreakerGateOpen(false);
+      }
+      return;
+    }
+
+    if (tieBreakerGateOpen || tieBreakerPlan) {
+      return;
+    }
+
+    const plan = evaluateTieBreakerPlan();
+    if (plan) {
+      setTieBreakerPlan(plan);
+    } else {
+      setTieBreakerGateOpen(true);
+    }
+  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, evaluateTieBreakerPlan]);
 
   // 旧的完成检查和轮次切换逻辑已被状态机接管
   
   // 🎯 COMPLETED状态：显示最终统计和判定获胜者
   useEffect(() => {
     if (mainState === 'COMPLETED') {
-      // 🎯 如果已经设置过获胜者，不再重复执行
-      if (completedWinnerSetRef.current) {
-        return;
-      }
-      
-      console.log('🏁 [COMPLETED] 所有轮次完成！');
-      console.log('🏁 [COMPLETED] 状态已锁定，不会再改变');
-      console.log(`🎮 [游戏模式] ${gameMode}`);
-      
-      // 🎰 大奖模式：计算并固定玩家色块数据
       if (gameMode === 'jackpot') {
-        // 只在第一次或数据为空时计算
         if (!jackpotInitialized.current || jackpotPlayerSegments.length === 0) {
           jackpotInitialized.current = true;
           
           let totalPrize = 0;
-          allParticipants.forEach(p => {
+          allParticipants.forEach((p) => {
             if (p && p.id) {
-              totalPrize += (participantValues[p.id] || 0);
+              totalPrize += participantValues[p.id] || 0;
             }
           });
           
-          const segments = allParticipants.map(p => ({
+          const segments = allParticipants.map((p) => ({
             id: p.id,
             name: p.name,
             percentage: totalPrize > 0 ? ((participantValues[p.id] || 0) / totalPrize) * 100 : 0,
             color: playerColors[p.id] || 'rgb(128, 128, 128)',
           }));
           
-          // 从预先计算的结果中获取获胜者ID
-          const preCalculatedWinner = (window as any).__jackpotWinner;
+          const preCalculatedWinner = jackpotWinnerRef.current;
           const winnerId = preCalculatedWinner?.id || '';
           
           setJackpotPlayerSegments(segments);
           setJackpotWinnerId(winnerId);
           setJackpotPhase('rolling');
         } else {
-          // 回放：只重置阶段到 rolling
           setJackpotPhase('rolling');
         }
       }
       
-      // 🏆 根据游戏模式判定获胜者（立即执行，无延迟）
-      // 计算总奖池（使用 participantValues）
-      let totalPrize = 0;
-      allParticipants.forEach(p => {
-        if (p && p.id) {
-          const value = participantValues[p.id] || 0;
-          totalPrize += value;
-        }
-      });
-      
-      console.log(`💰 [总奖池] $${totalPrize.toFixed(2)}`);
-      
-      // 🎁 分享模式：所有人都是获胜者，平分奖金
-      if (gameMode === 'share') {
-          console.log('🎁 [分享模式] 所有玩家都是获胜者，平分奖金');
-          
-          // 标记所有玩家为获胜者
-          setAllParticipants(prev => prev.map(p => ({
-            ...p,
-            isWinner: true
-          })));
-          
-          const prizePerPerson = totalPrize / allParticipants.length;
-          console.log(`💰 [分享模式] 每人获得: $${prizePerPerson.toFixed(2)}`);
-          
-          // 🎯 标记已设置获胜者
-          completedWinnerSetRef.current = true;
-          
-          // 🎉 播放烟花动画 + 🎵 音效
-          setTimeout(() => {
-            playWinSound();
-            winnerFireworkRef.current?.triggerFirework();
-          }, 100);
-        }
-        // 🏆 大奖模式：标记获胜者
-        else if (gameMode === 'jackpot') {
-          // 检查是否已经标记过获胜者
-          const hasWinner = allParticipants.some(p => p && p.isWinner);
-          
-          if (!hasWinner && !jackpotWinnerSet.current) {
-            jackpotWinnerSet.current = true;
-            
-            const preCalculatedWinner = (window as any).__jackpotWinner;
-            
-            if (preCalculatedWinner && preCalculatedWinner.teamIds) {
-              // 标记获胜者（可能是多个，如果是团队模式）
-              const winnerIds = preCalculatedWinner.teamIds;
-              setAllParticipants(prev => prev.map(p => ({
-                ...p,
-                isWinner: p && winnerIds.includes(p.id)
-              })));
-              
-              // 🎯 标记已设置获胜者
-              completedWinnerSetRef.current = true;
-            }
-          }
-        }
-        // 🏃 积分冲刺模式：从预计算数据读取获胜者
-        else if (gameMode === 'sprint') {
-          console.log('🏃 [积分冲刺模式] 读取预计算的获胜者...');
-          
-          const sprintData = (window as any).__sprintData;
-          
-          if (sprintData && sprintData.finalWinnerId) {
-            const winnerId = sprintData.finalWinnerId;
-            const needsTiebreaker = sprintData.needsTiebreaker;
-            
-            console.log(`🏃 [预计算获胜者] ${winnerId}`);
-            console.log(`🏃 [需要决胜老虎机] ${needsTiebreaker ? '是' : '否'}`);
-            
-            if (needsTiebreaker && sprintData.tiebreakerPlayers) {
-              console.log(`🎰 [平局玩家] ${sprintData.tiebreakerPlayers.join(', ')}`);
-              // TODO: 播放老虎机动画选出获胜者
-            }
-            
-            if (isTeamMode) {
-              // 团队模式：标记整个团队获胜
-              setAllParticipants(prev => prev.map(p => ({
-                ...p,
-                isWinner: p && p.teamId === winnerId
-              })));
-            } else {
-              // 单人模式：标记个人获胜
-              setAllParticipants(prev => prev.map(p => ({
-                ...p,
-                isWinner: p && p.id === winnerId
-              })));
-            }
-            
-            // 🎯 标记已设置获胜者
-            completedWinnerSetRef.current = true;
-            
-            // 🎉 播放烟花动画 + 🎵 音效
-            setTimeout(() => {
-              playWinSound();
-              winnerFireworkRef.current?.triggerFirework();
-            }, 100);
-          } else {
-            console.error('⚠️ [积分冲刺模式] 未找到预计算的获胜者数据');
-          }
-        }
-        // 🏆 淘汰模式：从预先计算的数据中读取获胜者
-        else if (gameMode === 'elimination') {
-          console.log('🏆 [淘汰模式] 读取预先计算的获胜者...');
-          
-          const eliminationData = (window as any).__eliminationData;
-          
-          if (eliminationData && eliminationData.finalWinnerId) {
-            const winnerId = eliminationData.finalWinnerId;
-            const winner = allParticipants.find(p => p && p.id === winnerId);
-            
-            if (winner) {
-              if (isTeamMode && winner.teamId) {
-                // 团队模式：标记获胜者所在队伍的所有成员
-                const winningTeam = allParticipants.filter(p => p && p.teamId === winner.teamId);
-                
-                console.log(`🎉 [团队获胜] 队伍 ${winner.teamId} 获胜！`);
-                console.log(`👥 [获胜成员] ${winningTeam.map(p => p.name).join(', ')}`);
-                
-                setAllParticipants(prev => prev.map(p => ({
-                  ...p,
-                  isWinner: p && p.teamId === winner.teamId
-                })));
-              } else {
-                // 单人模式：标记获胜者
-                console.log(`🎉 [单人获胜] ${winner.name} 获胜！`);
-                
-                setAllParticipants(prev => prev.map(p => ({
-                  ...p,
-                  isWinner: p && p.id === winnerId
-                })));
-              }
-              
-              // 🎯 标记已设置获胜者
-              completedWinnerSetRef.current = true;
-              
-              // 🎉 播放烟花动画 + 🎵 音效
-              setTimeout(() => {
-                playWinSound();
-                winnerFireworkRef.current?.triggerFirework();
-              }, 100);
-            }
-          } else {
-            console.error('⚠️ [淘汰模式] 未找到预先计算的获胜者数据');
-          }
-        }
-        // 只有经典模式需要判定获胜者
-        else if (gameMode === 'classic') {
-          console.log('🏆 [经典模式] 开始判定获胜者...');
-          console.log(`🎯 [模式] 最后的机会: ${isLastChance ? '是' : '否'}`);
-          console.log(`🔄 [模式] 倒置模式: ${isInverted ? '是（最低获胜）' : '否（最高获胜）'}`);
-          
-          // 🎯 计算每个玩家的比较值
-          const playerCompareValues: Record<string, number> = {};
-          
-          if (isLastChance) {
-            // 最后的机会模式：只看最后一轮的奖品价值
-            const lastRoundIndex = gameData.totalRounds - 1;
-            const lastRoundResult = roundResults[lastRoundIndex] || {};
-            
-            console.log('🎯 [最后的机会] 只计算最后一轮奖品价值');
-            
-            allParticipants.forEach(p => {
-              if (p && p.id) {
-                const lastPrize = lastRoundResult[p.id];
-                const lastValue = lastPrize ? parseFloat(String(lastPrize.price || '0')) : 0;
-                playerCompareValues[p.id] = lastValue;
-                console.log(`  ${p.name}: 最后一轮 $${lastValue.toFixed(2)}`);
-              }
-            });
-          } else {
-            // 普通模式：看累计总金额
-            console.log('💰 [普通模式] 计算累计总金额');
-            
-            allParticipants.forEach(p => {
-              if (p && p.id) {
-                const totalValue = participantValues[p.id] || 0;
-                playerCompareValues[p.id] = totalValue;
-                console.log(`  ${p.name}: 累计 $${totalValue.toFixed(2)}`);
-              }
-            });
-          }
-          
-          if (isTeamMode) {
-            // 团队模式：根据倒置模式找出比较值最高/最低的玩家，该玩家所在队伍获胜
-            let targetValue = isInverted ? Infinity : -1;
-            let topPlayer: any = null;
-            
-            allParticipants.forEach(p => {
-              if (p && p.id) {
-                const value = playerCompareValues[p.id] || 0;
-                const shouldUpdate = isInverted ? (value < targetValue) : (value > targetValue);
-                if (shouldUpdate) {
-                  targetValue = value;
-                  topPlayer = p;
-                }
-              }
-            });
-            
-            if (topPlayer && topPlayer.teamId) {
-              // 找出该队伍的所有成员
-              const winningTeam = allParticipants.filter(p => p && p.teamId === topPlayer.teamId);
-              const prizePerPerson = totalPrize / winningTeam.length;
-              
-              console.log(`🎉 [团队获胜] 队伍 ${topPlayer.teamId} 获胜！`);
-              console.log(`👥 [获胜成员] ${winningTeam.map(p => p.name).join(', ')}`);
-              console.log(`💰 [每人奖金] $${prizePerPerson.toFixed(2)}`);
-              
-              // 标记获胜队伍成员
-              setAllParticipants(prev => prev.map(p => ({
-                ...p,
-                isWinner: p && p.teamId === topPlayer.teamId
-              })));
-              
-              // 🎯 标记已设置获胜者
-              completedWinnerSetRef.current = true;
-              
-              // 🎉 播放烟花动画 + 🎵 音效
-              setTimeout(() => {
-                playWinSound();
-                winnerFireworkRef.current?.triggerFirework();
-              }, 100);
-            }
-          } else {
-            // 单人模式：根据倒置模式找出比较值最高/最低的玩家
-            let targetValue = isInverted ? Infinity : -1;
-            let winner: any = null;
-            
-            allParticipants.forEach(p => {
-              if (p && p.id) {
-                const value = playerCompareValues[p.id] || 0;
-                const compareText = isInverted ? '当前最低' : '当前最高';
-                console.log(`  比较: ${p.name} = $${value.toFixed(2)}, ${compareText} = $${targetValue === Infinity ? '∞' : targetValue.toFixed(2)}`);
-                
-                const shouldUpdate = isInverted ? (value < targetValue) : (value > targetValue);
-                if (shouldUpdate) {
-                  targetValue = value;
-                  winner = p;
-                  const resultText = isInverted ? '最低' : '最高';
-                  console.log(`    ✅ 新的${resultText}${isLastChance ? '最后一轮' : '累计'}金额玩家: ${p.name}`);
-                }
-              }
-            });
-            
-            if (winner) {
-              const resultText = isInverted ? '最低' : '最高';
-              console.log(`🎉 [单人获胜] ${winner.name} 获胜！${isLastChance ? '最后一轮' : '累计'}金额(${resultText}): $${targetValue.toFixed(2)}`);
-              console.log(`💰 [总奖金] $${totalPrize.toFixed(2)}`);
-              
-              // 标记获胜者
-              setAllParticipants(prev => prev.map(p => ({
-                ...p,
-                isWinner: p && p.id === winner.id
-              })));
-              
-              // 🎯 标记已设置获胜者
-              completedWinnerSetRef.current = true;
-              
-              // 🎉 播放烟花动画 + 🎵 音效
-              setTimeout(() => {
-                playWinSound();
-                winnerFireworkRef.current?.triggerFirework();
-              }, 100);
-            }
-          }
-        }
-      
-      // 最终统计验证
-      const preGenerated = (window as any).__preGeneratedDetailedResults;
+      const preGenerated = detailedResultsRef.current;
       
       if (preGenerated && roundResults) {
         let matchCount = 0;
         let totalCount = 0;
         
-        Object.keys(preGenerated).forEach(roundStr => {
-          const round = parseInt(roundStr);
+        Object.keys(preGenerated).forEach((roundStr) => {
+          const round = parseInt(roundStr, 10);
           
-          Object.keys(preGenerated[round] || {}).forEach(participantId => {
+          Object.keys(preGenerated[round] || {}).forEach((participantId) => {
             const expected = preGenerated[round][participantId];
             const actual = roundResults[round]?.[participantId];
             totalCount++;
@@ -2142,26 +2825,29 @@ export default function BattleDetailPage() {
             }
           });
         });
-        
-        console.log(`📊 [最终统计] ${matchCount}/${totalCount} 匹配 (${(matchCount/totalCount*100).toFixed(1)}%)`);
-        
-        if (matchCount !== totalCount) {
-          console.error('⚠️ 发现结果不一致！');
-        } else {
-          console.log('✅ 所有结果完全匹配！');
-        }
       }
     }
-  }, [mainState, roundResults, allParticipants.length, isTeamMode, gameMode, participantValues, isLastChance, isInverted, gameData.currentRound, gameData.totalRounds, playerColors, sprintScores]);
+  }, [
+    mainState,
+    roundResults,
+    allParticipants,
+    gameMode,
+    participantValues,
+    playerColors,
+    jackpotPlayerSegments.length,
+  ]);
 
-  // Get gallery height for slot machines
-  const [galleryHeight, setGalleryHeight] = useState(540);
   useEffect(() => {
-    if (galleryRef.current) {
-      const height = galleryRef.current.clientHeight;
-      setGalleryHeight(Math.max(400, height - 40)); // Leave some padding
+    if (mainState !== 'COMPLETED' || !tieBreakerGateOpen) return;
+    if (completedWinnerSetRef.current) return;
+
+    const resolved = resolveWinnersByMode();
+    if (resolved) {
+      completedWinnerSetRef.current = true;
+      triggerWinnerCelebration();
     }
-  }, [showSlotMachines]);
+  }, [mainState, tieBreakerGateOpen, resolveWinnersByMode, triggerWinnerCelebration]);
+
   
   // Symbols are now managed by state and only updated when round starts
 
@@ -2240,7 +2926,6 @@ export default function BattleDetailPage() {
               }
               
               // 🏆 阶段2：显示获胜者（色条动画完成后）
-              console.log('🏆 [大奖模式-获胜者阶段] 显示获胜者信息');
               // 继续执行后面的普通获胜者显示逻辑
             }
             
@@ -2362,18 +3047,36 @@ export default function BattleDetailPage() {
                           setJackpotAnimationKey(prev => prev + 1);
                           jackpotWinnerSet.current = false;
                         }
+                        forceFullReplayRef.current = true;
+                        skipDirectlyToCompletedRef.current = false;
                         
                         // 清除获胜者标记
                         setAllParticipants(prev => prev.map(p => ({
                           ...p,
                           isWinner: false
                         })));
+                        timelineHydratedRef.current = false;
                         
                         // 重置 gameData 的当前轮次到第一轮
-                        setGameData(prev => ({
-                          ...prev,
-                          currentRound: 0
-                        }));
+                        dispatchProgressState({
+                          type: 'APPLY_PROGRESS_SNAPSHOT',
+                          snapshot: {
+                            currentRound: 0,
+                            totalRounds: gameData.totalRounds,
+                            participantValues: {},
+                            roundResults: {},
+                            completedRounds: new Set(),
+                            spinState: {
+                              activeCount: 0,
+                              completed: new Set<string>(),
+                            },
+                            playerSymbols: {},
+                            slotMachineKeySuffix: {},
+                            currentRoundPrizes: {},
+                            roundExecutionFlags: {},
+                            roundEventLog: [],
+                          },
+                        });
                         
                         // 🏃 清空冲刺模式状态
                         setSprintScores({});
@@ -2389,16 +3092,11 @@ export default function BattleDetailPage() {
                         setMainState('COUNTDOWN');
                         setRoundState(null);
                         setCountdownValue(3);
-                        setRoundResults({});
-                        setCompletedRounds(new Set());
-                        setPlayerSymbols({});
-                        setSlotMachineKeySuffix({});
-                        setSpinningState({ activeCount: 0, completed: new Set() });
-                        setParticipantValues({}); // 清空金额和百分比
-                        firstSpinStartedRef.current = {};
-                        secondSpinStartedRef.current = {};
-                        settleExecutedRef.current = {};
-                        renderExecutedRef.current = {};
+                        dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
+                        dispatchProgressState({ type: 'RESET_SLOT_KEY_SUFFIX' });
+                        dispatchProgressState({ type: 'RESET_SPIN_STATE' });
+                        dispatchProgressState({ type: 'RESET_ALL_ROUND_FLAGS' });
+                        dispatchProgressState({ type: 'RESET_ROUND_EVENT_LOG' });
                         // gameData.rounds 保留，只重置 currentRound
                       }}
                     >
@@ -2413,7 +3111,6 @@ export default function BattleDetailPage() {
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5A5E62'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#34383C'}
                       onClick={() => {
-                        console.log('➕ [创建新对战] 跳转到创建页面');
                         router.push('/create-battle');
                       }}
                     >
@@ -3040,6 +3737,34 @@ export default function BattleDetailPage() {
           </>
         )}
         
+        {/* 🔥 横向决胜老虎机 - 经典 / Jackpot Last Chance / Sprint */}
+        {tieBreakerPlan &&
+         mainState === 'COMPLETED' &&
+         tieBreakerSymbols.length > 1 && (
+          <div
+            className="flex absolute justify-center items-center flex-col"
+            style={{
+              height: '450px',
+              width: '100vw',
+              backgroundColor: '#191d21',
+              zIndex: 55,
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <HorizontalLuckySlotMachine
+              key={`tie-breaker-${tieBreakerPlan.mode}`}
+              symbols={tieBreakerSymbols}
+              selectedPrizeId={tieBreakerPlan.winnerId}
+              onSpinComplete={handleTieBreakerComplete}
+              width={9999}
+              spinDuration={isFastMode ? 1000 : 4500}
+              isEliminationMode={true}
+            />
+          </div>
+        )}
+        
         {/* 🔥 淘汰老虎机覆盖层 - 统一覆盖所有模式 */}
         {gameMode === 'elimination' && 
          roundState === 'ROUND_ELIMINATION_SLOT' && 
@@ -3067,13 +3792,6 @@ export default function BattleDetailPage() {
         </div>
         <div className="w-full ">
           <div className="flex w-full max-w-[1280px] mx-auto flex-col gap-6">
-            {/* 🔥 调试：打印传递给 ParticipantsWithPrizes 的数据 */}
-            {(() => {
-              if (Object.keys(eliminationRounds).length > 0) {
-                console.log('🔥🔥🔥 [page.tsx] 传递给 ParticipantsWithPrizes 的 eliminationRounds:', eliminationRounds);
-              }
-              return null;
-            })()}
             <ParticipantsWithPrizes
               battleData={battleData}
               onAllSlotsFilledChange={handleAllSlotsFilledChange}

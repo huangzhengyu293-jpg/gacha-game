@@ -54,8 +54,18 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const [itemHeight, setItemHeight] = useState(180);
   const [itemsPerReel, setItemsPerReel] = useState(30);
   const [repeatTimes, setRepeatTimes] = useState(3);
+  const FINAL_REVEAL_BUFFER_MS = 500;
+  const FAKE_STOP_OFFSET_SCALE = 0.4;
   // Calculate reel center based on actual height (450px fixed)
   const reelCenter = 225; // Fixed at 450/2 = 225px for all screen sizes
+  const getRandomStopOffset = useCallback((baseHeight: number) => {
+    const clampedHeight = baseHeight || itemHeightRef.current || 150;
+    const minOffset = clampedHeight * 0.33;
+    const maxOffset = clampedHeight * 0.5;
+    const magnitude = Math.random() * (maxOffset - minOffset) + minOffset;
+    return magnitude * (Math.random() < 0.5 ? 1 : -1);
+  }, []);
+
   
   // 🚀 Virtual scrolling constants
   const BUFFER_SIZE = 5; // Render 5 extra items above and below viewport
@@ -196,6 +206,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const currentSelectedIndexRef = useRef<number>(-1);
   const currentSelectedElementRef = useRef<HTMLElement | null>(null);
   const selectionLockedRef = useRef<boolean>(false); // Lock selection after spin completes
+  const plannedFinalIndexRef = useRef<number | null>(null);
+  const plannedFakeIndexRef = useRef<number | null>(null);
+  const plannedFinalTopRef = useRef<number | null>(null);
+  const plannedFakeTopRef = useRef<number | null>(null);
 
   // 更新选中状态（优化版：只操作变化的元素）
   // CRITICAL: Make this function stable by using refs for all values
@@ -513,7 +527,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         
         if (selectedIndex !== null) {
           // Add random offset for more realistic stopping
-          const randomOffset = (Math.random() * 30 + 10) * (Math.random() < 0.5 ? 1 : -1);
+          const randomOffset = getRandomStopOffset(actualItemHeight);
           targetTop = -(selectedIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2 + randomOffset;
         } else {
           targetTop = startTop - minScrollDistance;
@@ -522,7 +536,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         // ⏱️ 无目标时：基于时间计算滚动距离
         const pixelsPerMs = 0.8;
         const scrollDistance = duration * pixelsPerMs;
-        const randomOffset = (Math.random() * 40 + 20) * (Math.random() < 0.5 ? 1 : -1);
+        const randomOffset = getRandomStopOffset(actualItemHeight);
         targetTop = startTop - scrollDistance + randomOffset;
       }
       
@@ -591,7 +605,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         return;
       }
       
-      const duration = 500; // Fixed duration for synchronized stopping
+      const duration = 200; // Fixed duration for synchronized stopping
       const container = reelContainerRef.current;
       let currentTop = parseFloat(container.style.top || '0');
       

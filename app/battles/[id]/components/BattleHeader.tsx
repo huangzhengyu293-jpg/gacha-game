@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
+import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
 
 export interface PackImage {
   src: string;
@@ -66,59 +67,8 @@ export default function BattleHeader({
   const initialVisibleCount = Math.ceil(VISIBLE_WIDTH / (PACK_WIDTH + GAP)) + BUFFER_SIZE + 1;
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: initialVisibleCount });
   
-  // 根据游戏模式映射显示名称和颜色
-  const getModeConfig = () => {
-    switch (gameMode) {
-      case 'classic':
-        return { name: '普通', color: 'transparent' };
-      case 'share':
-        return { name: '分享', color: '#57abf8' };
-      case 'sprint':
-        return { name: '积分冲刺', color: '#7c4be2' };
-      case 'jackpot':
-        return { name: '大奖', color: '#53e296' };
-      case 'elimination':
-        return { name: '淘汰', color: '#ff9c49' };
-      default:
-        return { name: awardName, color: 'transparent' };
-    }
-  };
-  
-  const modeConfig = getModeConfig();
-  
-  // 收集所有开启的选项图标
-  const optionIcons: ReactNode[] = [];
-  
-  if (isFastMode) {
-    // 闪电图标
-    optionIcons.push(
-      <svg key="fast" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
-        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
-      </svg>
-    );
-  }
-  
-  if (isLastChance) {
-    // 骷髅图标
-    optionIcons.push(
-      <svg key="lastchance" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
-        <path d="m12.5 17-.5-1-.5 1h1z"></path>
-        <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
-        <circle cx="15" cy="12" r="1"></circle>
-        <circle cx="9" cy="12" r="1"></circle>
-      </svg>
-    );
-  }
-  
-  if (isInverted) {
-    // 倒置皇冠图标
-    optionIcons.push(
-      <svg key="inverted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-crown rotate-180 size-4 text-gray-300">
-        <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"></path>
-        <path d="M5 21h14"></path>
-      </svg>
-    );
-  }
+  const modeVisual = getModeVisual(gameMode, awardName);
+  const optionIcons = getSpecialOptionIcons({ isFastMode, isLastChance, isInverted });
 
   // 虚拟滚动：更新可见范围（节流优化）
   const lastUpdateTimeRef = useRef(0);
@@ -268,10 +218,10 @@ export default function BattleHeader({
                   style={{ backgroundColor: "#22272B" }}
                 >
                   <style dangerouslySetInnerHTML={{
-                    __html: `.mode-badge::after { background-color: ${modeConfig.color} !important; }`
+                    __html: `.mode-badge::after { background-color: ${modeVisual.accentColor} !important; }`
                   }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {modeConfig.name}
+                    {modeVisual.label}
                   </p>
                   {optionIcons.map(icon => icon)}
                 </div>
@@ -462,10 +412,10 @@ export default function BattleHeader({
                   style={{ backgroundColor: "#22272B" }}
                 >
                   <style dangerouslySetInnerHTML={{
-                    __html: `.mode-badge-mobile::after { background-color: ${modeConfig.color} !important; }`
+                    __html: `.mode-badge-mobile::after { background-color: ${modeVisual.accentColor} !important; }`
                   }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {modeConfig.name}
+                    {modeVisual.label}
                   </p>
                   {optionIcons.map(icon => icon)}
                 </div>

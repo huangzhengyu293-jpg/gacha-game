@@ -9,8 +9,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
-
-
+import { useCart } from '../hooks/useCart';
+import Logo from '../public/logo.svg';
+import Image from 'next/image';
 export default function Navbar() {
   const { t } = useI18n();
   const router = useRouter();
@@ -393,8 +394,8 @@ export default function Navbar() {
 
   const isOpaque = (isSmall || isMidViewport || isMenuOpen || showMidMenu || showUserMenu || showRegister || showLogin || showForgot || showTerms);
   
-  // ✅ 仓库数量暂时设为 0，等待后续实现仓库接口
-  const warehouseCount = 0;
+  // 获取购物车数据
+  const { count: warehouseCount } = useCart();
   
   // 钱包数据（从 user.bean 中获取）
   const beanDisplay = (user?.bean as any)?.bean || 0;
@@ -416,23 +417,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center h-[3rem] xs:h-[4rem] mr-5 lg:mr-10 cursor-pointer shrink-0" onClick={() => setIsMenuOpen(false)}>
               <div className="w-6 h-6 mr-2 text-white shrink-0 block">
-            <svg viewBox="0 0 82.000000 90.000000" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" className="w-full h-full" aria-label="FlameDraw logo">
-              <rect x="0" y="0" width="82" height="90" fill="#1d2125" />
-                  <g transform="translate(0.000000,90.000000) scale(0.100000,-0.100000)" fill="currentColor" stroke="none">
-                    <path d="M0 450 l0 -450 410 0 410 0 0 333 -1 332 -44 -93 c-24 -50 -47 -101
--50 -112 -15 -46 -20 -11 -23 145 -2 91 0 165 3 165 17 0 86 -43 99 -62 15
--21 16 -15 16 85 l0 107 -181 0 c-174 0 -180 -1 -160 -17 21 -18 261 -619 261
--654 0 -9 -8 -26 -17 -37 -18 -20 -373 -162 -404 -162 -38 0 -61 46 -178 350
--109 283 -121 317 -110 342 10 24 34 36 188 96 97 38 183 72 191 75 8 3 -81 6
--197 6 l-213 1 0 -450z m662 380 c16 -19 18 -42 18 -184 l-1 -161 -69 180
-c-38 99 -70 184 -70 189 0 5 23 6 52 4 38 -4 57 -12 70 -28z m-472 -690 c0 -5
--4 -10 -10 -10 -5 0 -10 5 -10 10 0 6 5 10 10 10 6 0 10 -4 10 -10z"/>
-                    <path d="M362 700 c-40 -15 -83 -35 -97 -44 -34 -23 -58 -73 -52 -110 8 -50
-121 -336 133 -336 5 0 23 14 40 31 24 25 29 38 29 81 0 45 4 55 38 88 32 33
-37 44 37 84 0 53 -6 55 -78 27 l-49 -20 -11 23 c-9 20 -6 24 39 45 57 26 82
-64 77 119 -4 46 -14 48 -106 12z"/>
-                  </g>
-                </svg>
+              <Image src="/logo.svg" alt="Logo" width={120} height={32}/>
               </div>
               <h1 className="text-xl text-white font-black whitespace-nowrap">FlameDraw</h1>
             </Link>

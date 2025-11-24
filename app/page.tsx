@@ -14,11 +14,9 @@ import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
 import { getGlowColorFromProbability } from './lib/catalogV2';
-import { useAuth } from './hooks/useAuth';
 
 export default function Home() {
   const { t } = useI18n();
-  const { isAuthenticated } = useAuth();
   const router = useRouter();
 
   // ✅ 获取最新礼包列表（sort_type: '2' = 最新）
@@ -48,27 +46,6 @@ export default function Home() {
   // 暂时禁用 liveFeedData（新接口不包含 items 数据）
   const liveFeedData: any[] = [];
   
-  // ✅ 测试新接口
-  const testNewApis = async () => {
-    try {
-      console.log('========== 测试新接口 ==========');
-      
-      // 测试 getBoxUserRecord
-      console.log('📦 调用 /api/box/userrecord...');
-      const userRecordResult = await api.getBoxUserRecord();
-      console.log('📦 box/userrecord 返回结果:', userRecordResult);
-      
-      // 测试 getUserStorage
-      console.log('📦 调用 /api/user/storage...');
-      const userStorageResult = await api.getUserStorage();
-      console.log('📦 user/storage 返回结果:', userStorageResult);
-      
-      console.log('========== 测试完成 ==========');
-    } catch (error) {
-      console.error('❌ 接口调用失败:', error);
-    }
-  };
-  
   return (
     <div className="flex flex-col min-h-screen" >
       <div className="flex-1 min-h-screen pt-0">
@@ -83,18 +60,6 @@ export default function Home() {
           <div className="flex gap-8 max-w-[1248px] mx-auto">
             {/* Left Content Area - 992px wide on large screens, full width on smaller screens */}
             <div className="flex-1 xl:max-w-[992px] min-w-0">
-              {/* ✅ 测试按钮（只在登录时显示） */}
-              {isAuthenticated && (
-                <div className="mb-4">
-                  <button
-                    onClick={testNewApis}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                  >
-                    🧪 测试新接口（打开控制台查看）
-                  </button>
-                </div>
-              )}
-              
               {/* Banner Section */}
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row gap-4 w-full">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useCart } from '../hooks/useCart';
 
 // 🎯 定义WarehouseItem类型
 interface WarehouseItem {
@@ -75,16 +76,14 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
 
-  // ✅ 仓库数据暂时为空，等待后续实现仓库接口
-  const warehouse: WarehouseItem[] = [];
-  const warehouseLoading = false;
+  // 使用购物车 hook 获取数据
+  const { cartItems, isLoading: warehouseLoading } = useCart();
 
-  // 将仓库项展开（按 quantity 次数展开为多件），若外部未传入 items 则使用仓库数据
-  const expandedWarehouseItems: CartItem[] = (warehouse as WarehouseItem[]).flatMap((w) => {
-    const qty = Math.max(1, Number((w as WarehouseItem).quantity ?? 1));
-    const unit: CartItem = { id: String((w as WarehouseItem).id), productId: String((w as WarehouseItem).productId ?? ''), name: String((w as WarehouseItem).name ?? ''), price: Number((w as WarehouseItem).price ?? 0), image: String((w as WarehouseItem).image ?? '') };
-    return Array.from({ length: qty }, (_, i) => ({ ...unit, id: `${unit.id}#${i}` }));
-  });
+  // 将购物车数据转换为 CartItem 格式（如果外部未传入 items 则使用购物车数据）
+  const expandedWarehouseItems: CartItem[] = cartItems.map((item, index) => ({
+    ...item,
+    id: item.id || `cart_${index}`,
+  }));
 
   const defaultItems: CartItem[] = items.length > 0 ? items : expandedWarehouseItems;
 
@@ -226,8 +225,8 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   return (
     <div
       data-state={isOpen ? 'open' : 'closed'}
-      className="fixed px-4 inset-0 z-50 bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-y-auto flex justify-center items-start py-16"
-      style={{ pointerEvents: 'auto' }}
+      className="fixed inset-0 z-50 bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 flex justify-center items-start sm:items-start sm:py-16 sm:px-4 p-4"
+      style={{ pointerEvents: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
       onClick={onClose}
     >
       <div
@@ -235,13 +234,18 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
         aria-describedby="cart-description"
         aria-labelledby="cart-title"
         data-state={isOpen ? 'open' : 'closed'}
-        className="overflow-hidden z-50 max-w-lg w-full gap-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative sm:max-w-4xl p-0 sm:h-auto flex flex-col h-full"
+        className="overflow-hidden z-50 max-w-lg w-full gap-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg relative sm:max-w-4xl p-0 flex flex-col"
         tabIndex={-1}
-        style={{ pointerEvents: 'auto', backgroundColor: '#161A1D' }}
+        style={{ 
+          pointerEvents: 'auto', 
+          backgroundColor: '#161A1D',
+          height: 'calc(100vh - 2rem)',
+          maxHeight: 'calc(100vh - 2rem)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
-        <div className="flex-col gap-1.5 text-center sm:text-left p-4 h-16 flex justify-center flex-shrink-0" style={{ borderBottom: '1px solid #2E3134' }}>
+        <div className="flex-col gap-1.5 text-center sm:text-left p-4 pt-6 sm:pt-4 h-16 flex justify-center flex-shrink-0" style={{ borderBottom: '1px solid #2E3134' }}>
           <div className="flex">
             <h2 id="cart-title" className="tracking-tight text-left text-base font-extrabold pr-3" style={{ color: '#FEFEFE' }}>您的购物车</h2>
             <p className="flex gap-2 items-center pl-3" style={{ borderLeft: '1px solid #2E3134' }}>
@@ -251,8 +255,8 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
         </div>
 
         {/* 移动端标签页 */}
-        <div dir="ltr" data-orientation="horizontal" className="w-full sm:hidden h-full pb-4 px-4 sm:px-6">
-          <div role="tablist" aria-orientation="horizontal" className="inline-flex items-center justify-center rounded-md bg-gray-700 p-1 text-muted-foreground w-full h-10 sm:h-12 text-sm sm:text-base" tabIndex={0} data-orientation="horizontal" style={{ outline: 'none' }}>
+        <div dir="ltr" data-orientation="horizontal" className="w-full sm:hidden flex flex-col px-4 sm:px-6 flex-1 min-h-0 pt-4">
+          <div role="tablist" aria-orientation="horizontal" className="inline-flex items-center justify-center rounded-md p-1 w-full h-10 sm:h-12 text-sm sm:text-base flex-shrink-0" tabIndex={0} data-orientation="horizontal" style={{ outline: 'none', backgroundColor: '#22272B' }}>
             <button
               type="button"
               role="tab"
@@ -260,12 +264,13 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
               aria-controls="cart-content-all"
               data-state={activeTab === 'all' ? 'active' : 'inactive'}
               id="cart-trigger-all"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-gray-600 text-base font-regular text-white flex-1"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 text-base font-regular text-white flex-1"
               tabIndex={-1}
               data-orientation="horizontal"
               onClick={() => setActiveTab('all')}
+              style={{ backgroundColor: activeTab === 'all' ? '#34383C' : 'transparent' }}
             >
-              <span className="font-extrabold">所有物品 ({defaultItems.length})</span>
+              <span className="font-extrabold" style={{ color: '#FFFFFF' }}>所有物品 ({defaultItems.length})</span>
             </button>
             <button
               type="button"
@@ -274,12 +279,13 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
               aria-controls="cart-content-selected"
               data-state={activeTab === 'selected' ? 'active' : 'inactive'}
               id="cart-trigger-selected"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-gray-600 text-base font-regular text白 flex-1"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 text-base font-regular flex-1"
               tabIndex={-1}
               data-orientation="horizontal"
               onClick={() => setActiveTab('selected')}
+              style={{ backgroundColor: activeTab === 'selected' ? '#34383C' : 'transparent' }}
             >
-              <span className="font-extrabold">已选择的物品 </span>
+              <span className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择的物品 ({selectedCount})</span>
             </button>
           </div>
 
@@ -291,10 +297,10 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
             aria-labelledby="cart-trigger-all"
             id="cart-content-all"
             tabIndex={0}
-            className="h-full"
-            style={{ display: activeTab === 'all' ? 'block' : 'none' }}
+            className="flex-1 flex flex-col min-h-0"
+            style={{ display: activeTab === 'all' ? 'flex' : 'none' }}
           >
-            <div className="flex justify-between my-3 sm:my-6 gap-2 w-full flex-nowrap">
+            <div className="flex justify-between my-3 gap-2 w-full flex-nowrap flex-shrink-0">
               <div className="gap-2 shrink-0 hidden sm:flex">
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
@@ -341,8 +347,8 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                 </button>
               </div>
             </div>
-            <div className="self-stretch space-y-6 z-10">
-              <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 overflow-y-auto auto-rows-max items-start" style={{ height: '375px' }}>
+            <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+              <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 pb-4">
                 {sortedItems.map((item) => (
                   <CartItemCard
                     key={item.id}
@@ -355,7 +361,7 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                 ))}
               </div>
             </div>
-            <div className="flex justify-between mt-2 mb-4 rounded-lg flex-col sm:flex-row items-center">
+            <div className="flex justify-between mt-2 mb-6 rounded-lg flex-col sm:flex-row items-center flex-shrink-0 pt-2 pb-4" style={{ backgroundColor: '#161A1D' }}>
               <div className="hidden sm:block">
                 <div className="flex gap-1 items-center">
                   {selectedCount > 0 && (
@@ -415,15 +421,113 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
             aria-labelledby="cart-trigger-selected"
             id="cart-content-selected"
             tabIndex={0}
-            className="h-full"
-            style={{ display: activeTab === 'selected' ? 'block' : 'none' }}
+            className="flex-1 flex flex-col min-h-0"
+            style={{ display: activeTab === 'selected' ? 'flex' : 'none' }}
           >
-            {/* 已选择物品内容 */}
+            {/* 已选择数量显示 */}
+            <div className="flex gap-1 items-center flex-shrink-0 my-3">
+              {selectedCount > 0 ? (
+                <div className="flex gap-1 items-center">
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px]"
+                    type="button"
+                    onClick={() => { setSelectedItems(new Set()); setSelectionOrder([]); }}
+                    style={{ cursor: 'pointer', color: '#FFFFFF' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+                  >
+                    <div className="size-5 text-white">
+                      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M3.29289 3.29289C3.68342 2.90237 4.31658 2.90237 4.70711 3.29289L8 6.58579L11.2929 3.29289C11.6834 2.90237 12.3166 2.90237 12.7071 3.29289C13.0976 3.68342 13.0976 4.31658 12.7071 4.70711L9.41421 8L12.7071 11.2929C13.0976 11.6834 13.0976 12.3166 12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071L8 9.41421L4.70711 12.7071C4.31658 13.0976 3.68342 13.0976 3.29289 12.7071C2.90237 12.3166 2.90237 11.6834 3.29289 11.2929L6.58579 8L3.29289 4.70711C2.90237 4.31658 2.90237 3.68342 3.29289 3.29289Z" fill="currentColor"></path>
+                      </svg>
+                    </div>
+                  </button>
+                  <p className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                </div>
+              ) : (
+                <p className="font-extrabold" style={{ color: '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+              )}
+            </div>
+            
+            {/* 物品区域 */}
+            <div className="flex-1 overflow-y-auto min-h-0 rounded-lg" style={{ backgroundColor: '#1D2125', maxHeight: 'calc(100vh - 320px)' }}>
+              {selectedCount === 0 ? (
+                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>请选择物品来管理他们</div>
+              ) : (
+                <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 p-4">
+                  {selectionOrder.filter((id) => selectedItems.has(id)).map((id) => {
+                    const it = defaultItems.find((d) => d.id === id);
+                    if (!it) return null;
+                    return (
+                      <SelectedCartItemCard
+                        key={it.id}
+                        item={it}
+                        onRemove={() => toggleSelect(it.id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            {/* 按钮区域 */}
+            <div className="flex justify-between mt-2 mb-6 rounded-lg flex-col sm:flex-row items-center flex-shrink-0 pt-2 pb-4" style={{ backgroundColor: '#161A1D' }}>
+              <div className="hidden sm:block">
+                <div className="flex gap-1 items-center">
+                  {selectedCount > 0 && (
+                    <button
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px]"
+                      type="button"
+                      onClick={() => { setSelectedItems(new Set()); setSelectionOrder([]); }}
+                      style={{ cursor: 'pointer', color: '#FFFFFF' }}
+                    >
+                      <div className="size-5">
+                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path fillRule="evenodd" clipRule="evenodd" d="M3.29289 3.29289C3.68342 2.90237 4.31658 2.90237 4.70711 3.29289L8 6.58579L11.2929 3.29289C11.6834 2.90237 12.3166 2.90237 12.7071 3.29289C13.0976 3.68342 13.0976 4.31658 12.7071 4.70711L9.41421 8L12.7071 11.2929C13.0976 11.6834 13.0976 12.3166 12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071L8 9.41421L4.70711 12.7071C4.31658 13.0976 3.68342 13.0976 3.29289 12.7071C2.90237 12.3166 2.90237 11.6834 3.29289 11.2929L6.58579 8L3.29289 4.70711C2.90237 4.31658 2.90237 3.68342 3.29289 3.29289Z" fill="currentColor"></path>
+                        </svg>
+                      </div>
+                    </button>
+                  )}
+                  <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="flex gap-3 w-full sm:w-auto">
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
+                  style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                  disabled={selectedCount === 0}
+                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
+                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                  onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
+                >
+                  出售
+                </button>
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
+                  style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                  disabled={selectedCount === 0}
+                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                >
+                  提款
+                </button>
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
+                  style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                  disabled={selectedCount === 0}
+                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={() => { if (selectedCount > 0) router.push('/exchange'); }}
+                >
+                  交换
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* 桌面端内容 */}
-        <div className="hidden sm:block pb-4 px-4 sm:px-6 flex-1">
+        <div className="hidden sm:block pb-4 px-4 sm:px-6 flex-1 min-h-0 flex flex-col">
           <div className="flex justify-between mt-2 mb-4 rounded-lg flex-col sm:flex-row items-center">
             <div className="hidden sm:block">
               <div className="flex gap-1 items-center">
@@ -476,7 +580,7 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
               </button>
             </div>
           </div>
-          <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch h-full sm:h-auto sm:max-h-[600px] sm:min-h-[182px]" style={{ backgroundColor: '#1D2125' }}>
+          <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ backgroundColor: '#1D2125' }}>
             {warehouseLoading && items.length === 0 ? (
               <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>正在加载仓库...</div>
             ) : selectedCount === 0 ? (
@@ -513,13 +617,7 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                         ) : (
                           <img
                             alt={it.name}
-                            loading="lazy"
-                            decoding="async"
-                            data-nimg="fill"
-                            className="pointer-events-none"
-                            sizes="(min-width: 0px) 100px"
-                            srcSet={`${it.image}?tr=w-16,c-at_max 16w, ${it.image}?tr=w-32,c-at_max 32w, ${it.image}?tr=w-48,c-at_max 48w, ${it.image}?tr=w-64,c-at_max 64w, ${it.image}?tr=w-96,c-at_max 96w, ${it.image}?tr=w-128,c-at_max 128w, ${it.image}?tr=w-256,c-at_max 256w, ${it.image}?tr=w-384,c-at_max 384w, ${it.image}?tr=w-640,c-at_max 640w, ${it.image}?tr=w-750,c-at_max 750w, ${it.image}?tr=w-828,c-at_max 828w, ${it.image}?tr=w-1080,c-at_max 1080w, ${it.image}?tr=w-1200,c-at_max 1200w, ${it.image}?tr=w-1920,c-at_max 1920w, ${it.image}?tr=w-2048,c-at_max 2048w, ${it.image}?tr=w-3840,c-at_max 3840w`}
-                            src={`${it.image}?tr=w-3840,c-at_max`}
+                            src={it.image}
                             style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
                           />
                         )}
@@ -590,8 +688,8 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
           </div>
           {/* 仓库商品网格（在工具条下面） */}
           {(!warehouseLoading && defaultItems.length > 0) && (
-            <div className="self-stretch space-y-6 z-10">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-4">
                 {sortedItems.map((item) => (
                   <CartItemCard
                     key={item.id}
@@ -688,6 +786,56 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SelectedCartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void }) {
+  const isVoucher = item.productId?.startsWith('voucher:') || item.name === 'Voucher' || item.price === 0.01;
+
+  return (
+    <div className="relative rounded-lg aspect-square" data-component="BaseProductCard" style={{ backgroundColor: '#22272B' }}>
+      <div className="absolute top-1 right-1 z-10">
+        <button
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus text-base font-bold select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px]"
+          aria-label="remove"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          style={{ backgroundColor: '#34383C', cursor: 'pointer', color: '#FFFFFF' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+        >
+          <div className="size-4">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fillRule="evenodd" clipRule="evenodd" d="M3.29289 3.29289C3.68342 2.90237 4.31658 2.90237 4.70711 3.29289L8 6.58579L11.2929 3.29289C11.6834 2.90237 12.3166 2.90237 12.7071 3.29289C13.0976 3.68342 13.0976 4.31658 12.7071 4.70711L9.41421 8L12.7071 11.2929C13.0976 11.6834 13.0976 12.3166 12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071L8 9.41421L4.70711 12.7071C4.31658 13.0976 3.68342 13.0976 3.29289 12.7071C2.90237 12.3166 2.90237 11.6834 3.29289 11.2929L6.58579 8L3.29289 4.70711C2.90237 4.31658 2.90237 3.68342 3.29289 3.29289Z" fill="currentColor"></path>
+            </svg>
+          </div>
+        </button>
+      </div>
+      <div className="group flex flex-col w-full h-full items-center justify-between rounded-lg overflow-hidden transition-colors duration-200 ease-in-out p-3 pb-2" style={{ boxSizing: 'border-box', backgroundColor: '#22272B' }}>
+        <p className="font-semibold h-6 text-base" style={{ color: '#7A8084' }}></p>
+        <div className="relative flex-1 flex w-full justify-center" style={{ minHeight: 0 }}>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 md:group-hover:opacity-90 filter blur-[25px] bg-pack-none"></div>
+          {isVoucher ? (
+            <div className="flex justify-center items-center mx-4 w-full h-full" style={{ zIndex: 1 }}>
+              <div className="flex-1 relative w-full h-full">
+                <div className="absolute top-0 left-0 h-full w-full flex justify-center" dangerouslySetInnerHTML={{ __html: buildVoucherSvg(item.price) }}></div>
+              </div>
+            </div>
+          ) : (
+            <img
+              alt={item.name}
+              src={item.image}
+              style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
+            />
+          )}
+        </div>
+        <div className="flex flex-col w-full gap-0.5">
+          <p className="font-semibold truncate max-w-full text-center text-base" style={{ color: '#7A8084' }}>{item.name}</p>
+          <div className="flex justify-center">
+            <p className="font-extrabold text-base" style={{ color: '#FAFAFA' }}>${item.price.toFixed(2)}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -805,13 +953,7 @@ function CartItemCard({ item, isSelected, onToggleSelect, onSplit, onSell }: { i
             ) : (
               <img
                 alt={item.name}
-                loading="lazy"
-                decoding="async"
-                data-nimg="fill"
-                className="pointer-events-none"
-                sizes="(min-width: 0px) 100px"
-                srcSet={`${item.image}?tr=w-16,c-at_max 16w, ${item.image}?tr=w-32,c-at_max 32w, ${item.image}?tr=w-48,c-at_max 48w, ${item.image}?tr=w-64,c-at_max 64w, ${item.image}?tr=w-96,c-at_max 96w, ${item.image}?tr=w-128,c-at_max 128w, ${item.image}?tr=w-256,c-at_max 256w, ${item.image}?tr=w-384,c-at_max 384w, ${item.image}?tr=w-640,c-at_max 640w, ${item.image}?tr=w-750,c-at_max 750w, ${item.image}?tr=w-828,c-at_max 828w, ${item.image}?tr=w-1080,c-at_max 1080w, ${item.image}?tr=w-1200,c-at_max 1200w, ${item.image}?tr=w-1920,c-at_max 1920w, ${item.image}?tr=w-2048,c-at_max 2048w, ${item.image}?tr=w-3840,c-at_max 3840w`}
-                src={`${item.image}?tr=w-3840,c-at_max`}
+                src={item.image}
                 style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }}
               />
             )}

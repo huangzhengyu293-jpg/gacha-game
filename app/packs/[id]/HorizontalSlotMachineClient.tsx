@@ -13,7 +13,7 @@ const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
 const createGoldenPlaceholder = (): SlotSymbol => ({
   id: GOLDEN_PLACEHOLDER_ID,
   name: '金色神秘',
-  image: '/theme/default/hidden-gold.webp',
+  image: '/theme/default/hidden-gold.png',
   price: 0,
   qualityId: 'placeholder',
   description: '',

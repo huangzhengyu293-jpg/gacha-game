@@ -331,18 +331,24 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           const outerWrapper = document.createElement('div');
           outerWrapper.className = 'flex rounded-full overflow-clip transition-transform duration-200';
           outerWrapper.style.transform = 'scale(1)';
+          const avatarSlotSize = 112;
+          outerWrapper.style.width = `${avatarSlotSize}px`;
+          outerWrapper.style.height = `${avatarSlotSize}px`;
           
           // <div class="overflow-hidden border rounded-full border-gray-700" style="border-width: 1px;">
           const borderWrapper = document.createElement('div');
           borderWrapper.className = 'overflow-hidden border rounded-full border-gray-700';
           borderWrapper.style.borderWidth = '1px';
+          borderWrapper.style.width = '100%';
+          borderWrapper.style.height = '100%';
           
           // <div class="relative rounded-full overflow-hidden" style="width: 96px; height: 96px;">
           const avatarContainer = document.createElement('div');
           avatarContainer.className = 'relative rounded-full overflow-hidden';
-          avatarContainer.style.width = '100%'; // 改为100%以适应父容器
-          avatarContainer.style.height = '100%'; // 改为100%以适应父容器
-          avatarContainer.style.aspectRatio = '1'; // 保持1:1比例
+          avatarContainer.style.width = `${avatarSlotSize - 8}px`;
+          avatarContainer.style.height = `${avatarSlotSize - 8}px`;
+          avatarContainer.style.margin = 'auto';
+          avatarContainer.style.aspectRatio = '1';
           
           // 检查是否是SVG字符串（机器人头像）
           const isSvgString = item.image.trim().startsWith('<svg');
@@ -365,7 +371,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           } else {
             // 普通图片URL：创建img标签
             const img = document.createElement('img');
-            img.src = item.image;
+            img.src = item.image || '';
             img.alt = item.name;
             img.className = 'pointer-events-none';
             img.style.position = 'absolute';
