@@ -3,12 +3,18 @@ export const dynamic = "force-dynamic";
 import React, { useState, useMemo, useEffect, Suspense } from "react";
 import InlineSelect from "../components/InlineSelect";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
-import type { CatalogPack } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import {
+  api,
+  type ApiResponse,
+  type CatalogPack,
+  type CreateBattlePayload,
+  type CreateBattleResult,
+} from '../lib/api';
 import SelectPackModal from '../packs/[id]/SelectPackModal';
 import Image from 'next/image';
 import InfoTooltip from '../components/InfoTooltip';
+import { showGlobalToast } from '../components/ToastProvider';
 import {
   DndContext,
   closestCenter,
@@ -26,6 +32,26 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+const MODE_TO_API_VALUE: Record<
+  "classic" | "share" | "sprint" | "jackpot" | "elimination",
+  CreateBattlePayload["mode"]
+> = {
+  classic: 0,
+  share: 1,
+  sprint: 2,
+  jackpot: 3,
+  elimination: 4,
+};
+
+const TEAM_STRUCTURE_TO_SIZE: Record<
+  "2v2" | "3v3" | "2v2v2",
+  CreateBattlePayload["team_size"]
+> = {
+  "2v2": 0,
+  "3v3": 1,
+  "2v2v2": 2,
+};
 
 
 interface SortablePackItemProps {
@@ -217,6 +243,93 @@ function CreateBattleContent() {
   // "倒置模式"除了分享模式都可以开启
   const canEnableInverted = selectedMode !== "share";
 
+  const [selectedPackIds, setSelectedPackIds] = useState<string[]>([]);
+
+  const buildPreviewBattleUrl = () => {
+    const params = new URLSearchParams();
+    params.set("type", typeState);
+    if (typeState === "solo") {
+      const finalPlayersCount = playersCount || "2";
+      params.set("players", finalPlayersCount);
+    } else {
+      params.set("teamStructure", teamStructure);
+      params.set("players", String(actualPlayersCount));
+    }
+    params.set("gameMode", selectedMode);
+    if (optFastBattle) params.set("fastBattle", "true");
+    if (optLastChance) params.set("lastChance", "true");
+    if (optInverted) params.set("upsideDown", "true");
+    return `/battles/${Date.now()}?${params.toString()}`;
+  };
+
+  const createBattleMutation = useMutation({
+    mutationFn: (payload: CreateBattlePayload) => api.createBattle(payload),
+    onSuccess: (response: ApiResponse<CreateBattleResult>) => {
+      const result = response?.data ?? {};
+      const createdBattleId =
+        result.id ??
+        result.fight_id ??
+        result.fightId ??
+        result?.fight?.id ??
+        result?.fight?.fight_id;
+
+      if (createdBattleId) {
+        showGlobalToast({
+          title: "创建成功",
+          description: "即将跳转到对战详情",
+          variant: "success",
+          durationMs: 2000,
+        });
+        router.push(`/battles/${createdBattleId}`);
+        return;
+      }
+
+      showGlobalToast({
+        title: "创建成功",
+        description: "未返回对战 ID，使用当前配置预览",
+        durationMs: 2600,
+      });
+      router.push(buildPreviewBattleUrl());
+    },
+    onError: (error: Error) => {
+      showGlobalToast({
+        title: "创建失败",
+        description:
+          error instanceof Error ? error.message : "请稍后重试",
+        variant: "error",
+        durationMs: 2600,
+      });
+    },
+  });
+
+  const isEliminationRequirementNotMet =
+    selectedMode === "elimination" &&
+    selectedPackIds.length < actualPlayersCount - 1;
+  const isCreateDisabled =
+    selectedPackIds.length === 0 ||
+    isEliminationRequirementNotMet ||
+    createBattleMutation.isPending;
+
+  const handleCreateBattle = () => {
+    if (isCreateDisabled) {
+      return;
+    }
+
+    const payload: CreateBattlePayload = {
+      num: actualPlayersCount,
+      person_team: typeState === "team" ? 1 : 0,
+      team_size:
+        typeState === "team" ? TEAM_STRUCTURE_TO_SIZE[teamStructure] : 0,
+      mode: MODE_TO_API_VALUE[selectedMode],
+      fast: optFastBattle ? 1 : 0,
+      finally: canEnableLastChance && optLastChance ? 1 : 0,
+      type: canEnableInverted && optInverted ? 1 : 0,
+      boxs: selectedPackIds,
+    };
+
+    createBattleMutation.mutate(payload);
+  };
+
   const replaceUrl = (updates: Record<string, string | undefined>) => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -244,14 +357,6 @@ function CreateBattleContent() {
       replaceUrl({ upsideDown: undefined });
     }
   }, [selectedMode, canEnableInverted, optInverted]);
-  const [selectedPackIds, setSelectedPackIds] = useState<string[]>(() => {
-    // 从URL读取初始卡包IDs
-    const packIdsParam = searchParams?.get('packIds');
-    if (packIdsParam) {
-      return packIdsParam.split(',').filter(id => id.trim());
-    }
-    return [];
-  });
   const [isSelectPackModalOpen, setIsSelectPackModalOpen] = useState(false);
   
   const { data: boxListData } = useQuery({
@@ -2128,67 +2233,19 @@ function CreateBattleContent() {
           {/* 底部按钮 */}
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus select-none px-8 w-full h-16 sticky bottom-2 !mt-0"
-            disabled={
-              selectedPackIds.length === 0 ||
-              (selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)
-            }
+            disabled={isCreateDisabled}
             style={{
               backgroundColor: "#48BB78",
-              color: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? "#FFFFFF" : "#2F855A",
+              color: !isCreateDisabled ? "#FFFFFF" : "#2F855A",
               fontFamily: "var(--font-urbanist)",
-              opacity: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? 1 : 0.5,
-              cursor: (selectedPackIds.length > 0 && !(selectedMode === "elimination" && selectedPackIds.length < actualPlayersCount - 1)) ? "pointer" : "not-allowed",
+              opacity: !isCreateDisabled ? 1 : 0.5,
+              cursor: !isCreateDisabled ? "pointer" : "not-allowed",
             }}
-            onClick={() => {
-              if (selectedPackIds.length > 0) {
-                console.log('🎮 [创建对战] 当前状态:', {
-                  typeState,
-                  playersCount,
-                  urlPlayersInSolo: searchParams?.get("playersInSolo")
-                });
-                
-                const packIdsParam = selectedPackIds.join(",");
-                const params = new URLSearchParams();
-                params.set("packIds", packIdsParam);
-                
-                // 传递战斗类型和对应参数
-                params.set("type", typeState);
-                if (typeState === "solo") {
-                  // 单人模式：确保有默认值2
-                  const finalPlayersCount = playersCount || "2";
-                  console.log('✅ [创建对战] 单人模式玩家数:', finalPlayersCount);
-                  params.set("players", finalPlayersCount);
-                } else {
-                  // 团队模式：传递teamStructure
-                  params.set("teamStructure", teamStructure);
-                  // 根据teamStructure计算总玩家数
-                  const totalPlayers = teamStructure === "2v2" ? 4 : teamStructure === "3v3" ? 6 : 6; // 2v2v2
-                  params.set("players", String(totalPlayers));
-                }
-                
-                // 传递游戏模式
-                params.set("gameMode", selectedMode);
-                
-                // 传递快速对战选项
-                if (optFastBattle) {
-                  params.set("fastBattle", "true");
-                }
-                
-                // 传递最后的机会选项
-                if (optLastChance) {
-                  params.set("lastChance", "true");
-                }
-                
-                // 传递倒置模式选项
-                if (optInverted) {
-                  params.set("upsideDown", "true");
-                }
-                
-                router.replace(`/battles/${Date.now()}?${params.toString()}`);
-              }
-            }}
+            onClick={handleCreateBattle}
           >
-            创建对战 for ${totalCost.toFixed(2)}
+            {createBattleMutation.isPending
+              ? "创建中..."
+              : `创建对战 for ${totalCost.toFixed(2)}`}
           </button>
         </div>
       </div>

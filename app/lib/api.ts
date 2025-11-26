@@ -19,6 +19,24 @@ export type CatalogPack = {
   items: CatalogItem[];
 };
 
+export interface CreateBattlePayload {
+  num: number;
+  person_team: 0 | 1;
+  team_size: 0 | 1 | 2;
+  mode: 0 | 1 | 2 | 3 | 4;
+  fast: 0 | 1;
+  finally: 0 | 1;
+  type: 0 | 1;
+  boxs: Array<string | number>;
+}
+
+export interface CreateBattleResult {
+  id?: number | string;
+  fight_id?: number | string;
+  fightId?: number | string;
+  [key: string]: any;
+}
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 export interface RequestConfig extends Omit<RequestInit, 'body' | 'method'> {
@@ -73,6 +91,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/auth/userinfo',
   '/api/auth/logout',
   '/api/lucky/go',
+  '/api/fight/save',
 ];
 
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
@@ -411,6 +430,28 @@ export const api = {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         ...(params.authorization ? { 'authorization': params.authorization } : {}),
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  createBattle: async (payload: CreateBattlePayload) => {
+    const formData = new URLSearchParams();
+    formData.append('num', String(payload.num));
+    formData.append('person_team', String(payload.person_team));
+    formData.append('team_size', String(payload.team_size));
+    formData.append('mode', String(payload.mode));
+    formData.append('fast', String(payload.fast));
+    formData.append('finally', String(payload.finally));
+    formData.append('type', String(payload.type));
+    payload.boxs.forEach((boxId, index) => {
+      formData.append(`boxs[${index}]`, String(boxId));
+    });
+
+    const result = await request<ApiResponse<CreateBattleResult>>('/api/fight/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: formData.toString(),
     });

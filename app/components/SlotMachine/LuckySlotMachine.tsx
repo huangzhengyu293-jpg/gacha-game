@@ -36,6 +36,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   spinDuration
 }, ref) => {
   const [isSpinning, setIsSpinning] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   
@@ -340,7 +341,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       info.appendChild(pricePara);
     }
     
+    const selectedBackdrop = document.createElement('div');
+    selectedBackdrop.className = 'selected-backdrop';
+    
     item.appendChild(glow);
+    item.appendChild(selectedBackdrop);
     item.appendChild(imgWrapper);
     item.appendChild(info);
     
@@ -748,6 +753,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
     
     setIsSpinning(true);
+    setIsFinalizing(false);
     
     // 🚀 重置 actualItemHeight 缓存
     actualItemHeightRef.current = 0;
@@ -771,6 +777,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const duration = spinDuration || 4500;
     
     await spinPhase1(duration, selectedPrize);
+    setIsFinalizing(true);
     
     await spinPhase2(selectedPrize);
     
@@ -805,6 +812,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       }
     }
     
+    setIsFinalizing(false);
     setIsSpinning(false);
     // Don't reset hasStarted here - it should only be reset when selectedPrizeId changes
   }, [isSpinning, selectedPrize, onSpinStart, onSpinComplete, spinPhase1, spinPhase2, hasStarted]); // Removed symbols dependency
@@ -929,7 +937,17 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   }), [startSpin, updateReelContent]);
 
   return (
-    <div className="lucky-slot-machine-container" ref={containerRef} style={{ '--item-height': `${itemHeight}px` } as React.CSSProperties}>
+    <div
+      className={[
+        'lucky-slot-machine-container',
+        isSpinning ? 'is-spinning' : '',
+        isFinalizing ? 'is-finalizing' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      ref={containerRef}
+      style={{ '--item-height': `${itemHeight}px` } as React.CSSProperties}
+    >
       <style jsx global>{`
         .lucky-slot-machine-container {
           width: 100%;
@@ -952,6 +970,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           border-radius: 10px;
           overflow: hidden;
           position: relative;
+          transform: scaleY(-1);
+          transform-origin: center;
         }
 
         .lucky-slot-machine-container .reel::before {
@@ -979,6 +999,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           align-items: center;
           justify-content: center;
           position: relative;
+          transform: scaleY(-1);
+          transform-origin: center;
         }
 
         .lucky-slot-machine-container .item-glow {
@@ -993,11 +1015,27 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           transform: translateZ(0);
         }
 
+        .lucky-slot-machine-container .selected-backdrop {
+          position: absolute;
+          width: 60%;
+          aspect-ratio: 1;
+          min-width: 60%;
+          min-height: 60%;
+          background-image: url('/images/jj.png');
+          background-size: contain;
+          background-position: center;
+          background-repeat: no-repeat;
+          opacity: 0;
+          z-index: 2;
+          transform: translateZ(0);
+          transition: opacity 0.12s ease-out;
+        }
+
         .lucky-slot-machine-container .item-image-wrapper {
           position: relative;
           width: 55%;
           height: 55%;
-          z-index: 2;
+          z-index: 3;
           transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
           will-change: transform;
           transform: translateZ(0);
@@ -1025,7 +1063,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           max-width: var(--item-height);
           opacity: 0;
           transition: opacity 0.2s;
-          z-index: 3;
+          z-index: 4;
         }
 
         .lucky-slot-machine-container .item-info p {
@@ -1044,6 +1082,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
 
         .lucky-slot-machine-container .slot-item.selected .item-glow {
           opacity: 1;
+        }
+
+        .lucky-slot-machine-container.is-spinning:not(.is-finalizing) .slot-item.selected .selected-backdrop {
+          opacity: 1;
+        }
+
+        .lucky-slot-machine-container.is-finalizing .slot-item.selected .selected-backdrop {
+          opacity: 0;
         }
 
         .lucky-slot-machine-container .slot-item.selected .item-image-wrapper {

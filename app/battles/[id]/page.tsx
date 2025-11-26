@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
+import { Fragment, useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { gsap } from "gsap";
@@ -40,6 +40,34 @@ type BattleDataSourceConfig = {
   buildData: () => BattleData;
   buildPayload: () => BackendBattlePayload;
 };
+
+const SlotEdgePointer = ({ side }: { side: 'left' | 'right' }) => (
+  <div
+    className="pointer-events-none absolute flex h-6 w-6 items-center justify-center text-[#C8CDD3] drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+    style={{
+      top: '50%',
+      transform: 'translateY(-50%)',
+      left: side === 'left' ? '12px' : undefined,
+      right: side === 'right' ? '12px' : undefined,
+    }}
+  >
+    {side === 'left' ? (
+      <svg viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3">
+        <path
+          d="M3.00255 0.739429L12.1147 6.01823C13.4213 6.77519 13.4499 8.65172 12.1668 9.44808L3.05473 15.1039C1.72243 15.9309 0 14.9727 0 13.4047V2.47C0 0.929093 1.66922 -0.0329925 3.00255 0.739429Z"
+          fill="currentColor"
+        />
+      </svg>
+    ) : (
+      <svg viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3">
+        <path
+          d="M10.9974 0.739429L1.88534 6.01823C0.578686 6.77519 0.550138 8.65172 1.83316 9.44808L10.9453 15.1039C12.2776 15.9309 14 14.9727 14 13.4047V2.47C14 0.929093 12.3308 -0.0329925 10.9974 0.739429Z"
+          fill="currentColor"
+        />
+      </svg>
+    )}
+  </div>
+);
 
 // 🎰 大奖模式内联进度条组件（避免重复挂载问题）
 function JackpotProgressBarInline({ 
@@ -762,6 +790,10 @@ export default function BattleDetailPage() {
   
   // 🎮 游戏模式
   const gameMode = battleData.mode;
+  const shouldShowSoloSlotSeparators = useMemo(
+    () => !isTeamMode && allParticipants.length > 1 && allParticipants.length <= 4,
+    [isTeamMode, allParticipants.length],
+  );
   
   // 🎨 大奖模式：玩家颜色分配（在所有插槽填满后分配）
   const [playerColors, setPlayerColors] = useState<Record<string, string>>({});
@@ -3215,6 +3247,8 @@ const forceFullReplayRef = useRef(false);
               // 大屏幕 (>= 1024px): 横向排列所有队伍
               !isSmallScreen ? (
                 <div className="flex gap-4 px-2 md:px-4 w-full max-w-[1248px]" style={{ height: '450px', position: 'relative' }}>
+                  <SlotEdgePointer side="left" />
+                  <SlotEdgePointer side="right" />
                   {teamGroups.map((teamMembers, teamIndex) => (
                     <div
                       key={`team-${teamIndex}`}
@@ -3664,72 +3698,123 @@ const forceFullReplayRef = useRef(false);
               </div>
             ) : (
               <div className="flex gap-0 md:gap-4 px-4 overflow-x-hidden w-full max-w-[1248px] justify-around" style={{ height: '450px', position: 'relative' }}>
-                {allParticipants.map((participant) => {
+                <SlotEdgePointer side="left" />
+                <SlotEdgePointer side="right" />
+                {allParticipants.map((participant, index) => {
                   if (!participant || !participant.id) return null;
                   
+                  const roundIndex = gameData.currentRound;
+                  const roundData = gameRoundsRef.current[roundIndex];
+                  if (!roundData) return null;
+                  
+                  const selectedPrizeId = currentRoundPrizes[participant.id];
+                  const keySuffix = slotMachineKeySuffix[participant.id] || '';
+                  const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
+                  const showDivider = shouldShowSoloSlotSeparators && index < allParticipants.length - 1;
+
                   return (
-                    <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ height: '450px' }}>
-                      {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
-                      {(() => {
-                        const roundIndex = gameData.currentRound;
-                        const roundData = gameRoundsRef.current[roundIndex];
-                        if (!roundData) return null;
-                        
-                        const selectedPrizeId = currentRoundPrizes[participant.id];
-                        const keySuffix = slotMachineKeySuffix[participant.id] || '';
-                        const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
-                        
-                        return (
-                          <div key={`round-${roundIndex}`} className="absolute inset-0" style={{ width: '100%', height: '100%' }}>
-                            {/* 第一段老虎机 */}
+                    <Fragment key={participant.id}>
+                      <div className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ height: '450px' }}>
+                        {/* 🚀 只渲染当前轮次的老虎机 - 性能优化 */}
+                        <div className="absolute inset-0" style={{ width: '100%', height: '100%' }}>
+                          {/* 第一段老虎机 */}
+                          <div 
+                            className="w-full transition-opacity duration-300 absolute inset-0" 
+                            style={{ 
+                              opacity: !keySuffix ? 1 : 0,
+                              pointerEvents: !keySuffix ? 'auto' : 'none',
+                              zIndex: !keySuffix ? 1 : 0
+                            }}
+                          >
+                            <LuckySlotMachine
+                              key={`${participant.id}-${roundIndex}-first`}
+                              ref={(ref) => {
+                                if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                              }}
+                              symbols={roundData.pools.normal}
+                              selectedPrizeId={!keySuffix ? selectedPrizeId : null}
+                              height={450}
+                              spinDuration={spinDuration}
+                              onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
+                            />
+                          </div>
+                          
+                          {/* 第二段老虎机 */}
+                          {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
                             <div 
                               className="w-full transition-opacity duration-300 absolute inset-0" 
                               style={{ 
-                                opacity: !keySuffix ? 1 : 0,
-                                pointerEvents: !keySuffix ? 'auto' : 'none',
-                                zIndex: !keySuffix ? 1 : 0
+                                opacity: keySuffix ? 1 : 0,
+                                pointerEvents: keySuffix ? 'auto' : 'none',
+                                zIndex: keySuffix ? 1 : 0
                               }}
                             >
-                             <LuckySlotMachine
-                               key={`${participant.id}-${roundIndex}-first`}
-                               ref={(ref) => {
-                                 if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
-                               }}
-                               symbols={roundData.pools.normal}
-                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
-                               height={450}
-                               spinDuration={spinDuration}
-                              onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
-                            />
-                            </div>
-                            
-                            {/* 第二段老虎机 */}
-                            {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
-                              <div 
-                                className="w-full transition-opacity duration-300 absolute inset-0" 
-                                style={{ 
-                                  opacity: keySuffix ? 1 : 0,
-                                  pointerEvents: keySuffix ? 'auto' : 'none',
-                                  zIndex: keySuffix ? 1 : 0
+                              <LuckySlotMachine
+                                key={`${participant.id}-${roundIndex}-second`}
+                                ref={(ref) => {
+                                  if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                 }}
-                              >
-                                <LuckySlotMachine
-                                  key={`${participant.id}-${roundIndex}-second`}
-                                  ref={(ref) => {
-                                    if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
-                                  }}
-                                  symbols={roundData.pools.legendary}
-                                  selectedPrizeId={keySuffix ? selectedPrizeId : null}
-                                  height={450}
-                                  spinDuration={spinDuration}
-                                  onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
-                                />
+                                symbols={roundData.pools.legendary}
+                                selectedPrizeId={keySuffix ? selectedPrizeId : null}
+                                height={450}
+                                spinDuration={spinDuration}
+                                onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {showDivider && (
+                        <div
+                          className="slot-machine-divider flex h-full w-6 flex-col items-center justify-center self-center"
+                          aria-hidden="true"
+                        >
+                          <div
+                            className="flex w-px sm:w-[2px] flex-1"
+                            style={{ background: 'linear-gradient(180deg, rgba(149,149,149,0) 0%, rgba(149,149,149,0.9) 55%, rgba(149,149,149,0) 100%)' }}
+                          />
+                          <div className="flex items-center justify-center relative h-8 w-px">
+                            <div className="hidden sm:flex absolute items-center justify-center size-8 rounded-full bg-gradient-to-br from-[#9CA9B6] to-[#41464C] shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+                              <div className="flex items-center justify-center size-7 rounded-full bg-[#2B3136]">
+                                <svg
+                                  viewBox="0 0 25 25"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="size-3.5 text-gray-300"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    clipRule="evenodd"
+                                    d="M1.048 4.778c-.161-.16-.25-.379-.248-.606L.83.988C.835.461 1.261.035 1.788.03L4.972 0c.227-.002.446.087.607.248l4.429 4.429-4.53 4.53-4.429-4.43Zm18.966-4.764a.892.892 0 0 0-.606.248L7.307 12.362l4.53 4.53 12.1-12.1a.892.892 0 0 0 .247-.606l-.03-3.184a.892.892 0 0 0-.958-.956l-3.183-.03ZM4.401 12.875c-.283-.283-.742-.283-1.026 0l-1.368 1.368c-.283.283-.283.742 0 1.025l1.795 1.795c.283.283.283.742 0 1.025l-3.59 3.59c-.283.283-.283.743 0 1.026l1.282 1.282c.283.283.742.283 1.025 0l3.59-3.59c.283-.283.742-.283 1.026 0l1.795 1.795c.283.283.742.283 1.025 0l1.368-1.368c.283-.283.283-.742 0-1.025L4.401 12.875Zm9.274 6.924c-.283.283-.283.742 0 1.025l1.368 1.368c.283.283.742.283 1.025 0l1.795-1.795c.283-.283.742-.283 1.025 0l3.59 3.59c.283.283.742.283 1.025 0l1.282-1.282c.283-.283.283-.743 0-1.026l-3.59-3.59c-.283-.283-.283-.742 0-1.025l1.795-1.795c.283-.283.283-.742 0-1.025l-1.368-1.368c-.283-.283-.742-.283-1.025 0l-6.924 6.924Z"
+                                    fill="currentColor"
+                                  />
+                                </svg>
                               </div>
-                            )}
+                            </div>
+                            <div className="flex sm:hidden items-center justify-center rounded-full bg-[#2B3136] h-6 w-6 shadow-[0_1px_4px_rgba(0,0,0,0.45)]">
+                              <svg
+                                viewBox="0 0 25 25"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="size-3 text-gray-300"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M1.048 4.778c-.161-.16-.25-.379-.248-.606L.83.988C.835.461 1.261.035 1.788.03L4.972 0c.227-.002.446.087.607.248l4.429 4.429-4.53 4.53-4.429-4.43Zm18.966-4.764a.892.892 0 0 0-.606.248L7.307 12.362l4.53 4.53 12.1-12.1a.892.892 0 0 0 .247-.606l-.03-3.184a.892.892 0 0 0-.958-.956l-3.183-.03ZM4.401 12.875c-.283-.283-.742-.283-1.026 0l-1.368 1.368c-.283.283-.283.742 0 1.025l1.795 1.795c.283.283.283.742 0 1.025l-3.59 3.59c-.283.283-.283.743 0 1.026l1.282 1.282c.283.283.742.283 1.025 0l3.59-3.59c.283-.283.742-.283 1.026 0l1.795 1.795c.283.283.742.283 1.025 0l1.368-1.368c.283-.283.283-.742 0-1.025L4.401 12.875Zm9.274 6.924c-.283.283-.283.742 0 1.025l1.368 1.368c.283.283.742.283 1.025 0l1.795-1.795c.283-.283.742-.283 1.025 0l3.59 3.59c.283.283.742.283 1.025 0l1.282-1.282c.283-.283.283-.743 0-1.026l-3.59-3.59c-.283-.283-.283-.742 0-1.025l1.795-1.795c.283-.283.283-.742 0-1.025l-1.368-1.368c-.283-.283-.742-.283-1.025 0l-6.924 6.924Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </div>
                           </div>
-                        );
-                      })()}
-                    </div>
+                          <div
+                            className="flex w-px sm:w-[2px] flex-1"
+                            style={{ background: 'linear-gradient(0deg, rgba(149,149,149,0) 0%, rgba(149,149,149,0.9) 55%, rgba(149,149,149,0) 100%)' }}
+                          />
+                        </div>
+                      )}
+                    </Fragment>
                   );
                 })}
               </div>
