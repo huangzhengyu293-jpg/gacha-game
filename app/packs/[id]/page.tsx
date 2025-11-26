@@ -7,6 +7,7 @@ import { getQualityFromLv } from '../../lib/catalogV2';
 import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
 import HorizontalSlotMachineClient from './HorizontalSlotMachineClient';
+import { LogoIcon } from '../../components/icons/Logo';
 
 // 统一的数据映射函数
 function mapBoxDetailToPackData(rawPack: any) {
@@ -113,13 +114,7 @@ export default function PackDetailPage() {
             <p className="text-sm text-white font-bold ml-2">返回包裹</p>
           </a>
           <div className="flex justify-center items-center gap-1">
-            <div className="size-5 mr-1 text-white">
-              <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor"></path>
-                <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.931 2.50898 31.7219 2.5181L27.822 2.5342L35.8047 22.5693Z" fill="currentColor"></path>
-                <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
-              </svg>
-            </div>
+            <LogoIcon width={20} height={20} className="mr-1 w-5 h-5" color="#FFFFFF" aria-hidden />
             <p className="text-white text-lg font-black">FlameDraw</p>
           </div>
           <div className="flex gap-2 w-[113.5px]"></div>

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { AnimatePresence, motion } from 'framer-motion';
+import { LogoIcon } from './icons/Logo';
 
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -983,11 +984,7 @@ export default function DrawExtraComponent() {
                               return (
                                 <div className="absolute flex flex-col gap-2 items-center justify-center" style={{ zIndex: 1 }}>
                                   <div className="flex w-10 h-10 md:w-12 md:h-12">
-                                    <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: '#474A4D' }}>
-                                      <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor" />
-                                      <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.931 2.50898 31.7219 2.5181L27.822 2.5342L35.8047 22.5693Z" fill="currentColor" />
-                                      <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor" />
-                                    </svg>
+                                    <LogoIcon width={45} height={45} color="#474A4D" className="w-full h-full" aria-hidden />
                                   </div>
                                   <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>FlameDraw</p>
                                 </div>
@@ -1055,11 +1052,7 @@ export default function DrawExtraComponent() {
                               return (
                                 <div className="absolute flex flex-col gap-2 items-center justify-center" style={{ zIndex: 1 }}>
                                   <div className="flex w-10 h-10 md:w-12 md:h-12">
-                                    <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: '#474A4D' }}>
-                                      <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor" />
-                                      <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.931 2.50898 31.7219 2.5181L27.822 2.5342L35.8047 22.5693Z" fill="currentColor" />
-                                      <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor" />
-                                    </svg>
+                                    <LogoIcon width={45} height={45} color="#474A4D" className="w-full h-full" aria-hidden />
                                   </div>
                                   <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>FlameDraw</p>
                                 </div>

@@ -10,8 +10,7 @@ import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
-import Logo from '../public/logo.svg';
-import Image from 'next/image';
+import { LogoIcon } from './icons/Logo';
 export default function Navbar() {
   const { t } = useI18n();
   const router = useRouter();
@@ -417,7 +416,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center h-[3rem] xs:h-[4rem] mr-5 lg:mr-10 cursor-pointer shrink-0" onClick={() => setIsMenuOpen(false)}>
               <div className="w-6 h-6 mr-2 text-white shrink-0 block">
-              <Image src="/logo.svg" alt="Logo" width={120} height={32}/>
+              <LogoIcon width={24} height={24} />
               </div>
               <h1 className="text-xl text-white font-black whitespace-nowrap">FlameDraw</h1>
             </Link>

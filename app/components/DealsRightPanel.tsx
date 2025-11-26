@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { LogoIcon } from './icons/Logo';
 
 interface DealsRightPanelProps {
   percent?: number;
@@ -83,12 +84,8 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
                   style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, objectFit: 'contain', color: 'transparent' }}
                 />
               ) : (
-                <div className="size-48" style={{ color: '#34383C' }}>
-                  <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor"></path>
-                    <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.931 2.50898 31.7219 2.5181L27.822 2.5342L35.8047 22.5693Z" fill="currentColor"></path>
-                    <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
-                  </svg>
+                <div className="size-48" aria-hidden style={{ color: '#34383C' }}>
+                  <LogoIcon className="h-full w-full" color="#34383C" />
                 </div>
               )}
             </div>

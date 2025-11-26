@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, memo } from "react";
 import InlineSelect from "./InlineSelect";
 import { useI18n } from "./I18nProvider";
+import { LogoIcon } from "./icons/Logo";
 
 // Hoisted accordion to avoid remounts on Footer re-renders
 const MobileAccordionBase = ({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode; }) => {
@@ -87,13 +88,7 @@ export default function Footer() {
       <div className="flex flex-col md:flex-row gap-4 w-full mx-auto max-w-[1280px] py-6 md:py-8 px-4">
         <div className="flex flex-1 flex-col gap-2 max-w-[560px]">
           <div className="flex items-center">
-            <div className="size-6 mr-3" style={{ color: '#FFFFFF' }}>
-              <svg viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.21192 7.42225C1.15968 8.23994 0.158879 10.5665 0.976565 12.6187L12.821 42.346C13.6387 44.3982 15.9652 45.399 18.0174 44.5813L34.739 37.9188C36.7913 37.1012 37.7921 34.7746 36.9744 32.7224L25.13 2.99512C24.3123 0.942884 21.9857 -0.0579184 19.9335 0.759768L3.21192 7.42225Z" fill="currentColor"></path>
-                <path d="M35.8047 22.5693L35.7383 6.50156C35.7292 4.29244 33.931 2.50898 31.7219 2.5181L27.822 2.5342L35.8047 22.5693Z" fill="currentColor"></path>
-                <path d="M38.0241 27.9748L44.3787 13.2168C45.2524 11.1878 44.3158 8.83469 42.2868 7.96101L38.7048 6.41865L38.0241 27.9748Z" fill="currentColor"></path>
-              </svg>
-            </div>
+            <LogoIcon width={24} height={24} color="#FFFFFF" className="mr-3 w-6 h-6" aria-hidden />
             <h1 className="text-xl font-black" style={{ color: '#FFFFFF' }}>{t("brand")}</h1>
           </div>
           <h3 className="text-base max-w-72 my-2" style={{ color: '#7A8084' }}>{t("slogan")}</h3>
