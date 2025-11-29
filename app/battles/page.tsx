@@ -105,7 +105,7 @@ export default function BattlesPage() {
             </div>
           )}
           <div className="mt-6">
-            <BattleModes />
+            <BattleModes sortValue={sortValue} />
           </div>
         </div>
         <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>

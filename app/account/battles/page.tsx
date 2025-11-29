@@ -1,7 +1,43 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import AccountMobileMenu from "../components/AccountMobileMenu";
+import { api } from "@/app/lib/api";
+import { useI18n } from "@/app/components/I18nProvider";
+import BattleListCardItem from "@/app/battles/components/BattleListCardItem";
+import { buildBattleListCards } from "@/app/battles/battleListSource";
+import type { RawBattleListItem } from "@/app/components/bettlesListData";
 
 export default function BattlesPage() {
+  const router = useRouter();
+  const { t } = useI18n();
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["accountBattles"],
+    queryFn: () => api.getMyBattleList(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const rawList = useMemo<RawBattleListItem[]>(() => {
+    const payload = data?.data as any;
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload as RawBattleListItem[];
+    if (Array.isArray(payload.data)) return payload.data as RawBattleListItem[];
+    if (Array.isArray(payload.list)) return payload.list as RawBattleListItem[];
+    return [];
+  }, [data]);
+
+  const cards = useMemo(() => buildBattleListCards(rawList), [rawList]);
+
   return (
     <div className="w-full max-w-screen-xl px-4 pt-4 pb-40 mx-auto" style={{ color: '#7A8084' }}>
       <style>{`
@@ -35,8 +71,38 @@ export default function BattlesPage() {
             <AccountMobileMenu />
             <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>对战历史</h1>
           </div>
-          <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
-            <span className="font-semibold" style={{ color: '#FFFFFF' }}>您还没有任何对战记录。</span>
+          <div className="flex flex-col gap-4 self-stretch">
+            { cards.length === 0 ? (
+              <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
+                <span className="font-semibold" style={{ color: '#FFFFFF' }}>您还没有任何对战记录。</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {cards.map((card) => {
+                  const isWaiting = Number(card.status) === 0;
+                  return (
+                    <BattleListCardItem
+                      key={card.id}
+                      card={card}
+                      labels={{
+                        cost: t("cost"),
+                        opened: isWaiting ? "等待玩家" : t("opened"),
+                        button: isWaiting ? "加入对战" : t("viewResults"),
+                      }}
+                      buttonColors={
+                        isWaiting
+                          ? {
+                              default: "#4299e1",
+                              hover: "#5ab0ff",
+                            }
+                          : undefined
+                      }
+                      onPrimaryAction={() => router.push(`/battles/${card.id}`)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

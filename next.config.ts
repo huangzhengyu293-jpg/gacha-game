@@ -44,6 +44,16 @@ const nextConfig: NextConfig = {
         hostname: "i.c5game.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "steamcommunity-a.akamaihd.net",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "nngogo.oss-ap-northeast-1.aliyuncs.com",
+        pathname: "/**",
+      },
     ],
   },
 };

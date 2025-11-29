@@ -1,9 +1,12 @@
 "use client";
 
 import { Fragment, useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { gsap } from "gsap";
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import BattleHeader from "./components/BattleHeader";
 import ParticipantsWithPrizes from "./components/ParticipantsWithPrizes";
 import PacksGallery from "./components/PacksGallery";
@@ -12,8 +15,11 @@ import type { PackItem, Participant, BattleData } from "./types";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
 import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
-import { getDynamicBattleSource } from '../dynamicBattleSource';
 import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
+import { api } from '@/app/lib/api';
+import { useAuth } from '@/app/hooks/useAuth';
+import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
+import type { FightDetailRaw } from '@/types/fight';
 import type {
   BackendBattlePayload,
   BackendRoundPlan,
@@ -27,11 +33,11 @@ import type {
 } from './battlePayloadTypes';
 
 function resolveEntryRoundIndex(totalRounds: number, entryRoundSetting: number): number | null {
-  if (entryRoundSetting <= 0 || totalRounds <= 0) {
+  if (totalRounds <= 0 || entryRoundSetting <= 0) {
     return null;
   }
-  const normalized = Math.min(entryRoundSetting, totalRounds);
-  return Math.max(0, normalized - 1);
+  const zeroBased = Math.min(entryRoundSetting - 1, totalRounds - 1);
+  return Math.max(0, zeroBased);
 }
 
 type BattleDataSourceConfig = {
@@ -40,6 +46,83 @@ type BattleDataSourceConfig = {
   buildData: () => BattleData;
   buildPayload: () => BackendBattlePayload;
 };
+
+dayjs.extend(customParseFormat);
+
+const KNOWN_TIME_FORMATS = ['YYYY-MM-DD HH:mm:ss', 'YYYY/MM/DD HH:mm:ss'];
+const NORMAL_ROUND_DURATION_MS = 4500;
+const FAST_ROUND_DURATION_MS = 1000;
+const ENTRY_DELAY_MS = 3000;
+type DayjsInstance = ReturnType<typeof dayjs>;
+
+function logCurrentRound(roundNumber: number) {
+  if (typeof console === 'undefined') return;
+  console.info('[BattleEntry] current-round', roundNumber);
+}
+
+function parseTimestampToDayjs(value: unknown): DayjsInstance | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    const ms = value > 1e12 ? value : value * 1000;
+    const parsed = dayjs(ms);
+    return parsed.isValid() ? parsed : null;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/^\d+$/.test(trimmed)) {
+    const numericParsed = dayjs.unix(Number(trimmed));
+    return numericParsed.isValid() ? numericParsed : null;
+  }
+  const normalized = trimmed.replace('T', ' ');
+  const parsedWithFormat = dayjs(normalized, KNOWN_TIME_FORMATS, true);
+  if (parsedWithFormat.isValid()) {
+    return parsedWithFormat;
+  }
+  const parsed = dayjs(normalized);
+  return parsed.isValid() ? parsed : null;
+}
+
+function computeEntryRoundSetting(rawDetail: FightDetailRaw | null | undefined, specialOptions: BattleSpecialOptions): number {
+  if (!rawDetail) {
+    return 0;
+  }
+  const status = Number(rawDetail.status ?? 0);
+  if (status === 0) {
+    return 0;
+  }
+  const updatedSource = rawDetail.updated_at ?? rawDetail.updated_at_time;
+  let updatedAt = parseTimestampToDayjs(rawDetail.updated_at);
+  if (!updatedAt) {
+    updatedAt = parseTimestampToDayjs(rawDetail.updated_at_time);
+  }
+  if (!updatedAt) {
+    return 0;
+  }
+  let nowAt = parseTimestampToDayjs(rawDetail.now_at);
+  let usedFallbackNow = false;
+  if (!nowAt || nowAt.isBefore(updatedAt)) {
+    nowAt = dayjs();
+    usedFallbackNow = true;
+  }
+  const diffMs = Math.max(0, nowAt.diff(updatedAt));
+  const adjustedMs = Math.max(0, diffMs - ENTRY_DELAY_MS);
+  if (adjustedMs <= 0) {
+    return 0;
+  }
+  const roundDuration = specialOptions.fast ? FAST_ROUND_DURATION_MS : NORMAL_ROUND_DURATION_MS;
+  if (roundDuration <= 0) {
+    return 0;
+  }
+  const computed = Math.floor(adjustedMs / roundDuration);
+  if (!Number.isFinite(computed) || computed <= 0) {
+    return 0;
+  }
+  return computed;
+}
 
 const SlotEdgePointer = ({ side }: { side: 'left' | 'right' }) => (
   <div
@@ -728,23 +811,190 @@ export default function BattleDetailPage() {
   const router = useRouter();
   const params = useParams<{ id?: string }>();
   const routeBattleId = params?.id ?? null;
-
-  const activeSource = useMemo<BattleDataSourceConfig>(() => {
-    return getDynamicBattleSource(routeBattleId);
-  }, [routeBattleId]);
+  const { user } = useAuth();
+  const currentUserId = user?.userInfo?.id ?? user?.id ?? null;
+  const normalizedCurrentUserId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
+  const previousStatusRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      console.info('[BattleDetail] 使用数据源', {
-        routeBattleId,
-        activeId: activeSource.id,
-      });
+    if (!routeBattleId) {
+      router.push('/battles');
     }
+  }, [routeBattleId, router]);
+
+  const {
+    data: fightDetailResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['fightDetail', routeBattleId],
+    enabled: Boolean(routeBattleId),
+    queryFn: async () => {
+      if (!routeBattleId) {
+        throw new Error('缺少對戰 ID');
+      }
+      return api.getFightDetail(routeBattleId);
+    },
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: (lastData: Awaited<ReturnType<typeof api.getFightDetail>> | undefined) =>
+      lastData?.data?.status === 0 ? 1000 : false,
+  });
+
+  const rawDetail = fightDetailResponse?.data;
+  const normalizedBattleId = String(rawDetail?.id ?? routeBattleId ?? '');
+  const battleOwnerId = rawDetail?.user_id !== undefined && rawDetail?.user_id !== null ? String(rawDetail.user_id) : null;
+  const activeSource = useMemo<BattleDataSourceConfig | null>(() => {
+    if (!rawDetail || !normalizedBattleId) {
+      return null;
+    }
+    const specialOptions: BattleSpecialOptions = {
+      fast: rawDetail.fast === 1,
+      lastChance: rawDetail.finally === 1,
+      inverted: rawDetail.type === 1,
+    };
+    const currentStatus = Number(rawDetail.status ?? 0);
+    const wasPreviouslyPending = previousStatusRef.current === 0 && currentStatus !== 0;
+    previousStatusRef.current = currentStatus;
+    const entryRoundSetting = wasPreviouslyPending
+      ? 0
+      : computeEntryRoundSetting(rawDetail, specialOptions);
+    return {
+      id: normalizedBattleId,
+      entryRound: entryRoundSetting,
+      buildData: () => buildBattleDataFromRaw(rawDetail, { battleId: normalizedBattleId, specialOptions }),
+      buildPayload: () => buildBattlePayloadFromRaw(rawDetail, { battleId: normalizedBattleId, specialOptions }),
+    };
+  }, [normalizedBattleId, rawDetail]);
+
+  const battleData = useMemo(() => (activeSource ? activeSource.buildData() : null), [activeSource]);
+  const isPendingBattle = Number(rawDetail?.status ?? 0) === 0;
+  const isBattleOwner = Boolean(normalizedCurrentUserId && battleOwnerId && normalizedCurrentUserId === battleOwnerId);
+  const canSummonRobots = isPendingBattle && isBattleOwner;
+  const canJoinBattle = isPendingBattle && !isBattleOwner;
+  const handleSummonRobot = useCallback(
+    async (order: number) => {
+      if (!canSummonRobots) return;
+      try {
+        await api.inviteRobots({ id: normalizedBattleId, order });
+        await refetch();
+      } catch (err) {
+        console.error('inviteRobots failed', err);
+      }
+    },
+    [canSummonRobots, normalizedBattleId, refetch],
+  );
+  const handleJoinBattle = useCallback(
+    async (order: number) => {
+      if (!canJoinBattle) return;
+      if (!normalizedCurrentUserId) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:show-login'));
+        }
+        return;
+      }
+      try {
+        await api.joinFight({ id: normalizedBattleId, order, user_id: normalizedCurrentUserId, debug: 1 });
+        await refetch();
+      } catch (err) {
+        console.error('joinFight failed', err);
+      }
+    },
+    [canJoinBattle, normalizedBattleId, normalizedCurrentUserId, refetch],
+  );
+  const pendingSlotActionHandler = canSummonRobots ? handleSummonRobot : canJoinBattle ? handleJoinBattle : undefined;
+  const pendingSlotActionLabel = canSummonRobots ? '召唤机器人' : canJoinBattle ? '加入对战' : undefined;
+
+  if (!routeBattleId) {
+    return null;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#05070F] px-6 text-center text-white">
+        <h1 className="text-2xl font-semibold">載入對戰失敗</h1>
+        <p className="mt-3 max-w-md text-sm text-white/70">{error instanceof Error ? error.message : '請稍候再試。'}</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-6 rounded-md bg-[#6D4CFF] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#5533d0]"
+        >
+          重新嘗試
+        </button>
+      </div>
+    );
+  }
+
+  if ((isLoading && !fightDetailResponse) || !rawDetail || !activeSource || !battleData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#05070F] px-6 text-sm text-white/80">
+        正在載入对战…
+      </div>
+    );
+  }
+
+  return (
+    <BattleDetailContent
+      routeBattleId={normalizedBattleId}
+      activeSource={activeSource}
+      battleData={battleData}
+      isPendingBattle={isPendingBattle}
+      onPendingSlotAction={pendingSlotActionHandler}
+      pendingSlotActionLabel={pendingSlotActionLabel}
+    />
+  );
+}
+
+function BattleDetailContent({
+  routeBattleId,
+  activeSource,
+  battleData,
+  isPendingBattle,
+  onPendingSlotAction,
+  pendingSlotActionLabel,
+}: {
+  routeBattleId: string;
+  activeSource: BattleDataSourceConfig;
+  battleData: BattleData;
+  isPendingBattle: boolean;
+  onPendingSlotAction?: (order: number) => void;
+  pendingSlotActionLabel?: string;
+}) {
+  const router = useRouter();
+
+  useEffect(() => {
+    // no-op placeholder to keep consistent effect lifecycle if future side effects are needed
   }, [routeBattleId, activeSource.id]);
-  const battleData = useMemo(() => activeSource.buildData(), [activeSource]);
   const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
   const [allSlotsFilled, setAllSlotsFilled] = useState(false);
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
+  const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
+  const timelineHydratedRef = useRef(false);
+  const skipDirectlyToCompletedRef = useRef(false);
+  const forceFullReplayRef = useRef(false);
+  const [runtimeReadyVersion, setRuntimeReadyVersion] = useState(0);
+  const previousPendingStatusRef = useRef(isPendingBattle);
+
+  useEffect(() => {
+    if (previousPendingStatusRef.current && !isPendingBattle) {
+      hasGeneratedResultsRef.current = false;
+      timelineHydratedRef.current = false;
+      skipDirectlyToCompletedRef.current = false;
+      forceFullReplayRef.current = true;
+    }
+    previousPendingStatusRef.current = isPendingBattle;
+  }, [isPendingBattle, routeBattleId]);
+  const predeterminedWinnerIds = useMemo(() => {
+    if (!Array.isArray(battleData.participants)) {
+      return [];
+    }
+    return battleData.participants
+      .filter((participant) => participant?.isWinner)
+      .map((participant) => String(participant.id));
+  }, [battleData.participants]);
   const declaredWinnerIds = useMemo(
     () =>
       (battleData.participants || [])
@@ -781,15 +1031,37 @@ export default function BattleDetailPage() {
   
   // 🔄 倒置模式（从battleData读取）
   const isInverted = battleData.isInverted || false;
-  
-
-  
   // 🎯 团队模式相关
   const isTeamMode = battleData.battleType === 'team';
   const teamStructure = battleData.teamStructure;
   
   // 🎮 游戏模式
   const gameMode = battleData.mode;
+  const shareWinnerIds = useMemo(
+    () =>
+      (battleData.participants ?? [])
+        .map((participant) => {
+          if (!participant || participant.id === undefined || participant.id === null) {
+            return null;
+          }
+          return participant.isWinner ? String(participant.id) : null;
+        })
+        .filter((id): id is string => Boolean(id)),
+    [battleData.participants],
+  );
+  const participantIdList = useMemo(
+    () =>
+      (battleData.participants ?? [])
+        .map((participant) => {
+          if (!participant || participant.id === undefined || participant.id === null) {
+            return null;
+          }
+          return String(participant.id);
+        })
+        .filter((id): id is string => Boolean(id)),
+    [battleData.participants],
+  );
+  const isJackpotWithLastChance = gameMode === 'jackpot' && isLastChance;
   const shouldShowSoloSlotSeparators = useMemo(
     () => !isTeamMode && allParticipants.length > 1 && allParticipants.length <= 4,
     [isTeamMode, allParticipants.length],
@@ -847,14 +1119,8 @@ export default function BattleDetailPage() {
   const handleJackpotAnimationComplete = useCallback(() => {
     setTimeout(() => {
       setJackpotPhase('winner');
-      
-      // 🎉 播放烟花动画 + 🎵 音效
-      setTimeout(() => {
-        playWinSound();
-        winnerFireworkRef.current?.triggerFirework();
-      }, 100);
     }, 1000);
-  }, [playWinSound]);
+  }, []);
   
   // 🔥 淘汰模式：已淘汰的玩家ID集合
   const [eliminatedPlayerIds, setEliminatedPlayerIds] = useState<Set<string>>(new Set());
@@ -1055,12 +1321,34 @@ export default function BattleDetailPage() {
     [roundResults]
   );
 
+  const mainStateRef = useRef(mainState);
+  mainStateRef.current = mainState;
+
+  const prevAllSlotsFilledRef = useRef<boolean>(false);
+  const prevParticipantsLengthRef = useRef<number>(0);
+
   const triggerWinnerCelebration = useCallback(() => {
     setTimeout(() => {
       playWinSound();
       winnerFireworkRef.current?.triggerFirework();
     }, 100);
   }, [playWinSound]);
+
+  const applyPredeterminedWinners = useCallback(() => {
+    if (!predeterminedWinnerIds.length) {
+      return false;
+    }
+    setAllParticipants((prev) =>
+      prev.map((participant) => {
+        if (!participant) return participant;
+        return {
+          ...participant,
+          isWinner: predeterminedWinnerIds.includes(String(participant.id)),
+        };
+      }),
+    );
+    return true;
+  }, [predeterminedWinnerIds]);
 
   const markParticipantsAsWinners = useCallback(
     (predicate: (participant: any) => boolean) => {
@@ -1297,6 +1585,20 @@ export default function BattleDetailPage() {
   const resolveClassicModeWinner = useCallback(() => {
     if (!allParticipants.length) return false;
 
+    if (declaredWinnerIds.length) {
+      if (isTeamMode) {
+        const primaryWinnerId = declaredWinnerIds[0];
+        const winnerParticipant = allParticipants.find((participant) => participant?.id === primaryWinnerId);
+        const winnerTeamId = winnerParticipant?.teamId;
+        if (winnerTeamId) {
+          markParticipantsAsWinners((participant) => Boolean(participant && participant.teamId === winnerTeamId));
+          return true;
+        }
+      }
+      markParticipantsAsWinners((participant) => Boolean(participant && declaredWinnerIds.includes(participant.id)));
+      return true;
+    }
+
     const playerCompareValues = getClassicComparisonValues();
     if (!Object.keys(playerCompareValues).length) return false;
 
@@ -1318,6 +1620,7 @@ export default function BattleDetailPage() {
     return true;
   }, [
     allParticipants,
+    declaredWinnerIds,
     determineClassicWinnerParticipantId,
     getClassicComparisonValues,
     isTeamMode,
@@ -1376,12 +1679,21 @@ export default function BattleDetailPage() {
 
   const resolveShareWinners = useCallback(() => {
     if (!allParticipants.length) return false;
-    markParticipantsAsWinners(() => true);
+    if (!shareWinnerIds.length) {
+      markParticipantsAsWinners(() => true);
+      return true;
+    }
+    const winnerSet = new Set(shareWinnerIds);
+    markParticipantsAsWinners((participant) => Boolean(participant && winnerSet.has(String(participant.id))));
     return true;
-  }, [allParticipants.length, markParticipantsAsWinners]);
+  }, [allParticipants.length, markParticipantsAsWinners, shareWinnerIds]);
 
   const resolveWinnersByMode = useCallback(() => {
     if (!allParticipants.length) return false;
+
+    if (applyPredeterminedWinners()) {
+      return true;
+    }
 
     switch (gameMode) {
       case 'share':
@@ -1397,6 +1709,7 @@ export default function BattleDetailPage() {
     }
   }, [
     allParticipants.length,
+    applyPredeterminedWinners,
     gameMode,
     resolveClassicModeWinner,
     resolveEliminationWinner,
@@ -1411,6 +1724,21 @@ export default function BattleDetailPage() {
     const totals: Record<string, number> = {};
     const nextRoundResults: Record<number, Record<string, SlotSymbol>> = {};
     const completed = new Set<number>();
+    const applyShareTotals = (source: Record<string, number>) => {
+      const winners = shareWinnerIds.length ? shareWinnerIds : participantIdList;
+      if (!winners.length) {
+        return source;
+      }
+      const totalValue = winners.reduce((sum, id) => sum + (source[id] ?? 0), 0);
+      const shareValue = winners.length ? totalValue / winners.length : 0;
+      const distributed: Record<string, number> = {};
+      const winnerSet = new Set(winners);
+      const targets = participantIdList.length ? participantIdList : Object.keys(source);
+      targets.forEach((id) => {
+        distributed[id] = winnerSet.has(id) ? shareValue : 0;
+      });
+      return distributed;
+    };
 
     runtime.rounds.slice(0, targetRound).forEach((roundPlan) => {
       completed.add(roundPlan.roundIndex);
@@ -1429,12 +1757,13 @@ export default function BattleDetailPage() {
     });
 
     const safeRound = Math.min(targetRound, runtime.config.roundsTotal);
+    const adjustedTotals = gameMode === 'share' ? applyShareTotals(totals) : totals;
     dispatchProgressState({
       type: 'APPLY_PROGRESS_SNAPSHOT',
       snapshot: {
         currentRound: safeRound,
         totalRounds: runtime.config.roundsTotal,
-        participantValues: totals,
+        participantValues: adjustedTotals,
         roundResults: nextRoundResults,
         completedRounds: completed,
         spinState: {
@@ -1449,7 +1778,7 @@ export default function BattleDetailPage() {
       },
     });
     currentRoundRef.current = safeRound;
-  }, [dispatchProgressState]);
+  }, [dispatchProgressState, gameMode, participantIdList, shareWinnerIds]);
   
   // UI状态
   const [galleryAlert, setGalleryAlert] = useState(false);
@@ -1458,7 +1787,6 @@ export default function BattleDetailPage() {
   const processedRoundEventIdsRef = useRef<Set<string>>(new Set());
   const lastRoundLogRef = useRef<string>('');
   const [isSmallScreen, setIsSmallScreen] = useState(false);
-  const [activeTeam, setActiveTeam] = useState(0); // 团队模式小屏幕tabs切换
   const [tieBreakerPlan, setTieBreakerPlan] = useState<TieBreakerPlan | null>(null);
   const [tieBreakerGateOpen, setTieBreakerGateOpen] = useState(false);
   const tieBreakerSymbols = useMemo<HorizontalSlotSymbol[]>(() => {
@@ -1572,37 +1900,40 @@ export default function BattleDetailPage() {
       });
   }, [currentEliminationData?.tiedPlayerIds, allParticipants.length]);
 
-  // Pre-generate all results when countdown starts
-  const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
-const timelineHydratedRef = useRef(false);
-const skipDirectlyToCompletedRef = useRef(false);
-const forceFullReplayRef = useRef(false);
-  
+  const participantsSignatureRef = useRef<string>('');
+  const participantsSignature = useMemo(() => {
+    const participants = battleData.participants || [];
+    if (!participants.length) return '';
+    return participants.map((participant, index) => participant?.id ?? `slot-${index}`).join('|');
+  }, [battleData.participants]);
+
+  const lastPlayersCountRef = useRef<number>(battleData.playersCount);
+
+  useEffect(() => {
+    const signature = participantsSignature;
+    const playersCount = battleData.playersCount;
+
+    if (participantsSignatureRef.current === signature && lastPlayersCountRef.current === playersCount) {
+      return;
+    }
+
+    participantsSignatureRef.current = signature;
+    lastPlayersCountRef.current = playersCount;
+
+    const syncedParticipants = Array.isArray(battleData.participants) ? battleData.participants : [];
+    setAllParticipants(syncedParticipants);
+    prevParticipantsLengthRef.current = syncedParticipants.length;
+
+    const filled = playersCount > 0 ? syncedParticipants.length >= playersCount : syncedParticipants.length > 0;
+    prevAllSlotsFilledRef.current = filled;
+    setAllSlotsFilled(filled);
+  }, [participantsSignature, battleData.participants, battleData.playersCount]);
+
   const generateAllResults = useCallback((allParticipants: any[]): BattleStateData['game']['rounds'] => {
     const runtimePayload = activeSource.buildPayload();
     const runtime = buildBattleRuntime(runtimePayload);
     battleRuntimeRef.current = runtime;
-
-    if (typeof window !== 'undefined') {
-      const totalsDebug: Record<string, number> = {};
-      runtime.rounds.forEach((roundPlan) => {
-        Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
-          totalsDebug[playerId] = (totalsDebug[playerId] ?? 0) + drop.value;
-        });
-      });
-      console.table(
-        Object.entries(totalsDebug).map(([playerId, total]) => ({
-          玩家: allParticipants.find((p) => p.id === playerId)?.name || playerId,
-          playerId,
-          累计金额: total.toFixed(2),
-        })),
-      );
-      if (runtime.classic?.tieBreakerIds?.length) {
-        console.info('[BattleDetail] 经典模式平局玩家', runtime.classic.tieBreakerIds);
-      } else {
-        console.info('[BattleDetail] 没有平局玩家');
-      }
-    }
+    setRuntimeReadyVersion((prev) => prev + 1);
 
     const detailedResults: Record<number, Record<string, any>> = {};
     runtime.rounds.forEach((roundPlan) => {
@@ -1751,65 +2082,105 @@ const forceFullReplayRef = useRef(false);
     if (runtime.config.gameplay === 'elimination') {
       const totalRounds = runtime.rounds.length;
       const playersCount = allParticipants.length;
-      const eliminationStartRound = totalRounds - (playersCount - 1);
-      const eliminations: Record<number, {
-        eliminatedPlayerId: string;
-        eliminatedPlayerName: string;
-        needsSlotMachine: boolean;
-        tiedPlayerIds?: string[];
-      }> = {};
-      let activePlayerIds = allParticipants.map((p) => p.id);
+      const fallbackStartRound = Math.max(0, totalRounds - Math.max(0, playersCount - 1));
+      const eliminationSequence = runtime.eliminationMeta?.eliminationOrder;
 
-      const eliminationCount = Math.max(0, playersCount - 1);
-      for (let i = 0; i < eliminationCount && eliminationStartRound + i < totalRounds; i++) {
-        const roundIdx = eliminationStartRound + i;
-        const roundResult = detailedResults[roundIdx];
-        if (!roundResult) continue;
-        
-        const playerPrices = activePlayerIds
-          .map((playerId) => {
-          const item = roundResult[playerId];
-            if (!item || !item.价格) return null;
-            return {
-              id: playerId,
-              name: allParticipants.find((p) => p.id === playerId)?.name || 'Unknown',
-              price: parseFloat(item.价格.replace('¥', '')),
-            };
-          })
-          .filter(Boolean) as Array<{ id: string; name: string; price: number }>;
+      if (Array.isArray(eliminationSequence) && eliminationSequence.length > 0) {
+        const startRoundIndex =
+          typeof runtime.eliminationMeta?.startRoundIndex === 'number'
+            ? runtime.eliminationMeta.startRoundIndex
+            : fallbackStartRound;
+        const eliminations: Record<number, {
+          eliminatedPlayerId: string;
+          eliminatedPlayerName: string;
+          needsSlotMachine: boolean;
+          tiedPlayerIds?: string[];
+        }> = {};
+        const eliminatedSet = new Set<string>();
 
-        if (playerPrices.length === 0) continue;
-
-        const targetPrice = runtime.config.specialRules.inverted
-          ? Math.max(...playerPrices.map((p) => p.price))
-          : Math.min(...playerPrices.map((p) => p.price));
-        const targetPlayers = playerPrices.filter((p) => p.price === targetPrice);
-        
-        if (targetPlayers.length === 1) {
-          const eliminated = targetPlayers[0];
+        eliminationSequence.forEach((playerIdRaw, idx) => {
+          const playerId = String(playerIdRaw);
+          const participant = allParticipants.find((p) => String(p.id) === playerId);
+          const roundIdx = startRoundIndex + idx;
           eliminations[roundIdx] = {
-            eliminatedPlayerId: eliminated.id,
-            eliminatedPlayerName: eliminated.name,
+            eliminatedPlayerId: playerId,
+            eliminatedPlayerName: participant?.name ?? `玩家 ${playerId}`,
             needsSlotMachine: false,
           };
-        } else {
-          const chosen = targetPlayers[Math.floor(Math.random() * targetPlayers.length)];
-          eliminations[roundIdx] = {
-            eliminatedPlayerId: chosen.id,
-            eliminatedPlayerName: chosen.name,
-            needsSlotMachine: true,
-            tiedPlayerIds: targetPlayers.map((p) => p.id),
-          };
+          eliminatedSet.add(playerId);
+        });
+
+        const finalWinnerId =
+          allParticipants.find((p) => !eliminatedSet.has(p.id))?.id ??
+          runtime.classic?.winnerId ??
+          allParticipants[0]?.id ??
+          '';
+
+        eliminationDataRef.current = {
+          eliminations,
+          eliminationStartRound: startRoundIndex,
+          finalWinnerId,
+        };
+      } else {
+        const eliminations: Record<number, {
+          eliminatedPlayerId: string;
+          eliminatedPlayerName: string;
+          needsSlotMachine: boolean;
+          tiedPlayerIds?: string[];
+        }> = {};
+        let activePlayerIds = allParticipants.map((p) => p.id);
+
+        const eliminationCount = Math.max(0, playersCount - 1);
+        for (let i = 0; i < eliminationCount && fallbackStartRound + i < totalRounds; i++) {
+          const roundIdx = fallbackStartRound + i;
+          const roundResult = detailedResults[roundIdx];
+          if (!roundResult) continue;
+          
+          const playerPrices = activePlayerIds
+            .map((playerId) => {
+              const item = roundResult[playerId];
+              if (!item || !item.价格) return null;
+              return {
+                id: playerId,
+                name: allParticipants.find((p) => p.id === playerId)?.name || 'Unknown',
+                price: parseFloat(item.价格.replace('¥', '')),
+              };
+            })
+            .filter(Boolean) as Array<{ id: string; name: string; price: number }>;
+
+          if (playerPrices.length === 0) continue;
+
+          const targetPrice = runtime.config.specialRules.inverted
+            ? Math.max(...playerPrices.map((p) => p.price))
+            : Math.min(...playerPrices.map((p) => p.price));
+          const targetPlayers = playerPrices.filter((p) => p.price === targetPrice);
+          
+          if (targetPlayers.length === 1) {
+            const eliminated = targetPlayers[0];
+            eliminations[roundIdx] = {
+              eliminatedPlayerId: eliminated.id,
+              eliminatedPlayerName: eliminated.name,
+              needsSlotMachine: false,
+            };
+          } else {
+            const chosen = targetPlayers[Math.floor(Math.random() * targetPlayers.length)];
+            eliminations[roundIdx] = {
+              eliminatedPlayerId: chosen.id,
+              eliminatedPlayerName: chosen.name,
+              needsSlotMachine: true,
+              tiedPlayerIds: targetPlayers.map((p) => p.id),
+            };
+          }
+          
+          activePlayerIds = activePlayerIds.filter((id) => id !== eliminations[roundIdx].eliminatedPlayerId);
         }
         
-        activePlayerIds = activePlayerIds.filter((id) => id !== eliminations[roundIdx].eliminatedPlayerId);
+        eliminationDataRef.current = {
+          eliminations,
+          eliminationStartRound: fallbackStartRound,
+          finalWinnerId: activePlayerIds[0],
+        };
       }
-      
-      eliminationDataRef.current = {
-        eliminations,
-        eliminationStartRound,
-        finalWinnerId: activePlayerIds[0],
-      };
     }
     return runtime.rounds.map(convertRuntimeRoundToLegacy);
   }, [activeSource, battleData.battleType]);
@@ -1844,6 +2215,9 @@ const forceFullReplayRef = useRef(false);
 
   // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
+    if (isPendingBattle) {
+      return;
+    }
     if (mainState === 'IDLE' && allSlotsFilled && allParticipants.length > 0) {
       // 🛡️ 守卫1：确保参与者数量正确
       if (allParticipants.length !== battleData.playersCount) {
@@ -1872,7 +2246,7 @@ const forceFullReplayRef = useRef(false);
       dispatchProgressState({ type: 'RESET_ALL_ROUND_FLAGS' });
       dispatchProgressState({ type: 'RESET_ROUND_EVENT_LOG' });
     }
-  }, [mainState, allSlotsFilled, allParticipants.length, dispatchProgressState]);
+  }, [mainState, allSlotsFilled, allParticipants.length, dispatchProgressState, battleData.playersCount, isPendingBattle]);
 
   // 🎯 STATE TRANSITION: LOADING → COUNTDOWN（只执行一次）
   const participantsSnapshotRef = useRef<any[]>([]);
@@ -1881,7 +2255,6 @@ const forceFullReplayRef = useRef(false);
     if (mainState === 'LOADING' && !hasGeneratedResultsRef.current) {
       // 🔒 标记已生成，防止重复执行
       hasGeneratedResultsRef.current = true;
-      
       // 🔒 关键：锁定当前的 allParticipants 快照
       participantsSnapshotRef.current = [...allParticipants];
       
@@ -1949,8 +2322,15 @@ const forceFullReplayRef = useRef(false);
   ]);
 
   useEffect(() => {
-    if (!battleRuntimeRef.current || !hasGeneratedResultsRef.current) return;
-    if (timelineHydratedRef.current) return;
+    if (!battleRuntimeRef.current) {
+      return;
+    }
+    if (!hasGeneratedResultsRef.current) {
+      return;
+    }
+    if (timelineHydratedRef.current) {
+      return;
+    }
 
     const runtime = battleRuntimeRef.current;
     const totalRounds = runtime.config.roundsTotal;
@@ -1972,6 +2352,7 @@ const forceFullReplayRef = useRef(false);
 
     const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
     if (entryRoundIndex !== null) {
+      logCurrentRound(entryRoundIndex + 1);
       hydrateRoundsProgress(entryRoundIndex);
       setCountdownValue(null);
       setMainState('ROUND_LOOP');
@@ -1980,9 +2361,18 @@ const forceFullReplayRef = useRef(false);
       return;
     }
 
+    if (entryRoundSetting <= 0 || forceFullReplayRef.current) {
+      logCurrentRound(0);
+      setCountdownValue(3);
+      setMainState('COUNTDOWN');
+      setRoundState(null);
+      return;
+    }
+
     const cursor = runtime.timeline.getRoundByTimestamp(Date.now());
 
     if (cursor.phase === 'COUNTDOWN') {
+      logCurrentRound(0);
       const remainSeconds = Math.max(0, Math.ceil(cursor.roundElapsedMs / 1000));
       setCountdownValue(remainSeconds);
       setMainState('COUNTDOWN');
@@ -1991,6 +2381,7 @@ const forceFullReplayRef = useRef(false);
 
     if (cursor.phase === 'ROUND') {
       const targetRound = Math.min(cursor.roundIndex, runtime.config.roundsTotal);
+      logCurrentRound(Math.min(targetRound + 1, runtime.config.roundsTotal));
       hydrateRoundsProgress(targetRound);
       setCountdownValue(null);
       setMainState('ROUND_LOOP');
@@ -2000,12 +2391,13 @@ const forceFullReplayRef = useRef(false);
     }
 
     if (cursor.phase === 'COMPLETED') {
+      logCurrentRound(runtime.config.roundsTotal);
       hydrateRoundsProgress(runtime.config.roundsTotal);
       setCountdownValue(null);
       setMainState('COMPLETED');
       timelineHydratedRef.current = true;
     }
-  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound]);
+  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound, runtimeReadyVersion]);
 
   // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
   useEffect(() => {
@@ -2065,6 +2457,13 @@ const forceFullReplayRef = useRef(false);
         return;
       }
       
+      // 初始化当前轮的奖品（legendary 先显示占位符）
+      const initialPrizes: Record<string, string> = {};
+      Object.entries(currentRoundData.results).forEach(([participantId, result]) => {
+        if (!result) return;
+        initialPrizes[participantId] = result.needsSecondSpin ? 'golden_placeholder' : result.itemId;
+      });
+      dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes: initialPrizes });
       
       // 🎯 重置这一轮的spinStatus（清除上一轮残留）
       currentRoundData.spinStatus.firstStage.completed.clear();
@@ -2154,10 +2553,10 @@ const forceFullReplayRef = useRef(false);
           }
         }
         
-        // 等待0.5秒让玩家看清金色占位符
+        // 轻微延迟，确保占位符渲染后立即进入第二阶段
         setTimeout(() => {
           setRoundState('ROUND_PREPARE_SECOND');
-        }, 500); // 0.5秒延迟
+        }, 80);
       } else {
         // 无人中legendary，立即结算
         setRoundState('ROUND_SETTLE');
@@ -2199,10 +2598,10 @@ const forceFullReplayRef = useRef(false);
       dispatchProgressState({ type: 'SET_SLOT_KEY_SUFFIX', suffixMap: newKeySuffix });
       
       
-      // 等待老虎机重新挂载完成
+      // 很短的延迟，确保关键数据写入后立即开始第二段
       setTimeout(() => {
         setRoundState('ROUND_SPIN_SECOND');
-      }, 800); // 更长延迟等待重新挂载
+      }, 80);
     
     }
   }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, currentRoundPrizes, dispatchProgressState]);
@@ -2327,6 +2726,9 @@ const forceFullReplayRef = useRef(false);
         if (!participant || !participant.id) return;
         
         const result = currentRoundData.results[participant.id];
+        if (!result) {
+          return;
+        }
         const itemId = result.itemId;
         
         // 从对应的池中找到道具
@@ -2386,14 +2788,19 @@ const forceFullReplayRef = useRef(false);
       dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
       
       // 🔥 结果已预设，立即进入下一阶段
-      setTimeout(() => {
-        // 🔥 淘汰模式：检查是否需要淘汰
+      const proceedToNextPhase = () => {
         if (gameMode === 'elimination') {
           setRoundState('ROUND_CHECK_ELIMINATION');
         } else {
           setRoundState('ROUND_NEXT');
         }
-      }, 100);
+      };
+
+      if (gameMode === 'elimination') {
+        proceedToNextPhase();
+      } else {
+        setTimeout(proceedToNextPhase, 100);
+      }
     }
   }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, gameMode, isTeamMode, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
 
@@ -2576,24 +2983,8 @@ const forceFullReplayRef = useRef(false);
       if (nextRound < gameData.totalRounds) {
         // 🎯 提前准备下一轮的奖品数据（避免竞态条件）
         const nextRoundData = gameRoundsRef.current[nextRound];
-        if (nextRoundData) {
-          const nextPrizes: Record<string, string> = {};
-          
-          // 🎯 为所有参与者设置奖品ID
-          Object.keys(nextRoundData.results).forEach(participantId => {
-            const result = nextRoundData.results[participantId];
-            // 第一段期间显示占位符，第二段显示真实ID
-            if (result.needsSecondSpin) {
-              nextPrizes[participantId] = 'golden_placeholder';
-            } else {
-              nextPrizes[participantId] = result.itemId;
-            }
-          });
-          
-          dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes: nextPrizes });
-        }
-        
-        // 重置玩家数据源和key后缀
+        // 重置奖品、玩家数据源和key后缀
+        dispatchProgressState({ type: 'RESET_CURRENT_ROUND_PRIZES' });
         dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
         dispatchProgressState({ type: 'RESET_SLOT_KEY_SUFFIX' });
         dispatchProgressState({ type: 'RESET_ROUND_FLAGS', roundIndex: currentRound });
@@ -2649,58 +3040,10 @@ const forceFullReplayRef = useRef(false);
             金额: prize ? `¥${Number(prize.price ?? 0).toFixed(2)}` : '—',
           };
         });
-        console.groupCollapsed(`【Battle Playback】第 ${roundIndex + 1} 轮结果`);
-        console.table(tableRows);
-        console.groupEnd();
       });
   }, [battleData.participants, roundResults]);
   
 
-  
-  const lastPrizesUpdateRef = useRef<string>('');
-  
-  useEffect(() => {
-    const updateKey = `${gameData.currentRound}-${roundState}`;
-    
-    if (lastPrizesUpdateRef.current === updateKey) {
-      return;
-    }
-    lastPrizesUpdateRef.current = updateKey;
-    
-    const currentRoundData = gameRoundsRef.current[gameData.currentRound];
-    if (!currentRoundData) return;
-    
-    
-    // 🎯 构建奖品映射（关键：第一段期间必须显示占位符）
-    const prizes: Record<string, string> = {};
-    Object.keys(currentRoundData.results).forEach(participantId => {
-      const result = currentRoundData.results[participantId];
-      
-      // 判断当前阶段
-      const isFirstStage = roundState === 'ROUND_RENDER' 
-                        || roundState === 'ROUND_SPIN_FIRST' 
-                        || roundState === 'ROUND_CHECK_LEGENDARY';
-      
-      if (result.needsSecondSpin && isFirstStage) {
-        // 第一段 + legendary道具 → 显示占位符
-        prizes[participantId] = 'golden_placeholder';
-      } else {
-        // 第二段 或 普通道具 → 显示真实ID
-        prizes[participantId] = result.itemId;
-      }
-    });
-    dispatchProgressState({ type: 'SET_CURRENT_ROUND_PRIZES', prizes });
-  }, [gameData.currentRound, roundState, dispatchProgressState]);
-
-  // 旧的自动启动逻辑已被状态机接管，删除
-
-  // 🚀 使用 ref 来获取最新的 mainState，避免依赖变化导致回调重新创建
-  const mainStateRef = useRef(mainState);
-  mainStateRef.current = mainState;
-  
-  // 🚀 使用 ref 追踪上一次的值，避免不必要的状态更新
-  const prevAllSlotsFilledRef = useRef<boolean>(false);
-  const prevParticipantsLengthRef = useRef<number>(0);
   
   // Handle when all slots are filled
   const handleAllSlotsFilledChange = useCallback((filled: boolean, participants?: any[]) => {
@@ -2799,9 +3142,12 @@ const forceFullReplayRef = useRef(false);
     if (plan) {
       setTieBreakerPlan(plan);
     } else {
+      if (gameMode === 'jackpot' && jackpotPhase !== 'winner') {
+        return;
+      }
       setTieBreakerGateOpen(true);
     }
-  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, evaluateTieBreakerPlan]);
+  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, evaluateTieBreakerPlan, gameMode, jackpotPhase]);
 
   // 旧的完成检查和轮次切换逻辑已被状态机接管
   
@@ -2827,12 +3173,15 @@ const forceFullReplayRef = useRef(false);
           }));
           
           const preCalculatedWinner = jackpotWinnerRef.current;
-          const winnerId = preCalculatedWinner?.id || '';
+          const winnerId = predeterminedWinnerIds[0] || preCalculatedWinner?.id || '';
           
           setJackpotPlayerSegments(segments);
           setJackpotWinnerId(winnerId);
-          setJackpotPhase('rolling');
-        } else {
+        }
+
+        if (isJackpotWithLastChance) {
+          setJackpotPhase('winner');
+        } else if (jackpotPhase !== 'winner') {
           setJackpotPhase('rolling');
         }
       }
@@ -2867,6 +3216,9 @@ const forceFullReplayRef = useRef(false);
     participantValues,
     playerColors,
     jackpotPlayerSegments.length,
+    predeterminedWinnerIds,
+    jackpotPhase,
+    isJackpotWithLastChance,
   ]);
 
   useEffect(() => {
@@ -2918,7 +3270,7 @@ const forceFullReplayRef = useRef(false);
           }}
         >
         {/* 🏆 Jackpot 大奖模式奖池显示 */}
-        {gameMode === 'jackpot' && showSlotMachines && !allRoundsCompleted && (
+        {gameMode === 'jackpot' && !isJackpotWithLastChance && showSlotMachines && !allRoundsCompleted && (
           <div className="flex absolute justify-center top-0 md:top-4 left-0 right-0">
             <div className="flex self-center relative z-[5] bg-gradient-to-b from-[#FFD39F] to-[#3E2D19] rounded-lg p-[1px]">
               <div className="flex bg-gray-650 rounded-lg">
@@ -2948,7 +3300,7 @@ const forceFullReplayRef = useRef(false);
               });
               
               // 🎰 阶段1：显示色条滚动动画（内联实现，避免组件重新挂载）
-              if (jackpotPhase === 'rolling' && jackpotPlayerSegments.length > 0) {
+              if (jackpotPhase === 'rolling' && jackpotPlayerSegments.length > 0 && !isJackpotWithLastChance) {
                 return <JackpotProgressBarInline 
                   key={`jackpot-animation-${jackpotAnimationKey}`}
                   players={jackpotPlayerSegments}
@@ -3044,7 +3396,7 @@ const forceFullReplayRef = useRef(false);
                         </div>
                       </div>
                       <div className="flex flex-col items-center max-w-[100px] md:max-w-[200px]">
-                        <span className="font-bold text-sm md:text-lg xl:text-xl text-center w-full truncate">{member.name}</span>
+                        <span className="font-bold text-sm md:text-lg xl:text-xl text-center w-full truncate text-white">{member.name}</span>
                         <p className="text-sm md:text-base text-white font-bold">${prizePerPerson.toFixed(2)}</p>
                       </div>
                     </div>
@@ -3889,6 +4241,8 @@ const forceFullReplayRef = useRef(false);
               sprintScores={sprintScores}
               currentRound={gameData.currentRound}
               completedRounds={completedRounds}
+              onPendingSlotAction={isPendingBattle ? onPendingSlotAction : undefined}
+              pendingButtonLabel={pendingSlotActionLabel}
             />
         {selectedPack && (
           <PackDetailModal

@@ -17,6 +17,8 @@ interface ParticipantsWithPrizesProps {
   sprintScores?: Record<string, number>; // 🏃 积分冲刺模式：玩家/团队积分
   currentRound?: number; // 当前轮次（用于实时更新积分）
   completedRounds?: Set<number>; // 🚀 性能优化：已完成的轮次集合
+  onPendingSlotAction?: (order: number) => void;
+  pendingButtonLabel?: string;
 }
 
 export default function ParticipantsWithPrizes({
@@ -31,6 +33,8 @@ export default function ParticipantsWithPrizes({
   sprintScores = {},
   currentRound = 0,
   completedRounds = new Set(),
+  onPendingSlotAction,
+  pendingButtonLabel = '召唤机器人',
 }: ParticipantsWithPrizesProps) {
   const { participants, packs, playersCount, battleType, teamStructure } = battleData;
   
@@ -246,16 +250,20 @@ export default function ParticipantsWithPrizes({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotParticipants]);
 
-  const handleSummonBot = (slotIndex: number, teamId?: string) => {
+  const handlePendingSlotAction = (slotIndex: number, teamId?: string) => {
+    if (onPendingSlotAction) {
+      onPendingSlotAction(slotIndex + 1);
+      return;
+    }
     setSlotParticipants((prev) => {
       // 确保数组长度足够
       const ensuredArray = prev.length < totalSlots 
         ? [...prev, ...Array(totalSlots - prev.length).fill(null)]
         : prev;
       
-      if (ensuredArray[slotIndex]) {
-        return ensuredArray;
-      }
+        if (ensuredArray[slotIndex]) {
+          return ensuredArray;
+        }
       const updated = [...ensuredArray];
       updated[slotIndex] = {
         id: `bot-${slotIndex}-${Date.now()}`,
@@ -440,7 +448,7 @@ export default function ParticipantsWithPrizes({
                             style={{ backgroundColor: "#48BB78", cursor: "pointer" }}
                             onClick={() => {
                               if (realSlotIndex >= 0) {
-                                handleSummonBot(realSlotIndex, team.id);
+                                handlePendingSlotAction(realSlotIndex, team.id);
                               }
                             }}
                             onMouseEnter={(e) => {
@@ -450,7 +458,7 @@ export default function ParticipantsWithPrizes({
                               (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
                             }}
                           >
-                            召唤机器人
+                            {pendingButtonLabel}
                           </button>
                         )}
                       </div>
@@ -637,7 +645,7 @@ export default function ParticipantsWithPrizes({
                       <button
                         className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
                         style={{ backgroundColor: "#48BB78", cursor: "pointer" }}
-                        onClick={() => handleSummonBot(slotIndex)}
+                        onClick={() => handlePendingSlotAction(slotIndex)}
                         onMouseEnter={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#38A169";
                         }}
@@ -645,7 +653,7 @@ export default function ParticipantsWithPrizes({
                           (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
                         }}
                       >
-                        召唤机器人
+                        {pendingButtonLabel}
                       </button>
                     )}
                   </div>

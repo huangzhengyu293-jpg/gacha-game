@@ -16,6 +16,9 @@ export interface RawBattleListItem {
   user_id: number;
   num: number;
   join: number;
+  mode?: number | string;
+  fast?: number | string;
+  finally?: number | string;
   bean: string;
   status: number;
   created_at: string;
@@ -29,10 +32,13 @@ export interface RawBattleListItem {
   updated_at: string;
   win_bean: string;
   win_bean_double: string;
+  person_team?: number | string;
+  team_size?: number | string;
   users: RawBattleListUserSlot[];
   is_password: number;
   fight_user_type: number;
   boxs: number[];
+  boxs_cover?: Record<string, unknown> | Array<Record<string, unknown> | string> | string | null;
   boxs_num: number;
   win_user: number[];
   peoples: number;

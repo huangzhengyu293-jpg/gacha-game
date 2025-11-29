@@ -68,6 +68,7 @@ export interface BackendBattlePayload {
   };
   eliminationMeta?: {
     startRoundIndex: number;
+    eliminationOrder: string[];
   };
 }
 
