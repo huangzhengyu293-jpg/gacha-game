@@ -1,6 +1,6 @@
 "use client";
 
-import type { BattleData, Participant } from "../types";
+import type { BattleData, Participant, BattleSlot } from "../types";
 import Image from "next/image";
 import { useEffect, useState, useMemo, useRef } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
@@ -17,6 +17,9 @@ interface ParticipantsWithPrizesProps {
   sprintScores?: Record<string, number>; // 🏃 积分冲刺模式：玩家/团队积分
   currentRound?: number; // 当前轮次（用于实时更新积分）
   completedRounds?: Set<number>; // 🚀 性能优化：已完成的轮次集合
+  slotAssignments?: BattleSlot[]; // 🔄 兼容 legacy props
+  currentUserId?: string | null;
+  onJoinSlot?: (slotIndex: number, teamId?: string) => void;
 }
 
 export default function ParticipantsWithPrizes({
@@ -31,8 +34,14 @@ export default function ParticipantsWithPrizes({
   sprintScores = {},
   currentRound = 0,
   completedRounds = new Set(),
+  slotAssignments = [],
+  currentUserId = null,
+  onJoinSlot,
 }: ParticipantsWithPrizesProps) {
   const { participants, packs, playersCount, battleType, teamStructure } = battleData;
+  const hostUserId = battleData.hostUserId ? String(battleData.hostUserId) : null;
+  const isOwner = Boolean(currentUserId && hostUserId && currentUserId === hostUserId);
+  const canSummonBot = battleData.status === 'pending';
   
   // 🔥 调试：打印淘汰轮次信息
   useEffect(() => {
@@ -128,15 +137,26 @@ export default function ParticipantsWithPrizes({
     </svg>
   );
 
-  const totalSlots = useMemo(() => 
-    Math.max(playersCount || participants.length || 1, 1), 
-    [playersCount, participants.length]
+  const totalSlots = useMemo(
+    () =>
+      slotAssignments.length
+        ? slotAssignments.length
+        : Math.max(playersCount || participants.length || 1, 1),
+    [slotAssignments, playersCount, participants.length],
   );
   
-  const createSlotSnapshot = () =>
-    Array.from({ length: totalSlots }, (_, index) => participants[index] || null);
+  const createSlotSnapshot = () => {
+    if (slotAssignments.length) {
+      return slotAssignments.map((slot) => slot?.participant ?? null);
+    }
+    return Array.from({ length: totalSlots }, (_, index) => participants[index] || null);
+  };
 
   const [slotParticipants, setSlotParticipants] = useState<Array<Participant | null>>(createSlotSnapshot);
+  const participantSignature = useMemo(
+    () => participants.map((p) => (p?.id ? String(p.id) : '')).join(','),
+    [participants],
+  );
   
   // 按teamId分组玩家 + 计算队伍结构
   const teams = useMemo(() => {
@@ -174,17 +194,16 @@ export default function ParticipantsWithPrizes({
 
   // Only update if participants actually changed (by checking IDs)
   useEffect(() => {
+    if (slotAssignments.length) {
+      setSlotParticipants(slotAssignments.map((slot) => slot?.participant ?? null));
+      return;
+    }
     setSlotParticipants((prev) => {
-      // Create ID string for comparison
-      const currentParticipantIds = participants.map(p => p?.id || '').join(',');
-      const prevParticipantIds = prev.slice(0, participants.length).map(p => p?.id || '').join(',');
-      
-      // Only update if something actually changed
-      if (prevParticipantIds === currentParticipantIds && prev.length === totalSlots) {
+      const prevParticipantIds = prev.slice(0, participants.length).map((p) => p?.id || '').join(',');
+      if (prevParticipantIds === participantSignature && prev.length === totalSlots) {
         return prev;
       }
-      
-      // Create new array
+
       const next = Array.from({ length: totalSlots }, (_, index) => {
         const participantAtSlot = participants[index];
         if (participantAtSlot) {
@@ -194,7 +213,7 @@ export default function ParticipantsWithPrizes({
       });
       return next;
     });
-  }, [participants.length, totalSlots]);
+  }, [slotAssignments, participants, participantSignature, totalSlots]);
 
   const slots: Array<Participant | null> = slotParticipants;
   const slotsPerGroup = 3;
@@ -247,12 +266,17 @@ export default function ParticipantsWithPrizes({
   }, [slotParticipants]);
 
   const handleSummonBot = (slotIndex: number, teamId?: string) => {
+    if (!canSummonBot) {
+      return;
+    }
+    if (onJoinSlot) {
+      onJoinSlot(slotIndex, teamId);
+      return;
+    }
     setSlotParticipants((prev) => {
-      // 确保数组长度足够
-      const ensuredArray = prev.length < totalSlots 
-        ? [...prev, ...Array(totalSlots - prev.length).fill(null)]
-        : prev;
-      
+      const ensuredArray =
+        prev.length < totalSlots ? [...prev, ...Array(totalSlots - prev.length).fill(null)] : prev;
+
       if (ensuredArray[slotIndex]) {
         return ensuredArray;
       }
@@ -263,7 +287,7 @@ export default function ParticipantsWithPrizes({
         avatar: "",
         totalValue: "$0.00",
         isWinner: false,
-        teamId: teamId, // 添加teamId支持
+        teamId,
       };
       return updated;
     });
@@ -552,6 +576,7 @@ export default function ParticipantsWithPrizes({
           const slotKey = isRealSlot ? `slot-${slotIndex}` : `placeholder-${safeActiveGroup}-${slotOffset}`;
           const isBot = isBotParticipant(participant);
           const maskId = `${slotKey}-mask`;
+          const slotNumberLabel = slotIndex + 1;
           return (
             <div key={slotKey} className="flex flex-col w-full">
               <div
@@ -609,7 +634,7 @@ export default function ParticipantsWithPrizes({
                             className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
                             style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
                           >
-                            <span className="text-xxs font-bold leading-none text-white">0</span>
+                            <span className="text-xxs font-bold leading-none text-white">{slotNumberLabel}</span>
                           </div>
                         )}
                       </div>
@@ -636,12 +661,19 @@ export default function ParticipantsWithPrizes({
                     ) : (
                       <button
                         className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
-                        style={{ backgroundColor: "#48BB78", cursor: "pointer" }}
+                        style={{
+                          backgroundColor: canSummonBot ? "#48BB78" : "#34383C",
+                          cursor: canSummonBot ? "pointer" : "not-allowed",
+                          opacity: canSummonBot ? 1 : 0.6,
+                        }}
                         onClick={() => handleSummonBot(slotIndex)}
+                        disabled={!canSummonBot}
                         onMouseEnter={(e) => {
+                          if (!canSummonBot) return;
                           (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#38A169";
                         }}
                         onMouseLeave={(e) => {
+                          if (!canSummonBot) return;
                           (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
                         }}
                       >

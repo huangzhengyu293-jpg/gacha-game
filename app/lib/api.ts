@@ -92,6 +92,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/auth/logout',
   '/api/lucky/go',
   '/api/fight/save',
+  '/api/fight/detail',
 ];
 
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
@@ -449,6 +450,27 @@ export const api = {
     });
 
     const result = await request<ApiResponse<CreateBattleResult>>('/api/fight/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  getBattleDetail: async (battleId: string | number) => {
+    const result = await request<ApiResponse>('/api/fight/detail', {
+      method: 'GET',
+      params: { id: battleId },
+    });
+    return result;
+  },
+  inviteBattleRobot: async (battleId: string | number, order: number) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(battleId));
+    formData.append('order', String(order));
+
+    const result = await request<ApiResponse>('/api/fight/inviterobots', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

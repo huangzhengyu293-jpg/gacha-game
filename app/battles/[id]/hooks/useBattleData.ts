@@ -5,6 +5,15 @@ import { api } from '@/app/lib/api';
 import type { BattleData } from '../types';
 import type { CatalogPack } from '@/app/lib/api';
 
+type NormalizedPack = {
+  id: string;
+  image: string;
+  name: string;
+  value: string;
+  openedBy?: string;
+  items: CatalogPack['items'];
+};
+
 export function useBattleData(): BattleData {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -40,13 +49,6 @@ export function useBattleData(): BattleData {
   // 读取倒置模式
   const isInvertedParam = searchParams?.get('upsideDown') || 'false';
   const isInverted = isInvertedParam === 'true';
-  
-  console.log('🚀 [useBattleData] fastBattle参数:', isFastModeParam);
-  console.log('🚀 [useBattleData] isFastMode:', isFastMode);
-  console.log('🎯 [useBattleData] lastChance参数:', isLastChanceParam);
-  console.log('🎯 [useBattleData] isLastChance:', isLastChance);
-  console.log('🔄 [useBattleData] upsideDown参数:', isInvertedParam);
-  console.log('🔄 [useBattleData] isInverted:', isInverted);
 
   const { data: boxListData } = useQuery({
     queryKey: ['boxList', {}],
@@ -91,9 +93,6 @@ export function useBattleData(): BattleData {
       })()
     : null;
   
-  // 🔍 调试：检查用户数据
-  console.log('🔍 [useBattleData] currentUser:', currentUser);
-
   const selectedPacks = packIds
     .map((id) => allPacks.find((pack: CatalogPack) => pack.id === id))
     .filter((pack): pack is CatalogPack => pack !== undefined)
@@ -106,17 +105,39 @@ export function useBattleData(): BattleData {
       items: pack.items ?? [],
     }));
 
-  const totalCost = selectedPacks.reduce((sum, pack) => {
+  const normalizedPacks = useMemo<NormalizedPack[]>(() => {
+    if (selectedPacks.length > 0) {
+      return selectedPacks;
+    }
+
+    if (allPacks.length > 0) {
+      const packLimit = Math.max(1, Math.min(playersCount, allPacks.length));
+      return allPacks.slice(0, packLimit).map((pack: CatalogPack) => ({
+        id: pack.id,
+        image: pack.image,
+        name: pack.title || 'Pack',
+        value: `$${Number(pack.price || 0).toFixed(2)}`,
+        openedBy: undefined,
+        items: pack.items ?? [],
+      }));
+    }
+
+    return [
+      {
+        id: 'fallback-pack',
+        image: '',
+        name: '默认卡包',
+        value: '$0.00',
+        openedBy: undefined,
+        items: [],
+      },
+    ];
+  }, [selectedPacks, allPacks, playersCount]);
+
+  const totalCost = normalizedPacks.reduce((sum, pack) => {
     const price = parseFloat(pack.value.replace('$', '').replace(/,/g, '')) || 0;
     return sum + price;
   }, 0);
-
-  const normalizedPacks =
-    selectedPacks.length > 0
-      ? selectedPacks
-      : [
-         
-        ];
 
   const currentUserName = currentUser?.username ?? '我的账号';
   const currentUserId = currentUser?.id ?? 'local-user';
@@ -173,7 +194,7 @@ export function useBattleData(): BattleData {
     totalCost,
     battleType,
     teamStructure,
-    normalizedPacks.length,
+    normalizedPacks,
     currentUserId,
     currentUserName,
     playersCount,

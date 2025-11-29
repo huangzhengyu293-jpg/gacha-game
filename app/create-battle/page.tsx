@@ -265,22 +265,38 @@ function CreateBattleContent() {
   const createBattleMutation = useMutation({
     mutationFn: (payload: CreateBattlePayload) => api.createBattle(payload),
     onSuccess: (response: ApiResponse<CreateBattleResult>) => {
-      const result = response?.data ?? {};
-      const createdBattleId =
-        result.id ??
-        result.fight_id ??
-        result.fightId ??
-        result?.fight?.id ??
-        result?.fight?.fight_id;
+      if (!response || response.code !== 100000) {
+        showGlobalToast({
+          title: "创建失败",
+          description: response?.message || "接口返回异常，请稍后再试",
+          variant: "error",
+          durationMs: 2600,
+        });
+        return;
+      }
 
-      if (createdBattleId) {
+      const rawData = response.data;
+      const extractedId =
+        (typeof rawData === "object" && rawData !== null
+          ? rawData.id ??
+            rawData.fight_id ??
+            rawData.fightId ??
+            rawData?.fight?.id ??
+            rawData?.fight?.fight_id
+          : rawData) ?? null;
+      const normalizedBattleId =
+        extractedId !== null && extractedId !== undefined
+          ? String(extractedId)
+          : "";
+
+      if (normalizedBattleId) {
         showGlobalToast({
           title: "创建成功",
           description: "即将跳转到对战详情",
           variant: "success",
           durationMs: 2000,
         });
-        router.push(`/battles/${createdBattleId}`);
+        router.push(`/battles/${normalizedBattleId}`);
         return;
       }
 

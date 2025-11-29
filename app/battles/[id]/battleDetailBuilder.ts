@@ -1,4 +1,4 @@
-import type { BattleData } from './types';
+import type { BattleData, BattleStatus, BattleSlot } from './types';
 import type { SlotSymbol } from '@/app/components/SlotMachine/LuckySlotMachine';
 import type { BackendBattlePayload, BackendRoundDrop } from './battlePayloadTypes';
 import { battlesDetail } from '@/app/components/bettlesDetail';
@@ -6,7 +6,7 @@ import { battlesDetail } from '@/app/components/bettlesDetail';
 export type RawBattleDetail = (typeof battlesDetail)[keyof typeof battlesDetail];
 
 type RawBox = RawBattleDetail['box'][number];
-type RawWinBox = RawBattleDetail['data']['win']['box'];
+type RawWinBox = RawBattleDetail['data'] extends { win: { box: infer T } } ? T : Record<string, never>;
 type WinBoxEntry = RawWinBox[keyof RawWinBox];
 
 const QUALITY_MAP: Record<number, string> = {
@@ -59,12 +59,12 @@ function buildLookups(raw: RawBattleDetail) {
   (raw.box || []).forEach((box) => boxLookup.set(box.id, box));
 
   const winBoxLookup: Record<string, WinBoxEntry> = {};
-  Object.entries(raw.data.win.box || {}).forEach(([key, value]) => {
+  Object.entries(raw.data?.win?.box || {}).forEach(([key, value]) => {
     winBoxLookup[String(key)] = value as WinBoxEntry;
   });
 
   const userBeanMap: Record<string, number> = {};
-  Object.entries(raw.data.win.bean || {}).forEach(([key, value]) => {
+  Object.entries(raw.data?.win?.bean || {}).forEach(([key, value]) => {
     userBeanMap[String(key)] = parseNumber(value);
   });
 
@@ -90,29 +90,78 @@ function getRoundResultForUser(winBoxLookup: Record<string, WinBoxEntry>, userId
   return winBoxLookup[userId]?.[roundIndex];
 }
 
+function normalizeUserEntry(entry: any) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  if (!entry.user || typeof entry.user !== 'object') return null;
+  return entry;
+}
+
 function buildBattleParticipants(raw: RawBattleDetail, userBeanMap: Record<string, number>) {
   const winners = new Set(
     Array.isArray(raw.win_user) ? raw.win_user.map((id) => String(id)) : [],
   );
 
-  return (raw.users || []).map((entry) => {
-    const user = entry.user;
-    const userId = String(user.id);
-    return {
-      id: userId,
-      name: user.name,
-      avatar: user.avatar,
-      totalValue: formatCurrency(userBeanMap[userId] ?? 0),
-      isWinner: winners.has(userId),
-      teamId: undefined,
-      items: [],
-    };
-  });
+  const totalSlots =
+    Number(raw.num) > 0
+      ? Number(raw.num)
+      : Math.max(
+          Array.isArray(raw.users) ? raw.users.length : 0,
+          (raw.data?.box?.length ?? 0) || 1,
+        );
+  const slots: BattleSlot[] = Array.from({ length: Math.max(totalSlots, 1) }, (_, index) => ({
+    participant: null,
+    userId: null,
+    order: index + 1,
+  }));
+
+  const participants = (raw.users || [])
+    .map(normalizeUserEntry)
+    .filter(Boolean)
+    .map((entry) => {
+      const user = entry!.user;
+      const userId = String(user.id);
+      const participant = {
+        id: userId,
+        name: user.name || `玩家${userId}`,
+        avatar: user.avatar || '',
+        totalValue: formatCurrency(userBeanMap[userId] ?? 0),
+        isWinner: winners.has(userId),
+        teamId: undefined,
+        items: [],
+      };
+
+      const seatIndex =
+        typeof entry!.order === 'number' && entry!.order > 0
+          ? entry!.order - 1
+          : slots.findIndex((slot) => slot.participant === null);
+
+      if (seatIndex >= 0 && seatIndex < slots.length) {
+        slots[seatIndex] = {
+          participant,
+          userId: participant.id,
+          order: seatIndex + 1,
+          originalSlotMeta: entry!,
+        };
+      } else {
+        slots.push({
+          participant,
+          userId: participant.id,
+          order: slots.length + 1,
+          originalSlotMeta: entry!,
+        });
+      }
+
+      return participant;
+    });
+
+  return { participants, slots };
 }
 
 function buildBattlePacks(raw: RawBattleDetail, boxLookup: Map<number, RawBox>) {
   return (raw.data.box || []).map((boxId) => {
-    const box = boxLookup.get(boxId);
+    const numericId = Number(boxId);
+    const lookupKey = Number.isFinite(numericId) ? numericId : Number(boxId);
+    const box = boxLookup.get(lookupKey);
     const slotSymbols = buildSlotSymbolsForBox(box);
     return {
       id: String(boxId),
@@ -129,26 +178,49 @@ export function buildBattleDataFromRaw(raw: RawBattleDetail, options?: BuildOpti
   const { boxLookup, userBeanMap } = buildLookups(raw);
   const packsWithSymbols = buildBattlePacks(raw, boxLookup);
   const packs = packsWithSymbols.map(({ slotSymbols, ...pack }) => pack);
-  const participants = buildBattleParticipants(raw, userBeanMap);
+  const { participants, slots } = buildBattleParticipants(raw, userBeanMap);
   const explicitCost = parseNumber(raw.bean);
   const fallbackCost = packsWithSymbols.reduce((sum, pack) => sum + parseNumber(pack.value.replace('$', '')), 0);
   const totalOpened = Object.values(userBeanMap).reduce((sum, value) => sum + value, 0);
   const battleId = options?.battleId ?? String(raw.id);
-  const specialOptions = options?.specialOptions ?? {};
+  const rawAny = raw as Record<string, any>;
+  const updatedTimestamp = parseNumber(rawAny?.updated_at_time);
+  const specialOptions = {
+    fast: rawAny?.fast === 1,
+    lastChance: rawAny?.finally === 1,
+    inverted: rawAny?.type === 1,
+    ...options?.specialOptions,
+  };
+  const modeMap: Record<number, string> = {
+    0: 'classic',
+    1: 'share',
+    2: 'sprint',
+    3: 'jackpot',
+    4: 'elimination',
+  };
+  const resolvedMode = modeMap[parseNumber(rawAny?.mode)] ?? 'classic';
+  const playersCount = Number(raw.num) > 0 ? Number(raw.num) : Math.max(slots.length, participants.length, 1);
+  const numericStatus = parseNumber(raw.status);
+  const status: BattleStatus =
+    numericStatus === 2 ? 'completed' : numericStatus === 1 ? 'active' : 'pending';
 
   return {
     id: battleId,
     title: raw.title || `Battle #${raw.id}`,
-    mode: 'classic',
-    status: 'pending',
+    mode: resolvedMode,
+    status,
     cost: formatCurrency(explicitCost || fallbackCost),
     totalOpened: formatCurrency(totalOpened),
     battleType: 'solo',
     teamStructure: undefined,
     packs,
     participants,
+    slots,
     createdAt: raw.created_at,
-    playersCount: participants.length,
+    hostUserId: raw.user_id ? String(raw.user_id) : undefined,
+    rawStatusCode: numericStatus,
+    updatedTimestamp: updatedTimestamp > 0 ? updatedTimestamp : undefined,
+    playersCount,
     isFastMode: Boolean(specialOptions.fast),
     isLastChance: Boolean(specialOptions.lastChance),
     isInverted: Boolean(specialOptions.inverted),
@@ -157,20 +229,38 @@ export function buildBattleDataFromRaw(raw: RawBattleDetail, options?: BuildOpti
 
 export function buildBattlePayloadFromRaw(raw: RawBattleDetail, options?: BuildOptions): BackendBattlePayload {
   const { boxLookup, winBoxLookup } = buildLookups(raw);
-  const participants = (raw.users || []).map((entry) => ({
-    id: String(entry.user.id),
-    name: entry.user.name,
-    avatar: entry.user.avatar,
-    teamId: undefined,
-  }));
+  const participants = (raw.users || [])
+    .map(normalizeUserEntry)
+    .filter(Boolean)
+    .map((entry) => ({
+      id: String(entry!.user.id),
+      name: entry!.user.name,
+      avatar: entry!.user.avatar,
+      teamId: undefined,
+    }));
 
   const battleId = options?.battleId ?? String(raw.id);
-  const specialOptions = options?.specialOptions ?? {};
+  const rawAny = raw as Record<string, any>;
+  const specialOptions = {
+    fast: rawAny?.fast === 1,
+    lastChance: rawAny?.finally === 1,
+    inverted: rawAny?.type === 1,
+    ...options?.specialOptions,
+  };
 
   const config: BackendBattlePayload['config'] = {
     battleId,
     matchVariant: 'solo',
-    gameplay: 'classic',
+    gameplay: ((): BackendBattlePayload['config']['gameplay'] => {
+      const modeMap: Record<number, BackendBattlePayload['config']['gameplay']> = {
+        0: 'classic',
+        1: 'share',
+        2: 'sprint',
+        3: 'jackpot',
+        4: 'elimination',
+      };
+      return modeMap[parseNumber(rawAny?.mode)] ?? 'classic';
+    })(),
     specialRules: {
       fast: Boolean(specialOptions.fast),
       lastChance: Boolean(specialOptions.lastChance),

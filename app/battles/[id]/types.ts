@@ -27,6 +27,14 @@ export type Participant = {
   items?: PrizeItem[];
 };
 
+export type BattleSlot = {
+  participant: Participant | null;
+  userId?: string | null;
+  order?: number;
+  isFake?: boolean;
+  originalSlotMeta?: Record<string, any>;
+};
+
 export type BattleStatus = 'active' | 'completed' | 'pending';
 
 export type BattleData = {
@@ -46,6 +54,10 @@ export type BattleData = {
   isFastMode?: boolean;
   isLastChance?: boolean;
   isInverted?: boolean;
+  hostUserId?: string;
+  rawStatusCode?: number;
+  updatedTimestamp?: number;
+  slots?: BattleSlot[];
   // 淘汰模式数据
   eliminations?: {
     [roundIndex: number]: {
