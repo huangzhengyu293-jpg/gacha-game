@@ -39,6 +39,26 @@ function allocateParticipantsToSlots(participants: Participant[], totalSlots: nu
 
 const formatSlotNumber = (slotIndex: number) => slotIndex + 1;
 
+const QUALITY_COLOR_FALLBACK: Record<string, string> = {
+  legendary: '#E4AE33',
+  mythic: '#EB4B4B',
+  epic: '#8847FF',
+  rare: '#4B69FF',
+  common: '#829DBB',
+  placeholder: '#E4AE33',
+};
+
+function resolveGlowColor(result?: SlotSymbol): string {
+  if (!result) {
+    return QUALITY_COLOR_FALLBACK.common;
+  }
+
+  if (result.qualityId && QUALITY_COLOR_FALLBACK[result.qualityId]) {
+    return QUALITY_COLOR_FALLBACK[result.qualityId];
+  }
+  return QUALITY_COLOR_FALLBACK.common;
+}
+
 interface ParticipantsWithPrizesProps {
   battleData: BattleData;
   onAllSlotsFilledChange?: (filled: boolean, participants?: any[]) => void;
@@ -316,17 +336,12 @@ export default function ParticipantsWithPrizes({
     const renderMember = (member: Participant, index: number, teamId: string, slotNumber: number) => {
       const isBot = isBotParticipant(member);
       const maskId = `${teamId}-member-${index}-mask`;
+      const isEliminated = gameMode === 'elimination' && eliminatedPlayerIds.has(member.id);
       
       return (
         <div key={member.id} className="flex gap-2 items-center justify-center flex-col sm:flex-row">
           <div className="flex relative">
-            <div 
-              className="relative" 
-              style={{ 
-                opacity: gameMode === 'elimination' && eliminatedPlayerIds.has(member.id) ? 0.3 : 1 
-              }}
-            >
-              {/* 头像 */}
+            <div className="relative">
               <div
                 className="overflow-hidden border rounded-full border-gray-700"
                 style={{ borderWidth: "1px" }}
@@ -346,20 +361,18 @@ export default function ParticipantsWithPrizes({
                   )}
                 </div>
               </div>
+              {isEliminated && (
+                <>
+                  <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                      <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
+                      <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
+                    </svg>
+                  </div>
+                </>
+              )}
             </div>
-            
-            {/* 🔥 淘汰禁止图标 */}
-            {gameMode === 'elimination' && eliminatedPlayerIds.has(member.id) && (
-              <div 
-                className="flex absolute left-0 top-0 text-[#FF9C49] z-10"
-                style={{ width: '34px', height: '34px' }}
-              >
-                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
-                  <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
-                </svg>
-              </div>
-            )}
             
             {/* 序号标记 - 机器人不显示 */}
             {!isBot && (
@@ -592,12 +605,7 @@ export default function ParticipantsWithPrizes({
                     {participant ? (
                       <div className="flex gap-2 items-center justify-center flex-col sm:flex-row">
                       <div className="flex relative">
-                        <div 
-                          className="relative" 
-                          style={{ 
-                            opacity: gameMode === 'elimination' && eliminatedPlayerIds.has(participant.id) ? 0.3 : 1 
-                          }}
-                        >
+                        <div className="relative">
                           <div
                               className="overflow-hidden border rounded-full border-gray-700"
                               style={{ borderWidth: "1px" }}
@@ -617,20 +625,18 @@ export default function ParticipantsWithPrizes({
                                 )}
                             </div>
                           </div>
+                          {gameMode === 'elimination' && eliminatedPlayerIds.has(participant.id) && (
+                            <>
+                              <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
+                                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                                  <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
+                                  <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
+                                </svg>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        
-                        {/* 🔥 淘汰禁止图标 */}
-                        {gameMode === 'elimination' && eliminatedPlayerIds.has(participant.id) && (
-                          <div 
-                            className="flex absolute left-0 top-0 text-[#FF9C49] z-10"
-                            style={{ width: '34px', height: '34px' }}
-                          >
-                            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
-                              <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
-                            </svg>
-                          </div>
-                        )}
                         
                         {/* 序号标记 - 机器人不显示 */}
                         {!isBot && participant.vipLevel && participant.vipLevel > 0 && (
@@ -790,6 +796,7 @@ function LazyRoundCard({
   const isEliminatedPlayer = member && gameMode === 'elimination' && eliminationRounds?.[member.id] !== undefined;
   const eliminatedAtRound = isEliminatedPlayer ? eliminationRounds![member.id] : -1;
   const shouldShowEliminationOverlay = isEliminatedPlayer && packIndex >= eliminatedAtRound;
+  const roundGlowColor = resolveGlowColor(playerResult);
 
   // 🎯 统一返回：根据可见性决定渲染内容
   return (
@@ -806,13 +813,7 @@ function LazyRoundCard({
             <>
               <div 
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 group-hover:opacity-90 filter blur-[25px]"
-                style={{ 
-                  backgroundColor: playerResult.qualityId === 'legendary' ? '#FFD700' :
-                    playerResult.qualityId === 'epic' ? '#A335EE' :
-                    playerResult.qualityId === 'rare' ? '#0070DD' :
-                    playerResult.qualityId === 'uncommon' ? '#1EFF00' :
-                    '#9D9D9D'
-                }}
+                style={{ backgroundColor: roundGlowColor }}
               />
               
               <div className="absolute inset-0 flex w-full h-full flex-col justify-between items-center p-3 text-center">

@@ -28,6 +28,26 @@ export interface HorizontalLuckySlotMachineHandle {
   updateReelContent: (newSymbols: SlotSymbol[]) => void;
 }
 
+const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
+
+const GLOW_COLOR_MAP: Record<string, string> = {
+  legendary: '#E4AE33',
+  mythic: '#EB4B4B',
+  epic: '#8847FF',
+  rare: '#4B69FF',
+  placeholder: '#E4AE33',
+};
+
+function resolveGlowColor(symbol: SlotSymbol): string | null {
+  if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
+    return '#E4AE33';
+  }
+  if (!symbol.qualityId) {
+    return '#829DBB';
+  }
+  return GLOW_COLOR_MAP[symbol.qualityId] ?? '#829DBB';
+}
+
 const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, HorizontalLuckySlotMachineProps>(({
   symbols,
   selectedPrizeId,
@@ -151,6 +171,14 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     itemWidthRef.current = itemWidth;
     itemsPerReelRef.current = itemsPerReel;
   }, [reelCenter, itemWidth, itemsPerReel]);
+
+  const setSelectedBackdropVisibility = useCallback((visible: boolean) => {
+    if (!reelContainerRef.current || isEliminationMode) return;
+    const nodes = reelContainerRef.current.querySelectorAll<HTMLElement>('.selected-backdrop');
+    nodes.forEach(node => {
+      node.style.display = visible ? 'block' : 'none';
+    });
+  }, [isEliminationMode]);
 
   const updateSelection = useCallback(() => {
     if (!reelContainerRef.current || selectionLockedRef.current) return;
@@ -278,23 +306,17 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         element.style.maxHeight = '195px';
         element.style.transform = 'translate(-97.5px, -97.5px)';
         
-        // 光晕背景（只在有qualityId时创建）
+        const glowColor = resolveGlowColor(item);
         let glow: HTMLDivElement | null = null;
+        let selectedBackdrop: HTMLDivElement | null = null;
         
-        if (item.qualityId) {
-          // 🔥 根据新的品质系统设置光晕颜色
-          const glowColor = item.qualityId === 'legendary' ? '#E4AE33'  // 传说 - 金色
-            : item.qualityId === 'mythic' ? '#EB4B4B'      // 神话 - 红色
-            : item.qualityId === 'epic' ? '#8847FF'        // 史诗 - 紫色
-            : item.qualityId === 'rare' ? '#4B69FF'        // 稀有 - 蓝色
-            : '#829DBB';  // 普通 - 灰色
-          
+        if (glowColor) {
           glow = document.createElement('div');
           glow.className = 'glow';
           glow.style.position = 'absolute';
           glow.style.top = '50%';
           glow.style.left = '50%';
-          glow.style.transform = 'translate(-50%, -50%)';
+          glow.style.transform = 'translate(-50%, -50%) translateZ(0)';
           glow.style.width = '60%';
           glow.style.height = '60%';
           glow.style.aspectRatio = '1';
@@ -304,8 +326,15 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           glow.style.opacity = '0.4';
           glow.style.transition = 'opacity 0.08s ease-out';
           glow.style.willChange = 'opacity';
-          glow.style.transform = 'translate(-50%, -50%) translateZ(0)';
           glow.style.zIndex = '1'; // 确保光晕在图片后面
+          
+          if (!isEliminationMode) {
+            selectedBackdrop = document.createElement('div');
+            selectedBackdrop.className = 'selected-backdrop';
+            selectedBackdrop.style.setProperty('--selected-backdrop-color', glowColor);
+            selectedBackdrop.style.backgroundColor = glowColor;
+            selectedBackdrop.style.display = 'block';
+          }
         }
         
         // 图片容器
@@ -474,6 +503,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         if (glow) {
           element.appendChild(glow); // 只在有光晕时添加
         }
+        if (selectedBackdrop) {
+          element.appendChild(selectedBackdrop);
+        }
         element.appendChild(imgWrapper);
         element.appendChild(itemInfo);
         container.appendChild(element);
@@ -626,17 +658,23 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           }
         }
         
-        if (selectedIndex !== null) {
-          const randomOffset = (Math.random() * 30 + 10) * (Math.random() < 0.5 ? 1 : -1);
-          targetLeft = reelCenterRef.current - (selectedIndex * actualItemWidth) + randomOffset;
+         if (selectedIndex !== null) {
+           const minOffset = itemWidthRef.current / 3;
+           const maxOffset = itemWidthRef.current;
+           const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
+           const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
+           targetLeft = reelCenterRef.current - (selectedIndex * actualItemWidth) + randomOffset;
         } else {
           targetLeft = startLeft - minScrollDistance;
         }
       } else {
-        const pixelsPerMs = 0.8;
-        const scrollDistance = duration * pixelsPerMs;
-        const randomOffset = (Math.random() * 40 + 20) * (Math.random() < 0.5 ? 1 : -1);
-        targetLeft = startLeft - scrollDistance + randomOffset;
+         const pixelsPerMs = 0.8;
+         const scrollDistance = duration * pixelsPerMs;
+         const minOffset = itemWidthRef.current / 3;
+         const maxOffset = itemWidthRef.current;
+         const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
+         const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
+         targetLeft = startLeft - scrollDistance + randomOffset;
       }
       
       const distance = startLeft - targetLeft;
@@ -876,10 +914,13 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       onSpinStart();
     }
     
+    setSelectedBackdropVisibility(true);
+
     const duration = spinDuration || 4500;
     
     await spinPhase1(duration, selectedPrize);
     await spinPhase2(selectedPrize);
+    setSelectedBackdropVisibility(false);
     
     const finalResult = findClosestItem();
     
@@ -906,7 +947,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     isSpinningRef.current = false; // 🎵 重置ref状态
     // 保持选中锁定，不要重置
     // selectionLockedRef.current = false;  // 注释掉，保持选中状态
-  }, [isSpinning, onSpinStart, onSpinComplete, spinDuration, selectedPrize, spinPhase1, spinPhase2, findClosestItem]);
+  }, [isSpinning, onSpinStart, onSpinComplete, spinDuration, selectedPrize, spinPhase1, spinPhase2, findClosestItem, setSelectedBackdropVisibility]);
 
   const hasInitializedRef = useRef(false);
   
@@ -932,7 +973,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
 
   return (
     <div className="horizontal-lucky-slot-machine-container" ref={containerRef}>
-      <style jsx>{`
+      <style jsx global>{`
         .horizontal-lucky-slot-machine-container {
           width: 100%;
           height: 100%;
@@ -960,12 +1001,39 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           opacity: 0.4;
         }
         
+        .slot-item .selected-backdrop {
+          position: absolute;
+          width: 60%;
+          aspect-ratio: 1;
+          min-width: 60%;
+          min-height: 60%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) translateZ(0);
+          background-color: var(--selected-backdrop-color, #FFFFFF);
+          mask-image: url('/images/tick.svg');
+          mask-size: contain;
+          mask-position: center;
+          mask-repeat: no-repeat;
+          -webkit-mask-image: url('/images/tick.svg');
+          -webkit-mask-size: contain;
+          -webkit-mask-position: center;
+          -webkit-mask-repeat: no-repeat;
+          opacity: 0;
+          z-index: 2;
+          transition: opacity 0.12s ease-out;
+        }
+        
         .slot-item:hover .glow {
           opacity: 0.9;
         }
         
         .slot-item.selected .glow {
           opacity: 0.9;
+        }
+        
+        .slot-item.selected .selected-backdrop {
+          opacity: 1;
         }
         
         .slot-item.show-info .item-info {

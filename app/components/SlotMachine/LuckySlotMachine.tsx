@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import Image from 'next/image';
+import { getQualityFromLv } from '@/app/lib/catalogV2';
 
 export interface SlotSymbol {
   id: string;
@@ -26,6 +27,37 @@ interface LuckySlotMachineProps {
     startSpin: () => void;
     updateReelContent: (newSymbols: SlotSymbol[]) => void;
   }
+
+const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
+const QUALITY_HEX_MAP: Record<string, string> = {
+  legendary: '#E4AE33',
+  mythic: '#EB4B4B',
+  epic: '#8847FF',
+  rare: '#4B69FF',
+  common: '#829DBB',
+  placeholder: '#E4AE33',
+};
+
+function resolveQualityHex(symbol: SlotSymbol): string {
+  if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
+    return QUALITY_HEX_MAP.placeholder;
+  }
+
+  if (symbol.qualityId && QUALITY_HEX_MAP[symbol.qualityId]) {
+    return QUALITY_HEX_MAP[symbol.qualityId];
+  }
+  return QUALITY_HEX_MAP.common;
+}
+
+function hexToRgb(hex: string): string {
+  const normalized = hex.replace('#', '');
+  if (normalized.length !== 6) return '130, 157, 187';
+  const bigint = parseInt(normalized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `${r}, ${g}, ${b}`;
+}
 
 const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProps>(({
   symbols,
@@ -305,13 +337,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const glow = document.createElement('div');
     glow.className = 'item-glow';
     
-    // 🔥 根据新的品质系统设置光晕颜色（RGB 格式）
-    const glowColor = symbol.qualityId === 'legendary' ? '228, 174, 51'  // 传说 - 金色 #E4AE33
-      : symbol.qualityId === 'mythic' ? '235, 75, 75'     // 神话 - 红色 #EB4B4B
-      : symbol.qualityId === 'epic' ? '136, 71, 255'      // 史诗 - 紫色 #8847FF
-      : symbol.qualityId === 'rare' ? '75, 105, 255'      // 稀有 - 蓝色 #4B69FF
-      : '130, 157, 187'; // 普通 - 灰色 #829DBB
-    
+    const qualityHexColor = resolveQualityHex(symbol);
+    const glowColor = hexToRgb(qualityHexColor);
     glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
     
     // 图片包装器
@@ -343,6 +370,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     const selectedBackdrop = document.createElement('div');
     selectedBackdrop.className = 'selected-backdrop';
+    selectedBackdrop.style.backgroundColor = qualityHexColor;
     
     item.appendChild(glow);
     item.appendChild(selectedBackdrop);
@@ -1021,10 +1049,15 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           aspect-ratio: 1;
           min-width: 60%;
           min-height: 60%;
-          background-image: url('/images/jj.png');
-          background-size: contain;
-          background-position: center;
-          background-repeat: no-repeat;
+          background-color: var(--selected-backdrop-color, #FFFFFF);
+          mask-image: url('/images/tick.svg');
+          mask-size: contain;
+          mask-position: center;
+          mask-repeat: no-repeat;
+          -webkit-mask-image: url('/images/tick.svg');
+          -webkit-mask-size: contain;
+          -webkit-mask-position: center;
+          -webkit-mask-repeat: no-repeat;
           opacity: 0;
           z-index: 2;
           transform: translateZ(0);

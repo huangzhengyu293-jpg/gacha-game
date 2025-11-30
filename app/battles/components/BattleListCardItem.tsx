@@ -3,6 +3,7 @@
 import React, { Fragment } from "react";
 import type { BattleListCard } from "@/app/battles/battleListSource";
 import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
+import BattleConnectorIcon from "./BattleConnectorIcon";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -129,23 +130,6 @@ const ShareConnectorIcon = () => (
   </div>
 );
 
-const DefaultConnectorIcon = () => (
-  <div className="h-[14px] w-[14px] text-gray-400 flex items-center justify-center">
-    <svg viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M1.04798 4.77821C0.887314 4.61754 0.798011 4.39901 0.800175 4.1718L0.830497 0.988182C0.835516 0.461282 1.26142 0.0353727 1.78832 0.0303551L4.97194 3.84193e-05C5.19915 -0.00212522 5.41768 0.0871769 5.57835 0.247844L10.0071 4.67661L5.47675 9.20697L1.04798 4.77821ZM20.0141 0.0140547C19.7869 0.0118908 19.5683 0.101193 19.4077 0.261861L7.30719 12.3623L11.8376 16.8927L23.938 4.79223C24.0987 4.63156 24.188 4.41303 24.1858 4.18582L24.1555 1.0022C24.1505 0.475301 23.7246 0.049393 23.1977 0.0443749L20.0141 0.0140547ZM4.40089 12.8752C4.11764 12.592 3.6584 12.592 3.37515 12.8752L2.00749 14.2429C1.72424 14.5261 1.72424 14.9854 2.00749 15.2686L3.80254 17.0637C4.08579 17.3469 4.08579 17.8062 3.80254 18.0894L0.212439 21.6795C-0.0708128 21.9628 -0.0708128 22.422 0.212438 22.7053L1.49462 23.9874C1.77787 24.2707 2.23711 24.2707 2.52036 23.9874L6.11047 20.3973C6.39372 20.1141 6.85296 20.1141 7.13621 20.3973L8.93126 22.1924C9.21451 22.4756 9.67375 22.4756 9.957 22.1924L11.3247 20.8247C11.6079 20.5415 11.6079 20.0822 11.3247 19.799L4.40089 12.8752ZM13.6753 19.799C13.3921 20.0822 13.3921 20.5415 13.6753 20.8247L15.043 22.1924C15.3262 22.4756 15.7855 22.4756 16.0687 22.1924L17.8638 20.3973C18.147 20.1141 18.6063 20.1141 18.8895 20.3973L22.4796 23.9874C22.7629 24.2707 23.2221 24.2707 23.5054 23.9874L24.7876 22.7053C25.0708 22.422 25.0708 21.9628 24.7876 21.6795L21.1975 18.0894C20.9142 17.8062 20.9142 17.3469 21.1975 17.0637L22.9925 15.2686C23.2758 14.9854 23.2758 14.5261 22.9925 14.2429L21.6249 12.8752C21.3416 12.592 20.8824 12.592 20.5991 12.8752L13.6753 19.799Z"
-        fill="currentColor"
-      ></path>
-    </svg>
-  </div>
-);
-
-const VsIcon = () => (
-  <div className="text-gray-400 font-bold text-xs tracking-widest px-2 select-none">VS</div>
-);
-
 export default function BattleListCardItem({
   card,
   labels,
@@ -156,7 +140,7 @@ export default function BattleListCardItem({
 }: BattleListCardItemProps) {
   const modeVisual = getModeVisual(card.mode, card.title);
   const optionIcons = getSpecialOptionIcons(card.specialOptions);
-  const Connector = card.connectorStyle === "share" ? ShareConnectorIcon : DefaultConnectorIcon;
+  const Connector = card.connectorStyle === "share" ? ShareConnectorIcon : BattleConnectorIcon;
   const entryCost = formatCurrency(card.entryCost);
   const openedValue = formatCurrency(card.totalOpenedValue);
   const hasTeams = Boolean(card.isTeamBattle && card.teams?.length);
@@ -166,18 +150,31 @@ export default function BattleListCardItem({
       : Math.max(card.participants.length, Number(card.raw?.num) || 0);
 
   const renderParticipants = () => {
-    if (hasTeams && card.teams && card.teams.length > 0) {
-      const teams = card.teams;
+    if (hasTeams && card.participants.length) {
+      const membersPerTeam = card.teamStructure === "3v3" ? 3 : 2;
+      const teamCount =
+        card.teamStructure === "2v2v2"
+          ? 3
+          : Math.max(1, Math.floor(card.participants.length / membersPerTeam));
+      const teams = Array.from({ length: teamCount }, (_, idx) => {
+        const start = idx * membersPerTeam;
+        const members = Array.from({ length: membersPerTeam }, (_, i) => card.participants[start + i] ?? null);
+        return { id: `team-${idx}`, members };
+      });
       return (
         <div className="flex flex-wrap items-center justify-center gap-3">
           {teams.map((team, teamIdx) => (
-            <Fragment key={team.id}>
+            <Fragment key={team.id || `team-${teamIdx}`}>
               <div className="flex items-center gap-1">
-                {team.members.map((member) => (
-                  <Avatar key={member.id} src={member.avatar} alt={member.name} />
-                ))}
+                {team.members.map((member, memberIdx) =>
+                  member ? (
+                    <Avatar key={member.id || `member-${memberIdx}`} src={member.avatar} alt={member.name} />
+                  ) : (
+                    <EmptySlotAvatar key={`slot-${teamIdx}-${memberIdx}`} />
+                  ),
+                )}
               </div>
-              {teamIdx < teams.length - 1 && <VsIcon />}
+              {teamIdx < teams.length - 1 && <BattleConnectorIcon />}
             </Fragment>
           ))}
         </div>
