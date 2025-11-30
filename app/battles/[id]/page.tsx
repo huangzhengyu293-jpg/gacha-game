@@ -4281,7 +4281,6 @@ function BattleDetailContent({
                   </div>
                 </div>
                   <BattleSlotDivider orientation="horizontal" />
-                <BattleSlotDivider orientation="horizontal" />
 
                 {/* Second row: 3 slot machines - actual height 450px, visible height 216.5px (center area) */}
                 <div className="relative" style={{ height: '216.5px' }}>
