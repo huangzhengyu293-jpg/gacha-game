@@ -5,6 +5,40 @@ import Image from "next/image";
 import { useEffect, useState, useMemo, useRef } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 
+function clampSlotIndex(value: number, totalSlots: number) {
+  if (!Number.isFinite(value)) return 0;
+  if (totalSlots <= 0) return 0;
+  if (value < 0) return 0;
+  const maxIndex = Math.max(totalSlots - 1, 0);
+  if (value > maxIndex) return maxIndex;
+  return value;
+}
+
+function allocateParticipantsToSlots(participants: Participant[], totalSlots: number) {
+  if (totalSlots <= 0) {
+    return [];
+  }
+  const snapshot: Array<Participant | null> = Array.from({ length: totalSlots }, () => null);
+  participants.forEach((participant, fallbackIndex) => {
+    const preferredIndex =
+      typeof participant.slotIndex === "number" ? participant.slotIndex : fallbackIndex;
+    let targetIndex = clampSlotIndex(preferredIndex, totalSlots);
+    let attempts = 0;
+    while (
+      snapshot[targetIndex] &&
+      snapshot[targetIndex]?.id !== participant.id &&
+      attempts < totalSlots
+    ) {
+      targetIndex = (targetIndex + 1) % totalSlots;
+      attempts += 1;
+    }
+    snapshot[targetIndex] = participant;
+  });
+  return snapshot;
+}
+
+const formatSlotNumber = (slotIndex: number) => slotIndex + 1;
+
 interface ParticipantsWithPrizesProps {
   battleData: BattleData;
   onAllSlotsFilledChange?: (filled: boolean, participants?: any[]) => void;
@@ -132,16 +166,27 @@ export default function ParticipantsWithPrizes({
     </svg>
   );
 
-  const totalSlots = useMemo(() => 
-    Math.max(playersCount || participants.length || 1, 1), 
-    [playersCount, participants.length]
-  );
-  
-  const createSlotSnapshot = () =>
-    Array.from({ length: totalSlots }, (_, index) => participants[index] || null);
+  const totalSlots = useMemo(() => {
+    const declaredSlots = Number(playersCount) || 0;
+    if (declaredSlots > 0) {
+      return declaredSlots;
+    }
+    return Math.max(participants.length, 1);
+  }, [playersCount, participants.length]);
 
-  const [slotParticipants, setSlotParticipants] = useState<Array<Participant | null>>(createSlotSnapshot);
-  
+  const computedSlots = useMemo(
+    () => allocateParticipantsToSlots(participants, totalSlots),
+    [participants, totalSlots],
+  );
+  const [slotParticipantsState, setSlotParticipantsState] = useState<Array<Participant | null>>(computedSlots);
+
+  useEffect(() => {
+    if (onPendingSlotAction) return;
+    setSlotParticipantsState(computedSlots);
+  }, [computedSlots, onPendingSlotAction]);
+
+  const slots: Array<Participant | null> = onPendingSlotAction ? computedSlots : slotParticipantsState;
+
   // 按teamId分组玩家 + 计算队伍结构
   const teams = useMemo(() => {
     if (!isTeamMode || !teamStructure) return [];
@@ -159,10 +204,10 @@ export default function ParticipantsWithPrizes({
       const teamStartIndex = teamIndex * teamConfigs.membersPerTeam;
       const teamEndIndex = teamStartIndex + teamConfigs.membersPerTeam;
       
-      // 从 slotParticipants 中按顺序提取这个队伍的成员
+      // 从 slots 中按顺序提取这个队伍的成员
       const members: (Participant | null)[] = [];
       for (let slotIndex = teamStartIndex; slotIndex < teamEndIndex; slotIndex++) {
-        const participant = slotParticipants[slotIndex] || null;
+        const participant = slots[slotIndex] || null;
         members.push(participant); // 保留 null，保持索引对应关系
       }
       
@@ -174,33 +219,8 @@ export default function ParticipantsWithPrizes({
     }
     
     return allTeams;
-  }, [isTeamMode, teamStructure, slotParticipants]);
+  }, [isTeamMode, teamStructure, slots]);
 
-  // Only update if participants actually changed (by checking IDs)
-  useEffect(() => {
-    setSlotParticipants((prev) => {
-      // Create ID string for comparison
-      const currentParticipantIds = participants.map(p => p?.id || '').join(',');
-      const prevParticipantIds = prev.slice(0, participants.length).map(p => p?.id || '').join(',');
-      
-      // Only update if something actually changed
-      if (prevParticipantIds === currentParticipantIds && prev.length === totalSlots) {
-        return prev;
-      }
-      
-      // Create new array
-      const next = Array.from({ length: totalSlots }, (_, index) => {
-        const participantAtSlot = participants[index];
-        if (participantAtSlot) {
-          return participantAtSlot;
-        }
-        return prev[index] ?? null;
-      });
-      return next;
-    });
-  }, [participants.length, totalSlots]);
-
-  const slots: Array<Participant | null> = slotParticipants;
   const slotsPerGroup = 3;
   const groupCount = Math.max(1, Math.ceil(totalSlots / slotsPerGroup));
   const safeActiveGroup = Math.min(activeGroup, groupCount - 1);
@@ -240,22 +260,20 @@ export default function ParticipantsWithPrizes({
   const columnTemplate = `repeat(${getColumnCount()}, minmax(0, 1fr))`;
 
   useEffect(() => {
-    const filled = slotParticipants.every(Boolean);
-    // Only call if the filled state actually changed
+    const filled = slots.every(Boolean);
     if (prevFilledRef.current !== filled) {
       prevFilledRef.current = filled;
-      // Pass all participants (including bots) when all slots are filled
-      onAllSlotsFilledChange?.(filled, filled ? slotParticipants.filter(p => p !== null) : undefined);
+      onAllSlotsFilledChange?.(filled, filled ? slots.filter((p) => p !== null) : undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slotParticipants]);
+  }, [slots]);
 
   const handlePendingSlotAction = (slotIndex: number, teamId?: string) => {
     if (onPendingSlotAction) {
       onPendingSlotAction(slotIndex + 1);
       return;
     }
-    setSlotParticipants((prev) => {
+    setSlotParticipantsState((prev) => {
       // 确保数组长度足够
       const ensuredArray = prev.length < totalSlots 
         ? [...prev, ...Array(totalSlots - prev.length).fill(null)]
@@ -295,7 +313,7 @@ export default function ParticipantsWithPrizes({
     const safeActiveTeamGroup = Math.min(activeTeamGroup, teams.length - 1);
     
     // 渲染单个成员的函数
-    const renderMember = (member: Participant, index: number, teamId: string) => {
+    const renderMember = (member: Participant, index: number, teamId: string, slotNumber: number) => {
       const isBot = isBotParticipant(member);
       const maskId = `${teamId}-member-${index}-mask`;
       
@@ -422,12 +440,12 @@ export default function ParticipantsWithPrizes({
           const teamStartIndex = teamNumber * teamConfigs.membersPerTeam;
           
           // 根据totalSlots创建成员槽位，每个槽位对应一个固定的全局索引
-          const memberSlotsWithIndex = Array.from({ length: team.totalSlots }, (_, i) => {
-            const member = team.members[i] || null;
-            // 每个成员槽位对应的全局索引是固定的
-            const realSlotIndex = teamStartIndex + i;
-            return { member, realSlotIndex };
-          });
+      const memberSlotsWithIndex = Array.from({ length: team.totalSlots }, (_, i) => {
+        const member = team.members[i] || null;
+        // 每个成员槽位对应的全局索引是固定的
+        const realSlotIndex = teamStartIndex + i;
+        return { member, realSlotIndex };
+      });
           
           return (
             <div key={team.id} className="flex flex-col w-full">
@@ -442,10 +460,12 @@ export default function ParticipantsWithPrizes({
                     
                     return (
                       <div key={`${team.id}-slot-${memberIndex}`} className="flex flex-1 justify-center items-center">
-                        {member ? renderMember(member, memberIndex, team.id) : (
+                        {member ? (
+                          renderMember(member, memberIndex, team.id, realSlotIndex)
+                        ) : (
                           <button
                             className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
-                            style={{ backgroundColor: "#48BB78", cursor: "pointer" }}
+                            style={{ backgroundColor: "#48BB78", cursor: "pointer", position: "relative" }}
                             onClick={() => {
                               if (realSlotIndex >= 0) {
                                 handlePendingSlotAction(realSlotIndex, team.id);
@@ -458,6 +478,7 @@ export default function ParticipantsWithPrizes({
                               (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
                             }}
                           >
+                            <span className="text-xs font-semibold mr-1">#{formatSlotNumber(realSlotIndex)}</span>
                             {pendingButtonLabel}
                           </button>
                         )}
@@ -612,12 +633,12 @@ export default function ParticipantsWithPrizes({
                         )}
                         
                         {/* 序号标记 - 机器人不显示 */}
-                        {!isBot && (
+                        {!isBot && participant.vipLevel && participant.vipLevel > 0 && (
                           <div
                             className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
                             style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
                           >
-                            <span className="text-xxs font-bold leading-none text-white">0</span>
+                            <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
                           </div>
                         )}
                       </div>

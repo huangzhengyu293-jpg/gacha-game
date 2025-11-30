@@ -34,7 +34,10 @@ export const metadata: Metadata = {
   applicationName: "FlameDraw",
   description: "FlameDraw",
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/logo-black.svg", media: "(prefers-color-scheme: light)" },
+      { url: "/logo.svg", media: "(prefers-color-scheme: dark)" },
+    ],
   },
   openGraph: {
     title: "FlameDraw",

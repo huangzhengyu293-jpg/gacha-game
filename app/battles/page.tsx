@@ -66,7 +66,7 @@ export default function BattlesPage() {
                     style={{ backgroundColor: '#22272B', borderRadius: '1rem', border: `1px solid ${hoveredCard === 'solo' ? '#60A5FA' : '#34383C'}` }}
                     onMouseEnter={() => setHoveredCard('solo')}
                     onMouseLeave={() => setHoveredCard((prev) => (prev === 'solo' ? null : prev))}
-                    onClick={() => { setCreateOpen(false); router.push('/create-battle?type=solo&playersInSolo=2&gameMode=classic&fastBattle=true'); }}
+                    onClick={() => { setCreateOpen(false); router.push('/create-battle?type=solo&playersInSolo=2&gameMode=classic&fastBattle=false'); }}
                   >
                     <div className="size-6" style={{ color: '#60A5FA' }}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.2222 16.8889L3.99998 6.66667V4H6.66665L16.8889 14.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12.8889 18.2222L18.2223 12.8889" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M15.5557 15.5555L19.1113 19.1111" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M18.2223 20L20 18.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M14.2223 7.11112L17.3334 4H20V6.66667L16.8889 9.77779" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M5.77771 13.7777L9.33328 17.3333" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M7.55558 16.4445L4.88891 19.1112" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M3.99998 18.2222L5.77776 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path></svg>
@@ -78,7 +78,7 @@ export default function BattlesPage() {
                     style={{ backgroundColor: '#22272B', borderRadius: '1rem', border: `1px solid ${hoveredCard === 'team' ? '#60A5FA' : '#34383C'}` }}
                     onMouseEnter={() => setHoveredCard('team')}
                     onMouseLeave={() => setHoveredCard((prev) => (prev === 'team' ? null : prev))}
-                    onClick={() => { setCreateOpen(false); router.push('/create-battle?type=team&teamStructure=2v2&gameMode=classic&fastBattle=true'); }}
+                    onClick={() => { setCreateOpen(false); router.push('/create-battle?type=team&teamStructure=2v2&gameMode=classic&fastBattle=false'); }}
                   >
                     <div className="flex gap-2 items-center" style={{ color: '#60A5FA' }}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>

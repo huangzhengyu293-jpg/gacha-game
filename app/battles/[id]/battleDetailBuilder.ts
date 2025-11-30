@@ -153,6 +153,14 @@ function mapSoloSeatSize(players: number): SoloSeatSize {
   return 2;
 }
 
+function resolveDeclaredPlayerCount(raw: RawBattleDetail): number {
+  const fromNum = parseNumber(raw.num);
+  if (fromNum > 0) return fromNum;
+  const fromPeoples = parseNumber((raw as any)?.peoples);
+  if (fromPeoples > 0) return fromPeoples;
+  return 0;
+}
+
 function formatCurrency(value: string | number | null | undefined): string {
   return `$${parseNumber(value).toFixed(2)}`;
 }
@@ -235,30 +243,44 @@ function buildBattleParticipants(
     return orderA - orderB;
   });
 
-  return sortedEntries
-    .map((entry) => entry?.user)
-    .filter((user): user is NonNullable<typeof user> => Boolean(user && user.id))
-    .map((user, index) => {
-      const userId = String(user.id);
-      const wrapper = sortedEntries[index];
+  const participantWrappers = sortedEntries
+    .map((wrapper) => ({ wrapper, user: wrapper?.user }))
+    .filter((item): item is { wrapper: NonNullable<typeof item.wrapper>; user: NonNullable<typeof item.user> } => {
+      return Boolean(item.wrapper && item.user && item.user.id);
+    });
+
+  return participantWrappers.map(({ wrapper, user }, index) => {
+    const userId = String(user.id);
+      const rawOrder = parseNumber((wrapper as any)?.order ?? index + 1);
+    const fallbackIndex = index >= 0 ? index : 0;
+    const slotFromWrapper = parseNumber((wrapper as any)?.slot ?? fallbackIndex);
+    const slotIndex =
+      Number.isFinite(rawOrder) && rawOrder > 0
+        ? rawOrder - 1
+        : Number.isFinite(slotFromWrapper)
+        ? slotFromWrapper
+        : fallbackIndex;
       const inferredTeamId =
-        mapParticipantTeamId(index, teamStructure) ??
+      mapParticipantTeamId(slotIndex, teamStructure) ??
         (wrapper as any)?.team_id ??
         (wrapper as any)?.teamId ??
         (wrapper as any)?.team ??
         (wrapper as any)?.group_id ??
         (wrapper as any)?.groupId ??
         null;
-      return {
+    return {
         id: userId,
         name: user.name ?? `Player ${userId}`,
         avatar: user.avatar ?? '',
         totalValue: formatCurrency(userBeanMap[userId] ?? 0),
         isWinner: winners.has(userId),
         teamId: inferredTeamId != null ? String(inferredTeamId) : undefined,
+        vipLevel:
+          parseNumber((wrapper as any)?.user?.vip ?? (wrapper as any)?.vip ?? (wrapper as any)?.user?.user_vip) || 0,
         items: [],
+        slotIndex,
       };
-    });
+  });
 }
 
 function buildBattlePacks(raw: RawBattleDetail, boxLookup: Map<number, RawBox>) {
@@ -319,7 +341,8 @@ export function buildBattleDataFromRaw(raw: RawBattleDetail, options?: BuildOpti
   const fallbackCost = packsWithSymbols.reduce((sum, pack) => sum + parseNumber(pack.value.replace('$', '')), 0);
   const totalOpened = Object.values(userBeanMap).reduce((sum, value) => sum + value, 0);
   const battleId = options?.battleId ?? String(raw.id);
-  const requestedPlayers = Math.max(parseNumber(raw.num), participants.length);
+  const declaredPlayersCount = resolveDeclaredPlayerCount(raw);
+  const requestedPlayers = declaredPlayersCount > 0 ? declaredPlayersCount : Math.max(participants.length, 1);
   const gameplayMode = isTeamBattle && gameplayModeRaw === 'share' ? 'classic' : gameplayModeRaw;
 
   return {
@@ -357,7 +380,8 @@ export function buildBattlePayloadFromRaw(raw: RawBattleDetail, options?: BuildO
   const specialOptions = options?.specialOptions ?? {};
   const gameplayModeRaw = mapModeToGameplay(raw.mode);
   const gameplayMode = isTeamBattle && gameplayModeRaw === 'share' ? 'classic' : gameplayModeRaw;
-  const requestedPlayers = Math.max(parseNumber(raw.num), participants.length);
+  const declaredPlayersCount = resolveDeclaredPlayerCount(raw);
+  const requestedPlayers = declaredPlayersCount > 0 ? declaredPlayersCount : Math.max(participants.length, 1);
   const eliminationSequence = extractEliminationSequence(raw);
 
   const config: BackendBattlePayload['config'] = {

@@ -20,7 +20,12 @@ export default function BattleModes({ sortValue = "priceDesc" }: BattleModesProp
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["battleList"],
     queryFn: () => api.getFightList(),
-    staleTime: 30_000,
+    refetchInterval: 1000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    keepPreviousData: true,
+    staleTime: 0,
   });
 
   const rawEntries = useMemo<RawBattleListItem[]>(() => {

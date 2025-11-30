@@ -1,4 +1,3 @@
-import { battleListData } from '@/app/components/bettlesListData';
 import type { RawBattleListItem } from '@/app/components/bettlesListData';
 import type { BattleGameMode, SpecialOptionFlags } from './modeVisuals';
 
@@ -6,6 +5,8 @@ export type ParticipantPreview = {
   id: string;
   name: string;
   avatar: string;
+  slotIndex?: number;
+  vipLevel?: number;
 };
 
 export type BattleListCard = {
@@ -16,6 +17,7 @@ export type BattleListCard = {
   isTeamBattle: boolean;
   teamStructure?: string | null;
   participants: ParticipantPreview[];
+  participantSlots: Array<ParticipantPreview | null>;
   teams?: Array<{ id: string; members: ParticipantPreview[] }>;
   connectorStyle: 'share' | 'default';
   entryCost: number;
@@ -188,6 +190,41 @@ function buildPackImages(entry: RawBattleListItem) {
   });
 }
 
+function clampSlotIndex(value: number, totalSlots: number) {
+  if (!Number.isFinite(value)) return 0;
+  if (totalSlots <= 0) return 0;
+  if (value < 0) return 0;
+  const maxIndex = Math.max(totalSlots - 1, 0);
+  return value > maxIndex ? maxIndex : value;
+}
+
+function resolveSlotCount(entry: RawBattleListItem, participantCount: number) {
+  const fromNum = Number(entry.num);
+  if (Number.isFinite(fromNum) && fromNum > 0) {
+    return fromNum;
+  }
+  const fromPeoples = Number((entry as any).peoples);
+  if (Number.isFinite(fromPeoples) && fromPeoples > 0) {
+    return fromPeoples;
+  }
+  return Math.max(participantCount, 1);
+}
+
+function allocateParticipantSlots(participants: ParticipantPreview[], slotCount: number) {
+  if (slotCount <= 0) {
+    return [];
+  }
+  const slots: Array<ParticipantPreview | null> = Array.from({ length: slotCount }, () => null);
+  participants.forEach((participant, fallbackIndex) => {
+    const preferred = typeof participant.slotIndex === 'number' ? participant.slotIndex : fallbackIndex;
+    const target = clampSlotIndex(preferred, slotCount);
+    if (!slots[target]) {
+      slots[target] = participant;
+    }
+  });
+  return slots;
+}
+
 function buildSpecialOptions(entry: RawBattleListItem): SpecialOptionFlags {
   const flags: SpecialOptionFlags = {};
   if (Number(entry.fast) === 1) {
@@ -203,17 +240,42 @@ function buildSpecialOptions(entry: RawBattleListItem): SpecialOptionFlags {
 }
 
 export function buildBattleListCards(sourceEntries?: RawBattleListItem[]): BattleListCard[] {
-  const entries = Array.isArray(sourceEntries) ? sourceEntries : battleListData;
-  return entries.map((entry) => {
+  if (!Array.isArray(sourceEntries) || !sourceEntries.length) {
+    return [];
+  }
+  return sourceEntries.map((entry) => {
     const participants: ParticipantPreview[] = Array.isArray(entry.users)
       ? entry.users
-          .map((u) => ({
-            id: String(u.user?.id ?? u.id),
-            name: u.user?.name ?? `玩家 ${u.id}`,
-            avatar: u.user?.avatar ?? '',
-          }))
-          .filter((u) => Boolean(u.id))
+          .map((candidate) => {
+            if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+              return null;
+            }
+            const wrapper = candidate as {
+              user?: { id?: number | string; name?: string; avatar?: string; vip?: number };
+              id?: number | string;
+              user_id?: number | string;
+              order?: number | string;
+              vip?: number;
+            };
+            const userInfo = wrapper.user ?? {};
+            const rawId = userInfo.id ?? wrapper.user_id ?? wrapper.id;
+            if (rawId === undefined || rawId === null) {
+              return null;
+            }
+            const rawOrder = Number(wrapper.order);
+            return {
+              id: String(rawId),
+              name: userInfo.name ?? `玩家 ${rawId}`,
+              avatar: userInfo.avatar ?? '',
+              slotIndex: Number.isFinite(rawOrder) && rawOrder > 0 ? rawOrder - 1 : undefined,
+              vipLevel: Number(userInfo.vip ?? wrapper.vip ?? 0) || undefined,
+            } as ParticipantPreview;
+          })
+          .filter((participant): participant is ParticipantPreview => Boolean(participant))
       : [];
+
+    const slotCount = resolveSlotCount(entry, participants.length);
+    const participantSlots = allocateParticipantSlots(participants, slotCount);
 
     const mode = resolveBattleMode(entry);
     const { isTeamBattle, teams, teamStructure } = buildTeamStructure(entry, participants);
@@ -230,6 +292,7 @@ export function buildBattleListCards(sourceEntries?: RawBattleListItem[]): Battl
       isTeamBattle,
       teamStructure,
       participants,
+      participantSlots,
       teams,
       connectorStyle: resolveConnectorStyle(mode),
       entryCost: formatNumber(entry.bean),

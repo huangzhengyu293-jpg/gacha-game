@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useCart } from '../hooks/useCart';
+import { showGlobalToast } from './ToastProvider';
+import { useAuth } from '../hooks/useAuth';
 
 // 🎯 定义WarehouseItem类型
 interface WarehouseItem {
@@ -15,10 +16,9 @@ interface WarehouseItem {
   image: string;
   quantity?: number;
 }
-import { useRouter } from 'next/navigation';
-
 interface CartItem {
-  id: string; // expanded id e.g. wh_xxx#0
+  id: string; // unique key per card, may include suffix
+  warehouseId?: string; // actual warehouse id for API
   productId: string; // warehouse productId key
   name: string;
   price: number;
@@ -70,14 +70,19 @@ function buildVoucherSvg(price: number): string {
 </svg>`;
 }
 
-export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = [] }: CartModalProps) {
+export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1.38, items }: CartModalProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('desc');
-  const router = useRouter();
 
   // 使用购物车 hook 获取数据
-  const { cartItems, isLoading: warehouseLoading } = useCart();
+  const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart();
+  const { fetchUserBean } = useAuth();
+  const [viewMode, setViewMode] = useState<'cart' | 'shop'>('cart');
+  const isShopMode = viewMode === 'shop';
+  const [shopItems, setShopItems] = useState<CartItem[]>([]);
+  const [isShopLoading, setIsShopLoading] = useState(false);
+  const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
 
   // 将购物车数据转换为 CartItem 格式（如果外部未传入 items 则使用购物车数据）
   const expandedWarehouseItems: CartItem[] = cartItems.map((item, index) => ({
@@ -85,7 +90,88 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
     id: item.id || `cart_${index}`,
   }));
 
-  const defaultItems: CartItem[] = items.length > 0 ? items : expandedWarehouseItems;
+  const hasExternalItems = Array.isArray(items) && items.length > 0;
+  const shouldShowWarehouseLoading = warehouseLoading && !hasExternalItems;
+  const defaultItems: CartItem[] = useMemo(
+    () => {
+      const baseItems = hasExternalItems ? (items as CartItem[]) : expandedWarehouseItems;
+      return baseItems.map((item, index) => {
+        const baseId =
+          item.warehouseId ??
+          (typeof item.id === 'string' && item.id.includes('#') ? item.id.split('#')[0] : item.id) ??
+          `cart_${index}`;
+        return {
+          ...item,
+          warehouseId: baseId,
+        };
+      });
+    },
+    [hasExternalItems, items, expandedWarehouseItems],
+  );
+
+  const mapShopItems = (payload: any): CartItem[] => {
+    const rows = Array.isArray(payload?.data?.data)
+      ? payload.data.data
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+    return rows.map((item: any, index: number) => {
+      const baseId = String(item.id ?? item.box_id ?? `shop_${index}`);
+      return {
+        id: baseId,
+        warehouseId: baseId,
+        productId: String(item.product_id ?? item.id ?? baseId),
+        name: item.name ?? item.title ?? item.awards?.name ?? `商品 ${index + 1}`,
+        price: Number(item.bean ?? item.price ?? item.amount ?? item.awards?.bean ?? 0),
+        image: item.cover ?? item.image ?? item.icon ?? item.awards?.cover ?? '',
+      };
+    });
+  };
+
+  const handleOpenCart = () => {
+    setViewMode('cart');
+    setShopItems([]);
+    setActiveTab('all');
+    setSelectedItems(new Set());
+    setSelectionOrder([]);
+    refetchCart();
+  };
+
+  const handleOpenShop = async () => {
+    if (isShopLoading) return;
+    setViewMode('shop');
+    setActiveTab('all');
+    setSelectedItems(new Set());
+    setSelectionOrder([]);
+    setIsShopLoading(true);
+    try {
+      const response = await api.getShopList();
+      if (response.code === 100000) {
+        setShopItems(mapShopItems(response));
+      } else {
+        throw new Error(response.message || '获取商城失败');
+      }
+    } catch (error: any) {
+      showGlobalToast({
+        title: '错误',
+        description: error?.message || '获取商城失败',
+        variant: 'error',
+      });
+      setShopItems([]);
+    } finally {
+      setIsShopLoading(false);
+    }
+  };
+
+  const handleToggleMode = () => {
+    if (isShopMode) {
+      handleOpenCart();
+    } else {
+      handleOpenShop();
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -107,15 +193,35 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (isOpen) {
+      refetchCart();
+    } else {
+      setViewMode('cart');
+      setShopItems([]);
+      setActiveTab('all');
+      setSelectedItems(new Set());
+      setSelectionOrder([]);
+    }
+  }, [isOpen, refetchCart]);
+
   const [selectionOrder, setSelectionOrder] = useState([] as string[]);
   const [claimableActive, setClaimableActive] = useState(false);
   const queryClient = useQueryClient();
-  const displayedItems = activeTab === 'all' ? defaultItems : defaultItems.filter(item => selectedItems.has(item.id));
-  const selectedCount = selectedItems.size;
-  const selectedTotal = defaultItems
-    .filter(item => selectedItems.has(item.id))
-    .reduce((sum, item) => sum + item.price, 0);
+  const listSourceItems = isShopMode ? shopItems : defaultItems;
+  const displayedItems = activeTab === 'all' ? listSourceItems : listSourceItems.filter(item => selectedItems.has(item.id));
+  const selectedCount = isShopMode ? 0 : selectedItems.size;
+  const selectedTotal = isShopMode
+    ? 0
+    : defaultItems
+        .filter(item => selectedItems.has(item.id))
+        .reduce((sum, item) => sum + item.price, 0);
   const cartTotal = defaultItems.reduce((sum, item) => sum + item.price, 0);
+  const listLoading = isShopMode ? isShopLoading : shouldShowWarehouseLoading;
+  const listLoadingText = isShopMode ? '商城加载中...' : '正在加载仓库...';
+  const emptyListText = isShopMode ? '商城暂无数据' : '仓库暂无物品';
+  const actionButtonLabel = isShopMode ? '购物车' : '商城';
+  const actionButtonDisabled = isShopLoading;
 
   function getDepthFromProductId(productId: string): number {
     if (!productId?.startsWith('voucher:')) return 0;
@@ -145,57 +251,119 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
     },
   });
 
+  const buyShopItemMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      if (!productId) {
+        throw new Error('商品 ID 无效');
+      }
+      const response = await api.buyShopItem(productId);
+      if (response.code !== 100000) {
+        throw new Error(response.message || '购买失败，请稍后再试');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      showGlobalToast({
+        title: '购买成功',
+        description: '余额已更新',
+        variant: 'success',
+      });
+      fetchUserBean().catch(() => {});
+    },
+    onError: (error: any) => {
+      showGlobalToast({
+        title: '购买失败',
+        description: error?.message || '请稍后重试',
+        variant: 'error',
+      });
+    },
+  });
+
   // 确认出售弹窗状态
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCount, setConfirmCount] = useState(0);
   const [confirmGain, setConfirmGain] = useState(0);
-  const [confirmPayload, setConfirmPayload] = useState<Array<{ id: string; count: number }>>([]);
+  const [confirmPayload, setConfirmPayload] = useState<string[]>([]);
+
+  const itemMap = useMemo(() => {
+    const map = new Map<string, CartItem>();
+    defaultItems.forEach((item) => {
+      map.set(item.id, item);
+    });
+    return map;
+  }, [defaultItems]);
 
   // ✅ 暂时禁用出售功能，等待后续实现仓库接口
   const confirmSellMutation = useMutation({
-    mutationFn: async (payload: Array<{ id: string; count: number }>) => {
-      throw new Error('仓库功能暂未开放');
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) {
+        throw new Error('请选择要出售的物品');
+      }
+      return api.cashOutBoxes(ids);
     },
     onSuccess: () => {
       setSelectedItems(new Set());
       setSelectionOrder([]);
-      queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+      queryClient.invalidateQueries({ queryKey: ['userStorage'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-    },
-    onSettled: () => {
+      showGlobalToast({
+        title: '出售成功',
+        description: '余额已更新',
+        variant: 'success',
+      });
+      fetchUserBean().catch(() => {});
       setConfirmOpen(false);
     },
   });
 
-  const buildSelectedSellPayload = (): Array<{ id: string; count: number }> => {
-    const counts = new Map<string, number>();
-    for (const id of selectedItems) {
-      const baseId = id.split('#')[0];
-      counts.set(baseId, (counts.get(baseId) ?? 0) + 1);
+  const buildSelectedSellIds = (): string[] => {
+    const ids: string[] = [];
+    for (const uniqueId of selectedItems) {
+      const item = itemMap.get(uniqueId);
+      if (!item?.warehouseId) continue;
+      ids.push(item.warehouseId);
     }
-    return Array.from(counts.entries()).map(([id, count]) => ({ id, count }));
+    return ids;
   };
 
   const openConfirmForSelected = () => {
     if (selectedCount === 0) return;
-    const payload = buildSelectedSellPayload();
+    const payload = buildSelectedSellIds();
     setConfirmPayload(payload);
-    setConfirmCount(selectedCount);
+    setConfirmCount(payload.length);
     setConfirmGain(selectedTotal);
     setConfirmOpen(true);
   };
 
   const openConfirmForSingle = (item: CartItem) => {
-    const warehouseId = item.id.split('#')[0];
-    setConfirmPayload([{ id: warehouseId, count: 1 }]);
+    const warehouseId =
+      item.warehouseId ?? (typeof item.id === 'string' && item.id.includes('#') ? item.id.split('#')[0] : item.id);
+    setConfirmPayload([warehouseId]);
     setConfirmCount(1);
     setConfirmGain(item.price);
     setConfirmOpen(true);
   };
 
+  const handleBuyShopItem = (item: CartItem) => {
+    if (!item?.productId) {
+      showGlobalToast({
+        title: '错误',
+        description: '商品信息缺失，无法购买',
+        variant: 'error',
+      });
+      return;
+    }
+    if (buyShopItemMutation.isPending) return;
+    setBuyingProductId(item.productId);
+    buyShopItemMutation.mutate(item.productId, {
+      onSettled: () => setBuyingProductId(null),
+    });
+  };
+
   if (!isOpen) return null;
 
   const toggleSelect = (id: string) => {
+    if (isShopMode) return;
     const newSelected = new Set(selectedItems);
     if (newSelected.has(id)) {
       newSelected.delete(id);
@@ -208,6 +376,7 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
   };
 
   const selectAll = () => {
+    if (isShopMode) return;
     if (selectedItems.size === defaultItems.length) {
       setSelectedItems(new Set());
       setSelectionOrder([]);
@@ -234,23 +403,25 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
         aria-describedby="cart-description"
         aria-labelledby="cart-title"
         data-state={isOpen ? 'open' : 'closed'}
-        className="overflow-hidden z-50 max-w-lg w-full gap-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg relative sm:max-w-4xl p-0 flex flex-col"
+        className="z-50 max-w-lg w-full gap-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg relative sm:max-w-4xl p-0 flex flex-col"
         tabIndex={-1}
         style={{ 
           pointerEvents: 'auto', 
           backgroundColor: '#161A1D',
-          height: 'calc(100vh - 2rem)',
-          maxHeight: 'calc(100vh - 2rem)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
         <div className="flex-col gap-1.5 text-center sm:text-left p-4 pt-6 sm:pt-4 h-16 flex justify-center flex-shrink-0" style={{ borderBottom: '1px solid #2E3134' }}>
-          <div className="flex">
-            <h2 id="cart-title" className="tracking-tight text-left text-base font-extrabold pr-3" style={{ color: '#FEFEFE' }}>您的购物车</h2>
-            <p className="flex gap-2 items-center pl-3" style={{ borderLeft: '1px solid #2E3134' }}>
-              <span className="font-extrabold" style={{ color: '#FEFEFE' }}>${cartTotal.toFixed(2)}</span>
-            </p>
+          <div className="flex items-center">
+            <h2 id="cart-title" className="tracking-tight text-left text-base font-extrabold pr-3" style={{ color: '#FEFEFE' }}>
+              {isShopMode ? '商城' : '您的购物车'}
+            </h2>
+            {!isShopMode && (
+              <p className="flex gap-2 items-center pl-3" style={{ borderLeft: '1px solid #2E3134' }}>
+                <span className="font-extrabold" style={{ color: '#FEFEFE' }}>${cartTotal.toFixed(2)}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -272,21 +443,23 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
             >
               <span className="font-extrabold" style={{ color: '#FFFFFF' }}>所有物品 ({defaultItems.length})</span>
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'selected'}
-              aria-controls="cart-content-selected"
-              data-state={activeTab === 'selected' ? 'active' : 'inactive'}
-              id="cart-trigger-selected"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 text-base font-regular flex-1"
-              tabIndex={-1}
-              data-orientation="horizontal"
-              onClick={() => setActiveTab('selected')}
-              style={{ backgroundColor: activeTab === 'selected' ? '#34383C' : 'transparent' }}
-            >
-              <span className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择的物品 ({selectedCount})</span>
-            </button>
+            {!isShopMode && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'selected'}
+                aria-controls="cart-content-selected"
+                data-state={activeTab === 'selected' ? 'active' : 'inactive'}
+                id="cart-trigger-selected"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 h-full transition-all interactive-focus disabled:pointer-events-none disabled:opacity-50 text-base font-regular flex-1"
+                tabIndex={-1}
+                data-orientation="horizontal"
+                onClick={() => setActiveTab('selected')}
+                style={{ backgroundColor: activeTab === 'selected' ? '#34383C' : 'transparent' }}
+              >
+                <span className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择的物品 ({selectedCount})</span>
+              </button>
+            )}
           </div>
 
           {/* 移动端内容 */}
@@ -302,13 +475,15 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
           >
             <div className="flex justify-between my-3 gap-2 w-full flex-nowrap flex-shrink-0">
               <div className="gap-2 shrink-0 hidden sm:flex">
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
-                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: '1px solid #45484A' }}
-                  type="button"
-                >
-                  可认领物品
-                </button>
+                {!isShopMode && (
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                    style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: '1px solid #45484A' }}
+                    type="button"
+                  >
+                    可认领物品
+                  </button>
+                )}
               </div>
               <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-between">
                 <button
@@ -323,43 +498,54 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                     <path d="m19 12-7 7-7-7"></path>
                   </svg>
                 </button>
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
-                  style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
-                  onClick={selectAll}
-                  type="button"
-                >
-                  <div
-                    className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
-                    style={{
-                      backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
-                      borderColor: '#5A5E62',
-                      borderWidth: 1,
-                    }}
+                {!isShopMode && (
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
+                    style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
+                    onClick={selectAll}
+                    type="button"
                   >
-                    {(selectedItems.size === defaultItems.length && defaultItems.length > 0) && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    )}
-                  </div>
-                  {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
-                </button>
+                    <div
+                      className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
+                      style={{
+                        backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
+                        borderColor: '#5A5E62',
+                        borderWidth: 1,
+                      }}
+                    >
+                      {(selectedItems.size === defaultItems.length && defaultItems.length > 0) && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6L9 17l-5-5"></path>
+                        </svg>
+                      )}
+                    </div>
+                    {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-              <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 pb-4">
-                {sortedItems.map((item) => (
-                  <CartItemCard
-                    key={item.id}
-                    item={item}
-                    isSelected={selectedItems.has(item.id)}
-                    onToggleSelect={() => toggleSelect(item.id)}
-                    onSplit={splitMutation.mutate}
-                    onSell={(it) => openConfirmForSingle(it)}
-                  />
-                ))}
-              </div>
+              {listLoading ? (
+                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{listLoadingText}</div>
+              ) : displayedItems.length > 0 ? (
+                <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 pb-4">
+                  {sortedItems?.length>0&&sortedItems.map((item) => (
+                    <CartItemCard
+                      key={item.id}
+                      item={item}
+                      isShopMode={isShopMode}
+                      isSelected={!isShopMode && selectedItems.has(item.id)}
+                      onToggleSelect={() => toggleSelect(item.id)}
+                      onSplit={splitMutation.mutate}
+                      onSell={(it) => openConfirmForSingle(it)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-full text-center font-semibold" style={{ color: '#7A8084', minHeight: '120px' }}>
+                  {emptyListText}
+                </div>
+              )}
             </div>
             <div className="flex justify-between mt-2 mb-6 rounded-lg flex-col sm:flex-row items-center flex-shrink-0 pt-2 pb-4" style={{ backgroundColor: '#161A1D' }}>
               <div className="hidden sm:block">
@@ -403,13 +589,13 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                  style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                  disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                  onClick={() => { if (selectedCount > 0) router.push('/exchange'); }}
+                  style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
+                  disabled={actionButtonDisabled}
+                  onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={handleToggleMode}
                 >
-                  交换
+                  {actionButtonLabel}
                 </button>
               </div>
             </div>
@@ -513,13 +699,13 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                  style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                  disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                  onClick={() => { if (selectedCount > 0) router.push('/exchange'); }}
+                  style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
+                  disabled={actionButtonDisabled}
+                  onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={handleToggleMode}
                 >
-                  交换
+                  {actionButtonLabel}
                 </button>
               </div>
             </div>
@@ -570,18 +756,18 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                disabled={selectedCount === 0}
-                onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                onClick={() => { if (selectedCount > 0) router.push('/exchange'); }}
+                style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
+                disabled={actionButtonDisabled}
+                onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                onClick={handleToggleMode}
               >
-                交换
+                {actionButtonLabel}
               </button>
             </div>
           </div>
           <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ backgroundColor: '#1D2125' }}>
-            {warehouseLoading && items.length === 0 ? (
+            {shouldShowWarehouseLoading ? (
               <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>正在加载仓库...</div>
             ) : selectedCount === 0 ? (
               <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>选择物品来管理它们</div>
@@ -638,16 +824,18 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
           {/* 可认领/价格/全选工具条（位置：列表容器下方） */}
           <div className="flex justify-between my-3 sm:my-6 gap-2 w-full flex-nowrap rounded-md">
             <div className="gap-2 shrink-0 hidden sm:flex p-2">
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
-                style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
-                onClick={() => setClaimableActive(!claimableActive)}
-                type="button"
-              >
-                可认领物品
-              </button>
+              {!isShopMode && (
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
+                  onClick={() => setClaimableActive(!claimableActive)}
+                  type="button"
+                >
+                  可认领物品
+                </button>
+              )}
             </div>
             <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-between p-2">
               <button
@@ -662,42 +850,47 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                   <path d="m19 12-7 7-7-7"></path>
                 </svg>
               </button>
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
-                style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
-                onClick={selectAll}
-                type="button"
-              >
-                <div
-                  className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
-                  style={{
-                    backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
-                    borderColor: '#5A5E62',
-                    borderWidth: 1,
-                  }}
+              {!isShopMode && (
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
+                  style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
+                  onClick={selectAll}
+                  type="button"
                 >
-                  {(selectedItems.size === defaultItems.length && defaultItems.length > 0) && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6L9 17l-5-5"></path>
-                    </svg>
-                  )}
-                </div>
-                {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
-              </button>
+                  <div
+                    className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
+                    style={{
+                      backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
+                      borderColor: '#5A5E62',
+                      borderWidth: 1,
+                    }}
+                  >
+                    {(selectedItems.size === defaultItems.length && defaultItems.length > 0) && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6L9 17l-5-5"></path>
+                      </svg>
+                    )}
+                  </div>
+                  {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
+                </button>
+              )}
             </div>
           </div>
           {/* 仓库商品网格（在工具条下面） */}
           {(!warehouseLoading && defaultItems.length > 0) && (
             <div className="flex-1 overflow-y-auto min-h-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-4">
-                {sortedItems.map((item) => (
+                {sortedItems?.length>0&&sortedItems.map((item) => (
                   <CartItemCard
                     key={item.id}
                     item={item}
+                    isShopMode={isShopMode}
                     isSelected={selectedItems.has(item.id)}
                     onToggleSelect={() => toggleSelect(item.id)}
                     onSplit={splitMutation.mutate}
                     onSell={(it) => openConfirmForSingle(it)}
+                    onBuy={handleBuyShopItem}
+                    isBuying={buyingProductId === item.productId && buyShopItemMutation.isPending}
                   />
                 ))}
               </div>
@@ -762,8 +955,12 @@ export default function CartModal({ isOpen, onClose, totalPrice = 1.38, items = 
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6"
-                  onClick={() => { if (!confirmSellMutation.isPending) confirmSellMutation.mutate(confirmPayload); }}
-                  disabled={confirmSellMutation.isPending}
+                  onClick={() => {
+                    if (!confirmSellMutation.isPending && confirmPayload.length > 0) {
+                      confirmSellMutation.mutate(confirmPayload);
+                    }
+                  }}
+                  disabled={confirmSellMutation.isPending || confirmPayload.length === 0}
                   style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: 'pointer' }}
                 >
                   继续
@@ -841,7 +1038,25 @@ function SelectedCartItemCard({ item, onRemove }: { item: CartItem; onRemove: ()
   );
 }
 
-function CartItemCard({ item, isSelected, onToggleSelect, onSplit, onSell }: { item: CartItem; isSelected: boolean; onToggleSelect: () => void; onSplit: (item: CartItem) => void; onSell: (item: CartItem) => void }) {
+function CartItemCard({
+  item,
+  isSelected,
+  onToggleSelect,
+  onSplit,
+  onSell,
+  isShopMode,
+  onBuy,
+  isBuying,
+}: {
+  item: CartItem;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  onSplit: (item: CartItem) => void;
+  onSell: (item: CartItem) => void;
+  isShopMode?: boolean;
+  onBuy?: (item: CartItem) => void;
+  isBuying?: boolean;
+}) {
   const isVoucher = item.productId?.startsWith('voucher:') || item.name === 'Voucher' || item.price === 0.01;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -866,75 +1081,96 @@ function CartItemCard({ item, isSelected, onToggleSelect, onSplit, onSell }: { i
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [menuOpen]);
 
+  const isBuyingState = Boolean(isBuying);
+  const actionLabel = isShopMode ? (isBuyingState ? '购买中...' : '购买') : '出售';
+
+  const handleCardClick = () => {
+    if (isShopMode) return;
+    onToggleSelect();
+  };
+
+  const handleActionClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (isShopMode) {
+      if (isBuyingState) return;
+      onBuy?.(item);
+      return;
+    }
+    onSell?.(item);
+  };
+
   return (
     <div className="relative rounded-lg border" data-component="CartItemCard" style={{ backgroundColor: '#22272B', borderColor: isSelected ? '#4299E1' : '#22272B', borderWidth: 1, cursor: 'default' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
-      onClick={onToggleSelect}
+      onClick={handleCardClick}
     >
-      <div className="absolute top-0.5 left-2 flex gap-2 z-10">
-        <button
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
-          aria-label="Options"
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-          ref={triggerRef}
-          style={{ color: '#7A8084', cursor: 'pointer' }}
-        >
-          <div className="size-5 flex justify-center">
-            <svg viewBox="0 0 18 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4.00002 2.00001C4.00002 3.10459 3.10459 4.00002 2.00001 4.00002C0.895433 4.00002 0 3.10459 0 2.00001C0 0.895433 0.895433 0 2.00001 0C3.10459 0 4.00002 0.895433 4.00002 2.00001Z" fill="currentColor"></path>
-              <path d="M11 2.00001C11 3.10459 10.1046 4.00002 9.00003 4.00002C7.89545 4.00002 7.00002 3.10459 7.00002 2.00001C7.00002 0.895433 7.89545 0 9.00003 0C10.1046 0 11 0.895433 11 2.00001Z" fill="currentColor"></path>
-              <path d="M18.0001 2.00001C18.0001 3.10459 17.1046 4.00002 16.0001 4.00002C14.8955 4.00002 14 3.10459 14 2.00001C14 0.895433 14.8955 0 16.0001 0C17.1046 0 18.0001 0.895433 18.0001 2.00001Z" fill="currentColor"></path>
-            </svg>
-          </div>
-        </button>
-        {menuOpen && (
-          <div ref={menuRef} style={{ position: 'absolute', left: 0, top: 28, zIndex: 50 }}>
-            <div role="menu" aria-orientation="vertical" className="z-50 w-40 rounded-lg p-1 shadow-md" style={{ backgroundColor: '#1D2125', color: '#7A8084', fontFamily: 'Urbanist, sans-serif', fontWeight: 600 }}>
-              {menuItems.map((label: string) => (
-                <div key={label}
-                  role="menuitem"
-                  className="relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (label.includes('分成')) { onSplit(item); setMenuOpen(false); return; }
-                    // 其他项待接入：出售价格/领取物品/物品详情
-                    setMenuOpen(false);
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#3C4044'; (e.currentTarget as HTMLDivElement).style.color = '#FFFFFF'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLDivElement).style.color = '#7A8084'; }}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="absolute right-2 top-2 shrink-0 transition-opacity duration-200" style={{ opacity: (hovered || isSelected) ? 1 : 0 }}>
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={isSelected}
-          data-state={isSelected ? 'checked' : 'unchecked'}
-          value="on"
-          className="peer shrink-0 rounded border size-5"
-          aria-label="Select item"
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.cursor = 'pointer'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#4299E1'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? '#4299E1' : '#5A5E62'; }}
-          style={{ border: '1px solid ' + (isSelected ? '#4299E1' : (hovered ? '#4299E1' : '#5A5E62')), backgroundColor: isSelected ? '#4299E1' : 'transparent' }}
-        >
-          <span data-state={isSelected ? 'checked' : 'unchecked'} className="flex items-center justify-center text-current" style={{ pointerEvents: 'none' }}>
-            {isSelected && (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check h-4 w-4 text-white">
-                <path d="M20 6 9 17l-5-5"></path>
+      {isShopMode ? null : (
+        <div className="absolute top-0.5 left-2 flex gap-2 z-10">
+          <button
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
+            aria-label="Options"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+            ref={triggerRef}
+            style={{ color: '#7A8084', cursor: 'pointer' }}
+          >
+            <div className="size-5 flex justify-center">
+              <svg viewBox="0 0 18 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.00002 2.00001C4.00002 3.10459 3.10459 4.00002 2.00001 4.00002C0.895433 4.00002 0 3.10459 0 2.00001C0 0.895433 0.895433 0 2.00001 0C3.10459 0 4.00002 0.895433 4.00002 2.00001Z" fill="currentColor"></path>
+                <path d="M11 2.00001C11 3.10459 10.1046 4.00002 9.00003 4.00002C7.89545 4.00002 7.00002 3.10459 7.00002 2.00001C7.00002 0.895433 7.89545 0 9.00003 0C10.1046 0 11 0.895433 11 2.00001Z" fill="currentColor"></path>
+                <path d="M18.0001 2.00001C18.0001 3.10459 17.1046 4.00002 16.0001 4.00002C14.8955 4.00002 14 3.10459 14 2.00001C14 0.895433 14.8955 0 16.0001 0C17.1046 0 18.0001 0.895433 18.0001 2.00001Z" fill="currentColor"></path>
               </svg>
-            )}
-          </span>
-        </button>
-      </div>
+            </div>
+          </button>
+          {menuOpen && (
+            <div ref={menuRef} style={{ position: 'absolute', left: 0, top: 28, zIndex: 50 }}>
+              <div role="menu" aria-orientation="vertical" className="z-50 w-40 rounded-lg p-1 shadow-md" style={{ backgroundColor: '#1D2125', color: '#7A8084', fontFamily: 'Urbanist, sans-serif', fontWeight: 600 }}>
+                {menuItems.map((label: string) => (
+                  <div key={label}
+                    role="menuitem"
+                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (label.includes('分成')) { onSplit(item); setMenuOpen(false); return; }
+                      setMenuOpen(false);
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#3C4044'; (e.currentTarget as HTMLDivElement).style.color = '#FFFFFF'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLDivElement).style.color = '#7A8084'; }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {isShopMode ? null : (
+        <div className="absolute right-2 top-2 shrink-0 transition-opacity duration-200" style={{ opacity: (hovered || isSelected) ? 1 : 0 }}>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={isSelected}
+            data-state={isSelected ? 'checked' : 'unchecked'}
+            value="on"
+            className="peer shrink-0 rounded border size-5"
+            aria-label="Select item"
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.cursor = 'pointer'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#4299E1'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? '#4299E1' : '#5A5E62'; }}
+            style={{ border: '1px solid ' + (isSelected ? '#4299E1' : (hovered ? '#4299E1' : '#5A5E62')), backgroundColor: isSelected ? '#4299E1' : 'transparent' }}
+          >
+            <span data-state={isSelected ? 'checked' : 'unchecked'} className="flex items-center justify-center text-current" style={{ pointerEvents: 'none' }}>
+              {isSelected && (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check h-4 w-4 text-white">
+                  <path d="M20 6 9 17l-5-5"></path>
+                </svg>
+              )}
+            </span>
+          </button>
+        </div>
+      )}
       <div className="h-32 sm:h-36">
         <div
           data-component="BaseProductCard"
@@ -969,12 +1205,20 @@ function CartItemCard({ item, isSelected, onToggleSelect, onSplit, onSell }: { i
       <div className="w-full px-2 pb-2 gap-2">
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-white font-bold select-none h-9 px-6 w-full rounded-lg text-sm"
-          style={{ backgroundColor: '#34383C', cursor: 'pointer' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+          disabled={isShopMode ? isBuyingState : false}
+          style={{
+            backgroundColor: '#34383C',
+            cursor: isShopMode ? (isBuyingState ? 'not-allowed' : 'pointer') : 'pointer',
+            opacity: isShopMode && isBuyingState ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (isShopMode && isBuyingState) return;
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62';
+          }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-          onClick={(e) => { e.stopPropagation(); onSell(item); }}
+          onClick={handleActionClick}
         >
-          出售
+          {actionLabel}
         </button>
       </div>
     </div>

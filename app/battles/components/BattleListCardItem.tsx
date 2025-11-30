@@ -160,7 +160,10 @@ export default function BattleListCardItem({
   const entryCost = formatCurrency(card.entryCost);
   const openedValue = formatCurrency(card.totalOpenedValue);
   const hasTeams = Boolean(card.isTeamBattle && card.teams?.length);
-  const maxSlots = Math.max(card.participants.length, Number(card.raw?.num) || 0);
+  const maxSlots =
+    card.participantSlots?.length && card.participantSlots.length > 0
+      ? card.participantSlots.length
+      : Math.max(card.participants.length, Number(card.raw?.num) || 0);
 
   const renderParticipants = () => {
     if (hasTeams && card.teams && card.teams.length > 0) {
@@ -181,8 +184,11 @@ export default function BattleListCardItem({
       );
     }
 
-    const slotCount = maxSlots > 0 ? maxSlots : card.participants.length;
-    const participantSlots = Array.from({ length: slotCount }, (_, index) => card.participants[index] ?? null);
+    const slotCount = maxSlots > 0 ? maxSlots : Math.max(card.participants.length, 1);
+    const participantSlots =
+      card.participantSlots && card.participantSlots.length === slotCount
+        ? card.participantSlots
+        : Array.from({ length: slotCount }, (_, index) => card.participants[index] ?? null);
 
     return (
       <div className="flex flex-wrap items-center justify-center gap-1">
@@ -208,6 +214,8 @@ export default function BattleListCardItem({
   };
 
   const buttonLabel = isPendingBattle ? "加入对战" : labels.button;
+  const isWaitingState = card.status === 0;
+  const openedLabel = isPendingBattle ? "等待玩家" : labels.opened;
   const buttonColor = isPendingBattle
     ? {
         default: "#4299e1",
@@ -273,7 +281,7 @@ export default function BattleListCardItem({
         <div className="flex flex-col items-center gap-2 w-full md:w-[12rem] overflow-hidden min-w-0">
           <div className="overflow-hidden max-w-full px-4">
             <p className="text-base font-bold text-center truncate" style={{ color: "#7A8084" }}>
-              {labels.opened}：{openedValue}
+              {isWaitingState ? "等待玩家" : `${labels.opened}：${openedValue}`}
             </p>
           </div>
           <button

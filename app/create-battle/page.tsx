@@ -53,6 +53,17 @@ const TEAM_STRUCTURE_TO_SIZE: Record<
   "2v2v2": 2,
 };
 
+const MODE_ILLUSTRATIONS: Record<
+  "classic" | "share" | "sprint" | "jackpot" | "elimination",
+  string
+> = {
+  classic: "/images/classic.svg",
+  share: "/images/share.svg",
+  sprint: "/images/rush.svg",
+  jackpot: "/images/jackpot.svg",
+  elimination: "/images/elimination.svg",
+};
+
 
 interface SortablePackItemProps {
   pack: CatalogPack;
@@ -578,7 +589,19 @@ function CreateBattleContent() {
                       </svg>
                     </div>
                   </div>
-                  <div className="hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden">
+                  <div
+                    className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
+                    style={{ backgroundColor: "#1D2125" }}
+                  >
+                    <Image
+                      src={MODE_ILLUSTRATIONS.classic}
+                      alt="经典模式插图"
+                      fill
+                      className="object-contain"
+                      sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                    />
+                  </div>
+                  <div className="hidden">
                     <div
                       className="flex relative w-full h-full"
                       style={{ backgroundColor: "#1D2125" }}
@@ -806,7 +829,19 @@ function CreateBattleContent() {
                         </svg>
                       </div>
                     </div>
-                    <div className="hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden">
+                    <div
+                      className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
+                      style={{ backgroundColor: "#1D2125" }}
+                    >
+                      <Image
+                        src={MODE_ILLUSTRATIONS.share}
+                        alt="分享模式插图"
+                        fill
+                        className="object-contain"
+                        sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                      />
+                    </div>
+                    <div className="hidden">
                       <div
                         className="flex relative w-full h-full"
                         style={{ backgroundColor: "#1D2125" }}
@@ -1279,7 +1314,19 @@ function CreateBattleContent() {
                           </svg>
                         </div>
                       </div>
-                      <div className="hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden">
+                      <div
+                        className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
+                        style={{ backgroundColor: "#1D2125" }}
+                      >
+                        <Image
+                          src={MODE_ILLUSTRATIONS.sprint}
+                          alt="积分冲刺模式插图"
+                          fill
+                          className="object-contain"
+                          sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                        />
+                      </div>
+                      <div className="hidden">
                         <div
                           className="flex relative w-full h-full"
                           style={{ backgroundColor: "#1D2125" }}
@@ -1578,7 +1625,19 @@ function CreateBattleContent() {
                           </svg>
                         </div>
                       </div>
-                      <div className="hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden">
+                      <div
+                        className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
+                        style={{ backgroundColor: "#1D2125" }}
+                      >
+                        <Image
+                          src={MODE_ILLUSTRATIONS.jackpot}
+                          alt="大奖模式插图"
+                          fill
+                          className="object-contain"
+                          sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                        />
+                      </div>
+                      <div className="hidden">
                         <div
                           className="flex relative w-full h-full"
                           style={{ backgroundColor: "#1D2125" }}
@@ -1828,7 +1887,19 @@ function CreateBattleContent() {
                           </svg>
                         </div>
                       </div>
-                      <div className="hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden">
+                      <div
+                        className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
+                        style={{ backgroundColor: "#1D2125" }}
+                      >
+                        <Image
+                          src={MODE_ILLUSTRATIONS.elimination}
+                          alt="淘汰模式插图"
+                          fill
+                          className="object-contain"
+                          sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                        />
+                      </div>
+                      <div className="hidden">
                         <div
                           className="flex relative w-full h-full"
                           style={{ backgroundColor: "#1D2125" }}

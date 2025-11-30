@@ -237,7 +237,7 @@ export default function Navbar() {
   // 重新发送验证邮件
   const handleResendCode = async () => {
     if (!verifyEmail || resendCountdown > 0) return;
-    const result = await sendVerificationEmail(verifyEmail, '2');
+    const result = await sendVerificationEmail(verifyEmail, '1');
     if (result.success) {
       // 启动60秒倒计时
       setResendCountdown(60);

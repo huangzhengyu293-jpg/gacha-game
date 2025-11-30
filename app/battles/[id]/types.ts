@@ -25,6 +25,8 @@ export type Participant = {
   isWinner: boolean;
   teamId?: string;
   items?: PrizeItem[];
+  vipLevel?: number;
+  slotIndex?: number;
 };
 
 export type BattleStatus = 'active' | 'completed' | 'pending';

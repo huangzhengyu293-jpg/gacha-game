@@ -16,7 +16,7 @@ import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
 import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
 import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
-import { api } from '@/app/lib/api';
+import { api, type CreateBattlePayload } from '@/app/lib/api';
 import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
 import type { FightDetailRaw } from '@/types/fight';
@@ -38,6 +38,26 @@ function resolveEntryRoundIndex(totalRounds: number, entryRoundSetting: number):
   }
   const zeroBased = Math.min(entryRoundSetting - 1, totalRounds - 1);
   return Math.max(0, zeroBased);
+}
+
+const GAMEPLAY_TO_MODE_MAP: Record<string, CreateBattlePayload['mode']> = {
+  classic: 0,
+  share: 1,
+  sprint: 2,
+  jackpot: 3,
+  elimination: 4,
+};
+
+const TEAM_STRUCTURE_TO_SIZE_MAP: Record<string, CreateBattlePayload['team_size']> = {
+  '2v2': 0,
+  '3v3': 1,
+  '2v2v2': 2,
+};
+
+function normalizeNumericValue(value: number | string | null | undefined, fallback = 0) {
+  if (value === null || value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 type BattleDataSourceConfig = {
@@ -822,13 +842,7 @@ export default function BattleDetailPage() {
     }
   }, [routeBattleId, router]);
 
-  const {
-    data: fightDetailResponse,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data: fightDetailResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['fightDetail', routeBattleId],
     enabled: Boolean(routeBattleId),
     queryFn: async () => {
@@ -840,11 +854,19 @@ export default function BattleDetailPage() {
     keepPreviousData: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchInterval: (lastData: Awaited<ReturnType<typeof api.getFightDetail>> | undefined) =>
-      lastData?.data?.status === 0 ? 1000 : false,
   });
 
   const rawDetail = fightDetailResponse?.data;
+  const rawStatus = Number(rawDetail?.status ?? 0);
+
+  useEffect(() => {
+    if (!routeBattleId) return;
+    if (rawStatus !== 0) return;
+    const interval = setInterval(() => {
+      refetch();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [routeBattleId, rawStatus, refetch]);
   const normalizedBattleId = String(rawDetail?.id ?? routeBattleId ?? '');
   const battleOwnerId = rawDetail?.user_id !== undefined && rawDetail?.user_id !== null ? String(rawDetail.user_id) : null;
   const activeSource = useMemo<BattleDataSourceConfig | null>(() => {
@@ -856,7 +878,7 @@ export default function BattleDetailPage() {
       lastChance: rawDetail.finally === 1,
       inverted: rawDetail.type === 1,
     };
-    const currentStatus = Number(rawDetail.status ?? 0);
+    const currentStatus = rawStatus;
     const wasPreviouslyPending = previousStatusRef.current === 0 && currentStatus !== 0;
     previousStatusRef.current = currentStatus;
     const entryRoundSetting = wasPreviouslyPending
@@ -868,10 +890,10 @@ export default function BattleDetailPage() {
       buildData: () => buildBattleDataFromRaw(rawDetail, { battleId: normalizedBattleId, specialOptions }),
       buildPayload: () => buildBattlePayloadFromRaw(rawDetail, { battleId: normalizedBattleId, specialOptions }),
     };
-  }, [normalizedBattleId, rawDetail]);
+  }, [normalizedBattleId, rawDetail, rawStatus]);
 
   const battleData = useMemo(() => (activeSource ? activeSource.buildData() : null), [activeSource]);
-  const isPendingBattle = Number(rawDetail?.status ?? 0) === 0;
+  const isPendingBattle = rawStatus === 0;
   const isBattleOwner = Boolean(normalizedCurrentUserId && battleOwnerId && normalizedCurrentUserId === battleOwnerId);
   const canSummonRobots = isPendingBattle && isBattleOwner;
   const canJoinBattle = isPendingBattle && !isBattleOwner;
@@ -913,27 +935,11 @@ export default function BattleDetailPage() {
   }
 
   if (isError) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#05070F] px-6 text-center text-white">
-        <h1 className="text-2xl font-semibold">載入對戰失敗</h1>
-        <p className="mt-3 max-w-md text-sm text-white/70">{error instanceof Error ? error.message : '請稍候再試。'}</p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="mt-6 rounded-md bg-[#6D4CFF] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#5533d0]"
-        >
-          重新嘗試
-        </button>
-      </div>
-    );
+    return null;
   }
 
   if ((isLoading && !fightDetailResponse) || !rawDetail || !activeSource || !battleData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#05070F] px-6 text-sm text-white/80">
-        正在載入对战…
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -941,6 +947,7 @@ export default function BattleDetailPage() {
       routeBattleId={normalizedBattleId}
       activeSource={activeSource}
       battleData={battleData}
+      rawDetail={rawDetail}
       isPendingBattle={isPendingBattle}
       onPendingSlotAction={pendingSlotActionHandler}
       pendingSlotActionLabel={pendingSlotActionLabel}
@@ -952,6 +959,7 @@ function BattleDetailContent({
   routeBattleId,
   activeSource,
   battleData,
+  rawDetail,
   isPendingBattle,
   onPendingSlotAction,
   pendingSlotActionLabel,
@@ -959,6 +967,7 @@ function BattleDetailContent({
   routeBattleId: string;
   activeSource: BattleDataSourceConfig;
   battleData: BattleData;
+  rawDetail: FightDetailRaw;
   isPendingBattle: boolean;
   onPendingSlotAction?: (order: number) => void;
   pendingSlotActionLabel?: string;
@@ -977,6 +986,62 @@ function BattleDetailContent({
   const forceFullReplayRef = useRef(false);
   const [runtimeReadyVersion, setRuntimeReadyVersion] = useState(0);
   const previousPendingStatusRef = useRef(isPendingBattle);
+  const [isRecreatingBattle, setIsRecreatingBattle] = useState(false);
+  const handleRecreateBattle = useCallback(async () => {
+    if (isRecreatingBattle) return;
+    setIsRecreatingBattle(true);
+    try {
+      const resolvedBoxIds = (() => {
+        if (Array.isArray(rawDetail.data?.box) && rawDetail.data.box.length) {
+          return rawDetail.data.box.map((boxId) => String(boxId));
+        }
+        return battleData.packs.map((pack) => pack.id);
+      })();
+
+      const fallbackPlayers = battleData.playersCount || resolvedBoxIds.length || 2;
+
+      const payload: CreateBattlePayload = {
+        num: (() => {
+          const normalized = normalizeNumericValue(rawDetail.num, fallbackPlayers);
+          return normalized > 0 ? normalized : fallbackPlayers;
+        })(),
+        person_team:
+          normalizeNumericValue(rawDetail.person_team, battleData.battleType === 'team' ? 1 : 0) === 1 ? 1 : 0,
+        team_size: (() => {
+          const teamSizeRaw = normalizeNumericValue(rawDetail.team_size, Number.NaN);
+          if (teamSizeRaw === 0 || teamSizeRaw === 1 || teamSizeRaw === 2) {
+            return teamSizeRaw as CreateBattlePayload['team_size'];
+          }
+          const fallbackStructure = battleData.teamStructure ? TEAM_STRUCTURE_TO_SIZE_MAP[battleData.teamStructure] : 0;
+          return (fallbackStructure ?? 0) as CreateBattlePayload['team_size'];
+        })(),
+        mode: (() => {
+          const modeRaw = normalizeNumericValue(rawDetail.mode, Number.NaN);
+          if (modeRaw >= 0 && modeRaw <= 4) {
+            return modeRaw as CreateBattlePayload['mode'];
+          }
+          return GAMEPLAY_TO_MODE_MAP[battleData.mode] ?? 0;
+        })(),
+        fast: normalizeNumericValue(rawDetail.fast, battleData.isFastMode ? 1 : 0) ? 1 : 0,
+        finally: normalizeNumericValue(rawDetail.finally, battleData.isLastChance ? 1 : 0) ? 1 : 0,
+        type: normalizeNumericValue(rawDetail.type, battleData.isInverted ? 1 : 0) ? 1 : 0,
+        boxs: resolvedBoxIds.length ? resolvedBoxIds : battleData.packs.map((pack) => pack.id),
+      };
+
+      const response = await api.createBattle(payload);
+      const createdId = response?.data ?? null;
+      if (createdId !== null && createdId !== undefined) {
+        router.replace(`/battles/${createdId}`);
+      } else {
+        console.error('createBattle 未返回新的对战 ID', response);
+      }
+    } catch (error) {
+      console.error('重新创建对战失敗', error);
+    } finally {
+      setIsRecreatingBattle(false);
+    }
+  }, [isRecreatingBattle, rawDetail, battleData, router]);
+
 
   useEffect(() => {
     if (previousPendingStatusRef.current && !isPendingBattle) {
@@ -995,6 +1060,14 @@ function BattleDetailContent({
       .filter((participant) => participant?.isWinner)
       .map((participant) => String(participant.id));
   }, [battleData.participants]);
+  const primaryRawWinnerId = useMemo(() => {
+    const rawWinners = Array.isArray(rawDetail?.win_user) ? rawDetail!.win_user : [];
+    if (!rawWinners.length) return null;
+    const firstWinner = rawWinners[0];
+    if (firstWinner === null || firstWinner === undefined) return null;
+    return String(firstWinner);
+  }, [rawDetail]);
+
   const declaredWinnerIds = useMemo(
     () =>
       (battleData.participants || [])
@@ -1491,27 +1564,88 @@ function BattleDetailContent({
     [allParticipants],
   );
 
+  const expandSprintContenders = useCallback(
+    (contenderIds: string[]) => {
+      if (!isTeamMode || !contenderIds.length) {
+        return contenderIds;
+      }
+      const targetSet = new Set(contenderIds);
+      const expanded: string[] = [];
+      allParticipants.forEach((participant) => {
+        if (!participant?.id) return;
+        if (targetSet.has(participant.id)) {
+          expanded.push(participant.id);
+          return;
+        }
+        if (participant.teamId && targetSet.has(participant.teamId)) {
+          expanded.push(participant.id);
+        }
+      });
+      const uniqueExpanded = Array.from(new Set(expanded));
+      return uniqueExpanded.length ? uniqueExpanded : contenderIds;
+    },
+    [allParticipants, isTeamMode],
+  );
+
+  const sprintScoreLeaders = useMemo(() => {
+    if (gameMode !== 'sprint') return [];
+    const entries = Object.entries(sprintScores || {});
+    if (!entries.length) return [];
+    const normalized = entries.map(([id, score]) => [id, Number(score ?? 0)] as [string, number]);
+    if (!normalized.length) return [];
+    const maxScore = Math.max(...normalized.map(([, value]) => value));
+    if (!Number.isFinite(maxScore)) return [];
+    return normalized.filter(([, value]) => value === maxScore).map(([id]) => id);
+  }, [gameMode, sprintScores]);
+
   const evaluateTieBreakerPlan = useCallback((): TieBreakerPlan | null => {
     if (!allParticipants.length) return null;
 
-    if (hasMultipleDeclaredWinners) {
-      // 已經有多位獲勝者，直接顯示結果，不需要決勝
-      return null;
-    }
+    // if (hasMultipleDeclaredWinners) {
+    //   // 已經有多位獲勝者，直接顯示結果，不需要決勝
+    //   return null;
+    // }
 
     const declaredWinnerId = declaredWinnerIds.length === 1 ? declaredWinnerIds[0] : null;
+    const primaryDeclaredWinnerId = declaredWinnerIds[0] ?? null;
 
     if (gameMode === 'sprint') {
       const sprintData = sprintDataRef.current;
-      if (
-        sprintData?.needsTiebreaker &&
-        sprintData.tiebreakerPlayers.length > 1 &&
-        sprintData.finalWinnerId
-      ) {
+      const precomputedContenders =
+        sprintData?.needsTiebreaker && sprintData.tiebreakerPlayers.length > 1
+          ? sprintData.tiebreakerPlayers
+          : [];
+      const contenderSource =
+        sprintScoreLeaders.length > 1 ? sprintScoreLeaders : precomputedContenders;
+      if (contenderSource.length > 1) {
+        const contenderIds = expandSprintContenders(contenderSource);
+        if (contenderIds.length <= 1) {
+          return null;
+        }
+        const resolveCandidate = (candidate?: string | null) => {
+          if (!candidate) return null;
+          if (contenderIds.includes(candidate)) {
+            return candidate;
+          }
+          if (isTeamMode) {
+            const member = allParticipants.find(
+              (participant) => participant?.teamId && participant.teamId === candidate,
+            );
+            if (member && contenderIds.includes(member.id)) {
+              return member.id;
+            }
+          }
+          return null;
+        };
+        const resolvedWinnerId =
+          resolveCandidate(primaryRawWinnerId) ??
+          resolveCandidate(primaryDeclaredWinnerId) ??
+          resolveCandidate(sprintData?.finalWinnerId ?? null) ??
+          contenderIds[0];
         return {
           mode: 'sprint',
-          contenderIds: sprintData.tiebreakerPlayers,
-          winnerId: sprintData.finalWinnerId,
+          contenderIds,
+          winnerId: resolvedWinnerId,
         };
       }
     }
@@ -1571,15 +1705,19 @@ function BattleDetailContent({
 
     return null;
   }, [
-    allParticipants.length,
+    allParticipants,
     declaredWinnerIds,
     determineClassicWinnerParticipantId,
+    expandSprintContenders,
     gameMode,
     getClassicComparisonValues,
     getLastChanceValueMap,
     hasMultipleDeclaredWinners,
     isInverted,
     isLastChance,
+    isTeamMode,
+    primaryRawWinnerId,
+    sprintScoreLeaders,
   ]);
 
   const resolveClassicModeWinner = useCallback(() => {
@@ -2887,13 +3025,92 @@ function BattleDetailContent({
       
    
       
+      const activeParticipantIds = allParticipants
+        .filter((participant) => participant?.id && !eliminatedPlayerIds.has(participant.id))
+        .map((participant) => participant.id);
+
+      const deriveTieCandidates = () => {
+        if (!activeParticipantIds.length) return [];
+
+        const roundResultMap = roundResults[currentRound];
+        const priceEntries: Array<{ id: string; price: number }> = [];
+
+        if (roundResultMap) {
+          activeParticipantIds.forEach((participantId) => {
+            const slot = roundResultMap[participantId];
+            if (!slot) return;
+            const value = Number(slot.price ?? (slot as any)?.value ?? 0);
+            if (Number.isFinite(value)) {
+              priceEntries.push({ id: participantId, price: value });
+            }
+          });
+        }
+
+        if (!priceEntries.length) {
+          const fallbackRound = detailedResultsRef.current?.[currentRound];
+          if (fallbackRound) {
+            activeParticipantIds.forEach((participantId) => {
+              const record = fallbackRound[participantId];
+              if (!record) return;
+              const rawPrice =
+                record?.价格 ??
+                record?.price ??
+                record?.bean ??
+                record?.value ??
+                (typeof record === 'number' ? record : null);
+              if (rawPrice === null || rawPrice === undefined) return;
+              const parsedValue = parseFloat(String(rawPrice).replace(/[^\d.-]/g, ''));
+              if (Number.isFinite(parsedValue)) {
+                priceEntries.push({ id: participantId, price: parsedValue });
+              }
+            });
+          }
+        }
+
+        if (!priceEntries.length) return [];
+        const comparator = isInverted ? Math.max : Math.min;
+        const targetValue = comparator(...priceEntries.map((entry) => entry.price));
+        return priceEntries
+          .filter((entry) => entry.price === targetValue)
+          .map((entry) => entry.id);
+      };
+
+      const derivedTieCandidates = deriveTieCandidates();
+      const existingTieIds = Array.isArray(eliminationInfo.tiedPlayerIds)
+        ? eliminationInfo.tiedPlayerIds
+        : [];
+      const mergedTieIds = Array.from(
+        new Set(
+          [...existingTieIds, ...derivedTieCandidates].filter((id) =>
+            activeParticipantIds.includes(id),
+          ),
+        ),
+      );
+      if (
+        mergedTieIds.length &&
+        eliminationInfo.eliminatedPlayerId &&
+        !mergedTieIds.includes(eliminationInfo.eliminatedPlayerId)
+      ) {
+        mergedTieIds.push(eliminationInfo.eliminatedPlayerId);
+      }
+
+      const needsSlotFromDerived = mergedTieIds.length > 1;
+      const finalNeedsSlot = eliminationInfo.needsSlotMachine || needsSlotFromDerived;
+      const finalTiedPlayerIds = finalNeedsSlot ? mergedTieIds : undefined;
+
+      const enhancedEliminationInfo = {
+        ...eliminationInfo,
+        needsSlotMachine: finalNeedsSlot,
+        tiedPlayerIds: finalTiedPlayerIds,
+      };
+
       // 保存当前淘汰数据（添加轮次索引）
       setCurrentEliminationData({
-        ...eliminationInfo,
-        roundIndex: currentRound
+        ...enhancedEliminationInfo,
+        roundIndex: currentRound,
       });
       
-      if (eliminationInfo.needsSlotMachine) {
+      if (enhancedEliminationInfo.needsSlotMachine) {
         // 🔥 需要老虎机动画 - 不在这里添加淘汰玩家，等老虎机完成后再添加
         setTimeout(() => {
           setRoundState('ROUND_ELIMINATION_SLOT');
@@ -2906,10 +3123,10 @@ function BattleDetailContent({
         });
         
         // 🔥 记录淘汰轮次（使用 currentEliminationData 中的 roundIndex）
-        setEliminationRounds(prev => {
+        setEliminationRounds((prev) => {
           const newRounds = {
             ...prev,
-            [eliminationInfo.eliminatedPlayerId]: currentRound
+            [eliminationInfo.eliminatedPlayerId]: currentRound,
           };
           return newRounds;
         });
@@ -2919,22 +3136,27 @@ function BattleDetailContent({
         }, 100); // 🔥 结果已预设，立即显示
       }
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, dispatchProgressState]);
+  }, [
+    mainState,
+    roundState,
+    gameData.currentRound,
+    gameData.totalRounds,
+    dispatchProgressState,
+    roundResults,
+    allParticipants,
+    eliminatedPlayerIds,
+    isInverted,
+  ]);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
   useEffect(() => {
-    if (mainState === 'ROUND_LOOP' && roundState === 'ROUND_ELIMINATION_SLOT') {
-      
-      // 触发淘汰老虎机组件的动画
-      if (eliminationSlotMachineRef.current) {
-        eliminationSlotMachineRef.current.startSpin();
-      } else {
-        setTimeout(() => {
-          setRoundState('ROUND_ELIMINATION_RESULT');
-        }, 1000);
-      }
+    if (mainState !== 'ROUND_LOOP' || roundState !== 'ROUND_ELIMINATION_SLOT') {
+      return;
     }
-  }, [mainState, roundState]);
+    if (currentEliminationData?.needsSlotMachine && !currentEliminationData.tiedPlayerIds?.length) {
+      setRoundState('ROUND_ELIMINATION_RESULT');
+    }
+  }, [mainState, roundState, currentEliminationData]);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_RESULT（显示淘汰结果）
   useEffect(() => {
@@ -2966,11 +3188,8 @@ function BattleDetailContent({
         return prev;
       });
       
-      // 🔥 结果已预设，快速进入下一轮（给用户短暂时间看到淘汰效果）
-      setTimeout(() => {
-        setCurrentEliminationData(null); // 清空当前淘汰数据
-        setRoundState('ROUND_NEXT');
-      }, 500);
+      setCurrentEliminationData(null); // 清空当前淘汰数据
+      setRoundState('ROUND_NEXT');
     }
   }, [mainState, roundState, currentEliminationData]);
 
@@ -3222,6 +3441,47 @@ function BattleDetailContent({
   ]);
 
   useEffect(() => {
+    if (mainState !== 'COMPLETED') return;
+    if (gameMode !== 'sprint') return;
+    const sprintData = sprintDataRef.current;
+    if (!sprintData?.scores || !Object.keys(sprintData.scores).length) return;
+    setSprintScores((prev) => {
+      if (Object.keys(prev).length) return prev;
+      return { ...sprintData.scores };
+    });
+  }, [mainState, gameMode]);
+
+  useEffect(() => {
+    if (mainState !== 'COMPLETED' || gameMode !== 'elimination') return;
+    const eliminationData = eliminationDataRef.current;
+    if (!eliminationData?.eliminations) return;
+
+    setEliminationRounds((prev) => {
+      if (Object.keys(prev).length) return prev;
+      const roundsMap: Record<string, number> = {};
+      Object.entries(eliminationData.eliminations).forEach(([roundIdx, info]) => {
+        if (info?.eliminatedPlayerId) {
+          roundsMap[info.eliminatedPlayerId] = Number(roundIdx);
+        }
+      });
+      return Object.keys(roundsMap).length ? roundsMap : prev;
+    });
+
+    setEliminatedPlayerIds((prev) => {
+      if (prev.size > 0) return prev;
+      const entries = Object.values(eliminationData.eliminations || {});
+      if (!entries.length) return prev;
+      const next = new Set(prev);
+      entries.forEach((info) => {
+        if (info?.eliminatedPlayerId) {
+          next.add(info.eliminatedPlayerId);
+        }
+      });
+      return next;
+    });
+  }, [mainState, gameMode]);
+
+  useEffect(() => {
     if (mainState !== 'COMPLETED' || !tieBreakerGateOpen) return;
     if (completedWinnerSetRef.current) return;
 
@@ -3250,7 +3510,7 @@ function BattleDetailContent({
           currentRound={currentRound}
           totalRounds={battleData.packs.length}
           currentPackName={battleData.packs[currentRound]?.name || ''}
-          currentPackPrice={`$${(battleData.packs[currentRound] as any)?.cost?.toFixed(2) || '0.00'}`}
+          currentPackPrice={battleData.packs[currentRound]?.value ?? '$0.00'}
           gameMode={gameMode}
           isFastMode={isFastMode}
           isLastChance={isLastChance}
@@ -3405,17 +3665,27 @@ function BattleDetailContent({
                 
                 {/* 按钮组 */}
                 <div className="flex flex-col gap-3">
-                  <button 
+                  <button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors select-none h-10 px-6"
-                    style={{ 
+                    style={{
                       backgroundColor: '#10B981',
-                      color: '#ffffff'
+                      color: '#ffffff',
+                      opacity: isRecreatingBattle ? 0.6 : 1,
+                      cursor: isRecreatingBattle ? 'not-allowed' : 'pointer',
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10B981'}
+                    disabled={isRecreatingBattle}
+                    onMouseEnter={(e) => {
+                      if (isRecreatingBattle) return;
+                      e.currentTarget.style.backgroundColor = '#059669';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isRecreatingBattle) return;
+                      e.currentTarget.style.backgroundColor = '#10B981';
+                    }}
+                    onClick={handleRecreateBattle}
                   >
                     <p className="text-base font-bold" style={{ color: '#ffffff' }}>
-                      用 {battleData.cost} 重新创建此对战
+                      {isRecreatingBattle ? '创建中...' : `用 ${battleData.cost} 重新创建此对战`}
                     </p>
                   </button>
                   <div className="flex gap-3">
@@ -3495,7 +3765,7 @@ function BattleDetailContent({
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5A5E62'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#34383C'}
                       onClick={() => {
-                        router.push('/create-battle');
+                        router.replace('/create-battle?type=solo&playersInSolo=2&gameMode=classic&fastBattle=false');
                       }}
                     >
                       <p className="text-base font-bold" style={{ color: '#ffffff' }}>创建新对战</p>
@@ -3537,7 +3807,7 @@ function BattleDetailContent({
                           params.set('upsideDown', 'true');
                         }
                         
-                        router.push(`/create-battle?${params.toString()}`);
+                        router.replace(`/create-battle?${params.toString()}`);
                       }}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

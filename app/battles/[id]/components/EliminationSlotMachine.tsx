@@ -93,13 +93,7 @@ const EliminationSlotMachine = forwardRef<EliminationSlotMachineHandle, Eliminat
     
     // 给一点时间让名字完全显示
     setTimeout(() => {
-      console.log('⏱️ [淘汰老虎机] 名字已显示，等待0.5秒后进入下个阶段...');
-      
-      // 再延迟0.5秒进入下个阶段
-      setTimeout(() => {
-        console.log('✅ [淘汰老虎机] 延迟结束，触发 onSpinComplete');
-        onSpinComplete?.();
-      }, 500);
+      onSpinComplete?.();
     }, 200); // 先等200ms确保名字显示
   };
   

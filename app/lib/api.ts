@@ -88,6 +88,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/favorite',
   '/api/box/open',
   '/api/box/userrecord',
+  '/api/box/cash',
   '/api/user/bean',
   '/api/user/storage',
   '/api/auth/userinfo',
@@ -96,6 +97,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/fight/save',
   '/api/fight/inviterobots',
   '/api/fight/detail',
+  '/api/shop/buy',
 ];
 
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
@@ -288,7 +290,7 @@ export const api = {
   register: (payload: { name: string; email: string; password: string }) =>
     post<{ ok: true; user?: { id: string; name: string; email: string } }>('/api/auth/register', payload),
   sendVerificationEmail: (payload: { to: string; type: string }) =>
-    post<ApiResponse>('/api/auth/sendemail', payload),
+    post<ApiResponse>('/api/index/sendemail', payload),
   activateAccount: (payload: { code: string }) =>
     post<ApiResponse>('/api/auth/activation', payload),
   login: (payload: { email: string; password: string }) =>
@@ -439,6 +441,21 @@ export const api = {
     });
     return result;
   },
+  cashOutBoxes: async (ids: Array<string | number>) => {
+    const formData = new URLSearchParams();
+    ids.forEach((id, index) => {
+      formData.append(`ids[${index}]`, String(id));
+    });
+
+    const result = await request<ApiResponse>('/api/box/cash', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
   createBattle: async (payload: CreateBattlePayload) => {
     const formData = new URLSearchParams();
     formData.append('num', String(payload.num));
@@ -531,6 +548,25 @@ export const api = {
   getUserStorage: async () => {
     const result = await request<ApiResponse>('/api/user/storage', {
       method: 'GET',
+    });
+    return result;
+  },
+  getShopList: async () => {
+    const result = await request<ApiResponse>('/api/shop/list', {
+      method: 'GET',
+    });
+    return result;
+  },
+  buyShopItem: async (id: string | number) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(id));
+
+    const result = await request<ApiResponse>('/api/shop/buy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
     });
     return result;
   },
