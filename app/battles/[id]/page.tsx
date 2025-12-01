@@ -71,9 +71,10 @@ type BattleDataSourceConfig = {
 dayjs.extend(customParseFormat);
 
 const KNOWN_TIME_FORMATS = ['YYYY-MM-DD HH:mm:ss', 'YYYY/MM/DD HH:mm:ss'];
-const NORMAL_ROUND_DURATION_MS = 4500;
+const NORMAL_ROUND_DURATION_MS = 6000;
 const FAST_ROUND_DURATION_MS = 1000;
 const ENTRY_DELAY_MS = 3000;
+const SECOND_STAGE_RESULT_PAUSE_MS = 500;
 type DayjsInstance = ReturnType<typeof dayjs>;
 
 function logCurrentRound(roundNumber: number) {
@@ -1108,7 +1109,7 @@ function BattleDetailContent({
     roundEventLog,
   } = progressState;
   const isFastMode = battleData.isFastMode || false;
-  const spinDuration = isFastMode ? 1000 : 4500;
+  const spinDuration = isFastMode ? 1000 : 6000;
   
   // 🎯 最后的机会模式（从battleData读取）
   const isLastChance = battleData.isLastChance || false;
@@ -2998,10 +2999,17 @@ function BattleDetailContent({
         }
       };
 
+      const hadLegendarySecondStage = currentRoundData.spinStatus.firstStage.gotLegendary.size > 0;
+      const nextPhaseDelay = hadLegendarySecondStage ? SECOND_STAGE_RESULT_PAUSE_MS : 100;
+
       if (gameMode === 'elimination') {
-        proceedToNextPhase();
+        if (hadLegendarySecondStage) {
+          setTimeout(proceedToNextPhase, SECOND_STAGE_RESULT_PAUSE_MS);
+        } else {
+          proceedToNextPhase();
+        }
       } else {
-        setTimeout(proceedToNextPhase, 100);
+        setTimeout(proceedToNextPhase, nextPhaseDelay);
       }
     }
   }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, allParticipants.length, gameMode, isTeamMode, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
@@ -4498,7 +4506,7 @@ function BattleDetailContent({
               selectedPrizeId={tieBreakerPlan.winnerId}
               onSpinComplete={handleTieBreakerComplete}
               width={9999}
-              spinDuration={isFastMode ? 1000 : 4500}
+              spinDuration={isFastMode ? 1000 : 6000}
               isEliminationMode={true}
             />
           </div>

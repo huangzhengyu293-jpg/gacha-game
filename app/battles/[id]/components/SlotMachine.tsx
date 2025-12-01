@@ -277,7 +277,7 @@ export default function SlotMachine({
     const targetSymbol = baseSymbols.find((symbol) => symbol.id === selectedPrizeId);
     onSpinStart?.(targetSymbol?.id ?? null);
 
-    const duration = 4500 + Math.random() * 1000;
+    const duration = 6000 + Math.random() * 1000;
     await spinPhase1(duration, targetSymbol);
     await new Promise((resolve) => setTimeout(resolve, 300));
     await spinPhase2();

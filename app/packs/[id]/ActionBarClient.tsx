@@ -121,7 +121,7 @@ export default function ActionBarClient({
             if (isSlotMachineSpinning) return;
             
             const isFastMode = (window as any).__slotMachineFastMode || false;
-            const animTime = isFastMode ? 1000 : 4500;
+            const animTime = isFastMode ? 1000 : 6000;
             const ids = slotPackIds.join('|');
             
             try {

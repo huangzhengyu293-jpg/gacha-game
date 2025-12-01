@@ -916,7 +916,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     
     setSelectedBackdropVisibility(true);
 
-    const duration = spinDuration || 4500;
+    const duration = spinDuration || 6000;
     
     await spinPhase1(duration, selectedPrize);
     await spinPhase2(selectedPrize);

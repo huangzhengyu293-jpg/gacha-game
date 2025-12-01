@@ -33,7 +33,7 @@ const CanvasSlotMachine = forwardRef<CanvasSlotMachineHandle, CanvasSlotMachineP
   onSpinStart,
   onSpinComplete,
   height = 540,
-  spinDuration = 4500
+  spinDuration = 6000
 }, ref) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);

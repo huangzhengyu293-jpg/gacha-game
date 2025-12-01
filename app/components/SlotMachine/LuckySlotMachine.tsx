@@ -38,8 +38,8 @@ const QUALITY_HEX_MAP: Record<string, string> = {
   placeholder: '#E4AE33',
 };
 
-const RANDOM_OFFSET_MIN_RATIO = 0.49;
-const RANDOM_OFFSET_MAX_RATIO = 0.5;
+const RANDOM_OFFSET_MIN_RATIO = 0.48;
+const RANDOM_OFFSET_MAX_RATIO = 0.49;
 const FINAL_ALIGNMENT_DURATION = 480;
 
 function resolveQualityHex(symbol: SlotSymbol): string {
@@ -808,7 +808,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     currentSelectedElementRef.current = null;
     
     // 使用固定时长，确保所有老虎机同步回正
-    const duration = 6000;
+    const duration = spinDuration||6000;
     
     await spinPhase1(duration, selectedPrize);
     setIsFinalizing(true);

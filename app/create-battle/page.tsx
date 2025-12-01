@@ -302,7 +302,7 @@ function CreateBattleContent() {
       const createdBattleId =
         result
 
-      if (createdBattleId) {
+      if (response?.code === 100000 && createdBattleId) {
         showGlobalToast({
           title: "创建成功",
           description: "即将跳转到对战详情",
@@ -313,12 +313,6 @@ function CreateBattleContent() {
         return;
       }
 
-      showGlobalToast({
-        title: "创建成功",
-        description: "未返回对战 ID，使用当前配置预览",
-        durationMs: 2600,
-      });
-      router.push(buildPreviewBattleUrl());
     },
     onError: (error: Error) => {
       showGlobalToast({

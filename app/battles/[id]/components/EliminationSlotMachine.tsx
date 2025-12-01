@@ -98,7 +98,7 @@ const EliminationSlotMachine = forwardRef<EliminationSlotMachineHandle, Eliminat
   };
   
   // 计算滚动时长：与礼包页保持一致 - 普通4.5s，快速1s
-  const spinDuration = isFastMode ? 1000 : 4500;
+  const spinDuration = isFastMode ? 1000 : 6000;
   
   return (
     <div className="w-full overflow-hidden relative" style={{ height: '250px' }}>
