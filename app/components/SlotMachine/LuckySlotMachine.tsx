@@ -324,6 +324,25 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     return clampedIndex;
   }, []); // NO dependencies - completely stable!
 
+  const createItemInfoElement = useCallback((symbol: SlotSymbol): HTMLDivElement => {
+    const itemInfo = document.createElement('div');
+    itemInfo.className = 'item-info';
+
+    const itemName = document.createElement('p');
+    itemName.className = 'item-name';
+    itemName.textContent = symbol.name;
+    itemInfo.appendChild(itemName);
+
+    if (symbol.price > 0) {
+      const itemPrice = document.createElement('p');
+      itemPrice.className = 'item-price';
+      itemPrice.textContent = `¥${symbol.price}`;
+      itemInfo.appendChild(itemPrice);
+    }
+
+    return itemInfo;
+  }, []);
+
   // 🚀 Create a single DOM element (reusable factory)
   const createItemElement = useCallback((symbol: SlotSymbol, index: number): HTMLDivElement => {
     const item = document.createElement('div');
@@ -351,22 +370,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     imgWrapper.appendChild(img);
     
-    // 信息层
-    const info = document.createElement('div');
-    info.className = 'item-info';
-    
-    // 🎯 金色占位符不显示名字和金额
-    if (symbol.id !== 'golden_placeholder') {
-      const namePara = document.createElement('p');
-      namePara.className = 'item-name';
-      namePara.textContent = symbol.name;
-      
-      const pricePara = document.createElement('p');
-      pricePara.textContent = `¥${symbol.price}`;
-      
-      info.appendChild(namePara);
-      info.appendChild(pricePara);
-    }
+    const info = symbol.id === GOLDEN_PLACEHOLDER_ID ? null : createItemInfoElement(symbol);
     
     const selectedBackdrop = document.createElement('div');
     selectedBackdrop.className = 'selected-backdrop';
@@ -375,14 +379,16 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     item.appendChild(glow);
     item.appendChild(selectedBackdrop);
     item.appendChild(imgWrapper);
-    item.appendChild(info);
+    if (info) {
+      item.appendChild(info);
+    }
     
     // Set absolute position
     item.style.position = 'absolute';
     item.style.top = `${index * itemHeightRef.current}px`;
     
     return item;
-  }, []);
+  }, [createItemInfoElement]);
 
   // 🚀 Update virtual items rendering (only render visible range)
   const updateVirtualItems = useCallback(() => {
@@ -937,14 +943,32 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         glow.style.background = `radial-gradient(circle, rgba(${glowColor}, 0.6) 0%, rgba(${glowColor}, 0.3) 50%, transparent 70%)`;
       }
       
-      // 更新文字信息
-      if (symbol.id !== 'golden_placeholder') {
-        const info = element.querySelector('.item-info');
+      let info = element.querySelector('.item-info') as HTMLDivElement | null;
+      if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
         if (info) {
+          info.remove();
+          info = null;
+        }
+      } else {
+        if (!info) {
+          info = createItemInfoElement(symbol);
+          element.appendChild(info);
+        } else {
           const namePara = info.querySelector('.item-name');
-          const pricePara = info.querySelector('p:last-child');
-          if (namePara) namePara.textContent = symbol.name;
-          if (pricePara) pricePara.textContent = `¥${symbol.price}`;
+          if (namePara) {
+            namePara.textContent = symbol.name;
+          }
+          let pricePara = info.querySelector('.item-price') as HTMLParagraphElement | null;
+          if (symbol.price > 0) {
+            if (!pricePara) {
+              pricePara = document.createElement('p');
+              pricePara.className = 'item-price';
+              info.appendChild(pricePara);
+            }
+            pricePara.textContent = `¥${symbol.price}`;
+          } else if (pricePara) {
+            pricePara.remove();
+          }
         }
       }
     });
@@ -956,7 +980,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     currentSelectedIndexRef.current = -1;
     currentSelectedElementRef.current = null;
     selectionLockedRef.current = false;
-  }, [repeatTimes]);
+  }, [repeatTimes, createItemInfoElement]);
 
   // Expose startSpin and updateReelContent methods to parent
   useImperativeHandle(ref, () => ({
@@ -1035,12 +1059,14 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           position: absolute;
           width: 60%;
           aspect-ratio: 1;
+          top: 50%;
+          left: 50%;
           background: radial-gradient(circle, rgba(255, 182, 193, 0.6) 0%, rgba(255, 182, 193, 0.3) 50%, transparent 70%);
           z-index: 1;
           opacity: 0;
           transition: opacity 0.08s ease-out;
           will-change: opacity;
-          transform: translateZ(0);
+          transform: translate(-50%, -50%) translateZ(0);
         }
 
         .lucky-slot-machine-container .selected-backdrop {
@@ -1049,6 +1075,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           aspect-ratio: 1;
           min-width: 60%;
           min-height: 60%;
+          top: 50%;
+          left: 50%;
           background-color: var(--selected-backdrop-color, #FFFFFF);
           mask-image: url('/images/tick.svg');
           mask-size: contain;
@@ -1060,7 +1088,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           -webkit-mask-repeat: no-repeat;
           opacity: 0;
           z-index: 2;
-          transform: translateZ(0);
+          transform: translate(-50%, -50%) translateZ(0);
           transition: opacity 0.12s ease-out;
         }
 
@@ -1074,6 +1102,10 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           transform: translateZ(0);
           backface-visibility: hidden;
           -webkit-font-smoothing: antialiased;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .lucky-slot-machine-container .item-image-wrapper img {
@@ -1089,10 +1121,13 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           display: flex;
           flex-direction: column;
           align-items: center;
-          background: rgba(55, 65, 81, 0.4);
+          background: #1D2125;
+          border: 1px solid #2A2F33;
           padding: 4px 8px;
           border-radius: 6px;
-          transform: translateY(calc(var(--item-height) * 0.4));
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, calc(var(--item-height) * 0.4));
           max-width: var(--item-height);
           opacity: 0;
           transition: opacity 0.2s;
@@ -1248,7 +1283,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         @media (max-width: 639px) {
           .lucky-slot-machine-container .item-info {
             padding: 2px 4px;
-            transform: translateY(calc(var(--item-height) * 0.35));
+            transform: translate(-50%, calc(var(--item-height) * 0.35));
           }
           
           .lucky-slot-machine-container .item-info p {

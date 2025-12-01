@@ -435,6 +435,7 @@ type RoundState =
   | 'ROUND_CHECK_LEGENDARY'      // 检查是否有人中legendary
   | 'ROUND_PREPARE_SECOND'       // 准备第二段（替换数据源）
   | 'ROUND_SPIN_SECOND'          // 第二段转动（使用legendary池）
+  | 'ROUND_JACKPOT_ROLL'         // 🎰 大奖模式：色条滚动阶段
   | 'ROUND_SETTLE' 
   | 'ROUND_CHECK_ELIMINATION'    // 🔥 淘汰模式：检查是否需要淘汰
   | 'ROUND_ELIMINATION_SLOT'     // 🔥 淘汰模式：播放淘汰老虎机动画
@@ -1180,6 +1181,7 @@ function BattleDetailContent({
   const battleRuntimeRef = useRef<BattleRuntime | null>(null);
   const detailedResultsRef = useRef<Record<number, Record<string, any>>>({});
   const jackpotWinnerRef = useRef<JackpotRuntimeData | null>(null);
+  const jackpotRollTriggeredRef = useRef(false);
   const sprintDataRef = useRef<SprintRuntimeData | null>(null);
   const eliminationDataRef = useRef<EliminationRuntimeData | null>(null);
   
@@ -1200,14 +1202,54 @@ function BattleDetailContent({
     }
   }, []);
 
+  const resetJackpotUiState = useCallback(() => {
+    jackpotRollTriggeredRef.current = false;
+    jackpotInitialized.current = false;
+    setJackpotPlayerSegments([]);
+    setJackpotWinnerId('');
+    setJackpotPhase('rolling');
+  }, []);
+
+  useEffect(() => {
+    resetJackpotUiState();
+  }, [battleData.id, resetJackpotUiState]);
+
+  const prepareJackpotDisplayData = useCallback(() => {
+    if (jackpotInitialized.current) {
+      return;
+    }
+    const validParticipants = allParticipants.filter(
+      (participant): participant is { id: string; name: string } => Boolean(participant && participant.id),
+    );
+    if (!validParticipants.length) {
+      return;
+    }
+
+    const totalContribution = validParticipants.reduce((sum, participant) => {
+      return sum + (participantValues[participant.id] || 0);
+    }, 0);
+    const fallbackPercentage = validParticipants.length ? 100 / validParticipants.length : 0;
+    const segments = validParticipants.map((participant) => {
+      const contribution = participantValues[participant.id] || 0;
+      const percentage = totalContribution > 0 ? (contribution / totalContribution) * 100 : fallbackPercentage;
+      return {
+        id: participant.id,
+        name: participant.name,
+        percentage,
+        color: playerColors[participant.id] || 'rgb(128, 128, 128)',
+      };
+    });
+
+    const preCalculatedWinner = jackpotWinnerRef.current;
+    const winnerId = predeterminedWinnerIds[0] || preCalculatedWinner?.id || validParticipants[0]?.id || '';
+
+    setJackpotPlayerSegments(segments);
+    setJackpotWinnerId(winnerId);
+    jackpotInitialized.current = true;
+  }, [allParticipants, participantValues, playerColors, predeterminedWinnerIds]);
+
   
   // 🎉 大奖模式：动画完成回调（稳定引用）
-  const handleJackpotAnimationComplete = useCallback(() => {
-    setTimeout(() => {
-      setJackpotPhase('winner');
-    }, 1000);
-  }, []);
-  
   // 🔥 淘汰模式：已淘汰的玩家ID集合
   const [eliminatedPlayerIds, setEliminatedPlayerIds] = useState<Set<string>>(new Set());
   
@@ -1383,6 +1425,15 @@ function BattleDetailContent({
   );
   const roundStateRef = useRef<RoundState>(battleViewInitialState.round); // 实时状态ref
   
+  const handleJackpotAnimationComplete = useCallback(() => {
+    setTimeout(() => {
+      setJackpotPhase('winner');
+      if (roundStateRef.current === 'ROUND_JACKPOT_ROLL') {
+        setRoundState('ROUND_NEXT');
+      }
+    }, 1000);
+  }, [setRoundState]);
+
  
   
   // 🎯 游戏数据（优化：rounds 放在 ref，避免深度比对）
@@ -3227,11 +3278,27 @@ function BattleDetailContent({
         // 回到ROUND_RENDER开始新一轮
         setRoundState('ROUND_RENDER');
       } else {
+        if (gameMode === 'jackpot' && !isJackpotWithLastChance && !jackpotRollTriggeredRef.current) {
+          jackpotRollTriggeredRef.current = true;
+          prepareJackpotDisplayData();
+          setJackpotPhase('rolling');
+          setRoundState('ROUND_JACKPOT_ROLL');
+          return;
+        }
         setMainState('COMPLETED');
         setRoundState(null);
       }
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds]);
+  }, [
+    mainState,
+    roundState,
+    gameData.currentRound,
+    gameData.totalRounds,
+    gameMode,
+    isJackpotWithLastChance,
+    prepareJackpotDisplayData,
+    setJackpotPhase,
+  ]);
 
   useEffect(() => {
     currentRoundRef.current = gameData.currentRound;
@@ -3243,9 +3310,9 @@ function BattleDetailContent({
   
   useEffect(() => {
     setHidePacks(mainState !== 'IDLE');
-    setShowSlotMachines(mainState === 'ROUND_LOOP');
+    setShowSlotMachines(mainState === 'ROUND_LOOP' && roundState !== 'ROUND_JACKPOT_ROLL');
     setAllRoundsCompleted(mainState === 'COMPLETED');
-  }, [mainState]);
+  }, [mainState, roundState]);
   
   useEffect(() => {
     const participantList = battleData.participants || [];
@@ -3387,34 +3454,9 @@ function BattleDetailContent({
   useEffect(() => {
     if (mainState === 'COMPLETED') {
       if (gameMode === 'jackpot') {
-        if (!jackpotInitialized.current || jackpotPlayerSegments.length === 0) {
-          jackpotInitialized.current = true;
-          
-          let totalPrize = 0;
-          allParticipants.forEach((p) => {
-            if (p && p.id) {
-              totalPrize += participantValues[p.id] || 0;
-            }
-          });
-          
-          const segments = allParticipants.map((p) => ({
-            id: p.id,
-            name: p.name,
-            percentage: totalPrize > 0 ? ((participantValues[p.id] || 0) / totalPrize) * 100 : 0,
-            color: playerColors[p.id] || 'rgb(128, 128, 128)',
-          }));
-          
-          const preCalculatedWinner = jackpotWinnerRef.current;
-          const winnerId = predeterminedWinnerIds[0] || preCalculatedWinner?.id || '';
-          
-          setJackpotPlayerSegments(segments);
-          setJackpotWinnerId(winnerId);
-        }
-
-        if (isJackpotWithLastChance) {
+        prepareJackpotDisplayData();
+        if (isJackpotWithLastChance || !jackpotRollTriggeredRef.current) {
           setJackpotPhase('winner');
-        } else if (jackpotPhase !== 'winner') {
-          setJackpotPhase('rolling');
         }
       }
       
@@ -3440,18 +3482,7 @@ function BattleDetailContent({
         });
       }
     }
-  }, [
-    mainState,
-    roundResults,
-    allParticipants,
-    gameMode,
-    participantValues,
-    playerColors,
-    jackpotPlayerSegments.length,
-    predeterminedWinnerIds,
-    jackpotPhase,
-    isJackpotWithLastChance,
-  ]);
+  }, [mainState, roundResults, allParticipants, gameMode, prepareJackpotDisplayData, isJackpotWithLastChance]);
 
   useEffect(() => {
     if (mainState !== 'COMPLETED') return;
@@ -3562,29 +3593,6 @@ function BattleDetailContent({
         {mainState === 'COMPLETED' ? (
           (() => {
             const winners = allParticipants.filter(p => p && p.isWinner);
-            
-            // 🏆 大奖模式：显示进度条动画或获胜者
-            if (gameMode === 'jackpot') {
-              let totalPrize = 0;
-              allParticipants.forEach(p => {
-                if (p && p.id) {
-                  totalPrize += (participantValues[p.id] || 0);
-                }
-              });
-              
-              // 🎰 阶段1：显示色条滚动动画（内联实现，避免组件重新挂载）
-              if (jackpotPhase === 'rolling' && jackpotPlayerSegments.length > 0 && !isJackpotWithLastChance) {
-                return <JackpotProgressBarInline 
-                  key={`jackpot-animation-${jackpotAnimationKey}`}
-                  players={jackpotPlayerSegments}
-                  winnerId={jackpotWinnerId}
-                  onComplete={handleJackpotAnimationComplete}
-                />;
-              }
-              
-              // 🏆 阶段2：显示获胜者（色条动画完成后）
-              // 继续执行后面的普通获胜者显示逻辑
-            }
             
             let totalPrize = 0;
             allParticipants.forEach(p => {
@@ -3710,7 +3718,7 @@ function BattleDetailContent({
                       onClick={() => {
                         // 重置到COUNTDOWN状态，使用原有答案重新执行动画
                         if (gameMode === 'jackpot') {
-                          setJackpotPhase('rolling');
+                          resetJackpotUiState();
                           setJackpotAnimationKey(prev => prev + 1);
                           jackpotWinnerSet.current = false;
                         }
@@ -3860,6 +3868,20 @@ function BattleDetailContent({
               </div>
             );
           })()
+        ) : gameMode === 'jackpot' && mainState === 'ROUND_LOOP' && roundState === 'ROUND_JACKPOT_ROLL' ? (
+          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-[1280px]" style={{ minHeight: '450px' }}>
+            {jackpotPlayerSegments.length > 0 && jackpotWinnerId ? (
+              <JackpotProgressBarInline
+                key={`jackpot-animation-${jackpotAnimationKey}`}
+                players={jackpotPlayerSegments}
+                winnerId={jackpotWinnerId}
+                onComplete={handleJackpotAnimationComplete}
+              />
+            ) : (
+              <div className="text-sm text-white/70">正在準備最終 JACKPOT 色條...</div>
+            )}
+            <p className="text-xs tracking-[0.3em] uppercase text-white/60">Jackpot roll</p>
+          </div>
         ) : !showSlotMachines ? (
           <div ref={galleryRef} className="w-full h-full flex">
             <PacksGallery
@@ -4438,7 +4460,14 @@ function BattleDetailContent({
                         </div>
                       </div>
 
-                      {showDivider && <BattleSlotDivider orientation="vertical" />}
+                      {showDivider && (
+                        <div className="relative w-0 flex items-center justify-center pointer-events-none">
+                          <BattleSlotDivider
+                            orientation="vertical"
+                            className="pointer-events-none absolute left-1/2 -translate-x-1/2"
+                          />
+                        </div>
+                      )}
                     </Fragment>
                   );
                 })}

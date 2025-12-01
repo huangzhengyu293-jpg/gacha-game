@@ -834,19 +834,6 @@ function LazyRoundCard({
                 </div>
               </div>
             </div>
-            
-            {shouldShowEliminationOverlay && (
-              <>
-                <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[2]" />
-                <div className="flex absolute inset-0 text-[#FF9C49] z-[3] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
-                  <div className="flex w-full max-w-16 max-h-16">
-                    <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 75.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
-                    </svg>
-                  </div>
-                </div>
-              </>
-            )}
           </>
         ) : (
           <>
@@ -857,18 +844,20 @@ function LazyRoundCard({
             <div data-component="PackCard" className="absolute inset-0 opacity-0 translate-y-6 group-hover:opacity-100 group-hover:translate-y-0 transition duration-300 flex w-full h-full justify-center p-2 md:p-5">
               <Image alt={pack.name} src={pack.image} width={150} height={300} className="object-contain h-full w-auto pointer-events-none" />
             </div>
-            
-            {shouldShowEliminationOverlay && !shouldShowPlayerResult && (
-              <div className="flex size-5 absolute top-3 right-3 pointer-events-none z-10" style={{ color: '#7A8084' }}>
-                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11.4416 3.33334C11.2951 3.08078 11.0848 2.87113 10.8318 2.7254C10.5788 2.57967 10.2919 2.50296 9.99996 2.50296C9.70798 2.50296 9.42112 2.57967 9.1681 2.7254C8.91509 2.87113 8.7048 3.08078 8.55829 3.33334L1.89163 15C1.74542 15.2532 1.66841 15.5405 1.66834 15.8329C1.66826 16.1253 1.74512 16.4126 1.8912 16.6659C2.03728 16.9192 2.24743 17.1297 2.50056 17.2761C2.75369 17.4225 3.04088 17.4997 3.33329 17.5H16.6666C16.959 17.4997 17.2462 17.4225 17.4994 17.2761C17.7525 17.1297 17.9626 16.9192 18.1087 16.6659C18.2548 16.4126 18.3315 16.1253 18.3316 15.8329C18.3315 15.5405 18.2545 15.2532 18.1083 15L11.4416 3.33334Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                  <path d="M12 10L8 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                  <path d="M8 10L12 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                </svg>
-              </div>
-            )}
           </>
         )}
+          {shouldShowEliminationOverlay && (
+            <>
+              <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[4]" />
+              <div className="flex absolute inset-0 text-[#FF9C49] z-[5] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
+                <div className="flex w-full max-w-16 max-h-16">
+                  <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 75.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

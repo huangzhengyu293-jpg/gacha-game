@@ -40,7 +40,7 @@ export default function BattleSlotDivider({ orientation = 'vertical', className 
   return (
     <div
       className={mergeClassName(
-        'slot-machine-divider flex h-full w-6 flex-col items-center justify-center self-center px-1',
+        'slot-machine-divider flex h-full w-6 flex-col items-center justify-center self-center',
         className,
       )}
       aria-hidden="true"
@@ -48,11 +48,11 @@ export default function BattleSlotDivider({ orientation = 'vertical', className 
       <div className="flex w-px sm:w-[2px] flex-1" style={{ background: verticalLineStyleTop }} />
       <div className="flex items-center justify-center relative h-8 w-px my-1">
         <div className="hidden sm:flex absolute items-center justify-center size-8 rounded-full bg-gradient-to-br from-[#9CA9B6] to-[#41464C] shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-          <div className="flex items-center justify-center size-7 rounded-full bg-[#2B3136]">
+          <div className="flex items-center justify-center size-7 rounded-full sm:bg-[#292F34]">
             <BattleConnectorIcon size={14} className="text-gray-300" />
           </div>
         </div>
-        <div className="flex sm:hidden items-center justify-center rounded-full bg-[#2B3136] h-6 w-6 shadow-[0_1px_4px_rgba(0,0,0,0.45)]">
+        <div className="flex sm:hidden items-center justify-center rounded-full sm:bg-[#292F34] h-6 w-6 shadow-[0_1px_4px_rgba(0,0,0,0.45)]">
           <BattleConnectorIcon size={12} className="text-gray-300" />
         </div>
       </div>
