@@ -38,6 +38,10 @@ const QUALITY_HEX_MAP: Record<string, string> = {
   placeholder: '#E4AE33',
 };
 
+const RANDOM_OFFSET_MIN_RATIO = 0.49;
+const RANDOM_OFFSET_MAX_RATIO = 0.5;
+const FINAL_ALIGNMENT_DURATION = 480;
+
 function resolveQualityHex(symbol: SlotSymbol): string {
   if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
     return QUALITY_HEX_MAP.placeholder;
@@ -93,8 +97,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const reelCenter = 225; // Fixed at 450/2 = 225px for all screen sizes
   const getRandomStopOffset = useCallback((baseHeight: number) => {
     const clampedHeight = baseHeight || itemHeightRef.current || 150;
-    const minOffset = clampedHeight * 0.33;
-    const maxOffset = clampedHeight * 0.5;
+    const minOffset = clampedHeight * RANDOM_OFFSET_MIN_RATIO;
+    const maxOffset = clampedHeight * RANDOM_OFFSET_MAX_RATIO;
     const magnitude = Math.random() * (maxOffset - minOffset) + minOffset;
     return magnitude * (Math.random() < 0.5 ? 1 : -1);
   }, []);
@@ -644,7 +648,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         return;
       }
       
-      const duration = 200; // Fixed duration for synchronized stopping
+      const duration = FINAL_ALIGNMENT_DURATION; // Slightly longer for smoother recentering
       const container = reelContainerRef.current;
       let currentTop = parseFloat(container.style.top || '0');
       
@@ -714,9 +718,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         if (frameDelta > 200) {
           const elapsed = now - startTime;
           const progress = Math.min(elapsed / duration, 1);
-          const eased = progress < 0.5 
-            ? 4 * progress * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          const eased = 1 - Math.pow(1 - progress, 4);
           const newTop = currentTop + distance * eased;
           container.style.top = newTop + 'px';
           updateVirtualItems();
@@ -738,9 +740,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         
-        const eased = progress < 0.5 
-          ? 4 * progress * progress * progress 
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        const eased = 1 - Math.pow(1 - progress, 4);
         
         const newTop = currentTop + distance * eased;
         container.style.top = newTop + 'px';
@@ -808,7 +808,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     currentSelectedElementRef.current = null;
     
     // 使用固定时长，确保所有老虎机同步回正
-    const duration = spinDuration || 4500;
+    const duration = 6000;
     
     await spinPhase1(duration, selectedPrize);
     setIsFinalizing(true);
