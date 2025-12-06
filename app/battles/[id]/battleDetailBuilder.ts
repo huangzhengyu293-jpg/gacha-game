@@ -202,14 +202,7 @@ function buildSlotSymbolsForBox(box?: RawBox): SlotSymbol[] {
   const awards = box.box_award ?? [];
   return awards.map((entry) => {
     const award = entry.awards;
-    console.log({
-      id: String(award?.id ?? entry.id ?? ''),
-      name: award?.name ?? `Award ${entry.id ?? ''}`,
-      description: award?.item_name ?? award?.name ?? '',
-      image: award?.cover ?? '',
-      price: parseNumber(award?.bean),
-      qualityId: mapQualityFromLv(award?.lv ?? entry.lv),
-    });
+   
     
     return {
       id: String(award?.id ?? entry.id ?? ''),

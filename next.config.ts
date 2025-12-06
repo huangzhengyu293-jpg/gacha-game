@@ -54,6 +54,11 @@ const nextConfig: NextConfig = {
         hostname: "nngogo.oss-ap-northeast-1.aliyuncs.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "dev-api.flamedraw.com",
+        pathname: "/**",
+      },
     ],
   },
 };

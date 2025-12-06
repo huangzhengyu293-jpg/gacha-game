@@ -85,7 +85,6 @@ export default function PackDetailPage() {
     });
   }, [slotPackIds, packsDataCache]);
   
-  const primaryPack = packsDataCache[primaryPackId];
   
   if (primaryLoading) {
     return (
@@ -95,13 +94,7 @@ export default function PackDetailPage() {
     );
   }
   
-  if (primaryError || !primaryPack) {
-    return (
-      <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <div className="text-red-500 text-xl">加载失败，请重试</div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="flex flex-col flex-1 items-stretch relative mt-[-32px]">

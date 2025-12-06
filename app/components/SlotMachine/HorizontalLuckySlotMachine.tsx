@@ -19,6 +19,7 @@ interface HorizontalLuckySlotMachineProps {
   onSpinStart?: () => void;
   onSpinComplete?: (result: SlotSymbol) => void;
   width?: number; // 转轮宽度，默认540
+  itemSize?: number; // 元素尺寸，默认195
   spinDuration?: number; // 固定的旋转时长
   isEliminationMode?: boolean; // 是否是淘汰模式（用于区分礼包/淘汰老虎机）
 }
@@ -54,9 +55,11 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
   onSpinStart,
   onSpinComplete,
   width = 540,
+  itemSize = 195,
   spinDuration,
   isEliminationMode = false
 }, ref) => {
+  const ITEM_SIZE = itemSize;
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -72,7 +75,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
   
   // 配置参数
   const [REEL_WIDTH, setREEL_WIDTH] = useState(width);
-  const [itemWidth] = useState(195); // item容器宽度
+  const [itemWidth] = useState(ITEM_SIZE); // item容器宽度
   const [itemsPerReel] = useState(90); // 固定90个item
   const [repeatTimes] = useState(3);
   const [reelCenter, setReelCenter] = useState(width / 2); // 水平中心点
@@ -144,7 +147,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
 
   const checkAndResetPosition = useCallback((container: HTMLDivElement): number => {
     let currentLeft = parseFloat(container.style.left || '0');
-    const totalWidth = itemsPerReelRef.current * 195;
+    const totalWidth = itemsPerReelRef.current * ITEM_SIZE;
     const minLeft = -totalWidth * 2;
     const resetLeft = -totalWidth;
     
@@ -186,10 +189,10 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     const container = reelContainerRef.current;
     const containerLeft = parseFloat(container.style.left || '0');
     
-    // element.left = i * 195 (由于transform已经居中了element)
-    // 所以：containerLeft + (i * 195) = reelCenter
-    // i = (reelCenter - containerLeft) / 195
-    const virtualClosestIndex = Math.floor((reelCenterRef.current - containerLeft) / 195 + 0.5);
+    // element.left = i * ITEM_SIZE (由于transform已经居中了element)
+    // 所以：containerLeft + (i * ITEM_SIZE) = reelCenter
+    // i = (reelCenter - containerLeft) / ITEM_SIZE
+    const virtualClosestIndex = Math.floor((reelCenterRef.current - containerLeft) / ITEM_SIZE + 0.5);
     
     // 确保index在有效范围内
     if (virtualClosestIndex < 0 || virtualClosestIndex >= virtualItemsRef.current.length) {
@@ -258,8 +261,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     const viewportStart = -containerLeft;
     const viewportEnd = viewportStart + actualWidth;
     
-    const startIndex = Math.floor((viewportStart - BUFFER_SIZE * 195) / 195);
-    const endIndex = Math.ceil((viewportEnd + BUFFER_SIZE * 195) / 195);
+    const startIndex = Math.floor((viewportStart - BUFFER_SIZE * ITEM_SIZE) / ITEM_SIZE);
+    const endIndex = Math.ceil((viewportEnd + BUFFER_SIZE * ITEM_SIZE) / ITEM_SIZE);
     
     const clampedStart = Math.max(0, startIndex);
     const clampedEnd = Math.min(virtualItemsRef.current.length, endIndex);
@@ -293,18 +296,18 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         const element = document.createElement('div');
         element.className = 'slot-item';
         element.style.position = 'absolute';
-        element.style.left = `${i * 195}px`;
+        element.style.left = `${i * ITEM_SIZE}px`;
         element.style.top = '50%'; // 垂直居中
         element.style.display = 'flex';
         element.style.alignItems = 'center';
         element.style.justifyContent = 'center';
-        element.style.width = '195px';
-        element.style.height = '195px';
-        element.style.minWidth = '195px';
-        element.style.minHeight = '195px';
-        element.style.maxWidth = '195px';
-        element.style.maxHeight = '195px';
-        element.style.transform = 'translate(-97.5px, -97.5px)';
+        element.style.width = `${ITEM_SIZE}px`;
+        element.style.height = `${ITEM_SIZE}px`;
+        element.style.minWidth = `${ITEM_SIZE}px`;
+        element.style.minHeight = `${ITEM_SIZE}px`;
+        element.style.maxWidth = `${ITEM_SIZE}px`;
+        element.style.maxHeight = `${ITEM_SIZE}px`;
+        element.style.transform = `translate(-${ITEM_SIZE / 2}px, -${ITEM_SIZE / 2}px)`;
         
         const glowColor = resolveGlowColor(item);
         let glow: HTMLDivElement | null = null;
@@ -465,11 +468,10 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         itemInfo.style.display = 'flex';
         itemInfo.style.flexDirection = 'column';
         itemInfo.style.alignItems = 'center';
-        itemInfo.style.background = 'rgba(55, 65, 81, 0.4)';
         itemInfo.style.padding = '4px 8px';
         itemInfo.style.borderRadius = '6px';
-        itemInfo.style.transform = 'translateY(78px)'; // 195px * 0.4
-        itemInfo.style.maxWidth = '195px';
+        itemInfo.style.transform = `translateY(${ITEM_SIZE * 0.4}px)`;
+        itemInfo.style.maxWidth = `${ITEM_SIZE}px`;
         itemInfo.style.opacity = '0';
         itemInfo.style.transition = 'opacity 0.2s';
         itemInfo.style.zIndex = '3';
@@ -524,9 +526,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     let closestDistance = Infinity;
     
     renderedItemsMapRef.current.forEach((element, index) => {
-      // element.left = index * 195，加上containerLeft就是element在视口中的位置
-      // 由于element有transform: translate(-97.5px, -97.5px)，element.left就是它的中心
-      const itemCenter = containerLeft + (index * 195);
+      // element.left = index * ITEM_SIZE，加上containerLeft就是element在视口中的位置
+      // 由于element有transform: translate(-ITEM_SIZE/2, -ITEM_SIZE/2)，element.left就是它的中心
+      const itemCenter = containerLeft + (index * ITEM_SIZE);
       const distance = Math.abs(itemCenter - reelCenterRef.current);
       
       if (distance < closestDistance) {
@@ -570,7 +572,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     container.style.position = 'relative';
     container.style.height = '100%';
     // 设置足够的宽度容纳所有item
-    const totalWidth = virtualItemsRef.current.length * 195;
+    const totalWidth = virtualItemsRef.current.length * ITEM_SIZE;
     container.style.width = `${totalWidth}px`;
     
     // 使用实际容器宽度计算reelCenter
@@ -583,12 +585,12 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     // 设置初始位置
     // 必须让中心位置有一个item，其他向左右铺开
     const targetIndex = itemsPerReel; // 第二个周期的第一个item
-    const initialLeft = actualReelCenter - (targetIndex * 195);
+    const initialLeft = actualReelCenter - (targetIndex * ITEM_SIZE);
     container.style.left = `${initialLeft}px`;
     
     console.log('🎰 [初始化] actualContainerWidth:', actualContainerWidth, 'actualReelCenter:', actualReelCenter);
     console.log('🎰 [初始化] targetIndex:', targetIndex, 'initialLeft:', initialLeft);
-    console.log('🎰 [初始化] 验证: containerLeft(', initialLeft, ') + index(', targetIndex, ') * 195 =', initialLeft + targetIndex * 195, '应该等于', actualReelCenter);
+    console.log('🎰 [初始化] 验证: containerLeft(', initialLeft, ') + index(', targetIndex, ') * ITEM_SIZE =', initialLeft + targetIndex * ITEM_SIZE, '应该等于', actualReelCenter);
     
     // 立即更新虚拟项和选中状态
     updateVirtualItems();
@@ -618,7 +620,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       let targetLeft: number;
       
-      const actualItemWidth = 195;
+      const actualItemWidth = ITEM_SIZE;
       
       if (targetSymbol) {
         const matchingIndices: number[] = [];
@@ -633,7 +635,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         
         // 确保至少滚动0.5个完整周期
         const minCycles = 0.5;
-        const minScrollByItems = minCycles * itemsPerReelRef.current * 195;
+        const minScrollByItems = minCycles * itemsPerReelRef.current * ITEM_SIZE;
         const actualMinScroll = Math.max(minScrollDistance, minScrollByItems);
         
         let selectedIndex: number | null = null;
@@ -659,8 +661,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         }
         
          if (selectedIndex !== null) {
-           const minOffset = itemWidthRef.current / 3;
-           const maxOffset = itemWidthRef.current;
+           const minOffset = itemWidthRef.current * 0.46;
+           const maxOffset = itemWidthRef.current * 0.49;
            const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
            const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
            targetLeft = reelCenterRef.current - (selectedIndex * actualItemWidth) + randomOffset;
@@ -670,8 +672,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       } else {
          const pixelsPerMs = 0.8;
          const scrollDistance = duration * pixelsPerMs;
-         const minOffset = itemWidthRef.current / 3;
-         const maxOffset = itemWidthRef.current;
+         const minOffset = itemWidthRef.current * 0.46;
+         const maxOffset = itemWidthRef.current * 0.49;
          const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
          const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
          targetLeft = startLeft - scrollDistance + randomOffset;
@@ -741,7 +743,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       const container = reelContainerRef.current;
       let currentLeft = parseFloat(container.style.left || '0');
       
-      const totalWidth = itemsPerReelRef.current * 195;
+      const totalWidth = itemsPerReelRef.current * ITEM_SIZE;
       const minLeft = -totalWidth * 2;
       const resetLeft = -totalWidth;
       
@@ -755,7 +757,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       for (let i = 0; i < virtualItemsRef.current.length; i++) {
         // 由于element有transform居中，element.left就是它的中心位置
-        const itemCenter = currentLeft + (i * 195);
+        const itemCenter = currentLeft + (i * ITEM_SIZE);
         const distance = Math.abs(itemCenter - reelCenterRef.current);
         
         if (distance < minDistance) {
@@ -764,7 +766,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         }
       }
       
-      const actualItemWidth = 195;
+      const actualItemWidth = ITEM_SIZE;
       
       if (targetSymbol) {
         const targetIndices: number[] = [];
@@ -793,10 +795,10 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       }
       
       // 计算精确位置：
-      // element已经有transform: translate(-97.5px, -97.5px)
+      // element已经有transform: translate(-ITEM_SIZE/2, -ITEM_SIZE/2)
       // 所以element.left就是它的中心位置
-      // container.left + (closestIndex * 195) = reelCenter
-      const exactTargetLeft = reelCenterRef.current - (closestIndex * 195);
+      // container.left + (closestIndex * ITEM_SIZE) = reelCenter
+      const exactTargetLeft = reelCenterRef.current - (closestIndex * ITEM_SIZE);
       const distance = exactTargetLeft - currentLeft;
       
       let lastFrameTime = Date.now();
@@ -985,7 +987,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         
         .horizontal-reel {
           width: 100%;
-          height: 195px;
+          height: ${ITEM_SIZE}px;
           position: relative;
           overflow: hidden;
           margin: auto; // 垂直居中

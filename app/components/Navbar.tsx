@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
@@ -28,6 +28,8 @@ export default function Navbar() {
     sendVerificationEmail,
     activateAccount,
   } = useAuth();
+  console.log(user);
+  
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -38,7 +40,6 @@ export default function Navbar() {
     itemRefs.current[index] = el;
   };
 
-  const [hoveredMobileKey, setHoveredMobileKey] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -50,6 +51,71 @@ export default function Navbar() {
   const [showTerms, setShowTerms] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('site-muted') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const syncMuteState = useCallback((muted: boolean) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('site-muted', muted ? '1' : '0');
+    } catch {
+      // 忽略存储失败
+    }
+
+    (window as any).__siteMuted = muted;
+
+    // Web Audio：挂起/恢复 AudioContext
+    try {
+      const ctx = (window as any).__audioContext;
+      if (ctx && typeof ctx.state === 'string') {
+        if (muted && ctx.state === 'running') {
+          ctx.suspend().catch(() => {});
+        } else if (!muted && ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+      }
+    } catch {
+      // 忽略异常
+    }
+
+    // 常规 <audio>/<video>
+    try {
+      const mediaEls = Array.from(document.querySelectorAll('audio,video'));
+      if (Array.isArray(mediaEls) && mediaEls.length > 0) {
+        mediaEls.forEach((el) => {
+          if (!el) return;
+          (el as HTMLMediaElement).muted = muted;
+          if (muted && typeof (el as HTMLMediaElement).pause === 'function') {
+            (el as HTMLMediaElement).pause();
+          }
+        });
+      }
+    } catch {
+      // 忽略异常
+    }
+  }, []);
+
+  useEffect(() => {
+    syncMuteState(isMuted);
+  }, [isMuted, syncMuteState]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem('site-muted');
+      if (stored === '1') {
+        setIsMuted(true);
+      }
+    } catch {
+      // 忽略读取异常
+    }
+  }, []);
 
   // 统一的退出登录处理函数
   const handleLogout = async () => {
@@ -458,16 +524,28 @@ export default function Navbar() {
             {/* Sound button (>=sm) */}
             <div className="hidden sm:flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
               <button
+                aria-label={isMuted ? '开启声音' : '关闭声音'}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                 style={{ color: '#7A8084' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+                onClick={() => setIsMuted((prev) => !prev)}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
-                  <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
-                  <path d="M16 9a5 5 0 0 1 0 6"></path>
-                  <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
-                </svg>
+                {isMuted ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-off size-5">
+                    <path d="M16 9a5 5 0 0 1 .95 2.293"></path>
+                    <path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"></path>
+                    <path d="m2 2 20 20"></path>
+                    <path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"></path>
+                    <path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"></path>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5">
+                    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+                    <path d="M16 9a5 5 0 0 1 0 6"></path>
+                    <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+                  </svg>
+                )}
               </button>
               <div className="flex h-5 w-[1px] bg-gray-600"></div>
             </div>
@@ -591,12 +669,18 @@ export default function Navbar() {
               <div className="flex sm:hidden flex-row gap-3 items-center">
                 <div className="nav-vol flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center max-[390px]:hidden">
                   <button
+                    aria-label={isMuted ? '开启声音' : '关闭声音'}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                     style={{ color: '#7A8084' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+                    onClick={() => setIsMuted((prev) => !prev)}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+                    {isMuted ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-off size-5"><path d="M16 9a5 5 0 0 1 .95 2.293"></path><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"></path><path d="m2 2 20 20"></path><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"></path><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"></path></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume2 size-5"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+                    )}
                   </button>
                   <div className="flex h-5 w-[1px] bg-gray-600"></div>
                 </div>

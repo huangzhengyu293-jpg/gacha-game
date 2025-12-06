@@ -10,10 +10,10 @@ import LuckySlotMachine from '@/app/components/SlotMachine/LuckySlotMachine';
 
 const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
 
-const createGoldenPlaceholder = (): SlotSymbol => ({
+const createGoldenPlaceholder = (placeholderImage: string): SlotSymbol => ({
   id: GOLDEN_PLACEHOLDER_ID,
   name: '金色神秘',
-  image: '/theme/default/hidden-gold.png',
+  image: placeholderImage,
   price: 0,
   qualityId: 'placeholder',
   description: '',
@@ -23,6 +23,8 @@ const createGoldenPlaceholder = (): SlotSymbol => ({
 interface HorizontalSlotMachineClientProps {
   slotPackIds: string[];
   allPacksData: Record<string, any>;
+  placeholderImage?: string;
+  itemSize?: number;
 }
 
 interface PackSlotData {
@@ -36,7 +38,12 @@ interface PackSlotData {
   spinKey: number;
 }
 
-export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData }: HorizontalSlotMachineClientProps) {
+export default function HorizontalSlotMachineClient({
+  slotPackIds,
+  allPacksData,
+  placeholderImage = '/theme/default/hidden-gold.png',
+  itemSize = 195,
+}: HorizontalSlotMachineClientProps) {
   const [packSlots, setPackSlots] = useState<PackSlotData[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const completedCountRef = useRef(0);
@@ -150,7 +157,7 @@ export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData 
         const legendarySymbols = allSymbols.filter(symbol => symbol.qualityId === 'legendary');
         const nonLegendarySymbols = allSymbols.filter(symbol => symbol.qualityId !== 'legendary');
         const normalSymbols = legendarySymbols.length > 0
-          ? [...nonLegendarySymbols, createGoldenPlaceholder()]
+          ? [...nonLegendarySymbols, createGoldenPlaceholder(placeholderImage)]
           : [...nonLegendarySymbols];
         
         return { 
@@ -441,27 +448,21 @@ export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData 
     
     // 🔥 如果触发第二阶段，不增加计数，直接返回
     if (triggeredSecondStage) {
-      console.log(`✨ [老虎机${index + 1}] 卡包${packLabel} 抽到金色占位符，切换传奇奖池（不增加完成计数）`);
       return;
     }
     
     // 只有真正完成时才增加计数
     completedCountRef.current += 1;
     const expectedCount = expectedCountRef.current || packSlots.length;
-    console.log(`🎰 [完成进度] ${completedCountRef.current}/${expectedCount}, isSpinning: ${isSpinning}`);
     
     const displayResult = finalResult || result;
-    console.log(`🎰 [老虎机${index + 1}] 卡包${packLabel} 抽中:`, displayResult.name, '$' + displayResult.price);
-    
     if (showVerticalGrid) {
       playWinSound();
     }
     
-    console.log(`🔍 [检查完成] completedCountRef.current(${completedCountRef.current}) >= expectedCount(${expectedCount})?`, completedCountRef.current >= expectedCount);
     
     if (completedCountRef.current >= expectedCount) {
       // 当前轮完成
-      console.log(`✅ [第${currentRoundRef.current}轮完成]`);
       
       // 检查是否还有下一轮
       if (currentRoundRef.current < totalRoundsRef.current) {
@@ -475,7 +476,6 @@ export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData 
         setTimeout(() => {
           setIsSpinning(false);
           (window as any).__isSlotMachineSpinning = false;
-          console.log(`✅ [全部完成] ${totalRoundsRef.current}轮动画播放完毕`);
           
           // 重置多轮状态
           currentRoundRef.current = 0;
@@ -514,6 +514,7 @@ export default function HorizontalSlotMachineClient({ slotPackIds, allPacksData 
               symbols={activeSymbols}
               selectedPrizeId={slot.selectedPrizeId}
               width={9999}
+              itemSize={itemSize}
               spinDuration={isFastMode ? 1000 : 6000}
               onSpinComplete={(result) => handleSpinComplete(result, index)}
             />

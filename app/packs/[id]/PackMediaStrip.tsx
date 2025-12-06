@@ -293,6 +293,7 @@ export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPa
           const arr = ids.slice(0, maxTiles);
           onSlotPackIdsChange(arr.length > 0 ? arr : [primaryPackId]);
         }}
+        boxType="1"
       />
     </div>
   );

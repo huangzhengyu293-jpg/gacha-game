@@ -11,21 +11,23 @@ import { api } from "@/app/lib/api";
 
 type BattleModesProps = {
   sortValue?: "priceDesc" | "latest";
+  useBestRecord?: boolean; // 使用对战亮点接口
+  enablePolling?: boolean; // 是否轮询，默认 true
 };
 
-export default function BattleModes({ sortValue = "priceDesc" }: BattleModesProps = {}) {
+export default function BattleModes({ sortValue = "priceDesc", useBestRecord = false, enablePolling = true }: BattleModesProps = {}) {
   const router = useRouter();
   const { t } = useI18n();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["battleList"],
-    queryFn: () => api.getFightList(),
-    refetchInterval: 1000,
-    refetchIntervalInBackground: true,
+    queryKey: [useBestRecord ? "fightBestRecord" : "battleList"],
+    queryFn: () => (useBestRecord ? api.getFightBestRecord() : api.getFightList()),
+    refetchInterval: enablePolling ? 1000 : false,
+    refetchIntervalInBackground: enablePolling,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     keepPreviousData: true,
-    staleTime: 0,
+    staleTime: enablePolling ? 0 : 30_000,
   });
 
   const rawEntries = useMemo<RawBattleListItem[]>(() => {
@@ -55,38 +57,7 @@ export default function BattleModes({ sortValue = "priceDesc" }: BattleModesProp
     return list.sort((a, b) => b.entryCost - a.entryCost);
   }, [cards, sortValue]);
 
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border border-gray-700 p-8 text-center text-white/70">
-        正在载入对战列表…
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="rounded-lg border border-gray-700 p-8 text-center text-white/70 flex flex-col items-center gap-3">
-        <span>
-          载入对战失败：{error instanceof Error ? error.message : "请稍后重试"}
-        </span>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="rounded-md bg-[#6D4CFF] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#5533d0]"
-        >
-          重新加载
-        </button>
-      </div>
-    );
-  }
-
-  if (!sortedCards.length) {
-    return (
-      <div className="rounded-lg border border-gray-700 p-8 text-center text-white/70">
-        暂无可展示的对战
-      </div>
-    );
-  }
+ 
 
   return (
     <div className="flex flex-col items-stretch gap-4">

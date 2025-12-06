@@ -49,11 +49,13 @@ export function useBattleData(): BattleData {
   console.log('🔄 [useBattleData] isInverted:', isInverted);
 
   const { data: boxListData } = useQuery({
-    queryKey: ['boxList', {}],
-    queryFn: () => api.getBoxList({
-      sort_type: '1',
-      volatility: '1',
-    }),
+    queryKey: ['boxList', { type: '2' }],
+    queryFn: () =>
+      api.getBoxList({
+        sort_type: '1',
+        volatility: '1',
+        type: '2',
+      }),
     staleTime: 30_000,
   });
 

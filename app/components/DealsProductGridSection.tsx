@@ -9,6 +9,7 @@ import { SearchFilters } from '../deals/page';
 
 export interface ProductItem {
   id: string;
+  steamId?: string | number;
   name: string;
   image: string;
   price: number; // USD (原价 steam.bean)
@@ -91,7 +92,7 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
   );
 }
 
-export default function DealsProductGridSection({ filters, onSelectProduct, selectedId }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string }) {
+export default function DealsProductGridSection({ filters, onSelectProduct, selectedId, preselectSteamId, onPreselectMatch }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string; preselectSteamId?: string | null; onPreselectMatch?: (p: ProductItem) => void; }) {
   const { data: products = [] as ProductItem[] } = useQuery({
     queryKey: ['lucky-list', filters],
     queryFn: async () => {
@@ -120,6 +121,7 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
           
           return {
             id: item.id || String(Math.random()),
+            steamId: item.steam_id ?? item.steam?.id ?? item.id,
             name: item.steam?.name || 'Unknown',
             image: item.steam?.cover || '',
             price: steamBean, // 原价
@@ -148,6 +150,17 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
   const start = pageIndex * pageSize + 1;
   const end = Math.min(start + pageSize - 1, total);
   const visible = products.slice(start - 1, end);
+
+  // 预选中：用 steamId 匹配
+  useEffect(() => {
+    if (!preselectSteamId || !products.length) return;
+    const target = products.find((p) => String(p.steamId ?? '') === String(preselectSteamId));
+    if (target && onPreselectMatch) {
+      onPreselectMatch(target);
+    }
+    // 仅在首次匹配时触发
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectSteamId, products]);
 
   const disabledPrev = pageIndex <= 0;
   const disabledNext = end >= total;
@@ -208,9 +221,12 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
         />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {visible.map((p: ProductItem) => (
-          <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={p.id === selectedId} onQuickView={openQuickView} />
-        ))}
+        {visible.map((p: ProductItem) => {
+          const matched = selectedId === p.id || (preselectSteamId && String(preselectSteamId) === String(p.steamId ?? ''));
+          return (
+            <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={matched} onQuickView={openQuickView} />
+          );
+        })}
       </div>
 
       <div className="mt-4">

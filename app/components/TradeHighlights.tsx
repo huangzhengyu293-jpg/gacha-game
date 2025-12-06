@@ -1,58 +1,20 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import { useRouter } from "next/navigation";
 
 type Card = {
-  id: string;
-  multiplier: string; // e.g. "4.32x"
+  id: string; // 商品 id（保持原逻辑用于转动）
+  steamId?: string; // 用于交易页匹配
   avatarSrc: string;
   productSrc: string;
   title: string;
   price: string;
+  multiplier?: string;
+  priceValue: number;
 };
-
-const cards: Card[] = [
-  {
-    id: 'c1',
-    multiplier: '4.32x',
-    avatarSrc: 'https://ik.imagekit.io/hr727kunx/profile_pictures/cm7nv4fk500enl70h9eepxa9o/cm7nv4fk500enl70h9eepxa9o_yLdRdZ6wb.png?tr=w-128,c-at_max',
-    productSrc: 'https://ik.imagekit.io/hr727kunx/products/cm8siykbg0000ju0m9msh7foj_7935082__dAhVSMaKw?tr=w-1080,c-at_max',
-    title: '1 Kilo Argor Heraeus Gold Bar (New w/ Assay)',
-    price: '$125,000.00'
-  },
-  {
-    id: 'c2',
-    multiplier: '10.00x',
-    avatarSrc: 'https://ik.imagekit.io/hr727kunx/profile_pictures/cm7nv4fk500enl70h9eepxa9o/cm7nv4fk500enl70h9eepxa9o_yLdRdZ6wb.png?tr=w-128,c-at_max',
-    productSrc: 'https://ik.imagekit.io/hr727kunx/products/cmcxqbint0000kz0tdzpht9wm_5363600__4cptqLz3I?tr=w-1080,c-at_max',
-    title: '2002 Pokemon Neo Destiny 1st Edition Holo Light Arcanine #12 PSA 10 GEM MINT',
-    price: '$10,000.00'
-  },
-  {
-    id: 'c3',
-    multiplier: '6.70x',
-    avatarSrc: 'https://ik.imagekit.io/hr727kunx/profile_pictures/cll8krqb7002wla16drdzh586/cll8krqb7002wla16drdzh586_YV-BF6Wka.png?tr=w-128,c-at_max',
-    productSrc: 'https://ik.imagekit.io/hr727kunx/products/cm57770t10002mh0j9asylahj_2424142__HwBUAdvPW?tr=w-1080,c-at_max',
-    title: '1.15 Carat Diamond',
-    price: '$7,500.00'
-  },
-  {
-    id: 'c4',
-    multiplier: '1.16x',
-    avatarSrc: 'https://ik.imagekit.io/hr727kunx/profile_pictures/cm7nv4fk500enl70h9eepxa9o/cm7nv4fk500enl70h9eepxa9o_yLdRdZ6wb.png?tr=w-128,c-at_max',
-    productSrc: 'https://ik.imagekit.io/hr727kunx/products/clz6bu1a200a3j6tytj07f05i_9242856__ybcfUleP5?tr=w-1080,c-at_max',
-    title: 'Jewelry Shop Credit',
-    price: '$7,000.00'
-  },
-  {
-    id: 'c5',
-    multiplier: '1.19x',
-    avatarSrc: 'https://ik.imagekit.io/hr727kunx/profile_pictures/cm7nv4fk500enl70h9eepxa9o/cm7nv4fk500enl70h9eepxa9o_yLdRdZ6wb.png?tr=w-128,c-at_max',
-    productSrc: 'https://ik.imagekit.io/hr727kunx/products/clrzhndxi000nl616ukck35by_9629497__pS9hrVwQ_?tr=w-1080,c-at_max',
-    title: 'Louis Vuitton Venice Backpack Monogram Denim Blue',
-    price: '$6,000.00'
-  }
-];
 
 function Avatar({ src }: { src: string }) {
   return (
@@ -65,24 +27,42 @@ function Avatar({ src }: { src: string }) {
 }
 
 function HighlightCard({ c }: { c: Card }) {
+  const router = useRouter();
+  const multiplier = c.multiplier;
   return (
-    <div className="relative h-40 sm:h-44 md:h-48" data-component="ForgeHighlightProductCard">
-      <p className="absolute top-3 left-3 text-yellow-300 font-semibold text-sm">{c.multiplier}</p>
+    <div
+      className="relative h-40 sm:h-44 md:h-48"
+      data-component="ForgeHighlightProductCard"
+      onClick={() => {
+        const params = new URLSearchParams();
+        if (c.id) params.set('productId', c.id);
+        if (c.steamId) params.set('steamId', String(c.steamId));
+        router.push(`/deals?${params.toString()}`);
+      }}
+      style={{ cursor: 'pointer' }}
+    >
+      <p className="absolute top-3 left-3 font-semibold text-sm min-h-[20px]" style={{ color: '#f6e05e' }}>
+        {multiplier ? `${multiplier}` : ''}
+      </p>
       <div className="absolute top-3 right-2">
         <button data-state="closed">
           <Avatar src={c.avatarSrc} />
         </button>
       </div>
-      <div data-component="BaseProductCard" className="group flex flex-col w-full h-full items-center justify-between rounded-lg overflow-hidden p-3 cursor-pointer" style={{ boxSizing: 'border-box', backgroundColor: '#1A1B1E' }}>
-        <p className="font-semibold text-gray-400 h-6 text-sm"></p>
+      <div
+        data-component="BaseProductCard"
+        className="group flex flex-col w-full h-full items-center justify-between rounded-lg overflow-hidden p-3 cursor-pointer transition-colors duration-200 ease-in-out bg-[#22272B] hover:bg-[#292f34]"
+        style={{ boxSizing: 'border-box' }}
+      >
+        <p className="font-semibold h-6 text-sm" style={{ color: '#7A8084' }}></p>
         <div className="relative flex-1 flex w-full justify-center">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 aspect-square transition-opacity duration-200 h-5/6 rounded-full opacity-40 md:group-hover:opacity-90 filter blur-[25px]" style={{ backgroundColor: 'transparent' }}></div>
           <img alt={c.title} loading="lazy" decoding="async" src={c.productSrc} style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, objectFit: 'contain', color: 'transparent', zIndex: 1 }} />
         </div>
         <div className="flex flex-col w-full gap-0.5">
-          <p className="font-semibold truncate max-w-full text-gray-400 text-center text-sm">{c.title}</p>
+          <p className="font-semibold truncate max-w-full text-center text-sm" style={{ color: '#7A8084' }}>{c.title}</p>
           <div className="flex justify-center">
-            <p className="font-extrabold text-sm">{c.price}</p>
+            <p className="font-extrabold text-sm" style={{ color: '#FFFFFF' }}>{c.price}</p>
           </div>
         </div>
       </div>
@@ -91,11 +71,44 @@ function HighlightCard({ c }: { c: Card }) {
 }
 
 export default function TradeHighlights() {
+  const { data } = useQuery({
+    queryKey: ["luckyBestRecord"],
+    queryFn: () => api.getLuckyBestRecord(),
+    staleTime: 30_000,
+    refetchInterval: false,
+    refetchIntervalInBackground: false,
+  });
+
+  const cards = useMemo<Card[]>(() => {
+    const list = Array.isArray(data?.data) ? data?.data : [];
+    return list.map((item: any, idx: number) => {
+      const steam = item?.steam || {};
+      const priceNum = Number(steam?.bean ?? item?.bean ?? item?.price ?? 0);
+      const price = priceNum > 0 ? `$${priceNum.toFixed(2)}` : '$0.00';
+      const multiplier = item?.multiplier ?? steam?.multiplier ?? '';
+      return {
+        id: item?.id ? String(item.id) : `trade-${idx}`,
+        steamId: steam?.id ?? item?.steam_id ?? '',
+        avatarSrc: item?.user?.avatar || item?.avatar || '',
+        productSrc: steam?.cover || item?.awards?.cover || item?.cover || item?.image || '',
+        title: steam?.name || item?.awards?.name || item?.name || '',
+        price,
+        multiplier,
+        priceValue: priceNum,
+      };
+    });
+  }, [data?.data]);
+
+  const display = cards.length > 0 ? cards : [];
+
   return (
     <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-4 xl:grid-cols-6 gap-5 h-40 sm:h-44 md:h-48 overflow-hidden">
-      {cards.map((c) => (
+      {display.map((c) => (
         <HighlightCard key={c.id} c={c} />
       ))}
+      {display.length === 0 && (
+        <div className="col-span-full text-center text-sm text-gray-400">暂无数据</div>
+      )}
     </div>
   );
 }

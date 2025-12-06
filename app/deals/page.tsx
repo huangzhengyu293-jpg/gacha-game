@@ -3,7 +3,8 @@
 import DealsTopSection, { SelectedProduct } from "../components/DealsTopSection";
 import DealsSearchToolbar from "../components/DealsSearchToolbar";
 import DealsProductGridSection, { ProductItem } from "../components/DealsProductGridSection";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export interface SearchFilters {
   name: string;
@@ -14,12 +15,33 @@ export interface SearchFilters {
 
 export default function DealsPage() {
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
+  const [preselectSteamId, setPreselectSteamId] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({
     name: '',
     priceSort: '1',
     priceMin: 200,
     priceMax: 5888,
   });
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const pid = searchParams.get('productId');
+    const steamId = searchParams.get('steamId');
+    if (pid) {
+      setSelectedProduct({
+        id: pid,
+        name: '',
+        image: '',
+        price: 0,
+        originalPrice: 0,
+        rate: 1,
+        percent: 1,
+      });
+    }
+    if (steamId) {
+      setPreselectSteamId(steamId);
+    }
+  }, [searchParams]);
 
   const reselectSelected = () => {
     // 重置：取消选中商品
@@ -56,7 +78,19 @@ export default function DealsPage() {
               }
             });
           }}
-          selectedId={selectedProduct?.id}
+        selectedId={selectedProduct?.id}
+        preselectSteamId={preselectSteamId}
+        onPreselectMatch={(p) => {
+          setSelectedProduct({
+            id: p.id,
+            name: p.name,
+            image: p.image,
+            price: p.price,
+            originalPrice: p.originalPrice || p.price,
+            rate: p.rate || 1,
+            percent: p.percent || 1,
+          });
+        }}
         />
       </div>
     </div>

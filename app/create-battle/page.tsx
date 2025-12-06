@@ -370,11 +370,13 @@ function CreateBattleContent() {
   const [isSelectPackModalOpen, setIsSelectPackModalOpen] = useState(false);
 
   const { data: boxListData } = useQuery({
-    queryKey: ['boxList', {}],
-    queryFn: () => api.getBoxList({
-      sort_type: '1',
-      volatility: '1',
-    }),
+    queryKey: ['boxList', { type: '2' }],
+    queryFn: () =>
+      api.getBoxList({
+        sort_type: '1',
+        volatility: '1',
+        type: '2',
+      }),
     staleTime: 30_000,
   });
 
@@ -478,12 +480,7 @@ function CreateBattleContent() {
             </div>
 
             <div className="text-center w-full">
-              <h2
-                className="text-xl font-semibold mb-4"
-                style={{ color: "#7A8084" }}
-              >
-                {typeState === "solo" ? "玩家" : "队伍结构"}
-              </h2>
+            
               <div className="flex justify-center gap-3 flex-wrap w-full">
                 {typeState === "solo" ? (
                   // Solo模式：显示2, 3, 4, 6玩家数量
@@ -1186,6 +1183,7 @@ function CreateBattleContent() {
               }}
               maxPacks={undefined}
               minPacks={0}
+              boxType="2"
             />
 
             {/* 对战摘要 */}

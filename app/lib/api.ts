@@ -91,6 +91,8 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/cash',
   '/api/user/bean',
   '/api/user/storage',
+  '/api/user/rebate',
+  '/api/user/receiveRebate',
   '/api/auth/userinfo',
   '/api/auth/logout',
   '/api/lucky/go',
@@ -221,14 +223,25 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
   };
 
   if (data !== undefined) {
-    // 如果 Content-Type 是 application/x-www-form-urlencoded，直接使用 data（已经是字符串）
-    // 否则使用 JSON.stringify
     const headersObj = headers as Record<string, string> | undefined;
     const defaultHeadersObj = DEFAULT_CONFIG.headers as Record<string, string> | undefined;
     const contentType = headersObj?.['Content-Type'] || defaultHeadersObj?.['Content-Type'];
-    if (contentType === 'application/x-www-form-urlencoded' && typeof data === 'string') {
+
+    // FormData 直接透传，让浏览器设置 multipart 边界
+    if (typeof FormData !== 'undefined' && data instanceof FormData) {
       requestConfig.body = data;
-    } else {
+      // 移除默认的 JSON content-type
+      if (requestConfig.headers) {
+        delete (requestConfig.headers as Record<string, string>)['Content-Type'];
+        delete (requestConfig.headers as Record<string, string>)['content-type'];
+      }
+    }
+    // application/x-www-form-urlencoded
+    else if (contentType === 'application/x-www-form-urlencoded' && typeof data === 'string') {
+      requestConfig.body = data;
+    }
+    // 其他情况 JSON 序列化
+    else {
       requestConfig.body = JSON.stringify(data);
     }
   }
@@ -366,6 +379,7 @@ export const api = {
     volatility?: string;    // 波动性 1-9
     price_min?: string;
     price_max?: string;
+    type?: string;
   }) => {
     const formData = new URLSearchParams();
     if (params.search_type) formData.append('search_type', params.search_type);
@@ -374,6 +388,7 @@ export const api = {
     if (params.price_min) formData.append('price_min', params.price_min);
     if (params.price_max) formData.append('price_max', params.price_max);
     if (params.volatility) formData.append('volatility', params.volatility);
+    if (params.type) formData.append('type', params.type);
     
     const result = await request<ApiResponse>('/api/box/list', {
       method: 'POST',
@@ -381,6 +396,17 @@ export const api = {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: formData.toString(),
+    });
+    return result;
+  },
+  // ✅ 新礼包列表
+  getBoxNewList: async () => {
+    const result = await request<ApiResponse>('/api/box/newList', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: '',
     });
     return result;
   },
@@ -411,6 +437,80 @@ export const api = {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: formData.toString(),
+    });
+    return result;
+  },
+  // ✅ 获取最佳开启记录
+  getBoxBestRecord: async () => {
+    const result = await request<ApiResponse>('/api/box/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 对战亮点
+  getFightBestRecord: async () => {
+    const result = await request<ApiResponse>('/api/fight/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 交易亮点
+  getLuckyBestRecord: async () => {
+    const result = await request<ApiResponse>('/api/lucky/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 活动消费数据
+  getConsume: async () => {
+    const result = await request<ApiResponse>('/api/common/getConsume', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 上传头像
+  uploadAvatar: async (formData: FormData) => {
+    const result = await request<ApiResponse<{ url?: string }>>('/api/user/upload', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        // 让浏览器自动设置 multipart 边界
+      },
+    });
+    return result;
+  },
+  // ✅ 设置用户资料（头像 + 用户名）
+  setUserProfile: async (payload: { avatar: string; name: string }) => {
+    const formData = new FormData();
+    formData.append('avatar', payload.avatar || '');
+    formData.append('name', payload.name || '');
+    const result = await request<ApiResponse>('/api/user/set', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        // multipart 由浏览器处理
+      },
+    });
+    return result;
+  },
+  // ✅ 设置账户地址
+  setWalletAddress: async (payload: { address: string; verify: string }) => {
+    const formData = new FormData();
+    formData.append('address', payload.address || '');
+    formData.append('verify', payload.verify || '');
+    const result = await request<ApiResponse>('/api/user/setWalletAddress', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        // multipart 由浏览器处理
+      },
+    });
+    return result;
+  },
+  // ✅ 直播开启记录
+  getBoxRecord2: async () => {
+    const result = await request<ApiResponse>('/api/box/record2', {
+      method: 'GET',
     });
     return result;
   },
@@ -554,6 +654,25 @@ export const api = {
   getShopList: async () => {
     const result = await request<ApiResponse>('/api/shop/list', {
       method: 'GET',
+    });
+    return result;
+  },
+  getUserRebate: async () => {
+    const result = await request<ApiResponse>('/api/user/rebate', {
+      method: 'GET',
+    });
+    return result;
+  },
+  receiveRebate: async (type: 1 | 2 | 3) => {
+    const formData = new URLSearchParams();
+    formData.append('type', String(type));
+
+    const result = await request<ApiResponse>('/api/user/receiveRebate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
     });
     return result;
   },

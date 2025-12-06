@@ -1,120 +1,135 @@
 'use client';
 import { useI18n } from '../components/I18nProvider';
-import LiveFeedElement from '../components/LiveFeedElement';
-import LiveFeedTicker from '../components/LiveFeedTicker';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import BestLiveSidebar from '../components/BestLiveSidebar';
 
 export default function EventsPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'raffle' | 'raceWeekly' | 'raceMonthly'>('raffle');
+  const { data: consumeData } = useQuery({
+    queryKey: ['consumeData'],
+    queryFn: () => api.getConsume(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    if (consumeData) {
+      console.log('[getConsume]', consumeData);
+    }
+  }, [consumeData]);
   
   // 倒计时逻辑
-  const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
-  const [isExpired, setIsExpired] = useState(false);
-  const [endTime, setEndTime] = useState<number | null>(null);
+  const [raffleCountdown, setRaffleCountdown] = useState<string>('计算中...');
+  const [weeklyCountdown, setWeeklyCountdown] = useState<string>('计算中...');
+  const [monthlyCountdown, setMonthlyCountdown] = useState<string>('计算中...');
 
-  // 从后端获取抽奖结束时间
+  const getGmt8Now = () => {
+    const now = Date.now();
+    const offsetMs = 8 * 60 * 60 * 1000;
+    return new Date(now + offsetMs);
+  };
+
+  const formatHMS = (ms: number) => {
+    if (ms <= 0) return '0时 0分 0秒';
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}时 ${minutes}分 ${seconds}秒`;
+  };
+
+  const formatDHMS = (ms: number) => {
+    if (ms <= 0) return '0天 0时 0分 0秒';
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${days}天 ${hours}时 ${minutes}分 ${seconds}秒`;
+  };
+
+  // 计算目标时间（东八区）
+  const computeRaffleMs = () => {
+    const gmt8 = getGmt8Now();
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + 1, 0, 0, 0);
+    return target - gmt8.getTime();
+  };
+  const computeWeeklyMs = () => {
+    const gmt8 = getGmt8Now();
+    const day = gmt8.getUTCDay(); // 0-6
+    const daysUntilMonday = (8 - day) % 7 || 7;
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + daysUntilMonday, 0, 0, 0);
+    return target - gmt8.getTime();
+  };
+  const computeMonthlyMs = () => {
+    const gmt8 = getGmt8Now();
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth() + 1, 1, 0, 0, 0);
+    return target - gmt8.getTime();
+  };
+
   useEffect(() => {
-    const fetchEndTime = async () => {
-      try {
-        // TODO: 替换为实际的 API 端点
-        // const response = await fetch('/api/raffle/end-time');
-        // const data = await response.json();
-        // const endTimeString = data.endTime; // 后端返回的 ISO 时间字符串或时间戳
-        // setEndTime(new Date(endTimeString).getTime());
-
-        // 临时 mock 数据，实际使用时删除此部分
-        const mockEndTime = new Date(Date.now() + 8 * 60 * 60 * 1000 + 39 * 60 * 1000 + 25 * 1000).toISOString(); // 8小时39分25秒后
-        setEndTime(new Date(mockEndTime).getTime());
-      } catch (error) {
-        console.error('获取抽奖结束时间失败:', error);
-        // 如果获取失败，可以设置一个默认值或显示错误信息
-      }
+    const tick = () => {
+      setRaffleCountdown(formatHMS(computeRaffleMs()));
+      setWeeklyCountdown(formatDHMS(computeWeeklyMs()));
+      setMonthlyCountdown(formatDHMS(computeMonthlyMs()));
     };
-
-    fetchEndTime();
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
   }, []);
 
-  // 倒计时更新逻辑
-  useEffect(() => {
-    if (endTime === null) return;
-
-    const updateCountdown = () => {
-      const now = Date.now();
-      const difference = endTime - now;
-
-      if (difference <= 0) {
-        setIsExpired(true);
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
-        return;
-      }
-
-      const hours = Math.floor(difference / (1000 * 60 * 60));
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-      setTimeLeft({ hours, minutes, seconds });
-    };
-
-    // 立即更新一次
-    updateCountdown();
-
-    // 每秒更新一次
-    const interval = setInterval(updateCountdown, 1000);
-
-    return () => clearInterval(interval);
-  }, [endTime]); // 依赖 endTime，当结束时间变化时重新启动倒计时
-
-  const formatCountdown = () => {
-    if (!timeLeft) return '计算中...';
-    if (isExpired) return '抽奖已开始';
-    return `${timeLeft.hours}时 ${timeLeft.minutes}分 ${timeLeft.seconds}秒`;
+  const formatMoney = (val: any) => {
+    const num = Number(val);
+    if (!Number.isFinite(num)) return '--';
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // 比赛倒计时格式化（显示天数）
-  const formatRaceCountdown = () => {
-    if (!timeLeft) return '计算中...';
-    if (isExpired) return '比赛已结束';
-    const days = Math.floor((timeLeft.hours || 0) / 24);
-    const hours = (timeLeft.hours || 0) % 24;
-    return `${days}天 ${hours}时 ${timeLeft.minutes}分 ${timeLeft.seconds}秒`;
-  };
-
-  // 排行榜数据（从后端获取，目前使用 mock 数据）
-  // TODO: 根据 activeTab 从后端获取对应的排行榜数据
-  const getLeaderboardData = () => {
-    // 周赛/月赛的前三名数据
-    const topThree = [
-      { rank: 2, name: 'bou******api', avatar: 'r8m6', packCount: 99, prize: '$20,000', opened: '$759,276.15' },
-      { rank: 1, name: 'And***321', avatar: 'r8m7', packCount: 93, prize: '$50,000', opened: '$2,071,381.01' },
-      { rank: 3, name: 'bi**op', avatar: 'r8m8', packCount: 78, prize: '$10,000', opened: '$216,446.16', avatarImage: 'https://ik.imagekit.io/hr727kunx/profile_pictures/clv0ycua5005rxtp7lvedytlw/clv0ycua5005rxtp7lvedytlw_3-s2_mpgC.png?tr=w-3840,c-at_max' },
-    ];
-    
-    // 表格数据（从第4名开始）
-    const tableData = [
-      { rank: 4, name: 'Ven***zer', tickets: 6517, prize: '$125.00', avatar: 'r1s5' },
-      { rank: 5, name: 'ten*********fly', tickets: 6000, prize: '$100.00', avatar: 'r1s6' },
-      { rank: 6, name: 'Ae**rr', tickets: 10294, prize: '$75.00', avatar: 'r1s7' },
-      { rank: 7, name: 'Bos*****low', tickets: 8690, prize: '$55.00', avatar: 'r1s8' },
-      { rank: 8, name: 'Ma**em', tickets: 208, prize: '$55.00', avatar: 'r1s9' },
-      { rank: 9, name: 'Jac******ver', tickets: 248, prize: '$35.00', avatar: 'r1sa' },
-      { rank: 10, name: 'H**e', tickets: 2845, prize: '$35.00', avatar: 'r1sb' },
-      { rank: 11, name: 'bou******api', tickets: 382518, prize: '$35.00', avatar: 'r1sc' },
-      { rank: 12, name: 'Win********ess', tickets: 956, prize: '$35.00', avatar: 'r1sd' },
-      { rank: 13, name: 'Mr****ot', tickets: 23653, prize: '$25.00', avatar: 'r1se' },
-      { rank: 14, name: 'r1c*****212', tickets: 1431, prize: '$25.00', avatar: 'r1sf' },
-      { rank: 15, name: 'Nic****002', tickets: 1349, prize: '$25.00', avatar: 'r1sg' },
-    ];
-    
+  const mapRanking = (raw: any): { topThree: TopThreePlayer[]; tableData: TablePlayer[] } => {
+    const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+    const topThree = list.slice(0, 3).map((item, idx) => {
+      const user = item?.user || {};
+      const vip = user?.vip;
+      return {
+        rank: idx + 1,
+        name: user?.name || '--',
+        avatar: `r-top-${idx + 1}`,
+        avatarImage: typeof user?.avatar === 'string' ? user.avatar : undefined,
+        packCount: vip === 0 || vip ? String(vip) : '--',
+        prize: '--',
+        opened: formatMoney(item?.bean),
+      };
+    });
+    const tableData = list.slice(3).map((item, idx) => {
+      const user = item?.user || {};
+      return {
+        rank: idx + 4,
+        name: user?.name || '--',
+        tickets: '--',
+        prize: '--',
+        avatar: `r-row-${idx + 4}`,
+        avatarImage: typeof user?.avatar === 'string' ? user.avatar : undefined,
+      };
+    });
     return { topThree, tableData };
   };
+
+  const rankingMonth = mapRanking(consumeData?.data?.ranking_month);
+  const rankingWeek = mapRanking(consumeData?.data?.ranking_week);
+  const rankingYesterday =
+    Array.isArray(consumeData?.data?.ranking_yesterday?.data)
+      ? consumeData?.data?.ranking_yesterday?.data
+      : Array.isArray(consumeData?.data?.ranking_yesterday)
+        ? consumeData?.data?.ranking_yesterday
+        : [];
 
   // 比赛排行榜组件（周赛/月赛共用）
   type TopThreePlayer = {
     rank: number;
     name: string;
     avatar: string;
-    packCount: number;
+    packCount: string; // 显示 VIP 等级或占位
     prize: string;
     opened: string;
     avatarImage?: string;
@@ -123,21 +138,24 @@ export default function EventsPage() {
   type TablePlayer = {
     rank: number;
     name: string;
-    tickets: number;
+    tickets: string; // 门票数，空缺用 "--"
     prize: string;
     avatar: string;
+    avatarImage?: string;
   };
 
   const RaceLeaderboard = ({ 
     title, 
     raceType, 
     topThree, 
-    tableData 
+    tableData,
+    countdownText,
   }: { 
     title: string; 
     raceType: 'weekly' | 'monthly';
     topThree: TopThreePlayer[];
     tableData: TablePlayer[];
+    countdownText: string;
   }) => {
     const prefix = raceType === 'weekly' ? 'weekly' : 'monthly';
     
@@ -153,7 +171,7 @@ export default function EventsPage() {
             <div className="relative flex flex-col items-center pt-9 pb-6 md:pb-12">
               <p className="font-changa text-base sm:text-[25px] lg:text-[32px] text-white mb-3 md:mb-4 leading-none">{title}</p>
               <p className="flex items-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg h-11 px-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
-                比赛将在 {formatRaceCountdown()} 结束
+                比赛将在 {countdownText} 结束
               </p>
             </div>
           </div>
@@ -255,20 +273,33 @@ export default function EventsPage() {
                     <div className="flex gap-2 items-center">
                       <div className="overflow-hidden border rounded-full border-white" style={{ borderWidth: '1px' }}>
                         <div className="relative rounded-full overflow-hidden" style={{ width: 24, height: 24 }}>
-                          <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-                            <mask id={`${prefix}-table-${row.avatar}`} maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
-                              <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
-                            </mask>
-                            <g mask={`url(#${prefix}-table-${row.avatar})`}>
-                              <rect width="36" height="36" fill="#333333"></rect>
-                              <rect x="0" y="0" width="36" height="36" transform="translate(4 4) rotate(30 18 18) scale(1)" fill="#0C8F8F" rx="6"></rect>
-                              <g transform="translate(6 -5) rotate(0 18 18)">
-                                <path d="M15 19c2 1 4 1 6 0" stroke="#FFFFFF" fill="none" strokeLinecap="round"></path>
-                                <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                                <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                          {row.avatarImage ? (
+                            <img
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="pointer-events-none"
+                              sizes="(min-width: 0px) 100px"
+                              srcSet={`${row.avatarImage}?tr=w-16,c-at_max 16w, ${row.avatarImage}?tr=w-32,c-at_max 32w, ${row.avatarImage}?tr=w-48,c-at_max 48w`}
+                              src={row.avatarImage}
+                              style={{ position: 'absolute', height: '100%', width: '100%', inset: 0, objectFit: 'cover', color: 'transparent' }}
+                            />
+                          ) : (
+                            <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+                              <mask id={`${prefix}-table-${row.avatar}`} maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                                <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                              </mask>
+                              <g mask={`url(#${prefix}-table-${row.avatar})`}>
+                                <rect width="36" height="36" fill="#333333"></rect>
+                                <rect x="0" y="0" width="36" height="36" transform="translate(4 4) rotate(30 18 18) scale(1)" fill="#0C8F8F" rx="6"></rect>
+                                <g transform="translate(6 -5) rotate(0 18 18)">
+                                  <path d="M15 19c2 1 4 1 6 0" stroke="#FFFFFF" fill="none" strokeLinecap="round"></path>
+                                  <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                  <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                </g>
                               </g>
-                            </g>
-                          </svg>
+                            </svg>
+                          )}
                         </div>
                       </div>
                       <div className="relative flex w-full h-9 flex-1">
@@ -434,16 +465,18 @@ export default function EventsPage() {
               </div>
               
               {/* 抽奖 Tab 面板 */}
-              {activeTab === 'raffle' && (
-              <div
-                data-state="active"
-                data-orientation="horizontal"
-                role="tabpanel"
-                aria-labelledby="radix-tab-trigger-raffle"
-                id="radix-tab-content-raffle"
-                tabIndex={0}
-                className="mt-4 interactive-focus"
-              >
+              {activeTab === 'raffle' && (() => {
+                const raffleRows = Array.isArray(rankingYesterday) ? rankingYesterday : [];
+                return (
+                  <div
+                    data-state="active"
+                    data-orientation="horizontal"
+                    role="tabpanel"
+                    aria-labelledby="radix-tab-trigger-raffle"
+                    id="radix-tab-content-raffle"
+                    tabIndex={0}
+                    className="mt-4 interactive-focus"
+                  >
                 <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
                   <div className="relative mb-4 px-8">
                     <img src="https://packdraw.com/_next/static/media/raffle-ticket.49e185ba.svg" alt="" className="absolute top-0 left-2 sm:left-1 h-full aspect-[32/170] object-contain" style={{ zIndex: 0 }} />
@@ -459,7 +492,7 @@ export default function EventsPage() {
                           <span className="hidden md:block flex-1 h-[1px]" style={{ backgroundColor: '#34383c' }}></span>
                         </div>
                         <p className="flex items-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg h-9 md:h-11 px-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
-                          抽奖将在 {formatCountdown()} 开始
+                          抽奖将在 {raffleCountdown} 开始
                         </p>
                       </div>
                     </div>
@@ -501,70 +534,46 @@ export default function EventsPage() {
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
-                      {[
-                        { rank: 1, name: 'dis**********ine', tickets: 37948, prize: '$1,000.00', avatar: 'r1s2' },
-                        { rank: 2, name: 'V**x', tickets: 79471, prize: '$500.00', avatar: 'r1s3' },
-                        { rank: 3, name: 'P***u', tickets: 10740, prize: '$250.00', avatar: 'r1s4' },
-                        { rank: 4, name: 'Ven***zer', tickets: 6517, prize: '$125.00', avatar: 'r1s5' },
-                        { rank: 5, name: 'ten*********fly', tickets: 6000, prize: '$100.00', avatar: 'r1s6' },
-                        { rank: 6, name: 'Ae**rr', tickets: 10294, prize: '$75.00', avatar: 'r1s7' },
-                        { rank: 7, name: 'Bos*****low', tickets: 8690, prize: '$55.00', avatar: 'r1s8' },
-                        { rank: 8, name: 'Ma**em', tickets: 208, prize: '$55.00', avatar: 'r1s9' },
-                        { rank: 9, name: 'Jac******ver', tickets: 248, prize: '$35.00', avatar: 'r1sa' },
-                        { rank: 10, name: 'H**e', tickets: 2845, prize: '$35.00', avatar: 'r1sb' },
-                        { rank: 11, name: 'bou******api', tickets: 382518, prize: '$35.00', avatar: 'r1sc' },
-                        { rank: 12, name: 'Win********ess', tickets: 956, prize: '$35.00', avatar: 'r1sd' },
-                        { rank: 13, name: 'Mr****ot', tickets: 23653, prize: '$25.00', avatar: 'r1se' },
-                        { rank: 14, name: 'r1c*****212', tickets: 1431, prize: '$25.00', avatar: 'r1sf' },
-                        { rank: 15, name: 'Nic****002', tickets: 1349, prize: '$25.00', avatar: 'r1sg' },
-                        { rank: 16, name: 'ora********sum', tickets: 4379, prize: '$25.00', avatar: 'r1sh' },
-                        { rank: 17, name: 'tru******ape', tickets: 5158, prize: '$25.00', avatar: 'r1si' },
-                        { rank: 18, name: 'TOM****TTI', tickets: 2693, prize: '$25.00', avatar: 'r1sj' },
-                        { rank: 19, name: 'iSw*******lex', tickets: 85, prize: '$25.00', avatar: 'r1sk' },
-                        { rank: 20, name: 'Jui*******Dad', tickets: 1226, prize: '$25.00', avatar: 'r1sl' },
-                      ].map((row) => (
-                        <tr key={row.rank} className="border-b transition-colors hover:bg-[#111417] data-[state=selected]:bg-gray-600">
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-extrabold" style={{ color: '#7A8084' }}>{row.rank}</td>
+                      {raffleRows.map((row, idx) => {
+                        const user = row?.user || {};
+                        return (
+                        <tr key={row?.rank ?? `${user?.id ?? 'u'}-${idx}`} className="border-b transition-colors hover:bg-[#111417] data-[state=selected]:bg-gray-600">
+                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-extrabold" style={{ color: '#7A8084' }}>{idx + 1}</td>
                           <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
                             <div className="flex gap-2 items-center">
                               <div className="overflow-hidden border rounded-full border-white" style={{ borderWidth: '1px' }}>
                                 <div className="relative rounded-full overflow-hidden" style={{ width: 24, height: 24 }}>
-                                  <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-                                    <mask id={row.avatar} maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
-                                      <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
-                                    </mask>
-                                    <g mask={`url(#${row.avatar})`}>
+                                  {user?.avatar ? (
+                                    <img alt="" src={user.avatar} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', color: 'transparent' }} />
+                                  ) : (
+                                    <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
                                       <rect width="36" height="36" fill="#333333"></rect>
-                                      <rect x="0" y="0" width="36" height="36" transform="translate(4 4) rotate(30 18 18) scale(1)" fill="#0C8F8F" rx="6"></rect>
-                                      <g transform="translate(6 -5) rotate(0 18 18)">
-                                        <path d="M15 19c2 1 4 1 6 0" stroke="#FFFFFF" fill="none" strokeLinecap="round"></path>
-                                        <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                                        <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                                      </g>
-                                    </g>
-                                  </svg>
+                                    </svg>
+                                  )}
                                 </div>
                               </div>
                               <div className="relative flex w-full h-9 flex-1">
                                 <div className="absolute flex inset-0 items-center">
-                                  <p className="text-white font-extrabold text-ellipsis overflow-hidden whitespace-nowrap">{row.name}</p>
+                                  <p className="text-white font-extrabold text-ellipsis overflow-hidden whitespace-nowrap">{user?.name || '--'}</p>
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-white font-extrabold">{row.tickets.toLocaleString()}</td>
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-right font-extrabold" style={{ color: '#68d391' }}>{row.prize}</td>
+                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-white font-extrabold">{row?.tickets ? row.tickets : '--'}</td>
+                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-right font-extrabold" style={{ color: '#68d391' }}>{row?.prize || '--'}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
-              )}
+                );
+              })()}
 
               {/* 周赛 Tab 面板 */}
               {activeTab === 'raceWeekly' && (() => {
-                const { topThree, tableData } = getLeaderboardData();
+                const { topThree, tableData } = rankingWeek;
                 return (
               <div
                 data-state="active"
@@ -575,14 +584,14 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title="周赛 30,000 美元" raceType="weekly" topThree={topThree} tableData={tableData} />
+                <RaceLeaderboard title="周赛 30,000 美元" raceType="weekly" topThree={topThree} tableData={tableData} countdownText={weeklyCountdown} />
               </div>
                 );
               })()}
 
               {/* 月赛 Tab 面板 */}
               {activeTab === 'raceMonthly' && (() => {
-                const { topThree, tableData } = getLeaderboardData();
+                const { topThree, tableData } = rankingMonth;
                 return (
               <div
                 data-state="active"
@@ -593,74 +602,14 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title="月赛 30,000 美元" raceType="monthly" topThree={topThree} tableData={tableData} />
+                <RaceLeaderboard title="月赛 30,000 美元" raceType="monthly" topThree={topThree} tableData={tableData} countdownText={monthlyCountdown} />
               </div>
                 );
               })()}
             </div>
           </div>
         </div>
-        <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g clipPath="url(#clip0_2938_10681)">
-                    <path d="M7.34447 1.87599C7.37304 1.72306 7.45419 1.58493 7.57387 1.48553C7.69355 1.38614 7.84423 1.33173 7.99981 1.33173C8.15538 1.33173 8.30606 1.38614 8.42574 1.48553C8.54542 1.58493 8.62657 1.72306 8.65514 1.87599L9.35581 5.58132C9.40557 5.84475 9.53359 6.08707 9.72316 6.27664C9.91273 6.46621 10.155 6.59423 10.4185 6.64399L14.1238 7.34466C14.2767 7.37322 14.4149 7.45437 14.5143 7.57405C14.6137 7.69374 14.6681 7.84441 14.6681 7.99999C14.6681 8.15557 14.6137 8.30624 14.5143 8.42592C14.4149 8.54561 14.2767 8.62676 14.1238 8.65532L10.4185 9.35599C10.155 9.40575 9.91273 9.53377 9.72316 9.72334C9.53359 9.91291 9.40557 10.1552 9.35581 10.4187L8.65514 14.124C8.62657 14.2769 8.54542 14.415 8.42574 14.5144C8.30606 14.6138 8.15538 14.6683 7.99981 14.6683C7.84423 14.6683 7.69355 14.6138 7.57387 14.5144C7.45419 14.415 7.37304 14.2769 7.34447 14.124L6.64381 10.4187C6.59404 10.1552 6.46602 9.91291 6.27645 9.72334C6.08688 9.53377 5.84457 9.40575 5.58114 9.35599L1.87581 8.65532C1.72287 8.62676 1.58475 8.54561 1.48535 8.42592C1.38595 8.30624 1.33154 8.15557 1.33154 7.99999C1.33154 7.84441 1.38595 7.69374 1.48535 7.57405C1.58475 7.45437 1.72287 7.37322 1.87581 7.34466L5.58114 6.64399C5.84457 6.59423 6.08688 6.46621 6.27645 6.27664C6.46602 6.08707 6.59404 5.84475 6.64381 5.58132L7.34447 1.87599Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                    <path d="M13.3335 1.33331V3.99998" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                    <path d="M14.6667 2.66669H12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                  </g>
-                  <defs>
-                    <clipPath id="clip0_2938_10681">
-                      <rect width="16" height="16" fill="currentColor"></rect>
-                    </clipPath>
-                  </defs>
-                </svg>
-              </div>
-              <p className="text-base text-white font-extrabold">{t('bestOpens')}</p>
-            </div>
-            <div className="live-feed flex flex-col gap-3">
-              <LiveFeedElement
-                index={0}
-                href="/packs/1"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max"
-                title="Audemars Piguet Stainless Steel USA Edition"
-                priceLabel="$65,000.00"
-              />
-              <LiveFeedElement
-                index={1}
-                href="/packs/2"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
-                title="Limited Edition Pack"
-                priceLabel="$2.99"
-                glowColor="#FACC15"
-              />
-              <LiveFeedElement
-                index={2}
-                href="/packs/3"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
-                title="Special Drop"
-                priceLabel="$5.00"
-                glowColor="#FACC15"
-              />
-            </div>
-          </div>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
-              </div>
-              <p className="text-base text-white font-extrabold">{t('liveStart')}</p>
-            </div>
-            <LiveFeedTicker maxItems={9} intervalMs={2000} />
-          </div>
-        </div>
+        <BestLiveSidebar bestOpensTitle={t('bestOpens')} liveTitle={t('liveStart')} />
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ export default function SelectPackModal({
   onSelectionChange,
   maxPacks,
   minPacks,
+  boxType = '1',
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +23,7 @@ export default function SelectPackModal({
   onSelectionChange: (ids: string[]) => void;
   maxPacks?: number;
   minPacks?: number;
+  boxType?: '1' | '2';
 }) {
   const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
   const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;
@@ -29,15 +31,16 @@ export default function SelectPackModal({
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
   
   // 使用筛选 hook
-  const { filters, updateFilters, reset } = usePacksFilters();
+  const { filters, updateFilters, reset } = usePacksFilters({ type: boxType });
   
   const { data: boxListData, isLoading, error, refetch } = useQuery({
-    queryKey: ['boxList', filters],
+    queryKey: ['boxList', { ...filters, boxType }],
     queryFn: () => {
       // 确保至少传递默认参数
       const params = {
         sort_type: '1',
         volatility: '1',
+        type: boxType,
         ...filters,
       };
       return api.getBoxList(params);

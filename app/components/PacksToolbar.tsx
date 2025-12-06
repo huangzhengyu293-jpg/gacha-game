@@ -242,7 +242,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2 items-center">
-        <div className="flex w-full">
+        {/* <div className="flex w-full">
           <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search text-white size-5"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
@@ -252,15 +252,15 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
               <button onClick={reset} className="px-2 py-1 text-sm font-semibold" style={{ color: '#4195DB' }}>{t("reset")}</button>
             </div>
           </div>
-        </div>
-        {showCreateButton && (
+        </div> */}
+        {/* {showCreateButton && (
           <Link href="/packs/create" className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6 whitespace-nowrap">
             <div className="size-5">
               <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.00001 2.66675C9.00001 2.11446 8.55229 1.66675 8.00001 1.66675C7.44772 1.66675 7.00001 2.11446 7.00001 2.66675V7.00008L2.66667 7.00008C2.11439 7.00008 1.66667 7.4478 1.66667 8.00008C1.66667 8.55237 2.11439 9.00008 2.66667 9.00008H7.00001V13.3334C7.00001 13.8857 7.44772 14.3334 8.00001 14.3334C8.55229 14.3334 9.00001 13.8857 9.00001 13.3334V9.00008H13.3333C13.8856 9.00008 14.3333 8.55237 14.3333 8.00008C14.3333 7.4478 13.8856 7.00008 13.3333 7.00008H9.00001V2.66675Z" fill="currentColor"></path></svg>
             </div>
             <p>{t("createPack")}</p>
           </Link>
-        )}
+        )} */}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

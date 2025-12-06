@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Banner from './components/Banner';
 import SectionHeader from './components/SectionHeader';
@@ -8,44 +8,37 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from './lib/api';
 import type { CatalogPack } from './lib/api';
 import PackCard from './components/PackCard';
-import LiveFeedElement from './components/LiveFeedElement';
-import LiveFeedTicker from './components/LiveFeedTicker';
 import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
-import { getGlowColorFromProbability } from './lib/catalogV2';
+import BestLiveSidebar from './components/BestLiveSidebar';
 
 export default function Home() {
   const { t } = useI18n();
   const router = useRouter();
 
   // ✅ 获取最新礼包列表（sort_type: '2' = 最新）
-  const { data: boxListData } = useQuery({
-    queryKey: ['boxListHome'],
-    queryFn: () => api.getBoxList({
-      sort_type: '2', // ✅ 最新
-    }),
+  const { data: boxNewListData } = useQuery({
+    queryKey: ['boxNewListHome'],
+    queryFn: () => api.getBoxNewList(),
     staleTime: 30_000,
   });
 
   // 将新接口数据映射为旧格式
   const packs = useMemo(() => {
-    if (boxListData?.code === 100000 && Array.isArray(boxListData.data)) {
-      return boxListData.data.map((box: any) => ({
-        id: String(box.id || box.box_id), // ✅ 统一转为字符串
+    if (boxNewListData?.code === 100000 && Array.isArray(boxNewListData.data)) {
+      return boxNewListData.data.map((box: any) => ({
+        id: String(box.id || box.box_id),
         title: box.name || box.title || '',
         image: box.cover || '',
-        price: Number(box.bean || 0),
+        price: Number(box.bean || box.price || 0),
         itemCount: 0,
         items: [],
       }));
     }
     return [];
-  }, [boxListData]);
+  }, [boxNewListData]);
 
-  // 暂时禁用 liveFeedData（新接口不包含 items 数据）
-  const liveFeedData: any[] = [];
-  
   return (
     <div className="flex flex-col min-h-screen" >
       <div className="flex-1 min-h-screen pt-0">
@@ -164,9 +157,8 @@ export default function Home() {
                 className="mt-12 mb-3"
               />
               
-              {/* Battle Modes replicated block */}
               <div className="mt-4">
-                <BattleModes />
+                <BattleModes useBestRecord enablePolling={false} />
               </div>
               {/* Trade Highlights replicated block */}
               
@@ -195,52 +187,8 @@ export default function Home() {
               
             </div>
 
-            {/* Right Sidebar - 224px wide, hidden on screens smaller than 1024px */}
-            <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
-              <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
-                <div className="flex pb-4 gap-2 items-center">
-                  <div className="flex size-4 text-yellow-400">
-                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <g clipPath="url(#clip0_2938_10681)">
-                        <path d="M7.34447 1.87599C7.37304 1.72306 7.45419 1.58493 7.57387 1.48553C7.69355 1.38614 7.84423 1.33173 7.99981 1.33173C8.15538 1.33173 8.30606 1.38614 8.42574 1.48553C8.54542 1.58493 8.62657 1.72306 8.65514 1.87599L9.35581 5.58132C9.40557 5.84475 9.53359 6.08707 9.72316 6.27664C9.91273 6.46621 10.155 6.59423 10.4185 6.64399L14.1238 7.34466C14.2767 7.37322 14.4149 7.45437 14.5143 7.57405C14.6137 7.69374 14.6681 7.84441 14.6681 7.99999C14.6681 8.15557 14.6137 8.30624 14.5143 8.42592C14.4149 8.54561 14.2767 8.62676 14.1238 8.65532L10.4185 9.35599C10.155 9.40575 9.91273 9.53377 9.72316 9.72334C9.53359 9.91291 9.40557 10.1552 9.35581 10.4187L8.65514 14.124C8.62657 14.2769 8.54542 14.415 8.42574 14.5144C8.30606 14.6138 8.15538 14.6683 7.99981 14.6683C7.84423 14.6683 7.69355 14.6138 7.57387 14.5144C7.45419 14.415 7.37304 14.2769 7.34447 14.124L6.64381 10.4187C6.59404 10.1552 6.46602 9.91291 6.27645 9.72334C6.08688 9.53377 5.84457 9.40575 5.58114 9.35599L1.87581 8.65532C1.72287 8.62676 1.58475 8.54561 1.48535 8.42592C1.38595 8.30624 1.33154 8.15557 1.33154 7.99999C1.33154 7.84441 1.38595 7.69374 1.48535 7.57405C1.58475 7.45437 1.72287 7.37322 1.87581 7.34466L5.58114 6.64399C5.84457 6.59423 6.08688 6.46621 6.27645 6.27664C6.46602 6.08707 6.59404 5.84475 6.64381 5.58132L7.34447 1.87599Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                        <path d="M13.3335 1.33331V3.99998" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                        <path d="M14.6667 2.66669H12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                      </g>
-                      <defs>
-                        <clipPath id="clip0_2938_10681">
-                          <rect width="16" height="16" fill="currentColor"></rect>
-                        </clipPath>
-                      </defs>
-                    </svg>
-                  </div>
-                  <p className="text-base text-white font-extrabold">最佳开启</p>
-                </div>
-                <div className="live-feed flex flex-col gap-3">
-                  {liveFeedData.map(({ product, pack }, idx) => (
-                    <LiveFeedElement
-                      key={product.id}
-                      index={idx}
-                      href={`/packs/${pack.id}`}
-                      avatarUrl={"https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"}
-                      productImageUrl={(product as any).image}
-                      packImageUrl={pack.image}
-                      title={(product as any).name}
-                      priceLabel={`$${(product as any).price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      glowColor={getGlowColorFromProbability((product as any).dropProbability ?? (product as any).probability)}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
-                <div className="flex pb-4 gap-2 items-center">
-                  <div className="flex size-4 text-yellow-400">
-                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
-                  </div>
-                  <p className="text-base text-white font-extrabold">直播开启</p>
-                </div>
-                <LiveFeedTicker maxItems={9} intervalMs={2000} />
-              </div>
-            </div>
+            {/* Right Sidebar - Best Opens / Live Feed */}
+            <BestLiveSidebar liveTickerMaxItems={9} liveTickerIntervalMs={2000} />
           </div>
         </div>
       </div>

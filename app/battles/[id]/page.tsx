@@ -847,6 +847,8 @@ export default function BattleDetailPage() {
   const currentUserId = user?.userInfo?.id ?? user?.id ?? null;
   const normalizedCurrentUserId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
   const previousStatusRef = useRef<number | null>(null);
+  const postStartSyncStatusRef = useRef<number | null>(null);
+  const pendingPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!routeBattleId) {
@@ -868,17 +870,62 @@ export default function BattleDetailPage() {
     refetchOnReconnect: false,
   });
 
+  const refetchRef = useRef(refetch);
   const rawDetail = fightDetailResponse?.data;
   const rawStatus = Number(rawDetail?.status ?? 0);
+  const hasWinBoxData = useMemo(() => {
+    const winBox = rawDetail?.data?.win?.box;
+    if (!winBox || typeof winBox !== 'object') {
+      return false;
+    }
+    return Object.values(winBox).some((entries) => Array.isArray(entries) && entries.length > 0);
+  }, [rawDetail?.data?.win?.box]);
 
   useEffect(() => {
-    if (!routeBattleId) return;
-    if (rawStatus !== 0) return;
-    const interval = setInterval(() => {
-      refetch();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const wasPending = postStartSyncStatusRef.current === 0;
+    if (wasPending && rawStatus !== 0) {
+      timeout = setTimeout(() => {
+        refetch().catch(() => {});
+      }, 500);
+    }
+    postStartSyncStatusRef.current = rawStatus;
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [rawStatus, refetch]);
+
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  useEffect(() => {
+    if (pendingPollIntervalRef.current) {
+      clearInterval(pendingPollIntervalRef.current);
+      pendingPollIntervalRef.current = null;
+    }
+
+    // 轮询进行中：等待开局或等待掉落数据生成（win.box 未就绪时继续）
+    const shouldPoll =
+      Boolean(routeBattleId) && (rawStatus === 0 || rawStatus === 1 || !hasWinBoxData);
+    if (!shouldPoll) {
+      return undefined;
+    }
+
+    pendingPollIntervalRef.current = setInterval(() => {
+      refetchRef.current?.();
     }, 1000);
-    return () => clearInterval(interval);
-  }, [routeBattleId, rawStatus, refetch]);
+
+    return () => {
+      if (pendingPollIntervalRef.current) {
+        clearInterval(pendingPollIntervalRef.current);
+        pendingPollIntervalRef.current = null;
+      }
+    };
+  }, [routeBattleId, rawStatus, hasWinBoxData]);
+
   const normalizedBattleId = String(rawDetail?.id ?? routeBattleId ?? '');
   const battleOwnerId = rawDetail?.user_id !== undefined && rawDetail?.user_id !== null ? String(rawDetail.user_id) : null;
   const activeSource = useMemo<BattleDataSourceConfig | null>(() => {
@@ -886,9 +933,9 @@ export default function BattleDetailPage() {
       return null;
     }
     const specialOptions: BattleSpecialOptions = {
-      fast: rawDetail.fast === 1,
-      lastChance: rawDetail.finally === 1,
-      inverted: rawDetail.type === 1,
+      fast: Number(rawDetail.fast) === 1,
+      lastChance: Number(rawDetail.finally) === 1,
+      inverted: Number(rawDetail.type) === 1,
     };
     const currentStatus = rawStatus;
     const wasPreviouslyPending = previousStatusRef.current === 0 && currentStatus !== 0;
@@ -989,6 +1036,13 @@ function BattleDetailContent({
   useEffect(() => {
     // no-op placeholder to keep consistent effect lifecycle if future side effects are needed
   }, [routeBattleId, activeSource.id]);
+  const hasWinBoxData = useMemo(() => {
+    const winBox = rawDetail?.data?.win?.box;
+    if (!winBox || typeof winBox !== 'object') {
+      return false;
+    }
+    return Object.values(winBox).some((entries) => Array.isArray(entries) && entries.length > 0);
+  }, [rawDetail?.data?.win?.box]);
   const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
   const [allSlotsFilled, setAllSlotsFilled] = useState(false);
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
@@ -1055,15 +1109,15 @@ function BattleDetailContent({
   }, [isRecreatingBattle, rawDetail, battleData, router]);
 
 
-  useEffect(() => {
-    if (previousPendingStatusRef.current && !isPendingBattle) {
-      hasGeneratedResultsRef.current = false;
-      timelineHydratedRef.current = false;
-      skipDirectlyToCompletedRef.current = false;
-      forceFullReplayRef.current = true;
-    }
-    previousPendingStatusRef.current = isPendingBattle;
-  }, [isPendingBattle, routeBattleId]);
+useEffect(() => {
+  if (previousPendingStatusRef.current && !isPendingBattle) {
+    hasGeneratedResultsRef.current = false;
+    timelineHydratedRef.current = false;
+    skipDirectlyToCompletedRef.current = false;
+    forceFullReplayRef.current = true;
+  }
+  previousPendingStatusRef.current = isPendingBattle;
+}, [isPendingBattle, routeBattleId]);
   const predeterminedWinnerIds = useMemo(() => {
     if (!Array.isArray(battleData.participants)) {
       return [];
@@ -1226,18 +1280,34 @@ function BattleDetailContent({
       return;
     }
 
-    const totalContribution = validParticipants.reduce((sum, participant) => {
-      return sum + (participantValues[participant.id] || 0);
-    }, 0);
-    const fallbackPercentage = validParticipants.length ? 100 / validParticipants.length : 0;
-    const segments = validParticipants.map((participant) => {
-      const contribution = participantValues[participant.id] || 0;
-      const percentage = totalContribution > 0 ? (contribution / totalContribution) * 100 : fallbackPercentage;
+    const isJackpotInverted = battleData.isInverted;
+    const contributions = validParticipants.map((participant) => {
+      const rawValue = Number(participantValues[participant.id]) || 0;
       return {
         id: participant.id,
         name: participant.name,
+        rawValue,
+        inverseWeight: rawValue > 0 ? 1 / rawValue : 0,
+      };
+    });
+
+    const totalValue = contributions.reduce((sum, entry) => sum + entry.rawValue, 0);
+    const totalInverseWeight = contributions.reduce((sum, entry) => sum + entry.inverseWeight, 0);
+    const fallbackPercentage = validParticipants.length ? 100 / validParticipants.length : 0;
+
+    const segments = contributions.map((entry) => {
+      let percentage: number;
+      if (isJackpotInverted) {
+        percentage =
+          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : fallbackPercentage;
+      } else {
+        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : fallbackPercentage;
+      }
+      return {
+        id: entry.id,
+        name: entry.name,
         percentage,
-        color: playerColors[participant.id] || 'rgb(128, 128, 128)',
+        color: playerColors[entry.id] || 'rgb(128, 128, 128)',
       };
     });
 
@@ -1247,7 +1317,7 @@ function BattleDetailContent({
     setJackpotPlayerSegments(segments);
     setJackpotWinnerId(winnerId);
     jackpotInitialized.current = true;
-  }, [allParticipants, participantValues, playerColors, predeterminedWinnerIds]);
+  }, [allParticipants, participantValues, playerColors, predeterminedWinnerIds, battleData.isInverted]);
 
   
   // 🎉 大奖模式：动画完成回调（稳定引用）
@@ -2456,6 +2526,10 @@ function BattleDetailContent({
   
   useEffect(() => {
     if (mainState === 'LOADING' && !hasGeneratedResultsRef.current) {
+      // 掉落结果未就绪时等待，避免生成空轮次导致回合不记录
+      if (!hasWinBoxData) {
+        return;
+      }
       // 🔒 标记已生成，防止重复执行
       hasGeneratedResultsRef.current = true;
       // 🔒 关键：锁定当前的 allParticipants 快照
@@ -2487,6 +2561,14 @@ function BattleDetailContent({
         },
       });
       const totalRounds = rounds.length;
+      const currentStatus = Number(rawDetail?.status ?? 0);
+      if (currentStatus === 1) {
+        setCountdownValue(null);
+        setRoundState(null);
+        setMainState('LOADING');
+        return;
+      }
+
       const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
       const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
       skipDirectlyToCompletedRef.current = entryExceedsRounds;
@@ -2522,6 +2604,7 @@ function BattleDetailContent({
     setRoundState,
     activeSource.entryRound,
     hydrateRoundsProgress,
+    hasWinBoxData,
   ]);
 
   useEffect(() => {
@@ -2537,6 +2620,14 @@ function BattleDetailContent({
 
     const runtime = battleRuntimeRef.current;
     const totalRounds = runtime.config.roundsTotal;
+    const currentStatus = Number(rawDetail?.status ?? 0);
+    if (currentStatus === 1) {
+      setCountdownValue(null);
+      setRoundState(null);
+      setMainState('LOADING');
+      return;
+    }
+
     const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
     const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
     skipDirectlyToCompletedRef.current = entryExceedsRounds;
@@ -3219,6 +3310,7 @@ function BattleDetailContent({
     eliminatedPlayerIds,
     isInverted,
   ]);
+  console.log(isInverted);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
   useEffect(() => {
@@ -3317,7 +3409,8 @@ function BattleDetailContent({
   }, [roundState]);
   
   useEffect(() => {
-    setHidePacks(mainState !== 'IDLE');
+    // 只在正式进入 ROUND_LOOP 时隐藏卡包，准备/倒计时阶段继续展示卡包
+    setHidePacks(mainState === 'ROUND_LOOP');
     setShowSlotMachines(mainState === 'ROUND_LOOP' && roundState !== 'ROUND_JACKPOT_ROLL');
     setAllRoundsCompleted(mainState === 'COMPLETED');
   }, [mainState, roundState]);
@@ -3554,7 +3647,7 @@ function BattleDetailContent({
           <BattleHeader
             packImages={packImages}
             highlightedIndices={highlightedIndices}
-          statusText="等待玩家"
+          statusText={Number(rawDetail?.status ?? 0) === 1 ? "准备中" : "等待玩家"}
             totalCost={battleData.cost}
           isCountingDown={countdownValue !== null && countdownValue > 0}
           isPlaying={showSlotMachines && !allRoundsCompleted}
@@ -4133,6 +4226,85 @@ function BattleDetailContent({
                     })}
                     </div>
                   </div>
+                </div>
+              ) : teamStructure === '2v2' ? (
+                // 小屏幕 2v2: 2 行 2 列，沿用 450px 老虎机高度裁切
+                <div className="flex flex-col justify-center px-2 md:px-4 w-full max-w-[1248px]" style={{ height: '450px' }}>
+                  {[0, 2].map((startIndex, rowIndex) => (
+                    <Fragment key={`team-2v2-row-${rowIndex}`}>
+                      {rowIndex === 1 && <BattleSlotDivider orientation="horizontal" className="my-1" />}
+                      <div className="relative" style={{ height: '216.5px' }}>
+                        <SlotEdgePointer side="left" />
+                        <SlotEdgePointer side="right" />
+                        <div
+                          className="flex gap-0 md:gap-4 justify-around"
+                          style={{ height: '216.5px', overflow: 'hidden', pointerEvents: 'none' }}
+                        >
+                          {allParticipants.slice(startIndex, startIndex + 2).map((participant) => {
+                            if (!participant || !participant.id) return null;
+                            const roundIndex = gameData.currentRound;
+                            const roundData = gameRoundsRef.current[roundIndex];
+                            if (!roundData) return null;
+                            const selectedPrizeId = currentRoundPrizes[participant.id];
+                            const keySuffix = slotMachineKeySuffix[participant.id] || '';
+                            const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
+
+                            return (
+                              <div
+                                key={participant.id}
+                                className="flex flex-col items-center gap-2 flex-1 min-w-0 relative"
+                                style={{ marginTop: `${-(450 - 216.5) / 2}px` }}
+                              >
+                                <div
+                                  className="w-full h-full transition-opacity duration-300 absolute inset-0"
+                                  style={{
+                                    opacity: !keySuffix ? 1 : 0,
+                                    pointerEvents: !keySuffix ? 'auto' : 'none',
+                                    zIndex: !keySuffix ? 1 : 0,
+                                  }}
+                                >
+                                  <LuckySlotMachine
+                                    key={`${participant.id}-${roundIndex}-first`}
+                                    ref={(ref) => {
+                                      if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                    }}
+                                    symbols={roundData.pools.normal}
+                                    selectedPrizeId={!keySuffix ? selectedPrizeId : null}
+                                    height={450}
+                                    spinDuration={spinDuration}
+                                    onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
+                                  />
+                                </div>
+
+                                {isGoldenPlayer && roundData.pools.legendary.length > 0 && (
+                                  <div
+                                    className="w-full h-full transition-opacity duration-300 absolute inset-0"
+                                    style={{
+                                      opacity: keySuffix ? 1 : 0,
+                                      pointerEvents: keySuffix ? 'auto' : 'none',
+                                      zIndex: keySuffix ? 1 : 0,
+                                    }}
+                                  >
+                                    <LuckySlotMachine
+                                      key={`${participant.id}-${roundIndex}-second`}
+                                      ref={(ref) => {
+                                        if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                                      }}
+                                      symbols={roundData.pools.legendary}
+                                      selectedPrizeId={keySuffix ? selectedPrizeId : null}
+                                      height={450}
+                                      spinDuration={spinDuration}
+                                      onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </Fragment>
+                  ))}
                 </div>
               ) : teamStructure === '2v2v2' ? (
                 // 小屏幕 2v2v2: 3行2列

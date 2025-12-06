@@ -7,14 +7,18 @@ export interface PacksFilters {
   volatility?: string;
   price_min?: string;
   price_max?: string;
+  type?: string;
 }
 
 export function usePacksFilters(defaults?: Partial<PacksFilters>) {
-  const [filters, setFilters] = useState<PacksFilters>({
+  const baseType = defaults?.type ?? '2';
+  const initial: PacksFilters = {
     sort_type: '1', // 默认：最受欢迎
     volatility: '1', // 默认：1
+    type: baseType,
     ...defaults,
-  });
+  };
+  const [filters, setFilters] = useState<PacksFilters>(initial);
 
   const updateFilters = useCallback((newFilters: PacksFilters) => {
     // 过滤掉 undefined 的值，只保留有效参数
@@ -29,11 +33,8 @@ export function usePacksFilters(defaults?: Partial<PacksFilters>) {
   }, []);
 
   const reset = useCallback(() => {
-    setFilters({
-      sort_type: '1',
-      volatility: '1',
-    });
-  }, []);
+    setFilters(initial);
+  }, [initial]);
 
   return {
     filters,

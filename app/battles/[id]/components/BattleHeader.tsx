@@ -325,7 +325,7 @@ export default function BattleHeader({
             </div>
 
             {/* Right Column */}
-            <div className="flex flex-1 flex-col justify-between">
+            <div className="flex flex-1 flex-col justify-between px-4">
               {/* Action Buttons */}
               <div className="flex gap-2 justify-end">
                 <button

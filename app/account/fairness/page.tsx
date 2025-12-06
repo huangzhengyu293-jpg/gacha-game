@@ -1,7 +1,6 @@
 import Link from "next/link";
 import AccountMobileMenu from "../components/AccountMobileMenu";
-import LiveFeedElement from "../../components/LiveFeedElement";
-import LiveFeedTicker from "../../components/LiveFeedTicker";
+import BestLiveSidebar from "../../components/BestLiveSidebar";
 
 export default function FairnessPage() {
   return (
@@ -104,57 +103,11 @@ export const getTicketNumber = (hash: string) => {
           </div>
         </div>
 
-        {/* 右侧侧边栏（复刻 Best Opens / Live Feed） */}
-        <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit">
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
-              </div>
-              <p className="text-base text-white font-extrabold">最佳开启</p>
-            </div>
-            <div className="live-feed flex flex-col gap-3">
-              <LiveFeedElement
-                index={0}
-                href="/packs/1"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max"
-                title="Audemars Piguet Stainless Steel USA Edition"
-                priceLabel="$65,000.00"
-              />
-              <LiveFeedElement
-                index={1}
-                href="/packs/2"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
-                title="Limited Edition Pack"
-                priceLabel="$2.99"
-                glowColor="#6EE7B7"
-              />
-              <LiveFeedElement
-                index={2}
-                href="/packs/3"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
-                title="Special Drop"
-                priceLabel="$5.00"
-                glowColor="#60A5FA"
-              />
-            </div>
-          </div>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6">
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
-              </div>
-              <p className="text-base text-white font-extrabold">直播开启</p>
-            </div>
-            <LiveFeedTicker maxItems={9} intervalMs={2000} />
-          </div>
-        </div>
+        {/* 右侧侧边栏（最佳开启 / 直播开启） */}
+        <BestLiveSidebar
+          bestOpensTitle="最佳开启"
+          liveTitle="直播开启"
+        />
       </div>
     </div>
   );

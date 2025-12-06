@@ -1,10 +1,178 @@
 'use client';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../components/I18nProvider';
-import LiveFeedElement from '../components/LiveFeedElement';
-import LiveFeedTicker from '../components/LiveFeedTicker';
+import BestLiveSidebar from '../components/BestLiveSidebar';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
 
 export default function RewardsPage() {
   const { t } = useI18n();
+  const { isAuthenticated, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [weekCountdown, setWeekCountdown] = useState('');
+  const [monthCountdown, setMonthCountdown] = useState('');
+  const [isWeekRestDay, setIsWeekRestDay] = useState(false);
+  const [isMonthRestDay, setIsMonthRestDay] = useState(false);
+  const disableTextColor = '#2b6cb0';
+  const buttonBg = '#4299e1';
+  const buttonDisabledBg = '#292f34';
+  const [claimingType, setClaimingType] = useState<1 | 2 | 3 | null>(null);
+
+  // 进入页面即调用 box/list，type=5
+  const { data: boxListData } = useQuery({
+    queryKey: ['boxList', { type: '5' }],
+    queryFn: () => api.getBoxList({ type: '5' }),
+    staleTime: 30_000,
+  });
+  // 进入页面即调用用户返利接口
+  const { data: rebateData } = useQuery({
+    queryKey: ['userRebate'],
+    queryFn: () => api.getUserRebate(),
+    staleTime: 30_000,
+  });
+
+  const dayStatus = rebateData?.data?.day?.status;
+  const weekStatus = rebateData?.data?.week?.status;
+  const monthStatus = rebateData?.data?.month?.status;
+
+  // 工具：东八区当前时间（通过 UTC+8 偏移计算）
+  const getGmt8Now = () => {
+    const now = Date.now();
+    const offsetMs = 8 * 60 * 60 * 1000;
+    return new Date(now + offsetMs);
+  };
+
+  const formatCountdown = (ms: number) => {
+    if (ms <= 0) return '';
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  };
+
+  const computeWeekTargetMs = () => {
+    const gmt8 = getGmt8Now();
+    const day = gmt8.getUTCDay(); // 0-6 (基于偏移后的“本地”星期)
+    const isMonday = day === 1;
+    const isStartOfDay = gmt8.getUTCHours() === 0 && gmt8.getUTCMinutes() === 0 && gmt8.getUTCSeconds() === 0;
+    if (isMonday && isStartOfDay) return 0; // 周一不倒计时
+    const daysUntilMonday = (8 - day) % 7 || 7;
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + daysUntilMonday, 0, 0, 0);
+    return target - gmt8.getTime();
+  };
+
+  const computeMonthTargetMs = () => {
+    const gmt8 = getGmt8Now();
+    const year = gmt8.getUTCFullYear();
+    const month = gmt8.getUTCMonth();
+    const isFirstDay = gmt8.getUTCDate() === 1;
+    const isStartOfDay = gmt8.getUTCHours() === 0 && gmt8.getUTCMinutes() === 0 && gmt8.getUTCSeconds() === 0;
+    if (isFirstDay && isStartOfDay) return 0; // 每月一号不倒计时
+    const target = Date.UTC(year, month + 1, 1, 0, 0, 0);
+    return target - gmt8.getTime();
+  };
+
+  // 周、月倒计时
+  useEffect(() => {
+    const tick = () => {
+      const gmt8 = getGmt8Now();
+      const weekMs = computeWeekTargetMs();
+      const monthMs = computeMonthTargetMs();
+      const isWeekRest = gmt8.getUTCDay() === 1;
+      const isMonthRest = gmt8.getUTCDate() === 1;
+      setIsWeekRestDay(isWeekRest);
+      setIsMonthRestDay(isMonthRest);
+      setWeekCountdown(!isWeekRest && weekMs > 0 ? formatCountdown(weekMs) : '');
+      setMonthCountdown(!isMonthRest && monthMs > 0 ? formatCountdown(monthMs) : '');
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const showLoginDialog = () => {
+    window.dispatchEvent(new CustomEvent('auth:show-login'));
+  };
+
+  const { mutateAsync: receiveRebate } = useMutation({
+    mutationFn: (type: 1 | 2 | 3) => api.receiveRebate(type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userRebate'] });
+    },
+  });
+
+  const handleClaim = async (type: 1 | 2 | 3) => {
+    if (claimingType) return;
+    setClaimingType(type);
+    try {
+      await receiveRebate(type);
+    } catch (err) {
+      // 静默失败，避免打扰
+    } finally {
+      setClaimingType(null);
+    }
+  };
+
+  const buildButtonState = (
+    status: number | undefined,
+    countdown: string | undefined,
+    needCountdown: boolean,
+    type: 1 | 2 | 3,
+    isRestDay: boolean,
+  ) => {
+    if (!isAuthenticated) {
+      return { label: '登录以领取', disabled: false, onClick: showLoginDialog };
+    }
+    if (status === 0) {
+      const isClaiming = claimingType === type;
+      return { label: isClaiming ? '领取中...' : '领取奖励', disabled: isClaiming, onClick: () => handleClaim(type) };
+    }
+    if (needCountdown && !isRestDay && countdown) {
+      return { label: countdown, disabled: true };
+    }
+    return { label: '没有可领取的内容', disabled: true };
+  };
+
+  const dayBtn = buildButtonState(dayStatus, '', false, 1, false);
+  const weekBtn = buildButtonState(weekStatus, weekCountdown, true, 2, isWeekRestDay);
+  const monthBtn = buildButtonState(monthStatus, monthCountdown, true, 3, isMonthRestDay);
+
+  const profileName = useMemo(() => {
+    const info = (user as any)?.userInfo || user;
+    return info?.name || 'Guest';
+  }, [user]);
+  const profileLevel = useMemo(() => {
+    const info = (user as any)?.userInfo || user;
+    return Number(info?.vip ?? 0);
+  }, [user]);
+  const profileProgress = useMemo(() => '26%', []);
+  const profileProgressNumber = useMemo(() => {
+    const n = Number(String(profileProgress).replace('%', ''));
+    if (Number.isNaN(n)) return 0;
+    return Math.min(100, Math.max(0, n));
+  }, [profileProgress]);
+
+  const renderButton = (btn: { label: string; disabled: boolean; onClick?: () => void }) => (
+    <button
+      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 w-48 sm:w-40 md:w-48"
+      style={{
+        backgroundColor: btn.disabled ? buttonBg : buttonBg,
+        color: btn.disabled ? disableTextColor : '#ffffff',
+        cursor: btn.disabled ? 'not-allowed' : 'pointer',
+      }}
+      disabled={btn.disabled}
+      onClick={() => {
+        if (btn.disabled) return;
+        btn.onClick?.();
+      }}
+    >
+      <span className="text-sm font-bold">{btn.label}</span>
+    </button>
+  );
+
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 pb-12" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)', paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)' }}>
       <div className="flex gap-8 max-w-[1248px] mx-auto">
@@ -29,9 +197,7 @@ export default function RewardsPage() {
                         <p className="text-base text-white text-center font-extrabold leading-tight">每日奖励</p>
                         <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您昨天游戏的奖励！</p>
                       </div>
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold hover:opacity-90 disabled:text-blue-600 select-none h-10 px-6 w-48 sm:w-40 md:w-48" style={{ backgroundColor: '#4299e1' }}>
-                        <span className="text-sm text-white font-bold">登录以领取</span>
-                      </button>
+                      {renderButton(dayBtn)}
                     </div>
                   </div>
                   
@@ -51,9 +217,7 @@ export default function RewardsPage() {
                         <p className="text-base text-white text-center font-extrabold leading-tight">每周奖励</p>
                         <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您过去 7 天游戏的奖励！</p>
                       </div>
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold hover:opacity-90 disabled:text-blue-600 select-none h-10 px-6 w-48 sm:w-40 md:w-48" style={{ backgroundColor: '#4299e1' }}>
-                        <span className="text-sm text-white font-bold">登录以领取</span>
-                      </button>
+                      {renderButton(weekBtn)}
                     </div>
                   </div>
                   
@@ -74,16 +238,54 @@ export default function RewardsPage() {
                         <p className="text-base text-white text-center font-extrabold leading-tight">每月奖励</p>
                         <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您过去 30 天游戏的奖励！</p>
                       </div>
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold hover:opacity-90 disabled:text-blue-600 select-none h-10 px-6 w-48 sm:w-40 md:w-48" style={{ backgroundColor: '#4299e1' }}>
-                        <span className="text-sm text-white font-bold">登录以领取</span>
-                      </button>
+                      {renderButton(monthBtn)}
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Free Packs 组件 */}
+              {/* Free Packs 组件：接口数据 type=5 */}
               <div className="flex flex-col w-full gap-4">
+                {isAuthenticated && (
+                <div className="rounded-2xl flex p-5 md:p-6 items-center gap-4 md:gap-7" style={{ backgroundColor: '#22272b' }}>
+                  <div className="relative flex">
+                    <div className="overflow-hidden border rounded-full" style={{ borderWidth: 2, borderColor: '#34383C' }}>
+                      <div className="relative rounded-full overflow-hidden" style={{ width: 64, height: 64 }}>
+                        <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+                          <mask id="avatar_mask_rewards" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                            <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                          </mask>
+                          <g mask="url(#avatar_mask_rewards)">
+                            <rect width="36" height="36" fill="#333333"></rect>
+                            <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+                            <g transform="translate(-1 1) rotate(5 18 18)">
+                              <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                              <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                              <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                            </g>
+                          </g>
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="px-1 py-0.5 flex items-center justify-center rounded-full border absolute z-10 -bottom-1 right-1 h-6 min-w-6" style={{ backgroundColor: '#292f34', borderColor: '#34383C' }}>
+                      <span className="text-xs font-bold leading-none text-white">{profileLevel}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col w-full">
+                    <p className="text-base font-extrabold text-white mb-3 leading-none break-words">Welcome, {profileName}</p>
+                    <div className="w-full border p-0.5 rounded-full h-4" style={{ borderColor: '#2F3337' }}>
+                      <div className="relative overflow-hidden rounded-full w-full h-full" style={{ backgroundColor: '#22272b' }}>
+                        <div className="h-full flex-1 transition-all" style={{ width: `${profileProgressNumber}%`, backgroundColor: '#4199e1' }}></div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>Level {profileLevel}</p>
+                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{profileProgressNumber}%</p>
+                    </div>
+                  </div>
+                </div>
+                )}
+                
                 <h2 className="flex gap-2 items-center text-xl text-white font-extrabold mt-4">
                   <div className="size-6 text-gray-400">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -94,426 +296,65 @@ export default function RewardsPage() {
                   Free Packs
                 </h2>
                 <div className="grid grid-cols-2 xxs:grid-cols-3 xs:grid-cols-4 md:grid-cols-5 gap-4">
-                  {/* 免费等级 2 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmfx9nwzu0000l10hv4c6aexn">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2c8gz0eb6oo5c502nz9vi_735659__mZ42HbLiu?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2c8gz0eb6oo5c502nz9vi_735659__mZ42HbLiu?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2c8gz0eb6oo5c502nz9vi_735659__mZ42HbLiu?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
+                  {Array.isArray(boxListData?.data) && boxListData.data.length > 0 ? (
+                    [...boxListData.data].reverse().map((pack: any) => {
+                      const id = pack?.id || pack?.box_id || '';
+                      const name = pack?.name || pack?.title || '';
+                      const cover = pack?.cover || '';
+                      return (
+                        <div key={id || name}>
+                          <div className="relative">
+                            <a className="flex relative rounded-lg" href={`/rewards/${id || ''}`}>
+                              <img
+                                alt={name || 'pack'}
+                                loading="lazy"
+                                width={200}
+                                height={304}
+                                decoding="async"
+                                src={cover || 'images/placeholder.png'}
+                                style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
+                              />
+                            </a>
+                            <div className="flex justify-center pt-3 pb-4">
+                              <div className="font-bold text-md">
+                                <div className="flex gap-2 items-center">
+                                  <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
+                                    <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                      <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                      <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                    </svg>
+                                  </div>
+                                  <p className="text-base text-white font-extrabold truncate max-w-[160px]">{name || 'Free Pack'}</p>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-base text-white font-extrabold">免费等级 2</p>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 10 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmfyr656z0000l50gh2s236wu">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2k51i11kyoo5cpp9qadzu_6340085__aogsvXFJA?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2k51i11kyoo5cpp9qadzu_6340085__aogsvXFJA?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2k51i11kyoo5cpp9qadzu_6340085__aogsvXFJA?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 10</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 20 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmekcf1dg0000js0fbkvdkf92">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2k2ir11g8oo5c1r3bsebr_714342___aWf_wl7J?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2k2ir11g8oo5c1r3bsebr_714342___aWf_wl7J?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2k2ir11g8oo5c1r3bsebr_714342___aWf_wl7J?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 20</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 30 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cluahcv28007mjw13fq8c5wrq">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2cflb0ekaoo5cac9e3583_7432446__swwaouq4j?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2cflb0ekaoo5cac9e3583_7432446__swwaouq4j?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2cflb0ekaoo5cac9e3583_7432446__swwaouq4j?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 30</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 40 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgl5aadl0000l50g0ccpoqte">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2c7bi0e9ioo5ceagylvsc_2422160__V9jceX3yc?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2c7bi0e9ioo5ceagylvsc_2422160__V9jceX3yc?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2c7bi0e9ioo5ceagylvsc_2422160__V9jceX3yc?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 40</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 50 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgl3i2l80005jx0frd58863h">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq27qeh002soo5ckvvxquaj_5893402__HdeBpCLOS?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq27qeh002soo5ckvvxquaj_5893402__HdeBpCLOS?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq27qeh002soo5ckvvxquaj_5893402__HdeBpCLOS?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 50</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 60 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgl5d6910009l50gq1zlavfe">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq27oai0000oo5cyvygrjbq_8517038__sY1aPuzHU?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq27oai0000oo5cyvygrjbq_8517038__sY1aPuzHU?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq27oai0000oo5cyvygrjbq_8517038__sY1aPuzHU?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 60</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 70 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgl5sqgt0000l90hzf7yxj10">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2jy0h113yoo5cauj0gjn3_774052__Ia6taUKG-?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2jy0h113yoo5cauj0gjn3_774052__Ia6taUKG-?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2jy0h113yoo5cauj0gjn3_774052__Ia6taUKG-?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 70</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 80 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgmgrglf0000l80gv7m17h5t">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2cgqr0em0oo5c3n63yps4_5153854__2nIrIEfwk?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2cgqr0em0oo5c3n63yps4_5153854__2nIrIEfwk?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2cgqr0em0oo5c3n63yps4_5153854__2nIrIEfwk?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 80</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 90 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgmhg9wu0000l50m2azj8ant">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2k8t411tioo5clxy3zb9q_6482723__-ENQ5E5Dr?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2k8t411tioo5clxy3zb9q_6482723__-ENQ5E5Dr?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2k8t411tioo5clxy3zb9q_6482723__-ENQ5E5Dr?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 90</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 免费等级 100 */}
-                  <div>
-                    <div className="relative">
-                      <a className="flex relative rounded-lg" href="/rewards/cmgmhkovk0000ju0fa5zd6rnj">
-                        <img 
-                          alt="pack" 
-                          loading="lazy" 
-                          width={200} 
-                          height={304} 
-                          decoding="async" 
-                          srcSet="https://ik.imagekit.io/hr727kunx/packs/cljq2hguh0t5goo5ct09kfdrg_7023070__UnaJtu9gM?tr=w-256,c-at_max 1x, https://ik.imagekit.io/hr727kunx/packs/cljq2hguh0t5goo5ct09kfdrg_7023070__UnaJtu9gM?tr=w-640,c-at_max 2x" 
-                          src="https://ik.imagekit.io/hr727kunx/packs/cljq2hguh0t5goo5ct09kfdrg_7023070__UnaJtu9gM?tr=w-640,c-at_max" 
-                          style={{ color: 'transparent', height: 'auto', width: '100%', cursor: 'pointer' }}
-                        />
-                      </a>
-                      <div className="flex justify-center pt-3 pb-4">
-                        <div className="font-bold text-md">
-                          <div className="flex gap-2 items-center">
-                            <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                              <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                              </svg>
-                            </div>
-                            <p className="text-base text-white font-extrabold">免费等级 100</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full text-center text-sm text-gray-400 py-6">暂无数据</div>
+                  )}
                 </div>
               </div>
+
+            
             </div>
           </div>
         </div>
-        <div className="hidden lg:block flex-shrink-0" style={{ width: '224px' }}>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit" >
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g clipPath="url(#clip0_2938_10681)">
-                    <path d="M7.34447 1.87599C7.37304 1.72306 7.45419 1.58493 7.57387 1.48553C7.69355 1.38614 7.84423 1.33173 7.99981 1.33173C8.15538 1.33173 8.30606 1.38614 8.42574 1.48553C8.54542 1.58493 8.62657 1.72306 8.65514 1.87599L9.35581 5.58132C9.40557 5.84475 9.53359 6.08707 9.72316 6.27664C9.91273 6.46621 10.155 6.59423 10.4185 6.64399L14.1238 7.34466C14.2767 7.37322 14.4149 7.45437 14.5143 7.57405C14.6137 7.69374 14.6681 7.84441 14.6681 7.99999C14.6681 8.15557 14.6137 8.30624 14.5143 8.42592C14.4149 8.54561 14.2767 8.62676 14.1238 8.65532L10.4185 9.35599C10.155 9.40575 9.91273 9.53377 9.72316 9.72334C9.53359 9.91291 9.40557 10.1552 9.35581 10.4187L8.65514 14.124C8.62657 14.2769 8.54542 14.415 8.42574 14.5144C8.30606 14.6138 8.15538 14.6683 7.99981 14.6683C7.84423 14.6683 7.69355 14.6138 7.57387 14.5144C7.45419 14.415 7.37304 14.2769 7.34447 14.124L6.64381 10.4187C6.59404 10.1552 6.46602 9.91291 6.27645 9.72334C6.08688 9.53377 5.84457 9.40575 5.58114 9.35599L1.87581 8.65532C1.72287 8.62676 1.58475 8.54561 1.48535 8.42592C1.38595 8.30624 1.33154 8.15557 1.33154 7.99999C1.33154 7.84441 1.38595 7.69374 1.48535 7.57405C1.58475 7.45437 1.72287 7.37322 1.87581 7.34466L5.58114 6.64399C5.84457 6.59423 6.08688 6.46621 6.27645 6.27664C6.46602 6.08707 6.59404 5.84475 6.64381 5.58132L7.34447 1.87599Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                    <path d="M13.3335 1.33331V3.99998" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                    <path d="M14.6667 2.66669H12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                  </g>
-                  <defs>
-                    <clipPath id="clip0_2938_10681">
-                      <rect width="16" height="16" fill="currentColor"></rect>
-                    </clipPath>
-                  </defs>
-                </svg>
-              </div>
-              <p className="text-base text-white font-extrabold">{t('bestOpens')}</p>
-            </div>
-            <div className="live-feed flex flex-col gap-3">
-              <LiveFeedElement
-                index={0}
-                href="/packs/1"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/products/cm9ln14rj0002l50g0sajx4dg_2344464__pFeElsrMCp?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/community_packs/cm18eb8ji001kugiildnpy8fm/packs/cm18eb8ji001kugiildnpy8fm_hQOMiytlLO.png?tr=q-50,w-1080,c-at_max"
-                title="Audemars Piguet Stainless Steel USA Edition"
-                priceLabel="$65,000.00"
-              />
-              <LiveFeedElement
-                index={1}
-                href="/packs/2"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgmus9260000l80gpntkfktl_3232094__fSM1fwIYl1?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmh2lqffk001al10paqslua2f_2229948__zIR8y5q-G?tr=w-1080,c-at_max"
-                title="Limited Edition Pack"
-                priceLabel="$2.99"
-                glowColor="#FACC15"
-              />
-              <LiveFeedElement
-                index={2}
-                href="/packs/3"
-                avatarUrl="https://ik.imagekit.io/hr727kunx/profile_pictures/cm0aij6zj00561rzns7vbtwxi/cm0aij6zj00561rzns7vbtwxi_68ZiGZar8.png?tr=w-128,c-at_max"
-                productImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo6ok710000k10g5r0il5rk_7104681__d8no0nmco?tr=w-1080,c-at_max"
-                packImageUrl="https://ik.imagekit.io/hr727kunx/packs/cmgo8hdp90000l40gxmfk970t_5020787__2hFmzl5eh?tr=w-1080,c-at_max"
-                title="Special Drop"
-                priceLabel="$5.00"
-                glowColor="#FACC15"
-              />
-            </div>
-          </div>
-          <div className="rounded-lg px-0 pb-4 pt-0 h-fit mt-6" >
-            <div className="flex pb-4 gap-2 items-center">
-              <div className="flex size-4 text-yellow-400">
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="#EB4B4B" strokeOpacity="0.5"></circle><circle cx="8" cy="8" r="2" fill="#EB4B4B"></circle></svg>
-              </div>
-              <p className="text-base text-white font-extrabold">{t('liveStart')}</p>
-            </div>
-            <LiveFeedTicker maxItems={9} intervalMs={2000} />
-          </div>
-        </div>
+        <BestLiveSidebar bestOpensTitle={t('bestOpens')} liveTitle={t('liveStart')} />
       </div>
     </div>
   );
 }
+
+
+
+
+
+
+
+
 
 

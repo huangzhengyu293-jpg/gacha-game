@@ -109,16 +109,38 @@ export default function ParticipantsWithPrizes({
   const isTeamMode = battleType === 'team';
   
   // 🏆 大奖模式：计算总奖池
-  const totalJackpot = useMemo(() => {
-    return Object.values(participantValues).reduce((sum, val) => sum + val, 0);
-  }, [participantValues]);
+  const jackpotPercentages = useMemo(() => {
+    if (gameMode !== 'jackpot') {
+      return {};
+    }
+    const isInvertedJackpot = battleData.isInverted;
+    const entries = Object.entries(participantValues).map(([participantId, value]) => {
+      const normalizedValue = Number(value) || 0;
+      return {
+        participantId,
+        rawValue: normalizedValue,
+        inverseWeight: normalizedValue > 0 ? 1 / normalizedValue : 0,
+      };
+    });
+    const totalValue = entries.reduce((sum, entry) => sum + entry.rawValue, 0);
+    const totalInverseWeight = entries.reduce((sum, entry) => sum + entry.inverseWeight, 0);
+    const result: Record<string, string> = {};
+    entries.forEach((entry) => {
+      let percentage: number;
+      if (isInvertedJackpot) {
+        percentage =
+          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : 0;
+      } else {
+        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : 0;
+      }
+      result[entry.participantId] = percentage.toFixed(2);
+    });
+    return result;
+  }, [gameMode, participantValues, battleData.isInverted]);
   
-  // 🏆 大奖模式：计算玩家百分比
   const getPlayerPercentage = (participantId: string) => {
-    if (gameMode !== 'jackpot' || totalJackpot === 0) return null;
-    const playerValue = participantValues[participantId] || 0;
-    const percentage = (playerValue / totalJackpot) * 100;
-    return percentage.toFixed(2);
+    if (gameMode !== 'jackpot') return null;
+    return jackpotPercentages[participantId] ?? null;
   };
 
   // 🏃 积分冲刺模式：根据积分获取颜色
@@ -326,26 +348,161 @@ export default function ParticipantsWithPrizes({
     {},
   );
 
+  const renderSlotCard = (
+    participant: Participant | null,
+    slotIndex: number,
+    slotKey: string,
+    summonTeamId?: string,
+  ) => {
+    const isRealSlot = slotIndex < totalSlots;
+    const isBot = isBotParticipant(participant);
+    const maskId = `${slotKey}-mask`;
+    const isEliminated =
+      Boolean(participant) && gameMode === 'elimination' && eliminatedPlayerIds.has(participant!.id);
+    const participantValue = participant ? participantValues[participant.id] || 0 : 0;
+    const jackpotBackground =
+      participant && gameMode === 'jackpot' ? playerColors[participant.id] || '#34383C' : '#34383C';
+    const sprintColor = participant ? getSprintColor(participant.id) : '#34383C';
+
+    return (
+      <div key={slotKey} className="flex flex-col w-full">
+        <div className="flex flex-col w-full relative rounded-lg mb-2.5" style={{ backgroundColor: '#22272B' }}>
+          <div className="flex w-full gap-1 md:gap-4 items-center min-h-[70px] sm:min-h-[86px] py-2 sm:py-4">
+            <div className="flex flex-1 justify-center items-center">
+              {participant ? (
+                <div className="flex gap-2 items-center justify-center flex-col sm:flex-row">
+                  <div className="flex relative">
+                    <div className="relative">
+                      <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
+                        <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
+                          {isBot || !participant.avatar ? (
+                            renderBotAvatar(maskId)
+                          ) : (
+                            <Image
+                              alt={participant.name}
+                              src={participant.avatar}
+                              width={32}
+                              height={32}
+                              className="object-cover w-full h-full pointer-events-none"
+                              style={{ color: 'transparent' }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      {isEliminated && (
+                        <>
+                          <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
+                            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                              <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
+                              <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
+                            </svg>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {!isBot && participant.vipLevel && participant.vipLevel > 0 && (
+                      <div
+                        className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
+                        style={{ backgroundColor: '#22272B', border: '1px solid #2B2F33', color: '#FFFFFF' }}
+                      >
+                        <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1 items-center sm:items-start">
+                    <p className="text-xs sm:text-base font-bold text-white max-w-16 sm:max-w-20 lg:max-w-24 overflow-hidden text-ellipsis whitespace-nowrap">
+                      {participant.name}
+                    </p>
+                    <div
+                      className="flex justify-center items-center rounded p-0.5 w-[3.5rem] sm:w-[4rem] lg:w-[5.5rem]"
+                      style={{ backgroundColor: jackpotBackground }}
+                    >
+                      <p className="text-xxs sm:text-xs lg:text-sm text-white font-semibold">
+                        {gameMode === 'jackpot'
+                          ? `${getPlayerPercentage(participant.id) || '0.00'}%`
+                          : `$${participantValue.toFixed(2)}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
+                  style={{ backgroundColor: '#48BB78', cursor: 'pointer' }}
+                  onClick={() => handlePendingSlotAction(slotIndex, summonTeamId)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#38A169';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#48BB78';
+                  }}
+                  disabled={!isRealSlot}
+                >
+                  {pendingButtonLabel}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {gameMode === 'sprint' && participant && (
+            <>
+              <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-lg" style={{ backgroundColor: sprintColor }} />
+              <div className="flex justify-center w-full relative" style={{ marginBottom: '16px' }}>
+                <div
+                  className="flex justify-center items-center h-8 w-8 rounded-full border-2 absolute"
+                  style={{
+                    backgroundColor: '#22272B',
+                    borderColor: sprintColor,
+                    top: '0px',
+                  }}
+                >
+                  <p className="text-base text-white font-bold">{sprintScores[participant.id] || 0}</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-row gap-2 mt-2 items-stretch">
+          <div className="grid gap-2 w-full grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]">
+            {packs.map((pack, roundIndex) => (
+              <LazyRoundCard
+                key={participant ? `${participant.id}-${roundIndex}` : `${slotKey}-round-${roundIndex}`}
+                pack={pack}
+                packIndex={roundIndex}
+                member={participant}
+                completedRounds={completedRounds}
+                roundResultMap={roundResultMap}
+                gameMode={gameMode}
+                eliminationRounds={eliminationRounds}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // 🎯 团队模式渲染
   if (isTeamMode && teams.length > 0) {
     // 小屏幕 3v3 或 2v2v2: 需要tabs切换
     const shouldUseTeamTabs = !isLargeScreen && (teamStructure === '3v3' || teamStructure === '2v2v2');
     const safeActiveTeamGroup = Math.min(activeTeamGroup, teams.length - 1);
-    
-    // 渲染单个成员的函数
+
     const renderMember = (member: Participant, index: number, teamId: string, slotNumber: number) => {
       const isBot = isBotParticipant(member);
       const maskId = `${teamId}-member-${index}-mask`;
       const isEliminated = gameMode === 'elimination' && eliminatedPlayerIds.has(member.id);
-      
+      const shouldShowVip = !isBot && member.vipLevel && member.vipLevel > 0;
+
       return (
         <div key={member.id} className="flex gap-2 items-center justify-center flex-col sm:flex-row">
           <div className="flex relative">
             <div className="relative">
-              <div
-                className="overflow-hidden border rounded-full border-gray-700"
-                style={{ borderWidth: "1px" }}
-              >
+              <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
                 <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
                   {isBot || !member.avatar ? (
                     renderBotAvatar(maskId)
@@ -356,7 +513,7 @@ export default function ParticipantsWithPrizes({
                       width={32}
                       height={32}
                       className="object-cover w-full h-full pointer-events-none"
-                      style={{ color: "transparent" }}
+                      style={{ color: 'transparent' }}
                     />
                   )}
                 </div>
@@ -373,34 +530,27 @@ export default function ParticipantsWithPrizes({
                 </>
               )}
             </div>
-            
-            {/* 序号标记 - 机器人不显示 */}
-            {!isBot && (
+
+            {shouldShowVip && (
               <div
                 className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
-                style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
+                style={{ backgroundColor: '#22272B', border: '1px solid #2B2F33', color: '#FFFFFF' }}
               >
-                <span className="text-xxs font-bold leading-none text-white">{index}</span>
+                <span className="text-xxs font-bold leading-none text-white">{member.vipLevel}</span>
               </div>
             )}
           </div>
-          
-          {/* 成员信息 */}
+
           <div className="flex flex-col gap-1 items-center sm:items-start">
             <p className="text-xs sm:text-base font-bold text-white max-w-16 sm:max-w-20 lg:max-w-24 overflow-hidden text-ellipsis whitespace-nowrap">
               {member.name}
             </p>
             <div
               className="flex justify-center items-center rounded p-0.5 w-[3.5rem] sm:w-[4rem] lg:w-[5.5rem]"
-              style={{ 
-                backgroundColor: gameMode === 'jackpot' ? playerColors[member.id] || "#34383C" : "#34383C"
-              }}
+              style={{ backgroundColor: gameMode === 'jackpot' ? playerColors[member.id] || '#34383C' : '#34383C' }}
             >
               <p className="text-xxs sm:text-xs lg:text-sm text-white font-semibold">
-                {gameMode === 'jackpot' 
-                  ? `${getPlayerPercentage(member.id) || '0.00'}%`
-                  : `$${(participantValues[member.id] || 0).toFixed(2)}`
-                }
+                {gameMode === 'jackpot' ? `${getPlayerPercentage(member.id) || '0.00'}%` : `$${(participantValues[member.id] || 0).toFixed(2)}`}
               </p>
             </div>
           </div>
@@ -459,7 +609,6 @@ export default function ParticipantsWithPrizes({
         const realSlotIndex = teamStartIndex + i;
         return { member, realSlotIndex };
       });
-          
           return (
             <div key={team.id} className="flex flex-col w-full">
               {/* 队伍容器 */}
@@ -491,7 +640,6 @@ export default function ParticipantsWithPrizes({
                               (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
                             }}
                           >
-                            <span className="text-xs font-semibold mr-1">#{formatSlotNumber(realSlotIndex)}</span>
                             {pendingButtonLabel}
                           </button>
                         )}
