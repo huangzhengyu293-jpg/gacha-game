@@ -369,8 +369,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           
           // <div class="overflow-hidden border rounded-full border-gray-700" style="border-width: 1px;">
           const borderWrapper = document.createElement('div');
-          borderWrapper.className = 'overflow-hidden border rounded-full border-gray-700';
-          borderWrapper.style.borderWidth = '1px';
+          borderWrapper.className = 'overflow-hidden rounded-full';
           borderWrapper.style.width = '100%';
           borderWrapper.style.height = '100%';
           
@@ -959,7 +958,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       initReels();
       hasInitializedRef.current = true;
     }
-  }, [symbols.length, initReels]);
+  }, [symbols.length, initReels, symbols]);
+
 
   const updateReelContent = useCallback((newSymbols: SlotSymbol[]) => {
     if (!reelContainerRef.current || newSymbols.length === 0) return;
@@ -967,6 +967,29 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     initialSymbolsRef.current = newSymbols;
     initReels();
   }, [initReels]);
+
+  // 🔄 当 symbols 变更（例如淘汰模式下一轮 tie 列表变化）时，刷新转轮内容并重置选中缓存
+  const symbolsSignatureRef = useRef<string>('');
+  useEffect(() => {
+    const signature = symbols.map((s) => s.id).join('|');
+    if (signature === symbolsSignatureRef.current) return;
+    symbolsSignatureRef.current = signature;
+    symbolsRef.current = symbols;
+    if (hasInitializedRef.current && symbols.length > 0) {
+      updateReelContent(symbols);
+      selectionLockedRef.current = false;
+      currentSelectedIndexRef.current = -1;
+      currentSelectedElementRef.current = null;
+      setIsSpinning(false);
+      isSpinningRef.current = false;
+      setHasStarted(false);
+      // 如果当前有选中的ID，刷新selectedPrize，确保自动启动
+      if (selectedPrizeId) {
+        const prize = symbols.find((s) => s.id === selectedPrizeId) || null;
+        setSelectedPrize(prize);
+      }
+    }
+  }, [symbols, updateReelContent, selectedPrizeId]);
 
   useImperativeHandle(ref, () => ({
     startSpin,

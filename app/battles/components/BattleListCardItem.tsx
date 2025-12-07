@@ -114,7 +114,8 @@ function Gallery({
   useEffect(() => {
     const resize = () => {
       if (!containerRef.current) return;
-      setTailSpacer(containerRef.current.clientWidth / 2);
+      // 给尾部留下整屏宽的空间，保证最后一项在小屏也能居中
+      setTailSpacer(containerRef.current.clientWidth);
     };
     resize();
     window.addEventListener("resize", resize);

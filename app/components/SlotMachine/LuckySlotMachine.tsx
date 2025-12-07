@@ -21,6 +21,7 @@ interface LuckySlotMachineProps {
   onSpinComplete?: (result: SlotSymbol) => void;
   height?: number; // 转轮高度，默认540
   spinDuration?: number; // 固定的旋转时长
+  itemSizeOverride?: number; // 外部指定单个item宽高（正方形），用于特定布局
 }
 
   export interface LuckySlotMachineHandle {
@@ -69,7 +70,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   onSpinStart,
   onSpinComplete,
   height = 540,
-  spinDuration
+  spinDuration,
+  itemSizeOverride
 }, ref) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -88,8 +90,11 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   
   // 配置参数
   const REEL_HEIGHT = height;
-  const [itemHeight, setItemHeight] = useState(180);
-  const [itemsPerReel, setItemsPerReel] = useState(30);
+  const [itemHeight, setItemHeight] = useState(itemSizeOverride ?? 180);
+  const [itemsPerReel, setItemsPerReel] = useState(() => {
+    const size = itemSizeOverride ?? 180;
+    return Math.ceil(90 * (180 / size));
+  });
   const [repeatTimes, setRepeatTimes] = useState(3);
   const FINAL_REVEAL_BUFFER_MS = 500;
   const FAKE_STOP_OFFSET_SCALE = 0.4;
@@ -116,6 +121,17 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (!containerRef.current) return;
     
     const updateItemConfig = () => {
+      // 优先使用外部指定尺寸（用于特定布局，如小屏2v2v2）
+      if (typeof itemSizeOverride === 'number') {
+        const forcedHeight = Math.max(60, itemSizeOverride);
+        setItemHeight(forcedHeight);
+        const baseItemsPerReel = Math.ceil(90 * (180 / forcedHeight));
+        setItemsPerReel(baseItemsPerReel);
+        const minTotalItems = baseItemsPerReel * 3;
+        const calculatedRepeatTimes = Math.max(3, Math.ceil(minTotalItems / baseItemsPerReel));
+        setRepeatTimes(calculatedRepeatTimes);
+        return;
+      }
       // Get parent container width
       const containerWidth = containerRef.current?.clientWidth || 300;
       
@@ -176,7 +192,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
     };
-  }, [REEL_HEIGHT]);
+  }, [REEL_HEIGHT, itemSizeOverride]);
 
   // 更新选中的奖品
   // Store symbols in ref to avoid triggering this effect when symbols change
@@ -785,6 +801,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (isSpinning || !reelContainerRef.current) {
       return;
     }
+    
+    // 重置选中锁，允许新一轮正常更新选中态
+    selectionLockedRef.current = false;
     
     setIsSpinning(true);
     setIsFinalizing(false);

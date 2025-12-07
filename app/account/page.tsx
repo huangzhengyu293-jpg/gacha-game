@@ -22,6 +22,14 @@ console.log(user);
   const [userNameInput, setUserNameInput] = useState<string>(userName || "");
   const [addressInput, setAddressInput] = useState<string>('');
   const [addressCodeInput, setAddressCodeInput] = useState<string>('');
+
+  // 初始化账户地址：从用户信息预填 wallet_address
+  useEffect(() => {
+    const wallet = (user as any)?.userInfo?.wallet_address || (user as any)?.wallet_address;
+    if (wallet && !addressInput) {
+      setAddressInput(String(wallet));
+    }
+  }, [user, addressInput]);
   const [addressSendCooldown, setAddressSendCooldown] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -126,7 +134,10 @@ console.log(user);
       if (!email) throw new Error('缺少邮箱');
       return api.sendVerificationEmail({ to: email, type: '0' });
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
+      if (res?.code === 100000 && res?.data?.code) {
+        setAddressCodeInput(String(res.data.code));
+      }
       setAddressSendCooldown(60);
     },
   });
@@ -226,7 +237,6 @@ console.log(user);
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
                 <div className="flex min-w-40 items-center">
                   <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="profilePicture">个人头像</label>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-help cursor-pointer size-4 text-white ml-2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
                 </div>
                 <div className="flex flex-col gap-4 lg:flex-1 lg:flex-row lg:justify-between items-start">
                   <div className="flex gap-4">
@@ -276,7 +286,7 @@ console.log(user);
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
-                <div className="flex min-w-40 items-center mt-0 xs:mt-2"><label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="username">用户名</label><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-help cursor-pointer size-4 text-white ml-2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg></div>
+                <div className="flex min-w-40 items-center mt-0 xs:mt-2"><label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="username">用户名</label></div>
                 <div className="flex w-full max-w-[540px] flex-col gap-6">
                   <input
                     className="acct-input flex h-10 w-full rounded-md border-0 px-3 py-2 text-base"

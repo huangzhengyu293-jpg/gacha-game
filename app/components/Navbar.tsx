@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
@@ -15,22 +15,22 @@ export default function Navbar() {
   const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  
+
   // 使用新的认证系统
-  const { 
-    user, 
-    isAuthenticated, 
+  const {
+    user,
+    isAuthenticated,
     isLoading: authLoading,
     isSubmitting,
-    login, 
-    register, 
+    login,
+    register,
     logout: authLogout,
     sendVerificationEmail,
     activateAccount,
   } = useAuth();
   console.log(user);
-  
-  
+
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number; visible: boolean }>({ left: 0, width: 0, visible: false });
@@ -40,7 +40,6 @@ export default function Navbar() {
     itemRefs.current[index] = el;
   };
 
-  const [promoCode, setPromoCode] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const [showRegister, setShowRegister] = useState(false);
@@ -75,9 +74,9 @@ export default function Navbar() {
       const ctx = (window as any).__audioContext;
       if (ctx && typeof ctx.state === 'string') {
         if (muted && ctx.state === 'running') {
-          ctx.suspend().catch(() => {});
+          ctx.suspend().catch(() => { });
         } else if (!muted && ctx.state === 'suspended') {
-          ctx.resume().catch(() => {});
+          ctx.resume().catch(() => { });
         }
       }
     } catch {
@@ -138,6 +137,50 @@ export default function Navbar() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [showCart, setShowCart] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const { data: commonChannelData } = useQuery({
+    queryKey: ['commonChannel'],
+    queryFn: () => api.getCommonChannel(),
+    enabled: showWalletModal,
+    staleTime: 60_000,
+  });
+
+  // 兼容不同返回结构
+  const channelList = useMemo(() => {
+    const d: any = commonChannelData?.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.data)) return d.data;
+    if (Array.isArray(d?.list)) return d.list;
+    return [];
+  }, [commonChannelData?.data]);
+
+  useEffect(() => {
+    if (channelList.length === 0) return;
+    if (!selectedChannel) {
+      const firstWithMoney = channelList.find((c: any) => Array.isArray(c?.money_list) && c.money_list.length > 0);
+      setSelectedChannel(firstWithMoney ?? channelList[0]);
+    }
+  }, [channelList, selectedChannel]);
+
+  useEffect(() => {
+    if (!showWalletModal) {
+      setSelectedChannel(null);
+    }
+  }, [showWalletModal]);
+
+  const rechargeMutation = useMutation({
+    mutationFn: async ({ id, money }: { id: string | number; money: string | number }) => {
+      return api.recharge({ id, money });
+    },
+    onSuccess: (res: any) => {
+      if (res?.code === 100000 && res?.data?.url) {
+        const url = String(res.data.url);
+        // 仅尝试新标签页打开，不跳转当前页
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    },
+  });
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
@@ -214,7 +257,7 @@ export default function Navbar() {
       // 打开登录弹窗
       setShowLogin(true);
     };
-    
+
     window.addEventListener('auth:show-login', handleShowLogin);
     return () => window.removeEventListener('auth:show-login', handleShowLogin);
   }, []);
@@ -229,6 +272,14 @@ export default function Navbar() {
     }
   }, [resendCountdown]);
 
+  // ESC 关闭钱包弹窗
+  useEffect(() => {
+    if (!showWalletModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowWalletModal(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showWalletModal]);
+
 
 
 
@@ -236,13 +287,13 @@ export default function Navbar() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canRegister) return;
-    
+
     const result = await register({
       name: regUsername.trim(),
       email: regEmail.trim(),
       password: regPass
     });
-    
+
     // code === 100000: 注册成功
     if (result.success) {
       setShowRegister(false);
@@ -319,7 +370,7 @@ export default function Navbar() {
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!verifyCode.trim()) return;
-    
+
     const result = await activateAccount(verifyCode.trim());
     if (result.success) {
       setShowVerifyCode(false);
@@ -338,12 +389,12 @@ export default function Navbar() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginCanSubmit) return;
-    
+
     const result = await login({
       email: loginEmail.trim(),
       password: loginPass
     });
-    
+
     if (result.success) {
       const userName = result.data?.userInfo?.name || '';
       toast.show({
@@ -457,11 +508,10 @@ export default function Navbar() {
     return icons[iconName as keyof typeof icons] || null;
   };
 
-  const isOpaque = (isSmall || isMidViewport || isMenuOpen || showMidMenu || showUserMenu || showRegister || showLogin || showForgot || showTerms);
-  
+
   // 获取购物车数据
   const { count: warehouseCount } = useCart();
-  
+
   // 钱包数据（从 user.bean 中获取）
   const beanDisplay = (user?.bean as any)?.bean || 0;
   const integralDisplay = (user?.bean as any)?.integral || 0;
@@ -471,7 +521,6 @@ export default function Navbar() {
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
-        .promo-input::placeholder { color: #7A8084; opacity: 1; }
         .menu-item:hover { background-color: transparent; }
         @media (max-width: 639px) { .nav-vol { display: none !important; } }
       `}</style>
@@ -482,7 +531,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center h-[3rem] xs:h-[4rem] mr-5 lg:mr-10 cursor-pointer shrink-0" onClick={() => setIsMenuOpen(false)}>
               <div className="w-6 h-6 mr-2 text-white shrink-0 block">
-              <LogoIcon width={24} height={24} />
+                <LogoIcon width={24} height={24} />
               </div>
               <h1 className="text-xl text-white font-black whitespace-nowrap">FlameDraw</h1>
             </Link>
@@ -562,10 +611,10 @@ export default function Navbar() {
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 <div className="flex relative" ref={userMenuRef}>
@@ -625,7 +674,7 @@ export default function Navbar() {
                             </div>
                           </div>
                           <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
-                            <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                            <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>{user?.userInfo?.vip_info?.vip_id || 0}</span>
                           </div>
                         </div>
                         <div className="flex flex-1 flex-col overflow-hidden">
@@ -641,15 +690,6 @@ export default function Navbar() {
                         <p className="text-base text-white">注销</p>
                       </div>
                     </div>
-                    <form onSubmit={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }}>
-                      <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
-                      <div className="flex relative items-center px-3 py-4">
-                        <input className="promo-input flex h-10 w-full rounded-md px-3 py-2 text-base border-0 focus:outline-none" placeholder="促销码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
-                        <button type="submit" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none min-h-8 min-w-8 max-h-8 max-w-8 absolute right-4 size-8">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check size-4 min-w-4 min-h-4"><path d="M20 6 9 17l-5-5"></path></svg>
-                        </button>
-                      </div>
-                    </form>
                   </div>
                 </div>
               </div>
@@ -767,7 +807,7 @@ export default function Navbar() {
                               </div>
                             </div>
                             <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
-                              <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                              <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>{user?.userInfo?.vip_info?.vip_id || 0}</span>
                             </div>
                           </div>
                           <div className="flex flex-1 flex-col overflow-hidden">
@@ -797,7 +837,29 @@ export default function Navbar() {
 
                     <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
 
-                    {/* 登录状态下的注销与促销码 */}
+                    {/* 登录状态下：钱包快捷入口（置于注销上方） */}
+                    {isAuthenticated && (
+                      <div className="flex flex-col px-2 py-1.5 gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none h-10 px-4"
+                          onClick={() => { setShowWalletModal(true); }}
+                        >
+                          <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-4"
+                          onClick={() => { setShowWalletModal(true); }}
+                        >
+                          <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+
+                    {/* 登录状态下的注销 */}
                     {isAuthenticated ? (
                       <>
                         <div className="flex flex-col px-2 py-1.5 gap-2">
@@ -806,14 +868,6 @@ export default function Navbar() {
                             <p className="text-base text-white">注销</p>
                           </div>
                         </div>
-                        <form onSubmit={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }}>
-                          <div className="flex relative items-center px-3 py-4">
-                            <input className="promo-input flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 px-3 py-2 text-base" placeholder="促销码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
-                            <button type="submit" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none min-h-8 min-w-8 max-h-8 max-w-8 absolute right-4 size-8">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check size-4 min-w-4 min-h-4"><path d="M20 6 9 17l-5-5"></path></svg>
-                            </button>
-                          </div>
-                        </form>
                       </>
                     ) : null}
                   </div>
@@ -855,7 +909,7 @@ export default function Navbar() {
                     </div>
                   </div>
                   <div className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-5 -right-2 left-[unset]" style={{ backgroundColor: '#000000' }}>
-                    <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>0</span>
+                    <span className="text-xs font-bold leading-none text-xxs" style={{ color: '#FFFFFF' }}>{user?.userInfo?.vip_info?.vip_id || 0}</span>
                   </div>
                 </div>
                 <div className="flex flex-1 flex-col">
@@ -864,17 +918,24 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="flex flex-col p-4 gap-4">
+                <div className="flex gap-3 flex-wrap">
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none h-10 px-6"
+                    onClick={() => { setShowWalletModal(true); }}
+                  >
+                    <p className="text-lg text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  </button>
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-6"
+                    onClick={() => { setShowWalletModal(true); }}
+                  >
+                    <p className="text-lg text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  </button>
+                </div>
                 <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                   <p className="text-lg text-white font-semibold">登出</p>
                 </div>
-                <div className="flex relative items-center">
-                  <input className="promo-input flex w-full rounded-md px-3 py-2 h-14 text-lg border-0 focus:outline-none" placeholder="促销代码" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} style={{ backgroundColor: '#1D2125', color: '#7A8084' }} />
-                  <button disabled={!promoCode.trim()} onClick={(e) => { e.preventDefault(); /* eslint-disable-next-line no-console */ console.log('[Promo] apply', promoCode); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10 absolute right-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check"><path d="M20 6 9 17l-5-5"></path></svg>
-                  </button>
-                </div>
-                {/* 移除下方分割线以符合设计 */}
               </div>
             </div>
           ) : (
@@ -907,9 +968,9 @@ export default function Navbar() {
 
       {/* 单一遮罩（Auth） */}
       {(showRegister || showLogin || showForgot || showVerifyCode) && (
-        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { 
-          setShowRegister(false); 
-          setShowLogin(false); 
+        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => {
+          setShowRegister(false);
+          setShowLogin(false);
           setShowForgot(false);
           setShowVerifyCode(false);
           // 清空注册表单
@@ -937,7 +998,7 @@ export default function Navbar() {
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
             <form className="flex flex-col" onSubmit={handleRegister}>
-              
+
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-base font-medium" htmlFor="reg-username" style={{ color: '#FFFFFF' }}>用户名</label>
@@ -986,10 +1047,10 @@ export default function Navbar() {
                   </label>
                 </div>
               </div>
-              <button 
+              <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (canRegister && !isSubmitting) ? 1 : 0.8 }} 
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6"
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (canRegister && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!canRegister || isSubmitting}
               >
                 {isSubmitting ? '注册中...' : '注册'}
@@ -997,9 +1058,9 @@ export default function Navbar() {
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { 
-                setShowRegister(false); 
-                setShowLogin(true); 
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
+                setShowRegister(false);
+                setShowLogin(true);
                 // 清空注册表单
                 setRegUsername('');
                 setRegEmail('');
@@ -1041,7 +1102,7 @@ export default function Navbar() {
             <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
-           
+
             <form className="flex flex-col gap-4 mt-4" onSubmit={handleLogin}>
               <div className="flex flex-col gap-2">
                 <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
@@ -1067,10 +1128,10 @@ export default function Navbar() {
                 </label>
                 <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>忘记密码？</span>
               </div>
-              <button 
+              <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }} 
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6"
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!loginCanSubmit || isSubmitting}
               >
                 {isSubmitting ? '登录中...' : '登录'}
@@ -1122,33 +1183,33 @@ export default function Navbar() {
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-base font-medium" htmlFor="verify-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
-                  <input 
-                    id="verify-email" 
-                    type="email" 
-                    value={verifyEmail} 
+                  <input
+                    id="verify-email"
+                    type="email"
+                    value={verifyEmail}
                     disabled
-                    className="flex h-10 w-full rounded-md px-3 py-2 text-base" 
-                    style={{ backgroundColor: '#3B4248', color: '#7A8084', border: 0, cursor: 'not-allowed' }} 
+                    className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                    style={{ backgroundColor: '#3B4248', color: '#7A8084', border: 0, cursor: 'not-allowed' }}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-base font-medium" htmlFor="verify-code" style={{ color: '#FFFFFF' }}>验证码</label>
-                  <input 
-                    id="verify-code" 
-                    type="text" 
+                  <input
+                    id="verify-code"
+                    type="text"
                     autoComplete="one-time-code"
-                    value={verifyCode} 
-                    onChange={(e) => setVerifyCode(e.target.value)} 
-                    className="flex h-10 w-full rounded-md px-3 py-2 text-base" 
-                    style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} 
+                    value={verifyCode}
+                    onChange={(e) => setVerifyCode(e.target.value)}
+                    className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                    style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }}
                     placeholder="输入验证码"
                   />
                 </div>
               </div>
-              <button 
+              <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6" 
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }} 
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6"
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }}
                 disabled={verifyCode.trim().length === 0 || isSubmitting}
               >
                 {isSubmitting ? '验证中...' : '验证'}
@@ -1168,13 +1229,101 @@ export default function Navbar() {
             </div>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { 
-                setShowVerifyCode(false); 
+              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
+                setShowVerifyCode(false);
                 setVerifyCode('');
                 setVerifyEmail('');
-                setShowLogin(true); 
+                setShowLogin(true);
               }}>登录</span>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 钱包弹窗 */}
+      {showWalletModal && (
+        <div
+          data-state="open"
+          className="fixed px-4 inset-0 z-50 bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-y-auto flex justify-center items-start py-16"
+          style={{ pointerEvents: 'auto' }}
+          onClick={() => setShowWalletModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            data-state="open"
+            className="overflow-hidden z-50 max-w-lg w-full shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative flex flex-col sm:max-w-2xl p-0 gap-0 min-h-[594px]"
+            tabIndex={-1}
+            style={{ pointerEvents: 'auto', backgroundColor: '#161A1D' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-col gap-1.5 text-center sm:text-left flex border-b border-gray-700 h-16 p-6">
+              <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">存款</h2>
+            </div>
+            <div className="flex flex-1 p-6">
+              <div className="flex flex-col w-full gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {channelList.map((item: any, idx: number) => {
+                    const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+                    return (
+                      <button
+                        key={`${item?.id ?? idx}`}
+                        className={`inline-flex items-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative border rounded-lg justify-start h-16 px-4 text-left ${active ? 'border-[#4299E1] bg-blue-400/10' : 'border-gray-600 hover:bg-blue-400/10 hover:border-blue-400'}`}
+                        onClick={() => setSelectedChannel(item)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {/* 图片暂时隐藏 */}
+                        {/* <img alt={item?.title || 'channel'} className="size-8 object-contain" src={item?.logo} /> */}
+                        <div className="flex flex-col items-start">
+                          <p className="text-figma-body-base-600 text-white truncate max-w-full">{item?.title ?? '--'}</p>
+                          <p className="text-figma-body-sm-600 text-gray-400 line-clamp-2 break-words whitespace-pre-wrap">{item?.remark ?? ''}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {(commonChannelData?.data ?? []).length === 0 && (
+                    <div className="text-center text-sm text-gray-400 w-full col-span-full">暂无支付方式</div>
+                  )}
+                </div>
+                {selectedChannel && (
+                  <div className="mt-4 flex flex-col gap-3">
+                    {Array.isArray(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist) &&
+                      (selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).length > 0 ? (
+                      <div className="flex flex-wrap gap-3">
+                        {(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).map((m: any, i: number) => (
+                          <button
+                            key={`money-${i}`}
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 border border-gray-600 hover:bg-gray-500"
+                            style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
+                            disabled={rechargeMutation.isPending}
+                            onClick={() => {
+                              if (!selectedChannel?.id) return;
+                              rechargeMutation.mutate({ id: selectedChannel.id, money: m });
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">暂无可选金额</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
+              <p className="text-center" style={{ color: '#7a8084', fontSize: 14 }}>
+                请选择支付方式以及金额
+              </p>
+            </div>
+            <button
+              type="button"
+              className="absolute right-5 top-[18px] rounded-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
+              onClick={() => setShowWalletModal(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              <span className="sr-only">Close</span>
+            </button>
           </div>
         </div>
       )}

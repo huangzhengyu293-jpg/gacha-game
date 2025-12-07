@@ -302,8 +302,8 @@ export const api = {
   // Auth
   register: (payload: { name: string; email: string; password: string }) =>
     post<{ ok: true; user?: { id: string; name: string; email: string } }>('/api/auth/register', payload),
-  sendVerificationEmail: (payload: { to: string; type: string }) =>
-    post<ApiResponse>('/api/index/sendemail', payload),
+  sendVerificationEmail: (payload: { to: string; type: string; debug?: string | number }) =>
+    post<ApiResponse>('/api/index/sendemail', { ...payload, debug: payload.debug ?? 1 }),
   activateAccount: (payload: { code: string }) =>
     post<ApiResponse>('/api/auth/activation', payload),
   login: (payload: { email: string; password: string }) =>
@@ -691,6 +691,26 @@ export const api = {
     formData.append('id', String(id));
 
     const result = await request<ApiResponse>('/api/shop/buy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  getCommonChannel: async () => {
+    const result = await request<ApiResponse>('/api/common/channel', {
+      method: 'GET',
+    });
+    return result;
+  },
+  recharge: async (payload: { id: string | number; money: string | number }) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(payload.id));
+    formData.append('money', String(payload.money));
+
+    const result = await request<ApiResponse>('/api/common/recharge', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

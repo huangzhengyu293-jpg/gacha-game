@@ -15,6 +15,7 @@ import SelectPackModal from '../packs/[id]/SelectPackModal';
 import Image from 'next/image';
 import InfoTooltip from '../components/InfoTooltip';
 import { showGlobalToast } from '../components/ToastProvider';
+import { useAuth } from '../hooks/useAuth';
 import {
   DndContext,
   closestCenter,
@@ -138,6 +139,7 @@ function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
 
 function CreateBattleContent() {
   const router = useRouter();
+  const { fetchUserBean } = useAuth();
   const searchParams = useSearchParams();
 
   // 从URL读取初始值，确保单人模式默认为2
@@ -309,6 +311,7 @@ function CreateBattleContent() {
           variant: "success",
           durationMs: 2000,
         });
+        fetchUserBean?.();
         router.push(`/battles/${createdBattleId}`);
         return;
       }

@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function RewardsPage() {
   const { t } = useI18n();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, fetchUserBean } = useAuth();
   const queryClient = useQueryClient();
   const [weekCountdown, setWeekCountdown] = useState('');
   const [monthCountdown, setMonthCountdown] = useState('');
@@ -101,6 +101,7 @@ export default function RewardsPage() {
     mutationFn: (type: 1 | 2 | 3) => api.receiveRebate(type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userRebate'] });
+      fetchUserBean?.();
     },
   });
 
@@ -261,20 +262,31 @@ export default function RewardsPage() {
                   <div className="relative flex">
                     <div className="overflow-hidden border rounded-full" style={{ borderWidth: 2, borderColor: '#34383C' }}>
                       <div className="relative rounded-full overflow-hidden" style={{ width: 64, height: 64 }}>
-                        <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-                          <mask id="avatar_mask_rewards" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
-                            <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
-                          </mask>
-                          <g mask="url(#avatar_mask_rewards)">
-                            <rect width="36" height="36" fill="#333333"></rect>
-                            <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
-                            <g transform="translate(-1 1) rotate(5 18 18)">
-                              <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
-                              <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                              <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                        {((user as any)?.userInfo?.avatar || (user as any)?.avatar) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={(user as any)?.userInfo?.avatar || (user as any)?.avatar}
+                            alt="avatar"
+                            width={64}
+                            height={64}
+                            style={{ width: 64, height: 64, objectFit: 'cover', display: 'block' }}
+                          />
+                        ) : (
+                          <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+                            <mask id="avatar_mask_rewards" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+                              <rect width="36" height="36" rx="72" fill="#FFFFFF"></rect>
+                            </mask>
+                            <g mask="url(#avatar_mask_rewards)">
+                              <rect width="36" height="36" fill="#333333"></rect>
+                              <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+                              <g transform="translate(-1 1) rotate(5 18 18)">
+                                <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                                <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                              </g>
                             </g>
-                          </g>
-                        </svg>
+                          </svg>
+                        )}
                       </div>
                     </div>
                     <div className="px-1 py-0.5 flex items-center justify-center rounded-full border absolute z-10 -bottom-1 right-1 h-6 min-w-6" style={{ backgroundColor: '#292f34', borderColor: '#34383C' }}>
