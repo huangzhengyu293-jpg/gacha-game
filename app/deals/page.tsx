@@ -3,7 +3,7 @@
 import DealsTopSection, { SelectedProduct } from "../components/DealsTopSection";
 import DealsSearchToolbar from "../components/DealsSearchToolbar";
 import DealsProductGridSection, { ProductItem } from "../components/DealsProductGridSection";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 export interface SearchFilters {
@@ -13,7 +13,7 @@ export interface SearchFilters {
   priceMax: number;
 }
 
-export default function DealsPage() {
+function DealsPageInner() {
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
   const [preselectSteamId, setPreselectSteamId] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({
@@ -94,6 +94,14 @@ export default function DealsPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function DealsPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-[1280px] px-4 py-8 text-center text-white">加载中...</div>}>
+      <DealsPageInner />
+    </Suspense>
   );
 }
 

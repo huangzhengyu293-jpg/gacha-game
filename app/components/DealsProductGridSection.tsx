@@ -103,8 +103,6 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
         price_max: filters.priceMax,
       });
       
-      console.log('💎 商品列表数据:', result);
-      
       // 将后端返回的数据映射为ProductItem格式
       // 数据结构：
       // - 商品id: item.id
@@ -154,7 +152,7 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
   // 预选中：用 steamId 匹配
   useEffect(() => {
     if (!preselectSteamId || !products.length) return;
-    const target = products.find((p) => String(p.steamId ?? '') === String(preselectSteamId));
+    const target = products.find((p: ProductItem) => String(p.steamId ?? '') === String(preselectSteamId));
     if (target && onPreselectMatch) {
       onPreselectMatch(target);
     }
@@ -222,7 +220,9 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {visible.map((p: ProductItem) => {
-          const matched = selectedId === p.id || (preselectSteamId && String(preselectSteamId) === String(p.steamId ?? ''));
+          const matched =
+            selectedId === p.id ||
+            (!!preselectSteamId && String(preselectSteamId) === String(p.steamId ?? ''));
           return (
             <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={matched} onQuickView={openQuickView} />
           );
