@@ -107,21 +107,21 @@ html { overflow-x: hidden; }
 
 /* Banner background images */
 .bg-new-player-battle-banner {
-  background-image: url('https://packdraw.com/_next/static/media/new-player-battle-bg.60b03717.png');
+  background-image: url('/theme/default/new-player-battle-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
 .bg-new-player-packs-banner {
-  background-image: url('https://packdraw.com/_next/static/media/new-player-packs-bg.857f32bb.png');
+  background-image: url('/theme/default/new-player-packs-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
 .bg-new-player-deal-banner {
-  background-image: url('https://packdraw.com/_next/static/media/new-player-deals-bg.ffe56834.png');
+  background-image: url('/theme/default/new-player-deals-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

@@ -165,8 +165,8 @@ export default function EventsPage() {
         <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
           <div className="relative rounded-lg" style={{ backgroundColor: '#1d2125' }}>
             <div className="absolute -top-6 left-0 w-full overflow-hidden rounded-lg" style={{ height: 'calc(100% + 1.5rem)' }}>
-              <img src="https://packdraw.com/_next/static/media/flag.a3897cd0.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ left: '-110px', zIndex: 0 }} />
-              <img src="https://packdraw.com/_next/static/media/flag.a3897cd0.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ right: '-110px', transform: 'scaleX(-1)', zIndex: 0 }} />
+              <img src="/theme/default/flag.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ left: '-110px', zIndex: 0 }} />
+              <img src="/theme/default/flag.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ right: '-110px', transform: 'scaleX(-1)', zIndex: 0 }} />
             </div>
             <div className="relative flex flex-col items-center pt-9 pb-6 md:pb-12">
               <p className="font-changa text-base sm:text-[25px] lg:text-[32px] text-white mb-3 md:mb-4 leading-none">{title}</p>
@@ -479,7 +479,7 @@ export default function EventsPage() {
                   >
                 <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
                   <div className="relative mb-4 px-8">
-                    <img src="https://packdraw.com/_next/static/media/raffle-ticket.49e185ba.svg" alt="" className="absolute top-0 left-2 sm:left-1 h-full aspect-[32/170] object-contain" style={{ zIndex: 0 }} />
+                    <img src="/theme/default/raffle-ticket-l.svg" alt="" className="absolute top-0 left-2 sm:left-1 h-full aspect-[32/170] object-contain" style={{ zIndex: 0 }} />
                     {/* 背景色与父容器一致，因为两边的图片后面可能会加 */}
                     <div className="py-6 sm:py-8 gap-3 sm:gap-4" style={{ backgroundColor: '#1d2125' }}>
                       <div className="relative z-10 flex flex-col items-center justify-center rounded-lg border border-solid px-5 sm:px-9 py-4 sm:py-5 gap-3 sm:gap-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
@@ -496,7 +496,7 @@ export default function EventsPage() {
                         </p>
                       </div>
                     </div>
-                    <img src="https://packdraw.com/_next/static/media/raffle-ticket.49e185ba.svg" alt="" className="absolute top-0 right-2 sm:right-1 h-full aspect-[32/170] object-contain" style={{ transform: 'scaleX(-1)', zIndex: 0 }} />
+                    <img src="/theme/default/raffle-ticket-l.svg" alt="" className="absolute top-0 right-2 sm:right-1 h-full aspect-[32/170] object-contain" style={{ transform: 'scaleX(-1)', zIndex: 0 }} />
                   </div>
                 </div>
                 
@@ -509,13 +509,13 @@ export default function EventsPage() {
                   </div>
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden items-center min-h-[90px] xl:min-h-[115px] py-4 xl:py-7 px-3" style={{ backgroundColor: '#1d2125' }}>
-                      <img src="https://packdraw.com/_next/static/media/about-raffle-1.fa7b7732.svg" alt="" className="absolute h-full w-full top-0 left-0 object-cover" style={{ left: '-50px', zIndex: 0 }} />
+                      <img src="/theme/default/about-raffle.svg" alt="" className="absolute h-full w-full top-0 left-0 object-cover" style={{ left: '-50px', zIndex: 0 }} />
                       <p className="text-base xl:text-xl font-semibold text-white w-2/3 sm:w-3/5 lg:w-3/5 text-balance leading-tight h-auto relative z-10">
                         开启每日礼包以获得获胜机会！
                       </p>
                     </div>
                     <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden pl-2 items-center min-h-[90px] xl:min-h-[115px]" style={{ backgroundColor: '#1d2125' }}>
-                      <img src="https://packdraw.com/_next/static/media/about-raffle-2.0aef317d.svg" alt="" className="absolute h-full object-contain object-left" style={{ width: '66.666%', left: '-20px', zIndex: 0 }} />
+                      <img src="/theme/default/about-raffle-2.svg" alt="" className="absolute h-full object-contain object-left" style={{ width: '66.666%', left: '-20px', zIndex: 0 }} />
                       <p className="text-base xl:text-xl font-semibold text-white text-balance leading-tight h-auto py-4 xl:py-7 pr-5 w-2/3 sm:w-3/5 lg:w-3/5 relative z-10">
                         时间正在流逝 -- 不要错过您的机会！
                       </p>

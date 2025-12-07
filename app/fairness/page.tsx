@@ -10,7 +10,7 @@ export default function FairnessPage() {
         <div className="flex flex-1 items-stretch gap-6" style={{ width: 'calc(100% - 16rem)' }}>
           <div className="flex flex-col flex-1 items-stretch max-w-full pb-48">
             <div className="flex flex-col items-stretch gap-10 relative pt-4">
-              <div className="absolute inset-0 opacity-25 -z-10 bg-no-repeat" style={{ backgroundImage: 'url(https://packdraw.com/_next/static/media/bg.7b65334e.png)', backgroundPosition: 'center -200px' }}></div>
+              <div className="absolute inset-0 opacity-25 -z-10 bg-no-repeat" style={{ backgroundImage: 'url(/theme/default/bglock.png)', backgroundPosition: 'center -200px' }}></div>
               <div className="flex flex-col items-start gap-6 relative">
                 <h1 className="text-[30px] font-extrabold leading-tight" style={{ color: '#cbd5e0' }}>Safety & Fairness</h1>
                 <h2 className="text-xl font-extrabold leading-tight" style={{ color: '#cbd5e0' }}>Why Choose FlameDraw</h2>
@@ -25,7 +25,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/shield.png"
+                          src="/theme/default/shield.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>
@@ -46,7 +46,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/card.png"
+                          src="/theme/default/card.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>
@@ -67,7 +67,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/present.png"
+                          src="/theme/default/present.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>
@@ -88,7 +88,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/money.png"
+                          src="/theme/default/money.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>
@@ -109,7 +109,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/lightning.png"
+                          src="/theme/default/lightning.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>
@@ -130,7 +130,7 @@ export default function FairnessPage() {
                           width={50}
                           height={50}
                           decoding="async"
-                          src="https://packdraw.com/images/fairness/trophy.png"
+                          src="/theme/default/trophy.webp"
                           style={{ color: 'transparent', width: '100%' }}
                         />
                       </div>

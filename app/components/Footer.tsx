@@ -98,11 +98,11 @@ export default function Footer() {
         <div className="flex flex-col gap-3 md:hidden">
           <MobileAccordionMemo title={t("games")} defaultOpen={gamesDefaultOpen}>
             <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("packs")}</p>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("battles")}</p>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("deals")}</p>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("events")}</p>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("rewards")}</p>
+              <a href="/packs" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("packs")}</a>
+              <a href="/battles" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
+              <a href="/deals" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
+              <a href="/events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
+              <a href="/rewards" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
             </div>
           </MobileAccordionMemo>
 
@@ -157,11 +157,11 @@ export default function Footer() {
         <div className="hidden md:flex flex-1 flex-wrap justify-between gap-4">
           <div className="flex flex-col min-w-44 gap-1">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("games")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("packs")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("battles")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("deals")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("events")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("rewards")}</p>
+            <a href="/packs" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("packs")}</a>
+            <a href="/battles" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
+            <a href="/deals" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
+            <a href="/events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
+            <a href="/rewards" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
           </div>
           <div className="flex flex-col min-w-44 gap-1">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("legal")}</p>
