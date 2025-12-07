@@ -23,7 +23,7 @@
     "gsap": "^3.13.0",
     "lucky-canvas": "^1.7.27",
     "mongodb": "^6.20.0",
-    "next": "16.0.0",
+    "next": "16.0.7",
     "next-auth": "^4.24.13",
     "react": "19.2.0",
     "react-datepicker": "^8.8.0",
@@ -36,7 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.0",
+    "eslint-config-next": "16.0.7",
     "tailwindcss": "^4",
     "typescript": "^5.9.3"
   }
