@@ -30,6 +30,14 @@ export default function BattleModes({ sortValue = "priceDesc", useBestRecord = f
     staleTime: enablePolling ? 0 : 30_000,
   });
 
+  const serverTimestampSec = useMemo(() => {
+    const payload = data as any;
+    const direct = payload?.t2 ?? payload?.data?.t2 ?? payload?.timestamp ?? payload?.server_time;
+    const n = Number(direct);
+    if (Number.isFinite(n)) return n;
+    return Math.floor(Date.now() / 1000);
+  }, [data]);
+
   const rawEntries = useMemo<RawBattleListItem[]>(() => {
     const payload = data?.data;
     if (Array.isArray(payload?.data)) {
@@ -45,8 +53,8 @@ export default function BattleModes({ sortValue = "priceDesc", useBestRecord = f
   }, [data]);
 
   const cards = useMemo(
-    () => buildBattleListCards(rawEntries.length ? rawEntries : undefined),
-    [rawEntries],
+    () => buildBattleListCards(rawEntries.length ? rawEntries : undefined, serverTimestampSec),
+    [rawEntries, serverTimestampSec],
   );
 
   const sortedCards = useMemo(() => {

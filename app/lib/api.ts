@@ -644,9 +644,19 @@ export const api = {
     return result;
   },
   
-  // ✅ 获取用户仓库
-  getUserStorage: async () => {
+  // ✅ 获取用户仓库 / 出售记录（status: 0=当前背包，2=出售记录）
+  getUserStorage: async (status: string | number = 0) => {
     const result = await request<ApiResponse>('/api/user/storage', {
+      method: 'GET',
+      params: {
+        status: String(status),
+      },
+    });
+    return result;
+  },
+  // ✅ 获取交易历史（lucky log）
+  getLuckyLog: async () => {
+    const result = await request<ApiResponse>('/api/lucky/log', {
       method: 'GET',
     });
     return result;

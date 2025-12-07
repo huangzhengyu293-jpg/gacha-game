@@ -29,6 +29,9 @@ function Avatar({ src }: { src: string }) {
 function HighlightCard({ c }: { c: Card }) {
   const router = useRouter();
   const multiplier = c.multiplier;
+  const multiplierLabel = multiplier
+    ? `${multiplier}${String(multiplier).toLowerCase().includes('x') ? '' : 'x'}`
+    : '';
   return (
     <div
       className="relative h-40 sm:h-44 md:h-48"
@@ -42,7 +45,7 @@ function HighlightCard({ c }: { c: Card }) {
       style={{ cursor: 'pointer' }}
     >
       <p className="absolute top-3 left-3 font-semibold text-sm min-h-[20px]" style={{ color: '#f6e05e' }}>
-        {multiplier ? `${multiplier}` : ''}
+        {multiplierLabel}
       </p>
       <div className="absolute top-3 right-2">
         <button data-state="closed">
@@ -85,7 +88,12 @@ export default function TradeHighlights() {
       const steam = item?.steam || {};
       const priceNum = Number(steam?.bean ?? item?.bean ?? item?.price ?? 0);
       const price = priceNum > 0 ? `$${priceNum.toFixed(2)}` : '$0.00';
-      const multiplier = item?.multiplier ?? steam?.multiplier ?? '';
+      const multiplier =
+        item?.multiple ??
+        steam?.multiple ??
+        item?.multiplier ??
+        steam?.multiplier ??
+        '';
       return {
         id: item?.id ? String(item.id) : `trade-${idx}`,
         steamId: steam?.id ?? item?.steam_id ?? '',

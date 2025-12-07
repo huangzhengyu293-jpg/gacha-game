@@ -152,7 +152,7 @@ export default function Home() {
                     <path d="M3.99998 18.2222L5.77776 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
                   </svg>
                 }
-                onViewAll={() => console.log(t('battleHighlights'))}
+                onViewAll={() => router.push('/battles')}
                 viewAllText={t('viewAll')}
                 className="mt-12 mb-3"
               />
@@ -172,7 +172,7 @@ export default function Home() {
                   </svg>
 
                 }
-                 onViewAll={() => console.log(t('tradeHighlights'))}
+                 onViewAll={() => router.push('/deals')}
                  viewAllText={t('viewAll')}
                 className="mt-12 mb-3"
               />

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { api } from "@/app/lib/api";
 import { useI18n } from "@/app/components/I18nProvider";
+import DealsPaginationBar from "@/app/components/DealsPaginationBar";
 import BattleListCardItem from "@/app/battles/components/BattleListCardItem";
 import { buildBattleListCards } from "@/app/battles/battleListSource";
 import type { RawBattleListItem } from "@/app/components/bettlesListData";
@@ -37,6 +38,12 @@ export default function BattlesPage() {
   }, [data]);
 
   const cards = useMemo(() => buildBattleListCards(rawList), [rawList]);
+  const paginationMeta = useMemo(() => {
+    const total = cards.length;
+    const start = total > 0 ? 1 : 0;
+    const end = total;
+    return { start, end, total };
+  }, [cards.length]);
 
   return (
     <div className="w-full max-w-screen-xl px-4 pt-4 pb-40 mx-auto" style={{ color: '#7A8084' }}>
@@ -78,29 +85,45 @@ export default function BattlesPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {cards.map((card) => {
-                  const isWaiting = Number(card.status) === 0;
-                  return (
-                    <BattleListCardItem
-                      key={card.id}
-                      card={card}
-                      labels={{
-                        cost: t("cost"),
-                        opened: isWaiting ? "等待玩家" : t("opened"),
-                        button: isWaiting ? "加入对战" : t("viewResults"),
-                      }}
-                      buttonColors={
-                        isWaiting
-                          ? {
-                              default: "#4299e1",
-                              hover: "#5ab0ff",
-                            }
-                          : undefined
-                      }
-                      onPrimaryAction={() => router.push(`/battles/${card.id}`)}
-                    />
-                  );
-                })}
+                <DealsPaginationBar
+                  start={paginationMeta.start}
+                  end={paginationMeta.end}
+                  total={paginationMeta.total}
+                  disabledPrev
+                  disabledNext
+                />
+                <div className="flex flex-col gap-4">
+                  {cards.map((card) => {
+                    const isWaiting = Number(card.status) === 0;
+                    return (
+                      <BattleListCardItem
+                        key={card.id}
+                        card={card}
+                        labels={{
+                          cost: t("cost"),
+                          opened: isWaiting ? "等待玩家" : t("opened"),
+                          button: isWaiting ? "加入对战" : t("viewResults"),
+                        }}
+                        buttonColors={
+                          isWaiting
+                            ? {
+                                default: "#4299e1",
+                                hover: "#5ab0ff",
+                              }
+                            : undefined
+                        }
+                        onPrimaryAction={() => router.push(`/battles/${card.id}`)}
+                      />
+                    );
+                  })}
+                </div>
+                <DealsPaginationBar
+                  start={paginationMeta.start}
+                  end={paginationMeta.end}
+                  total={paginationMeta.total}
+                  disabledPrev
+                  disabledNext
+                />
               </div>
             )}
           </div>

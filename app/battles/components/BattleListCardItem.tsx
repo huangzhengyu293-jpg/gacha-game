@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Fragment } from "react";
+import React, { Fragment, useEffect, useRef } from "react";
 import type { BattleListCard } from "@/app/battles/battleListSource";
 import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
 import BattleConnectorIcon from "./BattleConnectorIcon";
@@ -98,22 +98,72 @@ function Avatar({ src, alt = "", svg }: { src?: string; alt?: string; svg?: Reac
   );
 }
 
-function Gallery({ items }: { items: Array<{ src: string; alt?: string }> }) {
+function Gallery({
+  items,
+  highlightedIndex,
+  canScroll = true,
+}: {
+  items: Array<{ src: string; alt?: string }>;
+  highlightedIndex?: number;
+  canScroll?: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRefs = useRef<Array<HTMLImageElement | null>>([]);
+  const [tailSpacer, setTailSpacer] = React.useState(0);
+
+  useEffect(() => {
+    const resize = () => {
+      if (!containerRef.current) return;
+      setTailSpacer(containerRef.current.clientWidth / 2);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+
+  useEffect(() => {
+    if (!canScroll) return;
+    if (highlightedIndex === undefined || highlightedIndex === null) return;
+    const container = containerRef.current;
+    const target = imgRefs.current[highlightedIndex];
+    if (!container || !target) return;
+
+    const containerWidth = container.clientWidth;
+    const maxScroll = container.scrollWidth - containerWidth;
+    const targetCenter = target.offsetLeft + target.clientWidth / 2;
+    const desiredLeft = Math.max(0, Math.min(maxScroll, targetCenter - containerWidth / 2));
+
+    container.scrollTo({ left: desiredLeft, behavior: "smooth" });
+  }, [highlightedIndex, items.length, canScroll]);
+
   return (
-    <div className="flex w-full overflow-hidden">
+    <div className="flex w-full overflow-hidden" ref={containerRef}>
       <div className="rounded-lg m-[1px] flex gap-3 pr-2 md:pr-[282px] py-1.5" style={{ height: 108 }}>
-        {items.map((g, i) => (
-          <img
-            key={`${g.src}-${i}`}
-            alt={g.alt || ""}
-            loading="lazy"
-            width={63}
-            height={96}
-            decoding="async"
-            src={g.src}
-            style={{ color: "transparent", opacity: 0.32, cursor: "pointer" }}
-          />
-        ))}
+        {items.map((g, i) => {
+          const isActive = highlightedIndex === i;
+          return (
+            <img
+              key={`${g.src}-${i}`}
+              ref={(el) => {
+                imgRefs.current[i] = el;
+              }}
+              alt={g.alt || ""}
+              loading="lazy"
+              width={63}
+              height={96}
+              decoding="async"
+              src={g.src}
+              style={{
+                color: "transparent",
+                opacity: isActive ? 1 : 0.32,
+                borderRadius: 8,
+                cursor: "pointer",
+                transition: "opacity 160ms ease",
+              }}
+            />
+          );
+        })}
+        <div style={{ minWidth: tailSpacer }} />
       </div>
     </div>
   );
@@ -212,7 +262,7 @@ export default function BattleListCardItem({
 
   const buttonLabel = isPendingBattle ? "加入对战" : labels.button;
   const isWaitingState = card.status === 0;
-  const openedLabel = isPendingBattle ? "等待玩家" : labels.opened;
+  const openedLabel = card.status === 1 ? "准备中" : isPendingBattle ? "等待玩家" : labels.opened;
   const buttonColor = isPendingBattle
     ? {
         default: "#4299e1",
@@ -262,7 +312,11 @@ export default function BattleListCardItem({
 
         <div className="flex flex-1 min-w-0 self-stretch md:self-center py-1">
           <div className="flex relative w-full rounded-lg overflow-hidden" style={{ backgroundColor: "#0F1012" }}>
-            <Gallery items={card.packImages} />
+            <Gallery
+              items={card.packImages}
+              highlightedIndex={card.currentPackIndex}
+              canScroll={card.status === 2}
+            />
             <div className="flex absolute justify-center items-center top-0 right-0 gap-1 py-[2.5px] px-1 m-1 rounded" style={{ backgroundColor: "#232529", color: "#FFFFFF" }}>
               <div className="size-3 text-white">
                 <svg viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -278,7 +332,7 @@ export default function BattleListCardItem({
         <div className="flex flex-col items-center gap-2 w-full md:w-[12rem] overflow-hidden min-w-0">
           <div className="overflow-hidden max-w-full px-4">
             <p className="text-base font-bold text-center truncate" style={{ color: "#7A8084" }}>
-              {isWaitingState ? "等待玩家" : `${labels.opened}：${openedValue}`}
+              {isWaitingState ? "等待玩家" : `${openedLabel}：${openedValue}`}
             </p>
           </div>
           <button

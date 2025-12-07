@@ -1,6 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import axiosInstance from '../lib/axios';
+import { api } from '../lib/api';
 
 export interface User {
   token?: string;
@@ -50,6 +52,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [favoriteIds, setFavoriteIdsState] = useState<string[]>([]);
+  const refreshingRef = useRef(false);
 
   // 初始化：从 localStorage 读取用户信息
   useEffect(() => {
@@ -138,6 +141,45 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     localStorage.removeItem('user');
     localStorage.removeItem('favoriteIds');
   }, []);
+
+  // 页面刷新后自动拉取最新的用户信息 / 余额 / 收藏
+  useEffect(() => {
+    const syncUser = async () => {
+      if (!user?.token || refreshingRef.current) return;
+      refreshingRef.current = true;
+      try {
+        const [userInfoRes, userBeanRes, favoritesRes] = await Promise.all([
+          axiosInstance.get('/api/auth/userinfo'),
+          axiosInstance.get('/api/user/bean'),
+          api.getFavoriteList(),
+        ]);
+
+        setUserState((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev };
+          if (userInfoRes?.data?.code === 100000 && userInfoRes.data.data) {
+            next.userInfo = userInfoRes.data.data;
+          }
+          if (userBeanRes?.data?.code === 100000 && userBeanRes.data.data) {
+            next.bean = userBeanRes.data.data;
+          }
+          localStorage.setItem('user', JSON.stringify({ data: next }));
+          return next;
+        });
+
+        if (favoritesRes?.code === 100000 && Array.isArray(favoritesRes.data)) {
+          const favoriteIdsList = favoritesRes.data.map((item: any) => String(item.id || item.box_id));
+          setFavoriteIdsState(favoriteIdsList);
+          localStorage.setItem('favoriteIds', JSON.stringify(favoriteIdsList));
+        }
+      } catch {
+        // 静默失败，不阻塞页面
+      } finally {
+        refreshingRef.current = false;
+      }
+    };
+    syncUser();
+  }, [user?.token]);
 
   // 初始化：从 localStorage 读取收藏列表
   useEffect(() => {

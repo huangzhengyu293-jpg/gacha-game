@@ -28,6 +28,7 @@ export type BattleListCard = {
   updatedAt: number;
   status: number;
   raw: RawBattleListItem;
+  currentPackIndex?: number;
 };
 
 const BOX_PLACEHOLDER_IMAGE =
@@ -239,10 +240,14 @@ function buildSpecialOptions(entry: RawBattleListItem): SpecialOptionFlags {
   return flags;
 }
 
-export function buildBattleListCards(sourceEntries?: RawBattleListItem[]): BattleListCard[] {
+export function buildBattleListCards(
+  sourceEntries?: RawBattleListItem[],
+  serverTimestampSec?: number,
+): BattleListCard[] {
   if (!Array.isArray(sourceEntries) || !sourceEntries.length) {
     return [];
   }
+  const nowSec = Number.isFinite(serverTimestampSec) ? Number(serverTimestampSec) : Math.floor(Date.now() / 1000);
   return sourceEntries.map((entry) => {
     const participants: ParticipantPreview[] = Array.isArray(entry.users)
       ? entry.users
@@ -284,6 +289,25 @@ export function buildBattleListCards(sourceEntries?: RawBattleListItem[]): Battl
     const updatedAt =
       entry.updated_at_time ?? (Date.parse(entry.updated_at ?? '') || 0);
 
+    const packImages = buildPackImages(entry);
+    const roundsTotal = packImages.length > 0 ? packImages.length : entry.boxs_num || entry.boxs?.length || 0;
+    const isFast = Number(entry.fast) === 1;
+    const roundDuration = isFast ? 1 : 6;
+    const countdownSec = 3;
+    let currentPackIndex: number | undefined;
+    const currentStatus = Number(entry.status);
+    const updatedAtTime = Number(entry.updated_at_time);
+    if (currentStatus === 2 && Number.isFinite(updatedAtTime) && roundsTotal > 0) {
+      const diffSecRaw = Math.max(0, nowSec - updatedAtTime);
+      if (diffSecRaw <= countdownSec) {
+        currentPackIndex = 0;
+      } else {
+        const diffAfterCountdown = Math.max(0, diffSecRaw - countdownSec);
+        const roundIdx = Math.floor(diffAfterCountdown / roundDuration);
+        currentPackIndex = Math.min(roundsTotal - 1, roundIdx);
+      }
+    }
+
     return {
       id: String(entry.id),
       title: entry.title || `对战 #${entry.id}`,
@@ -297,12 +321,13 @@ export function buildBattleListCards(sourceEntries?: RawBattleListItem[]): Battl
       connectorStyle: resolveConnectorStyle(mode),
       entryCost: formatNumber(entry.bean),
       totalOpenedValue: formatNumber(entry.win_bean),
-      packImages: buildPackImages(entry),
+      packImages,
       packCount: Array.isArray(entry.boxs) ? entry.boxs.length : 0,
       createdAt,
       updatedAt,
       status: entry.status ?? 0,
       raw: entry,
+      currentPackIndex,
     };
   });
 }

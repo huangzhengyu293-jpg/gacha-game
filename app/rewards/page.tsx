@@ -144,16 +144,26 @@ export default function RewardsPage() {
     const info = (user as any)?.userInfo || user;
     return info?.name || 'Guest';
   }, [user]);
-  const profileLevel = useMemo(() => {
+  const profileVip = useMemo(() => {
     const info = (user as any)?.userInfo || user;
-    return Number(info?.vip ?? 0);
+    const vipInfo = info?.vip_info || info?.vipInfo || {};
+    const vipId = Number(vipInfo?.vip_id ?? info?.vip ?? 0);
+    const pctRaw = vipInfo?.percentage;
+    let pct = 0;
+    if (pctRaw !== undefined && pctRaw !== null) {
+      const n = Number(pctRaw);
+      if (Number.isFinite(n)) {
+        pct = n <= 1 ? n * 100 : n;
+      }
+    }
+    return {
+      level: Number.isFinite(vipId) ? Math.max(0, Math.floor(vipId)) : 0,
+      progress: Math.min(100, Math.max(0, pct)),
+    };
   }, [user]);
-  const profileProgress = useMemo(() => '26%', []);
-  const profileProgressNumber = useMemo(() => {
-    const n = Number(String(profileProgress).replace('%', ''));
-    if (Number.isNaN(n)) return 0;
-    return Math.min(100, Math.max(0, n));
-  }, [profileProgress]);
+  const profileLevel = profileVip.level;
+  const profileProgressNumber = profileVip.progress;
+  const profileProgressLabel = `${profileProgressNumber.toFixed(2).replace(/\.?0+$/, '')}%`;
 
   const renderButton = (btn: { label: string; disabled: boolean; onClick?: () => void }) => (
     <button
@@ -280,7 +290,7 @@ export default function RewardsPage() {
                     </div>
                     <div className="flex justify-between mt-2">
                       <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>Level {profileLevel}</p>
-                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{profileProgressNumber}%</p>
+                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{profileProgressLabel}</p>
                     </div>
                   </div>
                 </div>

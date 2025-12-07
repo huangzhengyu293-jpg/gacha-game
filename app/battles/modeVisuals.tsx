@@ -9,7 +9,7 @@ export type SpecialOptionFlags = {
 };
 
 const MODE_PRESETS: Record<BattleGameMode, { label: string; accentColor: string }> = {
-  classic: { label: '普通模式', accentColor: '#34383C' },
+  classic: { label: '普通模式', accentColor: 'transparent' },
   share: { label: '分享模式', accentColor: '#57ABF8' },
   sprint: { label: '积分冲刺', accentColor: '#7C4BE2' },
   jackpot: { label: '大奖模式', accentColor: '#53E296' },
@@ -23,14 +23,16 @@ export function getModeVisual(mode?: string | null, fallbackLabel = '普通模�
   return { label: fallbackLabel, accentColor: '#34383C' };
 }
 
+const ICON_COLOR_CLASS = 'text-[#7A8084]';
+
 const FastModeIcon = () => (
-  <svg key="fast" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
+  <svg key="fast" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`size-4 ${ICON_COLOR_CLASS}`}>
     <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
   </svg>
 );
 
 const LastChanceIcon = () => (
-  <svg key="lastchance" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-gray-300">
+  <svg key="lastchance" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`size-4 ${ICON_COLOR_CLASS}`}>
     <path d="m12.5 17-.5-1-.5 1h1z"></path>
     <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
     <circle cx="15" cy="12" r="1"></circle>
@@ -39,7 +41,7 @@ const LastChanceIcon = () => (
 );
 
 const InvertedIcon = () => (
-  <svg key="inverted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-crown rotate-180 size-4 text-gray-300">
+  <svg key="inverted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide lucide-crown rotate-180 size-4 ${ICON_COLOR_CLASS}`}>
     <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"></path>
     <path d="M5 21h14"></path>
   </svg>
