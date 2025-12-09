@@ -114,9 +114,7 @@ export default function TradeHighlights() {
       {display.map((c) => (
         <HighlightCard key={c.id} c={c} />
       ))}
-      {display.length === 0 && (
-        <div className="col-span-full text-center text-sm text-gray-400">暂无数据</div>
-      )}
+     
     </div>
   );
 }

@@ -35,10 +35,12 @@ function isCatalogItem(x: any): x is CatalogItem {
 
 export default function PackContentsModal({ open, onClose, title, items }: PackContentsModalProps) {
   if (!open) return null;
+  
   const normalized: DisplayProduct[] = items.map((it) => {
     if (isCatalogItem(it)) return toDisplayProductFromCatalog(it);
     return it as DisplayProduct;
   });
+  
   return (
     <div data-state="open" className="fixed px-4 inset-0 z-50 bg-black/[0.48] overflow-y-auto flex justify-center items-start py-16" style={{ pointerEvents: 'auto', animation: 'modalFadeIn 180ms ease' }} onClick={onClose}>
       <style>{`

@@ -661,7 +661,7 @@ export default function HorizontalSlotMachineClient({
                     symbols={activeSymbols}
                     selectedPrizeId={slot.selectedPrizeId}
                     height={450}
-                    spinDuration={isFastMode ? 1000 : 45060000}
+                    spinDuration={isFastMode ? 1000 : 6000}
                     onSpinComplete={(result) => handleSpinComplete(result, index)}
                   />
                 </div>

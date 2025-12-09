@@ -1,45 +1,48 @@
 'use client';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import type { ApiResponse } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LogoIcon } from './icons/Logo';
+import LoadingSpinnerIcon from './icons/LoadingSpinner';
+import { showGlobalToast } from './ToastProvider';
 
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
-const MULTIPLIERS = [
-  { label: 'x1', glow: '#829DBB' },
-  { label: 'x1.3', glow: '#4B69FF' },
-  { label: 'x1.7', glow: '#4B69FF' },
-  { label: 'x2.5', glow: '#8847FF' },
-  { label: 'x4', glow: '#8847FF' },
-  { label: 'x6.5', glow: '#D32CE6' },
-  { label: 'x10', glow: '#D32CE6' },
-  { label: 'x20', glow: '#EB4B4B' },
-  { label: 'x50', glow: '#EB4B4B' },
-  { label: 'x150', glow: '#E4AE33' },
-];
+type MultiplierConfig = { label: string; glow: string };
+type RoundConfig = { label: string; survival: number };
+type DifficultyConfig = { multipliers: MultiplierConfig[]; rounds: RoundConfig[]; prices: number[] };
 
-// 抽牌轮次定义（生存率）
-const DRAW_ROUNDS = [
-  { label: 'x1', survival: 1.00 },
-  { label: 'x1.3', survival: 0.731 },
-  { label: 'x1.7', survival: 0.742 },
-  { label: 'x2.5', survival: 0.660 },
-  { label: 'x4', survival: 0.606 },
-  { label: 'x6.5', survival: 0.597 },
-  { label: 'x10', survival: 0.630 },
-  { label: 'x20', survival: 0.485 },
-  { label: 'x50', survival: 0.388 },
-  { label: 'x150', survival: 0.323 },
-];
+const COLOR_PALETTE = ['#829DBB', '#4B69FF', '#4B69FF', '#8847FF', '#8847FF', '#D32CE6', '#D32CE6', '#EB4B4B', '#EB4B4B', '#E4AE33'];
+const DEFAULT_MULTIPLIER_VALUES = ['1', '1.3', '1.7', '2.5', '4', '6.5', '10', '20', '50', '150'];
+const DEFAULT_SURVIVAL_VALUES = ['100', '73.1', '74.2', '66', '60.6', '59.7', '63', '48.5', '38.8', '32.3'];
+const DEFAULT_ROUND_PRICES = [0.55, 0.72, 0.94, 1.38, 2.22, 3.61, 5.55, 11.11, 27.77, 83.33];
 
-// 与上方移动端表格保持一致的演示价格（用于悬停展示）
-const ROUND_PRICES: number[] = [
-  0.55, 0.72, 0.94, 1.38, 2.22, 3.61, 5.55, 11.11, 27.77, 83.33,
-];
+const buildDifficultyConfig = (multipliersRaw: string[], survivalRaw: string[]): DifficultyConfig => {
+  const normalizedMultipliers = multipliersRaw.length ? multipliersRaw : DEFAULT_MULTIPLIER_VALUES;
+  const normalizedSurvival = survivalRaw.length ? survivalRaw : DEFAULT_SURVIVAL_VALUES;
+
+  const multipliers: MultiplierConfig[] = normalizedMultipliers.map((value, idx) => ({
+    label: `x${value}`,
+    glow: COLOR_PALETTE[idx] || COLOR_PALETTE[COLOR_PALETTE.length - 1],
+  }));
+
+  const rounds: RoundConfig[] = normalizedMultipliers.map((value, idx) => {
+    const survivalValue = Number(normalizedSurvival[idx] ?? normalizedSurvival[normalizedSurvival.length - 1] ?? 0);
+    const normalized = Number.isFinite(survivalValue) ? Math.max(0, Math.min(1, survivalValue / 100)) : 0;
+    return { label: `x${value}`, survival: normalized };
+  });
+
+  const prices = normalizedMultipliers.map((_, idx) => {
+    const price = DEFAULT_ROUND_PRICES[idx] ?? DEFAULT_ROUND_PRICES[DEFAULT_ROUND_PRICES.length - 1];
+    return price;
+  });
+
+  return { multipliers, rounds, prices };
+};
 
 // 参考产品从新的后端接口读取
 function useSourceProducts() {
@@ -74,13 +77,36 @@ function useSourceProducts() {
   return items;
 }
 
-function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>) {
+type CardServerPayload = {
+  id: number | string;
+  num: number;
+  price: string | number;
+  round: number;
+  status: number;
+  cover?: string;
+  name?: string;
+};
+
+type DisplayProduct = {
+  id?: string | number;
+  name: string;
+  image: string;
+  price: number;
+  qualityId?: string;
+};
+
+type DrawGoResponse = {
+  id?: string | number;
+  card?: CardServerPayload[];
+};
+
+function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>): (roundIdx: number) => DisplayProduct {
   return (roundIdx: number) => {
     const list = source && source.length ? source : [{ name: '占位', image: '', price: 0 }];
     // 使用倒序：从列表末尾开始取商品
     const reversedIdx = list.length - 1 - (roundIdx % list.length);
     const p = list[reversedIdx] as any;
-    return p;
+    return p as DisplayProduct;
   };
 }
 
@@ -94,6 +120,52 @@ export default function DrawExtraComponent() {
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();
+  const { data: drawConfigResponse } = useQuery({
+    queryKey: ['draw-config'],
+    queryFn: api.getDrawConfig,
+  });
+  const { data: drawInfoResponse } = useQuery({
+    queryKey: ['draw-info'],
+    queryFn: api.drawInfo,
+  });
+  const difficultyConfig = useMemo(() => {
+    const payload = drawConfigResponse?.data;
+    const normalizeList = (value?: unknown): string[] | undefined => {
+      if (Array.isArray(value)) return value.map(String);
+      if (typeof value === 'string' && value.trim().length) {
+        return value.split('|').map((item) => item.trim()).filter(Boolean);
+      }
+      return undefined;
+    };
+
+    const pickValues = (value?: unknown, fallback?: string[]): string[] => {
+      return normalizeList(value) ?? fallback ?? DEFAULT_MULTIPLIER_VALUES;
+    };
+
+    if (!payload) {
+      return {
+        easy: buildDifficultyConfig(DEFAULT_MULTIPLIER_VALUES, DEFAULT_SURVIVAL_VALUES),
+        medium: buildDifficultyConfig(DEFAULT_MULTIPLIER_VALUES, DEFAULT_SURVIVAL_VALUES),
+        hard: buildDifficultyConfig(DEFAULT_MULTIPLIER_VALUES, DEFAULT_SURVIVAL_VALUES),
+      };
+    }
+
+    const easyMultipliers = pickValues(payload.simple_multiple_list ?? payload.simple_multiple, DEFAULT_MULTIPLIER_VALUES);
+    const easySurvival = pickValues(payload.simple_real_list ?? payload.simple_list, DEFAULT_SURVIVAL_VALUES);
+
+    const mediumMultipliers = pickValues(payload.medium_multiple_list ?? payload.medium_multiple, DEFAULT_MULTIPLIER_VALUES);
+    const mediumSurvival = pickValues(payload.medium_list, DEFAULT_SURVIVAL_VALUES);
+
+    const hardMultipliers = pickValues(payload.difficulties_multiple_list ?? payload.difficulties_multiple, DEFAULT_MULTIPLIER_VALUES);
+    const hardSurvival = pickValues(payload.difficulties_list, DEFAULT_SURVIVAL_VALUES);
+
+    return {
+      easy: buildDifficultyConfig(easyMultipliers, easySurvival),
+      medium: buildDifficultyConfig(mediumMultipliers, mediumSurvival),
+      hard: buildDifficultyConfig(hardMultipliers, hardSurvival),
+    };
+  }, [drawConfigResponse]);
+ 
 
   // 🎵 音频初始化
   useEffect(() => {
@@ -163,50 +235,30 @@ export default function DrawExtraComponent() {
       // 忽略音频播放错误
     }
   };
+  type CollectOverlayItem = { name: string; image: string; price: number };
+  type CollectMutationVariables = {
+    id: string;
+    cardId?: string | number;
+    overlayItems?: CollectOverlayItem[];
+    mode: 'single' | 'all';
+  };
   const collectMutation = useMutation({
-    mutationFn: async (items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
-      return api.collectLotteryItems(items as any);
+    mutationFn: async ({ id, cardId }: CollectMutationVariables) => {
+      return api.drawReceive({ id, card_id: cardId });
     },
-    onSuccess: async (_data: unknown, variables: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }>) => {
+    onSuccess: async (_data: ApiResponse, variables: CollectMutationVariables) => {
       await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
-      try {
-        const items = Array.isArray(variables) ? variables : [];
-        const mapped = items.map((it: any) => ({
-          name: String(it?.name ?? ''),
-          image: String(it?.image ?? ''),
-          price: Number(it?.price ?? 0),
-        }));
-        setCollectOverlayItems(mapped);
-        setOverlayArm(false);
-        setCollectOverlayOpen(true);
-        // 重置逐个展示计数并启动序列显示
-        setRevealedCount(0);
-        if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
-        const stepMs = 380; // 每个卡片的间隔
-        const startAfter = 180; // 列表开始前的微小延迟
-        let i = 0;
-        const run = () => {
-          i += 1;
-          setRevealedCount(i);
-          if (i < mapped.length) {
-            revealTimerRef.current = window.setTimeout(run, stepMs);
-          } else {
-            revealTimerRef.current = null;
-          }
-        };
-        revealTimerRef.current = window.setTimeout(run, startAfter);
-        if (collectOverlayTimerRef.current) window.clearTimeout(collectOverlayTimerRef.current);
-        const closeDelay = Math.max(3000, 1200 + mapped.length * stepMs + 600);
-        collectOverlayTimerRef.current = window.setTimeout(() => {
-          // 自动关闭时行为与点击“Play Again”一致
-          setCollectOverlayOpen(false);
-          setOverlayArm(false);
-          setShowActions(false);
-          collectOverlayTimerRef.current = null;
-        }, closeDelay);
-      } catch {
-        // ignore overlay errors
+      await queryClient.invalidateQueries({ queryKey: ['draw-info'] });
+      if (variables.mode === 'all' && variables.overlayItems && variables.overlayItems.length) {
+        openCollectOverlay(variables.overlayItems);
       }
+    },
+    onError: (error: unknown) => {
+      showGlobalToast({
+        title: '领取失败',
+        description: error instanceof Error ? error.message : '请稍后重试',
+        variant: 'error',
+      });
     },
   });
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -215,6 +267,14 @@ export default function DrawExtraComponent() {
   const [hoverCycleNoTransition, setHoverCycleNoTransition] = useState<boolean>(false);
   const [amount, setAmount] = useState<string>('5.00');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
+  const [activeBet, setActiveBet] = useState<{ type: string; money: string } | null>(null);
+  const [drawSessionId, setDrawSessionId] = useState<string | null>(null);
+  // 服务器同步的卡片状态：1=未领取/可翻牌，2=已领取，3=初始/未中奖
+  const [cardServerStatus, setCardServerStatus] = useState<number[]>(Array(9).fill(0));
+  const currentDifficultyData = difficultyConfig[difficulty] ?? difficultyConfig.easy;
+  const currentMultipliers = currentDifficultyData.multipliers;
+  const currentRounds = currentDifficultyData.rounds;
+  const currentPrices = currentDifficultyData.prices;
   const [hoverGuide, setHoverGuide] = useState<boolean>(false);
   const [hoverFair, setHoverFair] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
@@ -258,12 +318,88 @@ export default function DrawExtraComponent() {
   const [suppressFlipTransition, setSuppressFlipTransition] = useState<boolean>(false);
   // 每张背面卡片的hover状态
   const [backCardHovered, setBackCardHovered] = useState<boolean[]>(Array(9).fill(false));
+  const [serverCardMap, setServerCardMap] = useState<Record<number, DisplayProduct>>({});
   // 领取成功展示层（显示 3 秒自动关闭）
   const [collectOverlayOpen, setCollectOverlayOpen] = useState<boolean>(false);
   const [collectOverlayItems, setCollectOverlayItems] = useState<Array<{ name: string; image: string; price: number }>>([]);
   const collectOverlayTimerRef = useRef<number | null>(null);
   const revealTimerRef = useRef<number | null>(null);
   const [revealedCount, setRevealedCount] = useState<number>(0);
+  const openCollectOverlay = useCallback((items: Array<{ name: string; image: string; price: number }>) => {
+    if (!items || !items.length) return;
+    setCollectOverlayItems(items);
+    setOverlayArm(false);
+    setCollectOverlayOpen(true);
+    setRevealedCount(0);
+    if (revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    const stepMs = 380;
+    const startAfter = 180;
+    let i = 0;
+    const run = () => {
+      i += 1;
+      setRevealedCount(i);
+      if (i < items.length) {
+        revealTimerRef.current = window.setTimeout(run, stepMs);
+      } else {
+        revealTimerRef.current = null;
+      }
+    };
+    revealTimerRef.current = window.setTimeout(run, startAfter);
+    if (collectOverlayTimerRef.current) {
+      window.clearTimeout(collectOverlayTimerRef.current);
+      collectOverlayTimerRef.current = null;
+    }
+    const closeDelay = Math.max(3000, 1200 + items.length * stepMs + 600);
+    collectOverlayTimerRef.current = window.setTimeout(() => {
+      setCollectOverlayOpen(false);
+      setOverlayArm(false);
+      setShowActions(false);
+      collectOverlayTimerRef.current = null;
+    }, closeDelay);
+    playClaimSound();
+  }, [setCollectOverlayItems, setOverlayArm, setCollectOverlayOpen, setRevealedCount, setShowActions, playClaimSound]);
+  const lockCardAtIndex = (idx: number, visibleRound: number, glowIdx: number | null) => {
+    setSelectedLocked((prev) => {
+      if (prev[idx]) return prev;
+      const next = prev.slice();
+      next[idx] = true;
+      return next;
+    });
+    setFrontRound((prev) => {
+      const next = prev.slice();
+      next[idx] = visibleRound;
+      return next;
+    });
+    setBackRound((prev) => {
+      const next = prev.slice();
+      next[idx] = visibleRound;
+      return next;
+    });
+    setFaceGlowIdxFront((prev) => {
+      const next = prev.slice();
+      next[idx] = glowIdx ?? null;
+      return next;
+    });
+    setFaceGlowIdxBack((prev) => {
+      const next = prev.slice();
+      next[idx] = glowIdx ?? null;
+      return next;
+    });
+    setCardBack((prev) => {
+      const next = prev.slice();
+      next[idx] = !next[idx];
+      return next;
+    });
+    setBackCardHovered((prev) => {
+      if (!prev[idx]) return prev;
+      const next = prev.slice();
+      next[idx] = false;
+      return next;
+    });
+  };
   // 每一面的锁定样式覆盖：true=强制选中样式，false=强制未选中样式，null=按 selectedLocked
   const [faceLockOverrideFront, setFaceLockOverrideFront] = useState<(boolean | null)[]>(Array(9).fill(null));
   const [faceLockOverrideBack, setFaceLockOverrideBack] = useState<(boolean | null)[]>(Array(9).fill(null));
@@ -277,8 +413,10 @@ export default function DrawExtraComponent() {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
   const activeGlowColor = useMemo(() => {
-    return (activeMultiplierIdx !== null && MULTIPLIERS[activeMultiplierIdx]) ? MULTIPLIERS[activeMultiplierIdx].glow : null;
-  }, [activeMultiplierIdx]);
+    return (activeMultiplierIdx !== null && currentMultipliers[activeMultiplierIdx])
+      ? currentMultipliers[activeMultiplierIdx].glow
+      : null;
+  }, [activeMultiplierIdx, currentMultipliers]);
   const cardGlowHigh = useMemo(() => activeGlowColor ? hexToRgba(activeGlowColor, 0.45) : 'rgba(71,74,77,0.22)', [activeGlowColor]);
   const cardGlowLow = useMemo(() => activeGlowColor ? hexToRgba(activeGlowColor, 0.16) : 'rgba(71,74,77,0.08)', [activeGlowColor]);
   const cardGlowStrong = useMemo(() => activeGlowColor ? hexToRgba(activeGlowColor, 0.9) : 'rgba(71,74,77,0.5)', [activeGlowColor]);
@@ -331,11 +469,11 @@ export default function DrawExtraComponent() {
       setHoverCycleStep(0);
       window.setTimeout(() => setHoverCycleNoTransition(false), 0);
     }
-  }, [hoverIdx]);
+  }, [hoverIdx, currentMultipliers]);
 
   // 当滚动到最后一行（重复倍数）后，等待过渡完成，瞬间无过渡回到第 1 行（生存率），形成无缝循环
   useEffect(() => {
-    const rowsLen = MULTIPLIERS.length * 3 + 1;
+    const rowsLen = currentMultipliers.length * 3 + 1;
     if (hoverIdx !== null && hoverCycleStep >= rowsLen) {
       const t = window.setTimeout(() => {
         setHoverCycleNoTransition(true);
@@ -344,7 +482,7 @@ export default function DrawExtraComponent() {
       }, 400); // 对应过渡时间 400ms
       return () => window.clearTimeout(t);
     }
-  }, [hoverCycleStep, hoverIdx]);
+  }, [hoverCycleStep, hoverIdx, currentMultipliers]);
 
   // 独立观察两个面板高度，随时记录
   useEffect(() => {
@@ -443,7 +581,7 @@ export default function DrawExtraComponent() {
         if (cardWonRound[i] >= 0) {
           const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
           if (currentRound !== null) {
-            const prod = getRoundProduct(currentRound as number) as any;
+                    const prod = getDisplayProduct(currentRound, i) as any;
             items.push({ name: String(prod?.name ?? ''), image: String(prod?.image ?? ''), price: Number(prod?.price ?? 0) });
           }
         }
@@ -541,7 +679,7 @@ export default function DrawExtraComponent() {
         // 确定当前显示的是正面还是背面
         const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
         if (currentRound !== null) {
-          const product = getRoundProduct(currentRound);
+          const product = getDisplayProduct(currentRound, i);
           total += product.price;
         }
       }
@@ -567,32 +705,256 @@ export default function DrawExtraComponent() {
 
   // 点击锁定当前显示为商品的一张卡：再翻一次（来回翻），并移除高亮与 hover 行为
   const handleLockWinningCard = (idx: number) => {
-    if (!canSelect || selectedLocked[idx]) return;
+    if (!canSelect || selectedLocked[idx] || collectMutation.isPending) return;
     const visibleRound = cardBack[idx] ? backRound[idx] : frontRound[idx];
     if (visibleRound === null) return;
-    // 🎵 播放选择商品音效
-    playClaimSound();
-    const newLocked = selectedLocked.slice();
-    newLocked[idx] = true;
-    // 两面都记录为当前显示轮次，以便再翻一次也显示同一商品
-    const newFrontRound = frontRound.slice();
-    const newBackRound = backRound.slice();
-    newFrontRound[idx] = visibleRound;
-    newBackRound[idx] = visibleRound;
-    // 选中后保留该卡对应倍数的基础背光颜色（仅取消 hover 增强）
+    if (!drawSessionId) {
+      showGlobalToast({
+        title: '无法领取',
+        description: '当前抽奖会话不存在，请稍后重试',
+        variant: 'error',
+      });
+      return;
+    }
+    const cardData = serverCardMap[idx];
+    if (!cardData || cardData.id === undefined || cardData.id === null) {
+      showGlobalToast({
+        title: '无法领取',
+        description: '未找到卡片信息，请稍后重试',
+        variant: 'error',
+      });
+      return;
+    }
     const visibleGlowIdx = cardBack[idx] ? faceGlowIdxBack[idx] : faceGlowIdxFront[idx];
-    const newFaceGlowFront = faceGlowIdxFront.slice(); newFaceGlowFront[idx] = visibleGlowIdx ?? null;
-    const newFaceGlowBack = faceGlowIdxBack.slice(); newFaceGlowBack[idx] = visibleGlowIdx ?? null;
-    const newBack = cardBack.slice(); newBack[idx] = !newBack[idx];
-    setSelectedLocked(newLocked);
-    setFrontRound(newFrontRound);
-    setBackRound(newBackRound);
-    setFaceGlowIdxFront(newFaceGlowFront);
-    setFaceGlowIdxBack(newFaceGlowBack);
-    setCardBack(newBack);
+    const overlayItems: CollectOverlayItem[] = [
+      {
+        name: String(cardData.name ?? ''),
+        image: String(cardData.image ?? ''),
+        price: Number(cardData.price ?? 0),
+      },
+    ];
+    const finalize = () => {
+      lockCardAtIndex(idx, visibleRound, visibleGlowIdx ?? null);
+      playClaimSound();
+    };
+    collectMutation.mutate(
+      { id: drawSessionId, cardId: cardData.id, overlayItems, mode: 'single' },
+      {
+        onSuccess: () => {
+          finalize();
+          setCardServerStatus((prev) => {
+            const next = prev.slice();
+            next[idx] = 2;
+            return next;
+          });
+        },
+      },
+    );
   };
 
-  const startGame = () => {
+  const difficultyTypeMap: Record<Difficulty, string> = {
+    easy: '1',
+    medium: '2',
+    hard: '3',
+  };
+  const getDisplayProduct = (roundIdx: number | null, cardIdx: number): DisplayProduct => {
+    if (cardServerStatus[cardIdx] === 3) {
+      return { name: '占位', image: '', price: 0 };
+    }
+    if (serverCardMap[cardIdx]) {
+      return serverCardMap[cardIdx];
+    }
+    const fallbackRound = Number.isFinite(roundIdx) ? Number(roundIdx) : 0;
+    return getRoundProduct(fallbackRound);
+  };
+
+  const resetGameState = React.useCallback(() => {
+    setShowActions(false);
+    setHasFlipped(false);
+    setIsFlipping(false);
+    setRoundIndex(0);
+    setActiveMultiplierIdx(null);
+    setCardBack(Array(9).fill(false));
+    setCardWonRound(Array(9).fill(-1));
+    setFrontRound(Array(9).fill(null));
+    setBackRound(Array(9).fill(null));
+    setFaceGlowIdxFront(Array(9).fill(null));
+    setFaceGlowIdxBack(Array(9).fill(null));
+    setSelectedLocked(Array(9).fill(false));
+    setFaceLockOverrideFront(Array(9).fill(null));
+    setFaceLockOverrideBack(Array(9).fill(null));
+    setCanSelect(false);
+    setOverlayArm(false);
+    setBackCardHovered(Array(9).fill(false));
+    setServerCardMap({});
+    setActiveBet(null);
+    setDrawSessionId(null);
+    setCardServerStatus(Array(9).fill(0));
+  }, []);
+
+  const drawStartMutation = useMutation({
+    mutationFn: async (payload: { type: string; money: string }) => {
+      return api.drawGo(payload);
+    },
+    onSuccess: (response: ApiResponse<DrawGoResponse>) => {
+      if (response?.code === 100000 && Array.isArray(response.data?.card)) {
+        if (response.data?.id !== undefined && response.data.id !== null) {
+          setDrawSessionId(String(response.data.id));
+        }
+        const map: Record<number, DisplayProduct> = {};
+        const statusArr = Array(9).fill(0);
+        response.data.card.forEach((card: CardServerPayload) => {
+          const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
+          map[idx] = {
+            id: card.id,
+            name: card.name || '--',
+            image: card.cover || '',
+            price: Number(card.price) || 0,
+          };
+          statusArr[idx] = Number(card.status) || 1;
+        });
+        setServerCardMap(map);
+        setCardServerStatus(statusArr);
+        runGameSequence();
+      } else {
+        throw new Error(response?.message || '抽奖失败');
+      }
+    },
+  });
+  const drawRoundMutation = useMutation({
+    mutationFn: async (variables: { payload: { type: string; money: string }; multiplierIdx: number }) => {
+      const response = await api.drawGo(variables.payload);
+      if (!response || response.code !== 100000) {
+        throw new Error(response?.message || '抽奖失败');
+      }
+      return { response, multiplierIdx: variables.multiplierIdx };
+    },
+    onSuccess: ({ response, multiplierIdx }: { response: ApiResponse<DrawGoResponse>; multiplierIdx: number }) => {
+      if (response.data?.id !== undefined && response.data.id !== null) {
+        setDrawSessionId(String(response.data.id));
+      }
+      if (Array.isArray(response.data?.card)) {
+        const map: Record<number, DisplayProduct> = {};
+        const statusArr = Array.from(cardServerStatus);
+        response.data.card.forEach((card: CardServerPayload) => {
+          const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
+          map[idx] = {
+            id: card.id,
+            name: card.name || '--',
+            image: card.cover || '',
+            price: Number(card.price) || 0,
+          };
+          statusArr[idx] = Number(card.status) || 1;
+        });
+        setServerCardMap(map);
+        setCardServerStatus(statusArr);
+      }
+      setActiveMultiplierIdx(multiplierIdx);
+      flipRound(multiplierIdx, response.data?.card);
+    },
+  });
+  useEffect(() => {
+    if (!drawInfoResponse || drawInfoResponse.code !== 100000) return;
+    const infoData: any = drawInfoResponse.data;
+    const isEmptyObject = infoData && typeof infoData === 'object' && !Array.isArray(infoData) && Object.keys(infoData).length === 0;
+    const isEmptyArray = Array.isArray(infoData) && infoData.length === 0;
+    if (!infoData || isEmptyObject || isEmptyArray) {
+      resetGameState();
+      return;
+    }
+    setDrawSessionId(infoData.id != null ? String(infoData.id) : null);
+    if (infoData.type != null && infoData.money != null) {
+      setActiveBet({
+        type: String(infoData.type),
+        money: String(infoData.money),
+      });
+    }
+
+    const cardSource: CardServerPayload[] = infoData.draw_card_log || infoData.card || [];
+    const map: Record<number, DisplayProduct> = {};
+    const statusArr = Array(9).fill(0);
+    cardSource.forEach((card: CardServerPayload) => {
+      const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
+      map[idx] = {
+        id: card.id,
+        name: card.name || '--',
+        image: card.cover || '',
+        price: Number(card.price) || 0,
+      };
+      statusArr[idx] = Number(card.status) || 1;
+    });
+    setServerCardMap(map);
+    setCardServerStatus(statusArr);
+
+    // 若与当前会话一致且已在进行中，避免重置所有卡片的翻面状态，只同步状态/卡片内容
+    const isSameSession = infoData.id != null && drawSessionId && String(infoData.id) === drawSessionId;
+    if (isSameSession && hasFlipped) {
+      return;
+    }
+
+    const resumedRound = Math.max(0, Math.min((Number(infoData.round) || 1) - 1, currentRounds.length - 1));
+    setRoundIndex(resumedRound);
+    setActiveMultiplierIdx(resumedRound);
+    setShowActions(true);
+    setHasFlipped(true);
+    const canSelectFromInfo = resumedRound > 0;
+    setCanSelect(canSelectFromInfo);
+    setOverlayArm(canSelectFromInfo);
+
+    const nextCardBack = Array(9).fill(resumedRound % 2 === 1);
+    const nextFrontRound = Array(9).fill(null);
+    const nextBackRound = Array(9).fill(null);
+    const nextFaceGlowFront = Array(9).fill(null);
+    const nextFaceGlowBack = Array(9).fill(null);
+    const nextCardWonRound = Array(9).fill(-1);
+    const nextSelectedLocked = Array(9).fill(false);
+
+    cardSource.forEach((card: CardServerPayload) => {
+      const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
+      const statusVal = Number(card.status);
+      const survived = statusVal === 1;
+      const claimed = statusVal === 2;
+      const initial = statusVal === 3;
+      const roundValue = Math.max(0, (Number(card.round) || 1) - 1);
+      if (initial) {
+        nextCardWonRound[idx] = -1;
+        nextFrontRound[idx] = null;
+        nextBackRound[idx] = null;
+        nextFaceGlowFront[idx] = null;
+        nextFaceGlowBack[idx] = null;
+        nextSelectedLocked[idx] = false;
+        return;
+      }
+      if (survived || claimed) {
+        nextCardWonRound[idx] = roundValue;
+        if (nextCardBack[idx]) {
+          nextBackRound[idx] = roundValue;
+          nextFaceGlowBack[idx] = roundValue;
+        } else {
+          nextFrontRound[idx] = roundValue;
+          nextFaceGlowFront[idx] = roundValue;
+        }
+        if (claimed) {
+          nextSelectedLocked[idx] = true;
+        }
+      } else {
+        nextCardWonRound[idx] = -1;
+      }
+    });
+
+    setCardBack(nextCardBack);
+    setFrontRound(nextFrontRound);
+    setBackRound(nextBackRound);
+    setFaceGlowIdxFront(nextFaceGlowFront);
+    setFaceGlowIdxBack(nextFaceGlowBack);
+    setCardWonRound(nextCardWonRound);
+    setSelectedLocked(nextSelectedLocked);
+    setFaceLockOverrideFront(Array(9).fill(null));
+    setFaceLockOverrideBack(Array(9).fill(null));
+    setBackCardHovered(Array(9).fill(false));
+  }, [drawInfoResponse, currentRounds.length, resetGameState]);
+
+  const runGameSequence = () => {
     if (isFlipping) return;
     // 若还有未清理的展示层关闭定时器，先清掉，避免面板被回切
     if (collectOverlayTimerRef.current) {
@@ -678,28 +1040,66 @@ export default function DrawExtraComponent() {
     }, 650);
   };
 
-  const flipRound = (glowIdxForRound: number) => {
+  const flipRound = (glowIdxForRound: number, serverCards?: CardServerPayload[]) => {
     if (isFlipping) return;
     setIsFlipping(true);
-    const nextRound = Math.min(roundIndex + 1, DRAW_ROUNDS.length - 1);
-    const p = DRAW_ROUNDS[nextRound].survival;
+    const nextRound = Math.min(roundIndex + 1, currentRounds.length - 1);
+    const p = currentRounds[nextRound]?.survival ?? 0;
+    const serverStatusMap = new Map<number, { win: boolean; round: number; status: number }>();
+    if (Array.isArray(serverCards)) {
+      serverCards.forEach((card) => {
+        const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
+        const roundValue = Math.max(0, (Number(card.round) || nextRound + 1) - 1);
+        serverStatusMap.set(idx, {
+          win: Number(card.status) === 1,
+          round: roundValue,
+          status: Number(card.status) || 0,
+        });
+      });
+    }
     const newBack = cardBack.slice();
     const newWon = cardWonRound.slice();
     const newFrontRound = frontRound.slice();
     const newBackRound = backRound.slice();
     const newFaceGlowFront = faceGlowIdxFront.slice();
     const newFaceGlowBack = faceGlowIdxBack.slice();
+    const newServerStatus = Array.from(cardServerStatus);
+    const newSelectedLocked = selectedLocked.slice();
     for (let i = 0; i < 9; i++) {
       // 仅上一轮中奖的卡片继续抽
     const eligible = newWon[i] === roundIndex && !selectedLocked[i];
       if (!eligible) continue;
-      const win = Math.random() < p;
+      const serverState = serverStatusMap.get(i);
+      const resolvedRound = serverState ? serverState.round : nextRound;
+      const win = serverState ? serverState.win : Math.random() < p;
+      if (serverState) {
+        newServerStatus[i] = serverState.status;
+        if (serverState.status === 2) {
+          newSelectedLocked[i] = true;
+        }
+        if (serverState.status === 3) {
+          newWon[i] = -1;
+          newFrontRound[i] = null;
+          newBackRound[i] = null;
+          newFaceGlowFront[i] = null;
+          newFaceGlowBack[i] = null;
+          continue;
+        }
+      }
+      if (serverState && serverState.status === 2) {
+        newWon[i] = resolvedRound;
+        const targetIsBack = !newBack[i];
+        if (targetIsBack) { newBackRound[i] = resolvedRound; newFaceGlowBack[i] = glowIdxForRound; }
+        else { newFrontRound[i] = resolvedRound; newFaceGlowFront[i] = glowIdxForRound; }
+        newSelectedLocked[i] = true;
+        continue;
+      }
       if (win) {
-        newWon[i] = nextRound;
+        newWon[i] = resolvedRound;
         // 下一轮奖品放在将要显示的那一面
         const targetIsBack = !newBack[i];
-        if (targetIsBack) { newBackRound[i] = nextRound; newFaceGlowBack[i] = glowIdxForRound; }
-        else { newFrontRound[i] = nextRound; newFaceGlowFront[i] = glowIdxForRound; }
+        if (targetIsBack) { newBackRound[i] = resolvedRound; newFaceGlowBack[i] = glowIdxForRound; }
+        else { newFrontRound[i] = resolvedRound; newFaceGlowFront[i] = glowIdxForRound; }
         newBack[i] = !newBack[i]; // 翻到另一面显示奖品
       } else {
         newWon[i] = -1; // 淘汰
@@ -761,6 +1161,8 @@ export default function DrawExtraComponent() {
       setIsFlipping(false);
       // 首轮之后允许选择
       setCanSelect(true);
+      setCardServerStatus(newServerStatus);
+      setSelectedLocked(newSelectedLocked);
     }, 650);
   };
 
@@ -783,32 +1185,32 @@ export default function DrawExtraComponent() {
         .flip-inner.flipped { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
         .flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform, opacity; }
         .flip-back { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
       `}</style>
       {/* 顶部倍数栏 */}
       <div className="flex relative w-full h-14 rounded-t-lg overflow-clip" style={{ backgroundColor: '#161A1D' }}>
         <div ref={topBarRef} className="flex absolute inset-0 overflow-x-auto overflow-y-hidden no-scrollbar">
           <div className="flex h-full">
-            {MULTIPLIERS.map((m, i) => (
-              <div
-                key={m.label}
-                ref={assignMultiplierRef(i)}
-                className="flex relative h-14 w-16 min-w-16 cursor-pointer select-none"
-                onMouseEnter={() => setHoverIdx(i)}
-                onMouseLeave={() => setHoverIdx((prev) => (prev === i ? null : prev))}
-              >
+            {currentMultipliers.map((m, i) => {
+              const isCurrentRound = activeMultiplierIdx === i;
+              return (
                 <div
-                  className="flex absolute -bottom-7 left-1/2 -translate-x-1/2 rounded-t-lg"
-                  style={{
-                    width: '66%',
-                    height: '66%',
-                    backgroundColor: m.glow,
-                    opacity: activeMultiplierIdx === i ? 0.6 : 0,
-                    filter: 'blur(6px)',
-                    transition: 'opacity 500ms ease',
-                  }}
-                />
+                  key={m.label}
+                  ref={assignMultiplierRef(i)}
+                  className="flex relative h-14 w-16 min-w-16 cursor-pointer select-none"
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseLeave={() => setHoverIdx((prev) => (prev === i ? null : prev))}
+                >
+                  <div
+                    className="flex absolute -bottom-7 left-1/2 -translate-x-1/2 rounded-t-lg"
+                    style={{
+                      width: '66%',
+                      height: '66%',
+                      backgroundColor: isCurrentRound ? m.glow : 'transparent',
+                      opacity: isCurrentRound ? 0.8 : 0,
+                      filter: 'blur(6px)',
+                      transition: 'opacity 500ms ease',
+                    }}
+                  />
                 <div className="flex absolute inset-0 items-center justify-center">
                   {hoverIdx === i ? (
                     <div
@@ -830,17 +1232,17 @@ export default function DrawExtraComponent() {
                           const rows: { type: 'label' | 'survival' | 'price'; roundIdx: number }[] = [];
                           // 起始：当前倍数
                           rows.push({ type: 'label', roundIdx: i });
-                          for (let k = 0; k < MULTIPLIERS.length; k++) {
-                            const r = (i + k) % MULTIPLIERS.length;
+                          for (let k = 0; k < currentMultipliers.length; k++) {
+                            const r = (i + k) % currentMultipliers.length;
                             rows.push({ type: 'survival', roundIdx: r });
                             rows.push({ type: 'price', roundIdx: r });
                             // 下一轮倍数
-                            rows.push({ type: 'label', roundIdx: (r + 1) % MULTIPLIERS.length });
+                            rows.push({ type: 'label', roundIdx: (r + 1) % currentMultipliers.length });
                           }
                           return rows.map((row, idx2) => {
                             if (row.type === 'label') {
-                              const lbl = MULTIPLIERS[row.roundIdx].label;
-                              const color = lbl === 'x150' ? '#D69E2E' : '#7A8084';
+                              const lbl = currentMultipliers[row.roundIdx]?.label ?? '';
+                              const color = row.roundIdx === currentMultipliers.length - 1 ? '#D69E2E' : '#7A8084';
                               return (
                                 <div key={idx2} className="flex items-center justify-center" style={{ height: `18px` }}>
                                   <p className="text-sm font-bold" style={{ color }}>{lbl}</p>
@@ -850,14 +1252,14 @@ export default function DrawExtraComponent() {
                             if (row.type === 'survival') {
                               return (
                                 <div key={idx2} className="flex items-center justify-center" style={{ height: `18px` }}>
-                                  <p className="text-sm font-bold" style={{ color: '#7A8084' }}>{(DRAW_ROUNDS[row.roundIdx].survival * 100).toFixed(1)}%</p>
+                                  <p className="text-sm font-bold" style={{ color: '#7A8084' }}>{((currentRounds[row.roundIdx]?.survival ?? 0) * 100).toFixed(1)}%</p>
                                 </div>
                               );
                             }
                             // price
                             return (
                               <div key={idx2} className="flex items-center justify-center" style={{ height: `18px` }}>
-                                <p className="text-sm font-bold" style={{ color: '#7A8084' }}>${formatCurrency(ROUND_PRICES[row.roundIdx])}</p>
+                                <p className="text-sm font-bold" style={{ color: '#7A8084' }}>${formatCurrency(currentPrices[row.roundIdx] ?? 0)}</p>
                               </div>
                             );
                           });
@@ -865,11 +1267,12 @@ export default function DrawExtraComponent() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm font-bold" style={{ color: (m.label === 'x150' ? '#D69E2E' : '#7A8084') }}>{m.label}</p>
+                    <p className="text-sm font-bold" style={{ color: i === currentMultipliers.length - 1 ? '#D69E2E' : '#7A8084' }}>{m.label}</p>
                   )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>
@@ -990,9 +1393,9 @@ export default function DrawExtraComponent() {
                                 </div>
                               );
                             }
-                            const prod = getRoundProduct(fr);
+                            const prod = getDisplayProduct(fr, idx);
                             const glowIdx = faceGlowIdxFront[idx];
-                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
+                            const glowHex = (glowIdx !== null && currentMultipliers[glowIdx]) ? currentMultipliers[glowIdx].glow : '#829DBB';
                             const isWon = cardWonRound[idx] >= 0;
                             const isLocked = (faceLockOverrideFront[idx] ?? selectedLocked[idx]) as boolean;
                             const isHovered = !isLocked && isWon && backCardHovered[idx];
@@ -1007,7 +1410,7 @@ export default function DrawExtraComponent() {
                               >
                                 {isLocked && isWon && fr !== null ? (
                                   <div className="flex absolute left-0 top-0 px-2 py-1" style={{ zIndex: 2 }}>
-                                    <p className="text-sm text-white font-bold">{MULTIPLIERS[fr]?.label}</p>
+                                    <p className="text-sm text-white font-bold">{currentMultipliers[fr]?.label}</p>
                                   </div>
                                 ) : null}
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
@@ -1058,9 +1461,9 @@ export default function DrawExtraComponent() {
                                 </div>
                               );
                             }
-                            const prod = getRoundProduct(br);
+                            const prod = getDisplayProduct(br, idx);
                             const glowIdx = faceGlowIdxBack[idx];
-                            const glowHex = (glowIdx !== null && MULTIPLIERS[glowIdx]) ? MULTIPLIERS[glowIdx].glow : '#829DBB';
+                            const glowHex = (glowIdx !== null && currentMultipliers[glowIdx]) ? currentMultipliers[glowIdx].glow : '#829DBB';
                             const isWon = cardWonRound[idx] >= 0;
                             const isLocked = (faceLockOverrideBack[idx] ?? selectedLocked[idx]) as boolean;
                             const isHovered = !isLocked && isWon && backCardHovered[idx];
@@ -1075,7 +1478,7 @@ export default function DrawExtraComponent() {
                               >
                                 {isLocked && isWon && br !== null ? (
                                   <div className="flex absolute left-0 top-0 px-2 py-1" style={{ zIndex: 2 }}>
-                                    <p className="text-sm text-white font-bold">{MULTIPLIERS[br]?.label}</p>
+                                    <p className="text-sm text-white font-bold">{currentMultipliers[br]?.label}</p>
                                   </div>
                                 ) : null}
                                 <div className="relative flex-1 flex w-full justify-center mt-1" style={{ width: '124px', height: '96px' }}>
@@ -1199,10 +1602,40 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#48BB78', color: (isFlipping || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (isFlipping || !isAuthed) ? 'default' : 'pointer', opacity: isFlipping ? 0.9 : 1 }}
-                onClick={startGame}
-                disabled={isFlipping || !isAuthed}
-              >开始游戏 ${formatCurrency(parsedAmount)}</button>
+                style={{ backgroundColor: '#48BB78', color: (!isAuthed || drawStartMutation.isPending) ? '#7A8084' : '#FFFFFF', cursor: (!isAuthed || drawStartMutation.isPending) ? 'default' : 'pointer', opacity: drawStartMutation.isPending ? 0.9 : 1 }}
+                onClick={() => {
+                  if (!isAuthed || drawStartMutation.isPending) return;
+                  const payload = {
+                    type: difficultyTypeMap[difficulty],
+                    money: String(parsedAmount),
+                  };
+                  setActiveBet(payload);
+                  setServerCardMap({});
+                  setCardServerStatus(Array(9).fill(0));
+                  setCardBack(Array(9).fill(false));
+                  setFrontRound(Array(9).fill(null));
+                  setBackRound(Array(9).fill(null));
+                  setFaceGlowIdxFront(Array(9).fill(null));
+                  setFaceGlowIdxBack(Array(9).fill(null));
+                  setCardWonRound(Array(9).fill(-1));
+                  setSelectedLocked(Array(9).fill(false));
+                  setFaceLockOverrideFront(Array(9).fill(null));
+                  setFaceLockOverrideBack(Array(9).fill(null));
+                  setBackCardHovered(Array(9).fill(false));
+                  setDrawSessionId(null);
+                  drawStartMutation.mutate(payload);
+                }}
+                disabled={!isAuthed || drawStartMutation.isPending}
+              >
+                {drawStartMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <LoadingSpinnerIcon size={22} />
+                    启动中…
+                  </span>
+                ) : (
+                  `开始游戏 $${formatCurrency(parsedAmount)}`
+                )}
+              </button>
             </div>
           </div>
 
@@ -1212,24 +1645,31 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: isFlipping ? 'default' : 'pointer', opacity: isFlipping ? 0.9 : 1 }}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (isFlipping || drawRoundMutation.isPending) ? 'default' : 'pointer', opacity: (isFlipping || drawRoundMutation.isPending) ? 0.9 : 1 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3B82F6'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#60A5FA'; }}
                 onClick={() => {
-                  // 依次切换选中倍数并翻牌
-                  if (isFlipping) return;
-                  const newIdx = (activeMultiplierIdx === null) ? 0 : ((activeMultiplierIdx + 1) % MULTIPLIERS.length);
-                  setActiveMultiplierIdx(newIdx);
-                  flipRound(newIdx);
+                  if (isFlipping || drawRoundMutation.isPending) return;
+                  const infoData: any = drawInfoResponse?.data;
+                  const infoPayload = (infoData && infoData.type != null && infoData.money != null)
+                    ? { type: String(infoData.type), money: String(infoData.money) }
+                    : null;
+                  const payload = (activeBet && activeBet.type && activeBet.money)
+                    ? activeBet
+                    : (infoPayload ?? { type: difficultyTypeMap[difficulty], money: String(parsedAmount) });
+                  if (!payload.type || !payload.money) return;
+                  if (!activeBet || activeBet.type !== payload.type || activeBet.money !== payload.money) {
+                    setActiveBet(payload);
+                  }
+                  const length = currentMultipliers.length || 1;
+                  const newIdx = (activeMultiplierIdx === null) ? 0 : ((activeMultiplierIdx + 1) % length);
+                  drawRoundMutation.mutate({ payload, multiplierIdx: newIdx });
                 }}
-                disabled={isFlipping}
+                disabled={isFlipping || drawRoundMutation.isPending}
               >
-                {isFlipping ? (
+                {(isFlipping || drawRoundMutation.isPending) ? (
                   <span className="flex items-center justify-center">
-                    <svg className="spin" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
-                      <path d="M21 12a9 9 0 0 0-9-9" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
-                    </svg>
+                    <LoadingSpinnerIcon size={22} />
                   </span>
                 ) : (
                   '抽奖'
@@ -1238,35 +1678,51 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: (collectMutation.isPending || !canSelect) ? 'default' : 'pointer', opacity: (collectMutation.isPending || !canSelect) ? 0.9 : 1 }}
-                disabled={collectMutation.isPending || !canSelect}
+                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: (collectMutation.isPending || !canSelect || !drawSessionId) ? 'default' : 'pointer', opacity: (collectMutation.isPending || !canSelect || !drawSessionId) ? 0.9 : 1 }}
+                disabled={collectMutation.isPending || !canSelect || !drawSessionId}
                 onClick={() => {
-                  if (collectMutation.isPending || !canSelect) return;
-                  const items: Array<{ productId: string; name: string; image: string; price: number; qualityId?: string; quantity?: number }> = [];
-                  // 全部设为选中样式（无需再翻）
+                  if (collectMutation.isPending || !canSelect || !drawSessionId) return;
                   const newLockedAll = selectedLocked.map((v, i) => (cardWonRound[i] >= 0 ? true : v));
-                  setSelectedLocked(newLockedAll);
+                  const overlayItems: CollectOverlayItem[] = [];
                   for (let i = 0; i < 9; i++) {
                     if (cardWonRound[i] >= 0) {
                       const currentRound = cardBack[i] ? backRound[i] : frontRound[i];
                       if (currentRound !== null && Number.isFinite(currentRound as any)) {
-                        const prod = getRoundProduct(currentRound as number) as any;
-                        if (prod && (prod.id || prod.name)) {
-                          items.push({
-                            productId: String(prod.id ?? `${prod.name}-${currentRound}`),
-                            name: String(prod.name ?? ''),
-                            image: String(prod.image ?? ''),
-                            price: Number(prod.price ?? 0),
-                            qualityId: prod.qualityId,
-                            quantity: 1,
-                          });
-                        }
+                        const prod = getDisplayProduct(currentRound, i);
+                        overlayItems.push({
+                          name: String(prod.name ?? ''),
+                          image: String(prod.image ?? ''),
+                          price: Number(prod.price ?? 0),
+                        });
                       }
                     }
                   }
-                  if (items.length > 0) {
-                    collectMutation.mutate(items);
+                  if (!overlayItems.length) {
+                    showGlobalToast({
+                      title: '没有可领取的奖品',
+                      description: '请先完成抽奖或选择卡片',
+                      variant: 'error',
+                    });
+                    return;
                   }
+                  setOverlayArm(false);
+                  collectMutation.mutate(
+                    { id: drawSessionId, overlayItems, mode: 'all' },
+                    {
+                      onSuccess: () => {
+                        setSelectedLocked(newLockedAll);
+                        setCardServerStatus((prev) => {
+                          const next = prev.slice();
+                          for (let i = 0; i < 9; i++) {
+                            if (cardWonRound[i] >= 0) {
+                              next[i] = 2;
+                            }
+                          }
+                          return next;
+                        });
+                      },
+                    },
+                  );
                 }}
               >
                 {collectMutation.isPending ? '领取中…' : `全部领取 $${formatCurrency(calculateTotalPrize())}`}
@@ -1308,18 +1764,16 @@ export default function DrawExtraComponent() {
             </div>
             {/* 数据行 */}
             <div className="flex flex-col">
-              {[
-                { m: 'x1', s: '100.0%', p: '$0.55', y: false },
-                { m: 'x1.3', s: '73.1%', p: '$0.72', y: false },
-                { m: 'x1.7', s: '74.2%', p: '$0.94', y: false },
-                { m: 'x2.5', s: '66.0%', p: '$1.38', y: false },
-                { m: 'x4', s: '60.6%', p: '$2.22', y: false },
-                { m: 'x6.5', s: '59.7%', p: '$3.61', y: false },
-                { m: 'x10', s: '63.0%', p: '$5.55', y: false },
-                { m: 'x20', s: '48.5%', p: '$11.11', y: false },
-                { m: 'x50', s: '38.8%', p: '$27.77', y: false },
-                { m: 'x150', s: '32.3%', p: '$83.33', y: true },
-              ].map((row, idx, arr) => (
+              {currentMultipliers.map((multiplier, idx, arr) => {
+                const survival = (currentRounds[idx]?.survival ?? 0) * 100;
+                const price = currentPrices[idx] ?? 0;
+                return {
+                  m: multiplier.label,
+                  s: `${survival.toFixed(1)}%`,
+                  p: `$${formatCurrency(price)}`,
+                  y: idx === arr.length - 1,
+                };
+              }).map((row, idx, arr) => (
                 <div
                   key={row.m}
                   className="grid grid-cols-3 gap-0 text-sm"
@@ -1416,7 +1870,7 @@ export default function DrawExtraComponent() {
                 <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>游戏公平性</h2>
               </div>
               <div className="space-y-4 p-6">
-                <div className="p-4 rounded-lg shadow-lg relative" style={{ backgroundColor: '#22272B' }}>
+                <div className="p-4 rounded-lg shadow-lg relative space-y-4" style={{ backgroundColor: '#22272B' }}>
                  
                   <div className="w-full grid grid-cols-4 gap-4 overflow-x-scroll pb-4 custom-scroll">
                     <p className="text-sm col-span-1 font-medium" style={{ color: '#7A8084' }}>服务器种子哈希</p>

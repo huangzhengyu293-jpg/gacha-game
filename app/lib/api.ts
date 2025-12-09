@@ -352,6 +352,13 @@ export const api = {
     });
     return result;
   },
+  // ✅ 抽奖配置
+  getDrawConfig: async () => {
+    const result = await request<ApiResponse>('/api/draw/config', {
+      method: 'GET',
+    });
+    return result;
+  },
   goLucky: async (params: {
     id: string | number;
     type?: string | number;
@@ -363,6 +370,69 @@ export const api = {
     formData.append('percent', String(params.percent));
     
     const result = await request<ApiResponse>('/api/lucky/go', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  drawGo: async (payload: { type: string | number; money: string | number }) => {
+    const formData = new URLSearchParams();
+    formData.append('type', String(payload.type));
+    formData.append('money', String(payload.money));
+
+    const result = await request<ApiResponse>('/api/draw/go', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  drawInfo: async () => {
+    const result = await request<ApiResponse>('/api/draw/info', {
+      method: 'GET',
+    });
+    return result;
+  },
+  drawReceive: async (payload: { id: string | number; card_id?: string | number }) => {
+    const formData = new URLSearchParams();
+    formData.append('id', String(payload.id));
+    if (payload.card_id !== undefined && payload.card_id !== null) {
+      formData.append('card_id', String(payload.card_id));
+    }
+
+    const result = await request<ApiResponse>('/api/draw/receive', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  forgotPassword: async (payload: { email: string; code: string; password: string }) => {
+    const formData = new URLSearchParams();
+    formData.append('email', payload.email);
+    formData.append('code', payload.code);
+    formData.append('password', payload.password);
+
+    const result = await request<ApiResponse>('/api/auth/forgot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  activityCdk2: async (payload: { card: string }) => {
+    const formData = new URLSearchParams();
+    formData.append('card', payload.card);
+    const result = await request<ApiResponse>('/api/activity/cdk2', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -634,8 +704,6 @@ export const api = {
     });
     return result;
   },
-  collectLotteryItems: (_items: any) => Promise.resolve({ ok: true, inserted: 0, updated: 0 } as any),
-  
   // ✅ 获取用户箱子记录
   getBoxUserRecord: async () => {
     const result = await request<ApiResponse>('/api/box/userrecord', {

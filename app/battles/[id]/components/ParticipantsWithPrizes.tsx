@@ -2,8 +2,9 @@
 
 import type { BattleData, Participant } from "../types";
 import Image from "next/image";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
+import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
 
 function clampSlotIndex(value: number, totalSlots: number) {
   if (!Number.isFinite(value)) return 0;
@@ -221,13 +222,48 @@ export default function ParticipantsWithPrizes({
     [participants, totalSlots],
   );
   const [slotParticipantsState, setSlotParticipantsState] = useState<Array<Participant | null>>(computedSlots);
+  const [pendingActionSlots, setPendingActionSlots] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (onPendingSlotAction) return;
     setSlotParticipantsState(computedSlots);
   }, [computedSlots, onPendingSlotAction]);
 
+  const markSlotPending = useCallback((slotIndex: number) => {
+    setPendingActionSlots((prev) => {
+      if (prev[slotIndex]) {
+        return prev;
+      }
+      return { ...prev, [slotIndex]: true };
+    });
+  }, []);
+
+  const clearSlotPending = useCallback((slotIndex: number) => {
+    setPendingActionSlots((prev) => {
+      if (!prev[slotIndex]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[slotIndex];
+      return next;
+    });
+  }, []);
+
   const slots: Array<Participant | null> = onPendingSlotAction ? computedSlots : slotParticipantsState;
+
+  useEffect(() => {
+    setPendingActionSlots((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      slots.forEach((participant, index) => {
+        if (participant && next[index]) {
+          delete next[index];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [slots]);
 
   // 按teamId分组玩家 + 计算队伍结构
   const teams = useMemo(() => {
@@ -312,7 +348,17 @@ export default function ParticipantsWithPrizes({
 
   const handlePendingSlotAction = (slotIndex: number, teamId?: string) => {
     if (onPendingSlotAction) {
-      onPendingSlotAction(slotIndex + 1);
+      markSlotPending(slotIndex);
+      try {
+        const maybePromise = onPendingSlotAction(slotIndex + 1) as unknown;
+        if (maybePromise && typeof (maybePromise as Promise<unknown>).then === "function") {
+          (maybePromise as Promise<unknown>).catch(() => {
+            clearSlotPending(slotIndex);
+          });
+        }
+      } catch (error) {
+        clearSlotPending(slotIndex);
+      }
       return;
     }
     setSlotParticipantsState((prev) => {
@@ -321,9 +367,9 @@ export default function ParticipantsWithPrizes({
         ? [...prev, ...Array(totalSlots - prev.length).fill(null)]
         : prev;
       
-        if (ensuredArray[slotIndex]) {
-          return ensuredArray;
-        }
+      if (ensuredArray[slotIndex]) {
+        return ensuredArray;
+      }
       const updated = [...ensuredArray];
       updated[slotIndex] = {
         id: `bot-${slotIndex}-${Date.now()}`,
@@ -619,7 +665,8 @@ export default function ParticipantsWithPrizes({
                 {/* 顶部：队员信息区 */}
                 <div className="flex w-full gap-1 md:gap-4 items-center min-h-[70px] sm:min-h-[86px] py-2 sm:py-4">
                   {memberSlotsWithIndex.map(({ member, realSlotIndex }, memberIndex) => {
-                    
+                    const isSlotLoading = !!pendingActionSlots[realSlotIndex];
+
                     return (
                       <div key={`${team.id}-slot-${memberIndex}`} className="flex flex-1 justify-center items-center">
                         {member ? (
@@ -627,20 +674,31 @@ export default function ParticipantsWithPrizes({
                         ) : (
                           <button
                             className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
-                            style={{ backgroundColor: "#48BB78", cursor: "pointer", position: "relative" }}
+                            style={{
+                              backgroundColor: isSlotLoading ? "#3A7B58" : "#48BB78",
+                              cursor: isSlotLoading ? "not-allowed" : "pointer",
+                              position: "relative",
+                            }}
                             onClick={() => {
                               if (realSlotIndex >= 0) {
                                 handlePendingSlotAction(realSlotIndex, team.id);
                               }
                             }}
                             onMouseEnter={(e) => {
+                              if (isSlotLoading) return;
                               (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#38A169";
                             }}
                             onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
+                              if (isSlotLoading) return;
+                              (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSlotLoading ? "#3A7B58" : "#48BB78";
                             }}
+                            disabled={isSlotLoading}
                           >
-                            {pendingButtonLabel}
+                            {isSlotLoading ? (
+                              <LoadingSpinnerIcon size={20} />
+                            ) : (
+                              pendingButtonLabel
+                            )}
                           </button>
                         )}
                       </div>
@@ -742,6 +800,7 @@ export default function ParticipantsWithPrizes({
           const slotKey = isRealSlot ? `slot-${slotIndex}` : `placeholder-${safeActiveGroup}-${slotOffset}`;
           const isBot = isBotParticipant(participant);
           const maskId = `${slotKey}-mask`;
+          const isLoadingSlot = !!pendingActionSlots[slotIndex];
           return (
             <div key={slotKey} className="flex flex-col w-full">
               <div
@@ -819,16 +878,26 @@ export default function ParticipantsWithPrizes({
                     ) : (
                       <button
                         className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-xs sm:text-sm md:text-base text-white font-bold select-none h-8 sm:h-10 px-2 sm:px-4 md:px-6 w-full max-w-[7rem] sm:max-w-[9.5rem] whitespace-nowrap overflow-hidden text-ellipsis"
-                        style={{ backgroundColor: "#48BB78", cursor: "pointer" }}
+                        style={{
+                          backgroundColor: isLoadingSlot ? "#3A7B58" : "#48BB78",
+                          cursor: isLoadingSlot ? "not-allowed" : "pointer",
+                        }}
                         onClick={() => handlePendingSlotAction(slotIndex)}
                         onMouseEnter={(e) => {
+                          if (isLoadingSlot) return;
                           (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#38A169";
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#48BB78";
+                          if (isLoadingSlot) return;
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = isLoadingSlot ? "#3A7B58" : "#48BB78";
                         }}
+                        disabled={isLoadingSlot || !isRealSlot}
                       >
-                        {pendingButtonLabel}
+                        {isLoadingSlot ? (
+                          <LoadingSpinnerIcon size={20} />
+                        ) : (
+                          pendingButtonLabel
+                        )}
                       </button>
                     )}
                   </div>

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef, useState, memo } from "react";
 import InlineSelect from "./InlineSelect";
 import { useI18n } from "./I18nProvider";
@@ -109,8 +110,12 @@ export default function Footer() {
           <MobileAccordionMemo title={t("legal")} defaultOpen={legalDefaultOpen}>
             <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
               <a href="/fairness" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("fairness")}</a>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("privacy")}</p>
-              <p className="text-base font-semibold" style={{ color: '#7A8084' }}>{t("terms")}</p>
+              <Link href="/privacy-policy" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
+                {t("privacy")}
+              </Link>
+              <Link href="/terms" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
+                {t("terms")}
+              </Link>
             </div>
           </MobileAccordionMemo>
 
@@ -166,8 +171,12 @@ export default function Footer() {
           <div className="flex flex-col min-w-44 gap-1">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("legal")}</p>
             <a href="/fairness" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("fairness")}</a>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("privacy")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("terms")}</p>
+            <Link href="/privacy-policy" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
+              {t("privacy")}
+            </Link>
+            <Link href="/terms" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
+              {t("terms")}
+            </Link>
             <div className="flex flex-col gap-2 mt-3">
               <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
               <div className="flex gap-3">

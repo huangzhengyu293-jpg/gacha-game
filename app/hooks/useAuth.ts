@@ -127,6 +127,9 @@ export function useAuth() {
       // 忽略登出接口错误，继续清除本地数据
     } finally {
       contextLogout();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
       setIsSubmitting(false);
     }
   }, [user, contextLogout]);
@@ -181,7 +184,11 @@ export function useAuth() {
       });
 
       if (response.data.code === 100000) {
-        return { success: true, message: response.data.message || '验证邮件已发送' };
+        return {
+          success: true,
+          message: response.data.message || '验证邮件已发送',
+          codeValue: (response.data as any)?.data?.code,
+        };
       } else {
         return { success: false, message: response.data.message || '发送失败' };
       }

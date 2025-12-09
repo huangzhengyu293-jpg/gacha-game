@@ -10,30 +10,50 @@ import { LogoIcon } from '@/app/components/icons/Logo';
 import { useAuth } from '@/app/hooks/useAuth';
 import ProductCard from '@/app/packs/[id]/ProductCard';
 
+const PLACEHOLDER_IMAGE = '/theme/default/hidden-gold.png';
+
 function mapBoxDetailToPackData(rawPack: any) {
-  const allAwards = rawPack?.awards || [];
-  const items = allAwards.map((item: any) => {
-    const award = item.awards || item;
-    const lv = item.lv || award.lv;
-    const quality = getQualityFromLv(lv);
-    
-    return {
-      id: award.id || award.award_id,
-      name: award.name || award.item_name || award.award_name || '',
-      image: award.cover || award.image || '',
-      price: Number(award.bean || award.price || 0),
-      qualityId: quality.qualityId,
-      description: award.description || '',
-      dropProbability: Number(item.percent_odds || award.drop_probability || award.dropProbability || 0),
-      backlightColor: quality.color,
-    };
-  });
+  if (!rawPack) return null;
+
+  const rawList =
+    rawPack?.awards ??
+    rawPack?.items ??
+    rawPack?.award_items ??
+    rawPack?.list ??
+    [];
+  const allAwards: any[] = Array.isArray(rawList) ? rawList : [];
+
+  const items = allAwards
+    .filter((item: any) => item)
+    .map((item: any) => {
+      const award = item?.awards || item || {};
+      const lv = item?.lv ?? award?.lv ?? 0;
+      const quality = getQualityFromLv(lv);
+      const id = award?.id || award?.award_id || item?.id;
+
+      return {
+        id: id ? String(id) : '',
+        name: award?.name || award?.item_name || award?.award_name || '',
+        image: award?.cover || award?.image || PLACEHOLDER_IMAGE,
+        price: Number(award?.bean ?? award?.price ?? 0),
+        qualityId: quality.qualityId,
+        description: award?.description || '',
+        dropProbability: Number(
+          item?.percent_odds ??
+            award?.drop_probability ??
+            award?.dropProbability ??
+            0
+        ),
+        backlightColor: quality.color,
+      };
+    })
+    .filter((mapped) => mapped.id);
   
   return {
-    id: rawPack.id || rawPack.box_id,
-    title: rawPack.name || rawPack.title || '',
-    price: Number(rawPack.bean || rawPack.price || 0),
-    image: rawPack.cover || rawPack.image || '',
+    id: rawPack?.id || rawPack?.box_id,
+    title: rawPack?.name || rawPack?.title || '',
+    price: Number(rawPack?.bean ?? rawPack?.price ?? 0),
+    image: rawPack?.cover || rawPack?.image || PLACEHOLDER_IMAGE,
     items,
   };
 }
@@ -59,6 +79,7 @@ export default function RewardPackDetailPage() {
   const packDataMap = useMemo(() => {
     if (!pack) return {};
     const mapped = mapBoxDetailToPackData(pack);
+    if (!mapped) return {};
     return { [String(mapped.id)]: mapped };
   }, [pack]);
 

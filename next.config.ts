@@ -59,6 +59,11 @@ const nextConfig: NextConfig = {
         hostname: "dev-api.flamedraw.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "flamedraw.com",
+        pathname: "/**",
+      },
     ],
   },
 };

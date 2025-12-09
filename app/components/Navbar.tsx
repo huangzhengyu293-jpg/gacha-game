@@ -47,7 +47,6 @@ export default function Navbar() {
   const [showPass, setShowPass] = useState(false);
   const [regPass, setRegPass] = useState('');
   const [showStrength, setShowStrength] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
   const [isMuted, setIsMuted] = useState<boolean>(() => {
@@ -136,6 +135,11 @@ export default function Navbar() {
   const [loginRemember, setLoginRemember] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPass, setForgotNewPass] = useState('');
+  const [forgotCountdown, setForgotCountdown] = useState(0);
+  const forgotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [cdkValue, setCdkValue] = useState('');
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
@@ -331,24 +335,111 @@ export default function Navbar() {
   const usernameValid = regUsername.trim().length >= 3; // 用户名至少3个字符
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
   const loginEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail);
-  const hasLower = /[a-z]/.test(regPass);
-  const hasUpper = /[A-Z]/.test(regPass);
-  const hasDigit = /\d/.test(regPass);
-  const hasSymbol = /[^A-Za-z0-9]/.test(regPass);
-  const passLenOK = regPass.length >= 8;
-  // 至少包含大小写和数字，长度>=8 判定为有效
-  const passwordValid = passLenOK && hasLower && hasUpper && hasDigit;
+  const passLenOK = regPass.length >= 6;
+  // 只校验最小长度，>=6 即可
+  const passwordValid = passLenOK;
   const canRegister = usernameValid && emailValid && passwordValid && agreed;
   const loginCanSubmit = loginEmailValid && loginPass.length > 0;
   const forgotEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail);
+  const forgotCodeValid = forgotCode.trim().length > 0;
+  const forgotPassValid = forgotNewPass.trim().length >= 6;
+  const handleSendForgotEmail = useCallback(async () => {
+    if (!forgotEmailValid || forgotCountdown > 0) return;
+    const result = await sendVerificationEmail(forgotEmail.trim(), '0');
+    if (result.success) {
+      setVerifyEmail(forgotEmail.trim());
+      setForgotCountdown(60);
+      if (forgotTimerRef.current) clearInterval(forgotTimerRef.current);
+      forgotTimerRef.current = setInterval(() => {
+        setForgotCountdown((prev) => {
+          if (prev <= 1) {
+            if (forgotTimerRef.current) {
+              clearInterval(forgotTimerRef.current);
+              forgotTimerRef.current = null;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      if (result.codeValue) {
+        setForgotCode(String(result.codeValue));
+      }
+      toast.show({
+        variant: 'success',
+        title: '发送成功',
+        description: result.message || '验证码已发送到您的邮箱',
+      });
+    } else {
+      toast.show({
+        variant: 'error',
+        title: '发送失败',
+        description: result.message || '请稍后重试',
+      });
+    }
+  }, [forgotEmail, forgotEmailValid, forgotCountdown, sendVerificationEmail, toast]);
+
+  const handleForgotSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmailValid || !forgotCodeValid || !forgotPassValid || isSubmitting) return;
+    const res = await api.forgotPassword({
+      email: forgotEmail.trim(),
+      code: forgotCode.trim(),
+      password: forgotNewPass.trim(),
+    });
+    if (res.code === 100000) {
+      toast.show({
+        variant: 'success',
+        title: '重置成功',
+        description: '请使用新密码登录',
+      });
+      setShowForgot(false);
+      setShowLogin(true);
+      setForgotCode('');
+      setForgotNewPass('');
+      setForgotEmail('');
+    } else {
+      toast.show({
+        variant: 'error',
+        title: '重置失败',
+        description: res.message || '请稍后重试',
+      });
+    }
+  }, [forgotEmail, forgotCode, forgotNewPass, forgotEmailValid, forgotCodeValid, forgotPassValid, isSubmitting, toast, api.forgotPassword]);
+
+  const cdkPayMutation = useMutation({
+    mutationFn: async (card: string) => {
+      return api.activityCdk2({ card });
+    },
+    onSuccess: (res: any) => {
+      if (res?.code === 100000) {
+        toast.show({
+          variant: 'success',
+          title: '提交成功',
+          description: res?.message || 'CDK 已提交',
+        });
+        setShowWalletModal(false);
+        setCdkValue('');
+      } else {
+        toast.show({
+          variant: 'error',
+          title: '提交失败',
+          description: res?.message || '请稍后重试',
+        });
+      }
+    },
+    onError: (err: any) => {
+      toast.show({
+        variant: 'error',
+        title: '提交失败',
+        description: err?.message || '请稍后重试',
+      });
+    },
+  });
   const passwordScore = (() => {
-    let s = 0;
-    if (passLenOK) s++;
-    if (hasLower) s++;
-    if (hasUpper) s++;
-    if (hasDigit) s++;
-    if (hasSymbol) s++;
-    return s; // 0..5
+    // 简化：长度符合即给中档分数，用于进度条/提示文案
+    if (passLenOK) return 3;
+    return 0;
   })();
 
   // 重新发送验证邮件
@@ -411,13 +502,12 @@ export default function Navbar() {
 
   // 统一滚动锁定（任一弹框打开）
   useEffect(() => {
-    const anyOpen = showRegister || showLogin || showForgot || showTerms || showVerifyCode;
+    const anyOpen = showRegister || showLogin || showForgot || showVerifyCode;
     if (anyOpen) {
       document.body.style.overflow = 'hidden';
       const onKey = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          if (showTerms) setShowTerms(false);
-          else if (showVerifyCode) setShowVerifyCode(false);
+          if (showVerifyCode) setShowVerifyCode(false);
           else if (showForgot) setShowForgot(false);
           else if (showLogin) setShowLogin(false);
           else if (showRegister) setShowRegister(false);
@@ -429,7 +519,7 @@ export default function Navbar() {
         document.body.style.overflow = '';
       };
     }
-  }, [showRegister, showLogin, showForgot, showTerms, showVerifyCode]);
+  }, [showRegister, showLogin, showForgot, showVerifyCode]);
 
   useEffect(() => {
     if (activeIndex < 0) {
@@ -1020,21 +1110,7 @@ export default function Navbar() {
                       )}
                     </button>
                   </div>
-                  {showStrength || regPass ? (
-                    <div className="mt-2">
-                      <p className="text-sm" style={{ color: '#7A8084' }}>
-                        {passwordScore >= 5 ? '这个密码看起来很好！' : passwordScore >= 4 ? '这个密码看起来很好！' : passwordScore >= 3 ? '这个密码看起来不错。' : '选择一个强密码。'}
-                      </p>
-                      <div className="flex gap-2 mt-2">
-                        {(() => {
-                          const colors = ['#EF4444', '#F59E0B', '#FBBF24', '#34D399', '#10B981'];
-                          return Array.from({ length: 5 }).map((_, idx) => (
-                            <div key={idx} className="flex flex-1 h-2 rounded" style={{ backgroundColor: idx < passwordScore ? colors[idx] : '#33363A' }} />
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  ) : null}
+                
                 </div>
               </div>
               <div className="space-y-2 mt-3">
@@ -1042,7 +1118,7 @@ export default function Navbar() {
                   <input id="agree2" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
                   <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="agree2">
                     <span>通过访问网站，我确认我已年满 18 岁并同意</span>
-                    <span className="underline cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTerms(true); }}>服务条款</span>
+                    <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline cursor-pointer" onClick={(e) => e.stopPropagation()}>服务条款</Link>
                     <span>。</span>
                   </label>
                 </div>
@@ -1066,29 +1142,6 @@ export default function Navbar() {
                 setRegEmail('');
                 setRegPass('');
               }}>登录</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Terms Modal */}
-      {showTerms && (
-        <div className="fixed inset-0 z-50" style={{ animation: 'modalFadeIn 180ms ease', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowTerms(false)}>
-          <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-50 grid w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease', maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>服务条款</h3>
-              <button className="w-8 h-8 rounded" style={{ color: '#9CA3AF' }} onClick={() => setShowTerms(false)} aria-label="关闭">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-              </button>
-            </div>
-            <div className="text-sm" style={{ color: '#CBD5E0' }}>
-              <p>这是示例的服务条款内容。您可以在此处放置您的 HTML 文本，包括列表、段落和链接等。</p>
-              <p>访问和使用本网站即表示您同意遵守这些条款。请仔细阅读并定期查看更新。</p>
-              <ul style={{ paddingLeft: '1.25rem', listStyle: 'disc' }}>
-                <li>用户需年满 18 岁。</li>
-                <li>不得进行欺诈或违法行为。</li>
-                <li>平台保留对内容和服务的解释权。</li>
-              </ul>
             </div>
           </div>
         </div>
@@ -1153,11 +1206,37 @@ export default function Navbar() {
             <p className="text-md" style={{ color: '#9CA3AF' }}>请求密码重置说明</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
-            <div className="flex flex-col gap-2">
-              <label className="text-base font-medium" htmlFor="forgot-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
-              <input id="forgot-email" type="email" inputMode="email" autoComplete="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
-            </div>
-            <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-4" style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: forgotEmailValid ? 'pointer' : 'not-allowed', opacity: forgotEmailValid ? 1 : 0.8 }} disabled={!forgotEmailValid}>重置密码</button>
+            <form className="flex flex-col gap-4" onSubmit={handleForgotSubmit}>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" htmlFor="forgot-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                <input id="forgot-email" type="email" inputMode="email" autoComplete="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" htmlFor="forgot-code" style={{ color: '#FFFFFF' }}>验证码</label>
+                <input id="forgot-code" type="text" autoComplete="one-time-code" value={forgotCode} onChange={(e) => setForgotCode(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入验证码" />
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-2"
+                  style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (forgotEmailValid && forgotCountdown === 0) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCountdown === 0) ? 1 : 0.8 }}
+                  disabled={!forgotEmailValid || forgotCountdown > 0}
+                  onClick={handleSendForgotEmail}
+                >
+                  {forgotCountdown > 0 ? `重新发送 (${forgotCountdown}s)` : '获取验证码'}
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" htmlFor="forgot-pass" style={{ color: '#FFFFFF' }}>新密码</label>
+                <input id="forgot-pass" type="password" autoComplete="new-password" value={forgotNewPass} onChange={(e) => setForgotNewPass(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入新密码" />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-2"
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 1 : 0.8 }}
+                disabled={!forgotEmailValid || !forgotCodeValid || !forgotPassValid || isSubmitting}
+              >
+                {isSubmitting ? '重置中...' : '重置密码'}
+              </button>
+            </form>
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
             <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
@@ -1286,26 +1365,56 @@ export default function Navbar() {
                 </div>
                 {selectedChannel && (
                   <div className="mt-4 flex flex-col gap-3">
-                    {Array.isArray(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist) &&
-                      (selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).length > 0 ? (
-                      <div className="flex flex-wrap gap-3">
-                        {(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).map((m: any, i: number) => (
+                    {selectedChannel?.id === 2 ? (
+                      <div className="flex flex-col gap-3">
+                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>CDK</label>
+                        <input
+                          type="text"
+                          value={cdkValue}
+                          onChange={(e) => setCdkValue(e.target.value)}
+                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
+                          placeholder="请输入 CDK"
+                        />
+                        <div className="flex w-full justify-end">
                           <button
-                            key={`money-${i}`}
-                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 border border-gray-600 hover:bg-gray-500"
+                            type="button"
+                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
                             style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
-                            disabled={rechargeMutation.isPending}
+                            disabled={!cdkValue.trim() || cdkPayMutation.isPending}
                             onClick={() => {
-                              if (!selectedChannel?.id) return;
-                              rechargeMutation.mutate({ id: selectedChannel.id, money: m });
+                              if (!cdkValue.trim() || cdkPayMutation.isPending) return;
+                              cdkPayMutation.mutate(cdkValue.trim());
                             }}
                           >
-                            {m}
+                            {cdkPayMutation.isPending ? '提交中...' : '充值'}
                           </button>
-                        ))}
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400">暂无可选金额</div>
+                      <>
+                        {Array.isArray(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist) &&
+                          (selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).length > 0 ? (
+                          <div className="flex flex-wrap gap-3">
+                            {(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).map((m: any, i: number) => (
+                              <button
+                                key={`money-${i}`}
+                                className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
+                                style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
+                                disabled={rechargeMutation.isPending}
+                                onClick={() => {
+                                  if (!selectedChannel?.id) return;
+                                  rechargeMutation.mutate({ id: selectedChannel.id, money: m });
+                                }}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-400">暂无可选金额</div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

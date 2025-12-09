@@ -16,7 +16,7 @@ function mapBoxDetailToPackData(rawPack: any) {
     const award = item.awards || item;
     const lv = item.lv || award.lv;
     const quality = getQualityFromLv(lv);
-    
+
     return {
       id: award.id || award.award_id,
       name: award.name || award.item_name || award.award_name || '',
@@ -24,11 +24,11 @@ function mapBoxDetailToPackData(rawPack: any) {
       price: Number(award.bean || award.price || 0),
       qualityId: quality.qualityId,
       description: award.description || '',
-      dropProbability: Number(item.percent_odds || award.drop_probability || award.dropProbability || 0),
+      dropProbability: Number(item.bili||award.drop_probability || award.bili || award.dropProbability|| 0),
       backlightColor: quality.color,
     };
   });
-  
+
   return {
     id: rawPack.id || rawPack.box_id,
     title: rawPack.name || rawPack.title || '',
@@ -41,20 +41,20 @@ function mapBoxDetailToPackData(rawPack: any) {
 export default function PackDetailPage() {
   const params = useParams();
   const primaryPackId = params.id as string;
-  
+
   // 管理选中的卡包列表（最多6个，第一个是主卡包）
   const [slotPackIds, setSlotPackIds] = useState<string[]>([primaryPackId]);
-  
+
   // 缓存已获取的卡包数据
   const [packsDataCache, setPacksDataCache] = useState<Record<string, any>>({});
-  
+
   // 获取主卡包数据
   const { data: primaryBoxData, isLoading: primaryLoading, error: primaryError } = useQuery({
     queryKey: ['boxDetail', primaryPackId],
     queryFn: () => api.getBoxDetail(primaryPackId),
     staleTime: 30_000,
   });
-  
+
   // 更新主卡包到缓存
   useEffect(() => {
     if (primaryBoxData?.code === 100000 && primaryBoxData.data) {
@@ -65,11 +65,11 @@ export default function PackDetailPage() {
       }));
     }
   }, [primaryBoxData, primaryPackId]);
-  
+
   // 监听 slotPackIds 变化，为新的 ID 获取数据
   useEffect(() => {
     const uniqueIds = Array.from(new Set(slotPackIds));
-    
+
     uniqueIds.forEach(id => {
       if (!packsDataCache[id]) {
         api.getBoxDetail(id).then(response => {
@@ -80,20 +80,20 @@ export default function PackDetailPage() {
               [id]: packData
             }));
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, [slotPackIds, packsDataCache]);
-  
-  
+
+
   if (primaryLoading) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <div className="text-white text-xl">加载中...</div>
+        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>加载中...</span>
       </div>
     );
   }
-  
+
 
 
   return (
@@ -112,17 +112,17 @@ export default function PackDetailPage() {
           </div>
           <div className="flex gap-2 w-[113.5px]"></div>
         </div>
-        
-        <HorizontalSlotMachineClient 
+
+        <HorizontalSlotMachineClient
           slotPackIds={slotPackIds}
           allPacksData={packsDataCache}
         />
-        
+
         <div className="flex self-center w-full max-w-screen-xl px-4">
           <ActionBarClient allPacksData={packsDataCache} slotPackIds={slotPackIds} />
         </div>
-        
-        <PackMediaStrip 
+
+        <PackMediaStrip
           slotPackIds={slotPackIds}
           onSlotPackIdsChange={setSlotPackIds}
           allPacksData={packsDataCache}

@@ -25,6 +25,7 @@ export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPa
   const { favoriteIds, toggleFavorite } = useAuth();
   const [selectOpen, setSelectOpen] = useState(false);
   const maxTiles = 6;
+  console.log(allPacksData);
   
   const primaryPack = allPacksData[primaryPackId] || {};
   const primaryImageUrl = primaryPack.image || '';
@@ -229,6 +230,7 @@ export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPa
           probability: it.dropProbability,
           backlightColor: it.backlightColor,
         }));
+        
         return (
           <div key={`${id}-${blockIdx}`} className="flex gap-8 w-full max-w-[1280px] mx-auto">
             <div className="flex-1 w-full min-w-0">

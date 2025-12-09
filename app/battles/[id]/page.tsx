@@ -998,7 +998,11 @@ export default function BattleDetailPage() {
   }
 
   if ((isLoading && !fightDetailResponse) || !rawDetail || !activeSource || !battleData) {
-    return null;
+    return (
+      <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
+        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>加载中...</span>
+      </div>
+    );
   }
 
   return (
@@ -3096,7 +3100,7 @@ useEffect(() => {
       };
 
       const hadLegendarySecondStage = currentRoundData.spinStatus.firstStage.gotLegendary.size > 0;
-      const nextPhaseDelay = hadLegendarySecondStage ? SECOND_STAGE_RESULT_PAUSE_MS : 100;
+      const nextPhaseDelay = hadLegendarySecondStage ? SECOND_STAGE_RESULT_PAUSE_MS : 500;
 
       if (gameMode === 'elimination') {
         if (hadLegendarySecondStage) {

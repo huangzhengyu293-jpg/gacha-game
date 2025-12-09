@@ -55,6 +55,9 @@ export default function PackCard({
   const modalPack = useMemo(() => {
     if (!modalPackData || modalPackData.code !== 100000 || !modalPackData.data) return undefined;
     const box = modalPackData.data;
+  console.log(box);
+  
+    
     return {
       id: box.id,
       title: box.name || box.title || '',
@@ -68,7 +71,7 @@ export default function PackCard({
           name: item.name || '',
           image: item.cover || '',
           price: Number(item.bean || 0),
-          dropProbability: 0.01,
+          dropProbability:Number(award.bili|| 0),
           qualityId: '',
         };
       }),
