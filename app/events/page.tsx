@@ -158,6 +158,7 @@ export default function EventsPage() {
     countdownText: string;
   }) => {
     const prefix = raceType === 'weekly' ? 'weekly' : 'monthly';
+    const arrangedTopThree = topThree.length === 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
     
     return (
       <>
@@ -180,7 +181,7 @@ export default function EventsPage() {
         {/* 组件2：排行榜（替换"关于每日抽奖"） */}
         <div className="relative py-4 sm:py-6">
           <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-8">
-              {topThree.map((player, index) => {
+              {arrangedTopThree.map((player, index) => {
                 const placementClasses = {
                   1: { text: 'text-placement-first', border: 'border-placement-first', z: 'z-0' },
                   2: { text: 'text-placement-second', border: 'border-placement-second', z: 'z-10' },

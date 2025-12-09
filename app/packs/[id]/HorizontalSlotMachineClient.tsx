@@ -514,7 +514,6 @@ export default function HorizontalSlotMachineClient({
               symbols={activeSymbols}
               selectedPrizeId={slot.selectedPrizeId}
               width={9999}
-              itemSize={itemSize}
               spinDuration={isFastMode ? 1000 : 6000}
               onSpinComplete={(result) => handleSpinComplete(result, index)}
             />
@@ -526,10 +525,7 @@ export default function HorizontalSlotMachineClient({
   );
 
   const renderVerticalGrid = () => {
-    console.log(`🎯 [renderVerticalGrid] packSlots数量: ${packSlots.length}`);
-    packSlots.forEach((slot, i) => {
-      console.log(`  ${i}: packId=${String(slot.packId).slice(-6)}, symbols=${slot.allSymbols.length}`);
-    });
+    
     
     if (isMobileTwoRowMode) {
       // 为每个slot保留原始索引
