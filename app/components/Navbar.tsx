@@ -460,9 +460,18 @@ export default function Navbar() {
   // 验证码提交处理
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!verifyCode.trim()) return;
+    const email = verifyEmail.trim();
+    const code = verifyCode.trim();
+    if (!email || !code) {
+      toast.show({
+        variant: 'error',
+        title: '验证失败',
+        description: '邮箱或验证码不能为空',
+      });
+      return;
+    }
 
-    const result = await activateAccount(verifyCode.trim());
+    const result = await activateAccount({ email, code });
     if (result.success) {
       setShowVerifyCode(false);
       setVerifyCode('');
@@ -473,6 +482,12 @@ export default function Navbar() {
         description: result.message || '邮箱验证成功！请登录。',
       });
       setShowLogin(true);
+    } else {
+      toast.show({
+        variant: 'error',
+        title: '验证失败',
+        description: result.message || '请稍后重试',
+      });
     }
   };
 

@@ -196,8 +196,8 @@ const handleRegister = async () => {
 };
 
 // 激活账号
-const handleActivate = async (code: string) => {
-  const result = await activateAccount(code);
+const handleActivate = async (email: string, code: string) => {
+  const result = await activateAccount({ email, code });
   if (result.success) {
     console.log('激活成功');
   }

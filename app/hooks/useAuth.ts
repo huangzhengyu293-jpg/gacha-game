@@ -15,6 +15,11 @@ interface RegisterParams {
   password: string;
 }
 
+interface ActivateParams {
+  email: string;
+  code: string;
+}
+
 interface ApiResponse<T = any> {
   code: number;
   message: string;
@@ -200,11 +205,27 @@ export function useAuth() {
   }, []);
 
   // 激活账号
-  const activateAccount = useCallback(async (code: string) => {
+  const activateAccount = useCallback(async (payload: ActivateParams) => {
+    if (!payload || !payload.email || !payload.code) {
+      return { success: false, message: '缺少邮箱或验证码' };
+    }
+
+    const email = payload.email.trim();
+    const code = payload.code.trim();
+    if (!email || !code) {
+      return { success: false, message: '邮箱或验证码不能为空' };
+    }
+
     setIsSubmitting(true);
     try {
-      const response = await axiosInstance.post<ApiResponse>('/api/auth/activation', {
-        code: code,
+      const formData = new URLSearchParams();
+      formData.append('email', email);
+      formData.append('code', code);
+
+      const response = await axiosInstance.post<ApiResponse>('/api/auth/activation', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       });
 
       if (response.data.code === 100000) {
