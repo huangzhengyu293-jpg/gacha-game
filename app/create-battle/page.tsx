@@ -276,6 +276,7 @@ function CreateBattleContent() {
   const canEnableInverted = selectedMode !== "share";
 
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>([]);
+  const [hasInitPackIdsFromQuery, setHasInitPackIdsFromQuery] = useState(false);
 
   const buildPreviewBattleUrl = () => {
     const params = new URLSearchParams();
@@ -397,6 +398,37 @@ function CreateBattleContent() {
     }
     return [];
   }, [boxListData]);
+
+  // 从URL的 packIds 预选礼包（来自对战详情页“编辑/复刻”入口）
+  const packIdsParam = searchParams?.get("packIds");
+  useEffect(() => {
+    if (hasInitPackIdsFromQuery) return;
+    if (!packIdsParam) {
+      setHasInitPackIdsFromQuery(true);
+      return;
+    }
+    const candidateIds = packIdsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => !!id);
+
+    if (!Array.isArray(candidateIds) || candidateIds.length === 0) {
+      setHasInitPackIdsFromQuery(true);
+      return;
+    }
+
+    const validPacks = Array.isArray(packs) ? packs : [];
+    if (validPacks.length === 0) return; // 等待包列表加载
+
+    const normalized = candidateIds.filter((id) =>
+      validPacks.some((p) => String(p.id) === String(id)),
+    );
+
+    if (normalized.length > 0) {
+      setSelectedPackIds(normalized);
+    }
+    setHasInitPackIdsFromQuery(true);
+  }, [hasInitPackIdsFromQuery, packIdsParam, packs]);
 
   const selectedPacks = useMemo(() => {
     return selectedPackIds.map(id => packs.find((p: CatalogPack) => String(p.id) === String(id))).filter(Boolean) as CatalogPack[];

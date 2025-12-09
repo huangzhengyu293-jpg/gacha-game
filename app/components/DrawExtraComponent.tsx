@@ -85,6 +85,11 @@ type CardServerPayload = {
   status: number;
   cover?: string;
   name?: string;
+  awards?: {
+    cover?: string;
+    name?: string;
+    bean?: string | number;
+  };
 };
 
 type DisplayProduct = {
@@ -98,6 +103,20 @@ type DisplayProduct = {
 type DrawGoResponse = {
   id?: string | number;
   card?: CardServerPayload[];
+};
+
+// 统一从卡片服务端数据提取展示信息，优先使用 awards.cover / awards.name
+const mapCardToDisplay = (card: CardServerPayload): DisplayProduct => {
+  const award = (card as any)?.awards || {};
+  const image = award.cover || card.cover || '';
+  const name = award.name || card.name || '--';
+  const price = Number(card.price ?? award.bean ?? 0) || 0;
+  return {
+    id: card.id,
+    name,
+    image,
+    price,
+  };
 };
 
 function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>): (roundIdx: number) => DisplayProduct {
@@ -805,12 +824,7 @@ export default function DrawExtraComponent() {
         const statusArr = Array(9).fill(0);
         response.data.card.forEach((card: CardServerPayload) => {
           const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
-          map[idx] = {
-            id: card.id,
-            name: card.name || '--',
-            image: card.cover || '',
-            price: Number(card.price) || 0,
-          };
+        map[idx] = mapCardToDisplay(card);
           statusArr[idx] = Number(card.status) || 1;
         });
         setServerCardMap(map);
@@ -838,12 +852,7 @@ export default function DrawExtraComponent() {
         const statusArr = Array.from(cardServerStatus);
         response.data.card.forEach((card: CardServerPayload) => {
           const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
-          map[idx] = {
-            id: card.id,
-            name: card.name || '--',
-            image: card.cover || '',
-            price: Number(card.price) || 0,
-          };
+          map[idx] = mapCardToDisplay(card);
           statusArr[idx] = Number(card.status) || 1;
         });
         setServerCardMap(map);
@@ -875,12 +884,7 @@ export default function DrawExtraComponent() {
     const statusArr = Array(9).fill(0);
     cardSource.forEach((card: CardServerPayload) => {
       const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
-      map[idx] = {
-        id: card.id,
-        name: card.name || '--',
-        image: card.cover || '',
-        price: Number(card.price) || 0,
-      };
+      map[idx] = mapCardToDisplay(card);
       statusArr[idx] = Number(card.status) || 1;
     });
     setServerCardMap(map);

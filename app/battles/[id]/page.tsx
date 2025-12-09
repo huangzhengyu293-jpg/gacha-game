@@ -317,6 +317,14 @@ function JackpotProgressBarInline({
 const TRANSPARENT_PIXEL =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
+const QUALITY_MAP_WIN: Record<number, string> = {
+  1: 'legendary',
+  2: 'mythic',
+  3: 'epic',
+  4: 'rare',
+  5: 'common',
+};
+
 // 🎯 主状态机类型
 type RuntimeRoundPlan = BackendRoundPlan;
 
@@ -2022,7 +2030,11 @@ useEffect(() => {
       const perRoundSymbols: Record<string, SlotSymbol> = {};
       Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
         totals[playerId] = (totals[playerId] ?? 0) + drop.value;
-        perRoundSymbols[playerId] = {
+        const winEntry =
+          (rawDetail as any)?.data?.win?.box?.[playerId]?.[roundPlan.roundIndex] ??
+          null;
+        const winSymbol = mapWinEntryToSlotSymbol(winEntry);
+        perRoundSymbols[playerId] = winSymbol ?? {
           id: drop.itemId,
           name: drop.itemName,
           image: drop.image,
@@ -2086,6 +2098,61 @@ useEffect(() => {
   const [hidePacks, setHidePacks] = useState(false);
   const [showSlotMachines, setShowSlotMachines] = useState(false);
   const currentRoundRef = useRef(0);
+  const [prepareDelay, setPrepareDelay] = useState(false);
+  const prepareTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const mapWinEntryToSlotSymbol = useCallback((entry: any): SlotSymbol | null => {
+    if (!entry) return null;
+    const award = entry.awards;
+    const qualityId = QUALITY_MAP_WIN[Number(award?.lv ?? entry?.lv ?? 0)] ?? null;
+    const price = Number(award?.bean ?? entry?.bean ?? 0);
+    return {
+      id: String(award?.id ?? entry?.awards_id ?? entry?.box_awards_id ?? entry?.box_id ?? entry?.item_id ?? ''),
+      name: award?.name ?? entry?.name ?? `Award ${entry?.awards_id ?? entry?.box_awards_id ?? ''}`,
+      description: award?.item_name ?? entry?.item_name ?? award?.name ?? '',
+      image: award?.cover ?? entry?.cover ?? entry?.image ?? '',
+      price: Number.isFinite(price) ? price : 0,
+      qualityId,
+    };
+  }, []);
+
+  // 清理准备阶段定时器
+  useEffect(() => {
+    return () => {
+      if (prepareTimerRef.current) {
+        clearTimeout(prepareTimerRef.current);
+        prepareTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 启动 2 秒准备态，再进入 3-2-1
+  const startCountdownWithPrepare = useCallback(() => {
+    if (prepareTimerRef.current) {
+      clearTimeout(prepareTimerRef.current);
+      prepareTimerRef.current = null;
+    }
+    setPrepareDelay(true);
+    setMainState('COUNTDOWN');
+    setRoundState(null);
+    setCountdownValue(null);
+    prepareTimerRef.current = setTimeout(() => {
+      setPrepareDelay(false);
+      setCountdownValue(3);
+    }, 2000);
+  }, [setCountdownValue, setMainState, setRoundState]);
+
+  // 直接进入 3-2-1（用于回放/无须准备）
+  const startCountdownDirect = useCallback(() => {
+    if (prepareTimerRef.current) {
+      clearTimeout(prepareTimerRef.current);
+      prepareTimerRef.current = null;
+    }
+    setPrepareDelay(false);
+    setMainState('COUNTDOWN');
+    setRoundState(null);
+    setCountdownValue(3);
+  }, [setCountdownValue, setMainState, setRoundState]);
   
   // 🎵 初始化胜利音效（win.wav）
   useEffect(() => {
@@ -2570,15 +2637,17 @@ useEffect(() => {
         },
       });
       const totalRounds = rounds.length;
+      const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
       const currentStatus = Number(rawDetail?.status ?? 0);
       if (currentStatus === 1) {
-        setCountdownValue(null);
-        setRoundState(null);
-        setMainState('LOADING');
+        if (entryRoundSetting > 0) {
+          startCountdownDirect();
+        } else {
+          startCountdownWithPrepare();
+        }
         return;
       }
 
-      const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
       const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
       skipDirectlyToCompletedRef.current = entryExceedsRounds;
 
@@ -2600,8 +2669,7 @@ useEffect(() => {
         setRoundState('ROUND_RENDER');
         setMainState('ROUND_LOOP');
       } else {
-        setMainState('COUNTDOWN');
-        setCountdownValue(3);
+        startCountdownWithPrepare();
       }
     }
   }, [
@@ -2614,6 +2682,8 @@ useEffect(() => {
     activeSource.entryRound,
     hydrateRoundsProgress,
     hasWinBoxData,
+    startCountdownWithPrepare,
+    startCountdownDirect,
   ]);
 
   useEffect(() => {
@@ -2629,15 +2699,17 @@ useEffect(() => {
 
     const runtime = battleRuntimeRef.current;
     const totalRounds = runtime.config.roundsTotal;
+    const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
     const currentStatus = Number(rawDetail?.status ?? 0);
     if (currentStatus === 1) {
-      setCountdownValue(null);
-      setRoundState(null);
-      setMainState('LOADING');
+      if (entryRoundSetting > 0) {
+        startCountdownDirect();
+      } else {
+        startCountdownWithPrepare();
+      }
       return;
     }
 
-    const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
     const entryExceedsRounds = totalRounds > 0 && entryRoundSetting > totalRounds;
     skipDirectlyToCompletedRef.current = entryExceedsRounds;
 
@@ -2666,9 +2738,7 @@ useEffect(() => {
 
     if (entryRoundSetting <= 0 || forceFullReplayRef.current) {
       logCurrentRound(0);
-      setCountdownValue(3);
-      setMainState('COUNTDOWN');
-      setRoundState(null);
+      startCountdownWithPrepare();
       return;
     }
 
@@ -2700,7 +2770,7 @@ useEffect(() => {
       setMainState('COMPLETED');
       timelineHydratedRef.current = true;
     }
-  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound, runtimeReadyVersion]);
+  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound, runtimeReadyVersion, startCountdownWithPrepare, startCountdownDirect]);
 
   // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
   useEffect(() => {
@@ -3631,6 +3701,13 @@ useEffect(() => {
   
   // Symbols are now managed by state and only updated when round starts
 
+  const headerStatusText =
+    prepareDelay
+      ? '准备区块中'
+      : Number(rawDetail?.status ?? 0) === 1
+        ? '准备中'
+        : '等待玩家';
+
   return (
     <div className="flex flex-col flex-1 items-stretch relative">
     
@@ -3638,7 +3715,7 @@ useEffect(() => {
           <BattleHeader
             packImages={packImages}
             highlightedIndices={highlightedIndices}
-          statusText={Number(rawDetail?.status ?? 0) === 1 ? "准备中" : "等待玩家"}
+          statusText={headerStatusText}
             totalCost={battleData.cost}
           isCountingDown={countdownValue !== null && countdownValue > 0}
           isPlaying={showSlotMachines && !allRoundsCompleted}
@@ -3856,9 +3933,7 @@ useEffect(() => {
                         // 🎯 重置COMPLETED状态的防重复标记
                         completedWinnerSetRef.current = false;
                         
-                        setMainState('COUNTDOWN');
-                        setRoundState(null);
-                        setCountdownValue(3);
+                        startCountdownWithPrepare();
                         dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
                         dispatchProgressState({ type: 'RESET_SLOT_KEY_SUFFIX' });
                         dispatchProgressState({ type: 'RESET_SPIN_STATE' });
