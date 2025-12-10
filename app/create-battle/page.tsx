@@ -379,7 +379,7 @@ function CreateBattleContent() {
       api.getBoxList({
         sort_type: '1',
         volatility: '1',
-        type: '2',
+        type: '1,2',
       }),
     staleTime: 30_000,
   });

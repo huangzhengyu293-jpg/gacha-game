@@ -13,6 +13,7 @@ interface PacksToolbarProps {
     volatility?: string;
     price_min?: string;
     price_max?: string;
+    name?: string;
   };
   onFilterChange?: (filters: {
     search_type?: string;
@@ -21,6 +22,7 @@ interface PacksToolbarProps {
     volatility?: string;
     price_min?: string;
     price_max?: string;
+    name?: string;
   }) => void;
   onReset?: () => void;
 }
@@ -75,11 +77,24 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
   const volBtnRef = useRef<HTMLButtonElement | null>(null);
   const volMenuRef = useRef<HTMLDivElement | null>(null);
   const [categoryPos, setCategoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const currentFilters = filtersRef.current || {};
+      if (currentFilters.name !== search) {
+        onFilterChange?.({ ...currentFilters, name: search });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, onFilterChange]);
 
   const handleSearch = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log("packs.search", { search });
-  }, [search]);
+    const newFilters: any = { ...filters };
+    newFilters.name = search;
+    onFilterChange?.(newFilters);
+  }, [search, filters, onFilterChange]);
 
   // 设置类别
   const handleSetCategory = useCallback((newCategory: "all" | "official" | "community" | "favorite") => {
@@ -242,17 +257,17 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2 items-center">
-        {/* <div className="flex w-full">
+        <div className="flex w-full">
           <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search text-white size-5"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
             </div>
-            <input className="flex border border-[#2A2B2E] focus:border-[#2A2B2E] px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder-[#7A8084] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 pl-10 font-semibold bg-[#22272B] border-none w-full pr-20 h-10 rounded-md flex-1" placeholder={t("search")} enterKeyHint="search" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter'){ handleSearch(); } }} />
+            <input className="flex border border-[#2A2B2E] focus:border-[#2A2B2E] px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground text-white placeholder-[#7A8084] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 pl-10 font-semibold bg-[#22272B] border-none w-full pr-20 h-10 rounded-md flex-1" placeholder={t("search")} enterKeyHint="search" value={search} onChange={(e)=>setSearch(e.target.value)} />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <button onClick={reset} className="px-2 py-1 text-sm font-semibold" style={{ color: '#4195DB' }}>{t("reset")}</button>
             </div>
           </div>
-        </div> */}
+        </div>
         {/* {showCreateButton && (
           <Link href="/packs/create" className="inline-flex items-center justify-center gap-2 rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6 whitespace-nowrap">
             <div className="size-5">

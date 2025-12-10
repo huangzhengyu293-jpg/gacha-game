@@ -64,6 +64,21 @@ const nextConfig: NextConfig = {
         hostname: "flamedraw.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "www.flamedraw.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "h5.flamedraw.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "oss.66images.com",
+        pathname: "/**",
+      },
     ],
   },
 };

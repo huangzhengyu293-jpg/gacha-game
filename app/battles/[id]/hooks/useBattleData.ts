@@ -41,12 +41,6 @@ export function useBattleData(): BattleData {
   const isInvertedParam = searchParams?.get('upsideDown') || 'false';
   const isInverted = isInvertedParam === 'true';
   
-  console.log('🚀 [useBattleData] fastBattle参数:', isFastModeParam);
-  console.log('🚀 [useBattleData] isFastMode:', isFastMode);
-  console.log('🎯 [useBattleData] lastChance参数:', isLastChanceParam);
-  console.log('🎯 [useBattleData] isLastChance:', isLastChance);
-  console.log('🔄 [useBattleData] upsideDown参数:', isInvertedParam);
-  console.log('🔄 [useBattleData] isInverted:', isInverted);
 
   const { data: boxListData } = useQuery({
     queryKey: ['boxList', { type: '2' }],
@@ -54,7 +48,7 @@ export function useBattleData(): BattleData {
       api.getBoxList({
         sort_type: '1',
         volatility: '1',
-        type: '2',
+        type: '1,2',
       }),
     staleTime: 30_000,
   });

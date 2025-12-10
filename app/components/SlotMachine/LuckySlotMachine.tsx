@@ -81,6 +81,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const containerRef = useRef<HTMLDivElement>(null);
   const reelRef = useRef<HTMLDivElement>(null);
   const reelContainerRef = useRef<HTMLDivElement>(null);
+  const currentScrollYRef = useRef<number>(0); // 🚀 性能优化：使用 ref 记录位置，不再读取 DOM
   const initialSymbolsRef = useRef<SlotSymbol[]>([]); // Store initial symbols, never update
   
   // 🚀 Virtual Scrolling: Data structure for all items (virtual)
@@ -241,19 +242,27 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     return 1 - Math.pow(1 - t, 5);
   };
 
-  // 检查并重置位置
-  const checkAndResetPosition = useCallback((container: HTMLDivElement): number => {
-    let currentTop = parseFloat(container.style.top || '0');
+  // 🚀 性能优化：统一设置位置 (使用 transform)
+  const setReelPosition = useCallback((y: number) => {
+    if (reelContainerRef.current) {
+      reelContainerRef.current.style.transform = `translate3d(0, ${y}px, 0)`; // 开启 GPU 加速
+      currentScrollYRef.current = y;
+    }
+  }, []);
+
+  // 检查并重置位置 (适配 transform)
+  const checkAndResetPosition = useCallback((): number => {
+    let currentY = currentScrollYRef.current;
     const totalHeight = itemsPerReelRef.current * itemHeightRef.current;
     const minTop = -totalHeight * 2;
     const resetTop = -totalHeight;
     
-    if (currentTop < minTop) {
-      currentTop = resetTop + (currentTop - minTop);
-      container.style.top = currentTop + 'px';
+    if (currentY < minTop) {
+      currentY = resetTop + (currentY - minTop);
+      setReelPosition(currentY);
     }
-    return currentTop;
-  }, []); // NO dependencies - completely stable!
+    return currentY;
+  }, [setReelPosition]);
 
   // Cache for performance optimization
   const currentSelectedIndexRef = useRef<number>(-1);
@@ -285,7 +294,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
     
     const container = reelContainerRef.current;
-    let containerTop = parseFloat(container.style.top || '0');
+    let containerTop = currentScrollYRef.current;
     
     const totalHeight = itemsPerReelRef.current * itemHeightRef.current;
     const minTop = -totalHeight * 2;
@@ -293,7 +302,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     if (containerTop < minTop) {
       containerTop = resetTop + (containerTop - minTop);
-      container.style.top = containerTop + 'px';
+      setReelPosition(containerTop);
     }
     
     // 🚀 Calculate closest VIRTUAL index (not DOM index!)
@@ -335,7 +344,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
 
   // 🚀 查找最接近的虚拟项目索引
   const findClosestItem = useCallback((container: HTMLDivElement): number => {
-    const containerTop = parseFloat(container.style.top || '0');
+    const containerTop = currentScrollYRef.current;
     
     // Directly calculate the closest virtual index using math (O(1))
     const virtualClosestIndex = Math.round((reelCenterRef.current - containerTop - itemHeightRef.current / 2) / itemHeightRef.current);
@@ -422,7 +431,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
     lastUpdateTimeRef.current = now;
     
-    const containerTop = parseFloat(container.style.top || '0');
+    const containerTop = currentScrollYRef.current;
     const viewportStart = -containerTop;
     const viewportEnd = viewportStart + REEL_HEIGHT;
     
@@ -516,7 +525,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const initialIndex = itemsPerReel;
     const preScrollOffset = itemHeight * 5; // 预先向上滚动5个物品的距离
     const initialTop = reelCenter - initialIndex * itemHeight - itemHeight / 2 - preScrollOffset;
-    container.style.top = initialTop + 'px';
+    setReelPosition(initialTop);
     
     // 🚀 Render only visible items
     updateVirtualItems();
@@ -528,7 +537,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const actualItemHeightRef = useRef<number>(0);
   
   // 第一阶段旋转
-  const spinPhase1 = useCallback((duration: number, targetSymbol: SlotSymbol | null = null): Promise<void> => {
+  // 修改：不再搜索最近的符号，而是接受一个固定的 targetIndex
+  const spinPhase1 = useCallback((duration: number, finalIndex: number): Promise<void> => {
     return new Promise(resolve => {
       if (!reelContainerRef.current) {
         resolve();
@@ -536,9 +546,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       }
       
       const container = reelContainerRef.current;
-      const startTop = parseFloat(container.style.top || '0');
-      
-      let targetTop: number;
+      let startTop = currentScrollYRef.current;
       
       // 🚀 优化：缓存 actualItemHeight，只在第一次查询
       if (actualItemHeightRef.current === 0) {
@@ -546,79 +554,44 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       }
       const actualItemHeight = actualItemHeightRef.current;
       
-      if (targetSymbol) {
-        // 🚀 Search in virtual items array instead of DOM
-        const matchingIndices: number[] = [];
-        virtualItemsRef.current.forEach((item, index) => {
-          if (item.id === targetSymbol.id) {
-            matchingIndices.push(index);
-          }
-        });
-        
-        // ⏱️ 基于时间计算滚动距离（而非固定圈数）
-        // duration越长，滚动越远，保持恒定速度感
-        const pixelsPerMs = 0.8; // 每毫秒滚动0.8像素（可调整速度）
-        const minScrollDistance = duration * pixelsPerMs;
-        const equivalentRolls = minScrollDistance / actualItemHeight;
-        
-        
-        let selectedIndex: number | null = null;
-        for (const index of matchingIndices) {
-          const potentialTop = -(index * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2;
-          const scrollDistance = startTop - potentialTop;
-          
-          if (scrollDistance >= minScrollDistance) {
-            selectedIndex = index;
-            break;
-          }
-        }
-        
-        if (selectedIndex === null && matchingIndices.length > 0) {
-          selectedIndex = matchingIndices[0];
-          while (true) {
-            targetTop = -(selectedIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2;
-            if (startTop - targetTop >= minScrollDistance) {
-              break;
-            }
-            selectedIndex += itemsPerReelRef.current;
-          }
-        }
-        
-        if (selectedIndex !== null) {
-          // Add random offset for more realistic stopping
-          const randomOffset = getRandomStopOffset(actualItemHeight);
-          targetTop = -(selectedIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2 + randomOffset;
-        } else {
-          targetTop = startTop - minScrollDistance;
-        }
-      } else {
-        // ⏱️ 无目标时：基于时间计算滚动距离
-        const pixelsPerMs = 0.8;
-        const scrollDistance = duration * pixelsPerMs;
-        const randomOffset = getRandomStopOffset(actualItemHeight);
-        targetTop = startTop - scrollDistance + randomOffset;
-      }
+      // 1. 计算目标位置 (基于固定的 finalIndex)
+      // 目标 top = -(索引 * 高度) + 居中偏移 - 随机微调
+      const randomOffset = getRandomStopOffset(actualItemHeight);
+      const targetTop = -(finalIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2 + randomOffset;
       
-      const distance = startTop - targetTop;
+      // 2. 检查距离是否足够
+      let distance = startTop - targetTop;
+      const minRunway = (itemsPerReelRef.current * 0.2) * actualItemHeight; // 至少跑 1/4 圈
+      console.log('minRunway', minRunway);
+      console.log('distance', distance);
+      
+      // 如果距离太短（比如已经在底部了），我们需要“后退”来制造助跑距离
+      // 利用虚拟列表的重复性，我们把 startTop 向上挪动一个周期（itemsPerReel * height）
+      if (distance < minRunway) {
+        const cycleHeight = itemsPerReelRef.current * actualItemHeight;
+        startTop += cycleHeight; 
+        setReelPosition(startTop);
+        distance = startTop - targetTop;
+      }
+
       const startTime = Date.now();
       let lastFrameTime = Date.now();
-      let frameCount = 0; // 🚀 帧计数器
+      let frameCount = 0;
       
       const animate = () => {
         const now = Date.now();
         const frameDelta = now - lastFrameTime;
         lastFrameTime = now;
+        console.log(frameDelta);
         
-        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
+        
         if (frameDelta > 200) {
           const elapsed = now - startTime;
           const progress = Math.min(elapsed / duration, 1);
           const easedProgress = customEase(progress);
           const currentTop = startTop - distance * easedProgress;
-          container.style.top = currentTop + 'px';
-          checkAndResetPosition(container);
+          setReelPosition(currentTop);
           updateVirtualItems();
-          // 跳跃后不播放音效，避免爆炸
           
           if (progress < 1) {
             requestAnimationFrame(animate);
@@ -628,21 +601,19 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           return;
         }
         
-        // 正常流程
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const easedProgress = customEase(progress);
         
         const currentTop = startTop - distance * easedProgress;
-        container.style.top = currentTop + 'px';
+        setReelPosition(currentTop);
         
         frameCount++;
         
-        // 🚀 跳帧优化：每5帧更新一次 DOM 和音效（降低多老虎机并发压力）
         if (frameCount % 5 === 0) {
-          checkAndResetPosition(container);
+          // 移除 checkAndResetPosition，因为我们是定点运动，不需要中途重置
           updateVirtualItems();
-          updateSelection(); // 正常播放音效
+          updateSelection(); 
         }
         
         if (progress < 1) {
@@ -654,147 +625,70 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       
       animate();
     });
-  }, [checkAndResetPosition, updateVirtualItems, updateSelection, customEase]);
+  }, [updateVirtualItems, updateSelection, customEase, getRandomStopOffset]);
 
   // 第二阶段旋转
-  const spinPhase2 = useCallback((targetSymbol: SlotSymbol | null = null): Promise<void> => {
+  // 修改：直接对齐到 finalIndex，不需要再查找
+  const spinPhase2 = useCallback((finalIndex: number): Promise<void> => {
     return new Promise(resolve => {
       if (!reelContainerRef.current) {
         resolve();
         return;
       }
       
-      const duration = FINAL_ALIGNMENT_DURATION; // Slightly longer for smoother recentering
+      const duration = FINAL_ALIGNMENT_DURATION;
       const container = reelContainerRef.current;
-      let currentTop = parseFloat(container.style.top || '0');
+      const currentTop = currentScrollYRef.current;
       
-      const totalHeight = itemsPerReelRef.current * itemHeightRef.current;
-      const minTop = -totalHeight * 2;
-      const resetTop = -totalHeight;
-      
-      if (currentTop < minTop) {
-        currentTop = resetTop + (currentTop - minTop);
-        container.style.top = currentTop + 'px';
-      }
-      
-      let closestIndex = findClosestItem(container);
-      
-      // 🚀 优化：使用缓存的 actualItemHeight
       const actualItemHeight = actualItemHeightRef.current || itemHeightRef.current;
       
-      if (targetSymbol) {
-        const targetIndices: number[] = [];
-        
-        // Find all instances in virtual array
-        virtualItemsRef.current.forEach((item, index) => {
-          if (item.id === targetSymbol.id) {
-            targetIndices.push(index);
-          }
-        });
-        
-        
-        if (targetIndices.length > 0) {
-          let bestIndex = targetIndices[0];
-          let minMovement = Infinity;
-          
-          targetIndices.forEach(index => {
-            const itemTop = index * actualItemHeight + currentTop;
-            const itemCenter = itemTop + actualItemHeight / 2;
-            const targetTop = reelCenterRef.current - actualItemHeight / 2;
-            const movement = Math.abs(itemTop - targetTop);
-            
-            if (movement < minMovement && itemCenter > 0 && itemCenter < REEL_HEIGHT) {
-              minMovement = movement;
-              bestIndex = index;
-            }
-          });
-          
-          closestIndex = bestIndex;
-        } else {
-        }
-      } else {
-      }
-      
-      // Calculate exact center position
-      const exactTargetTop = -(closestIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2;
-      
-      // Calculate distance to exact center
+      // 直接计算目标位置（无随机偏移）
+      const exactTargetTop = -(finalIndex * actualItemHeight) + reelCenterRef.current - actualItemHeight / 2;
       const distance = exactTargetTop - currentTop;
       
       const startTime = Date.now();
       let lastFrameTime = Date.now();
-      let frameCount = 0; // 🚀 帧计数器
+      let frameCount = 0;
       
       const animate = () => {
         const now = Date.now();
         const frameDelta = now - lastFrameTime;
         lastFrameTime = now;
         
-        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
         if (frameDelta > 200) {
-          const elapsed = now - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 4);
-          const newTop = currentTop + distance * eased;
-          container.style.top = newTop + 'px';
+          setReelPosition(exactTargetTop);
           updateVirtualItems();
-          // 跳跃后不播放音效
-          
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            container.style.top = exactTargetTop + 'px';
-            void container.offsetHeight;
-            updateVirtualItems();
-            selectionLockedRef.current = true;
-            setTimeout(() => { resolve(); }, 100);
-          }
+          resolve();
           return;
         }
         
-        // 正常流程
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
         const eased = 1 - Math.pow(1 - progress, 4);
         
         const newTop = currentTop + distance * eased;
-        container.style.top = newTop + 'px';
+        setReelPosition(newTop);
         
         frameCount++;
-        
         if (progress < 1) {
-          // 🚀 跳帧优化：每5帧更新一次 DOM 和音效（降低多老虎机并发压力）
           if (frameCount % 5 === 0) {
-            updateVirtualItems();
-            updateSelection(); // 正常播放音效
+             updateVirtualItems();
+             updateSelection();
           }
           requestAnimationFrame(animate);
         } else {
-          // Animation finished - ensure we're at the EXACT position (no correction needed)
-          container.style.top = exactTargetTop + 'px';
-          
-          // Force reflow to apply position immediately
-          void container.offsetHeight;
-          
-          // 🚀 Final update of virtual items and selection
+          setReelPosition(exactTargetTop);
+          // void container.offsetHeight;
           updateVirtualItems();
           updateSelection();
-          
-          // CRITICAL: Lock selection to prevent any further updates
           selectionLockedRef.current = true;
-          
-          
-          // Wait a tiny bit before resolving
-          setTimeout(() => {
-            resolve();
-          }, 100);
+          setTimeout(() => { resolve(); }, 100);
         }
       };
       
       animate();
     });
-  }, [findClosestItem, updateVirtualItems, updateSelection]);
+  }, [updateVirtualItems, updateSelection]);
 
   // 开始旋转
   const startSpin = useCallback(async () => {
@@ -828,30 +722,68 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     // 使用固定时长，确保所有老虎机同步回正
     const duration = spinDuration||6000;
+
+    // 🎯 核心逻辑修改：计算固定的目标索引（倒数第二组的中间）
+    // 🎯 核心逻辑修改：基于当前位置计算相对目标
+    // 1. 算出当前位置索引
+    const container = reelContainerRef.current;
+    const currentTop = currentScrollYRef.current;
+    const h = itemHeightRef.current;
+    const currentVisualIndex = Math.round((-currentTop + reelCenterRef.current - h / 2) / h);
     
-    await spinPhase1(duration, selectedPrize);
+    // 2. 设定目标：永远只跑 30 格 (距离恒定，速度恒定)
+    const RUN_DISTANCE = 40; 
+    let targetBaseIndex = currentVisualIndex + RUN_DISTANCE;
+    
+    // 3. 越界回绕处理：如果目标超出了列表范围，将整体坐标向上回滚一圈
+    if (targetBaseIndex >= virtualItemsRef.current.length - 10) {
+       const cycleLen = itemsPerReelRef.current;
+       const offsetAmount = cycleLen * h;
+       setReelPosition(currentTop + offsetAmount);
+       targetBaseIndex -= cycleLen;
+    }
+    
+    // 注入结果
+    if (selectedPrize) {
+      // 注入目标位置
+      virtualItemsRef.current[targetBaseIndex] = selectedPrize;
+      // 注入前一周期位置（为了视觉连贯）
+      if (targetBaseIndex - itemsPerReelRef.current >= 0) {
+         virtualItemsRef.current[targetBaseIndex - itemsPerReelRef.current] = selectedPrize;
+      }
+      // 注入后一周期位置
+      if (targetBaseIndex + itemsPerReelRef.current < virtualItemsRef.current.length) {
+         virtualItemsRef.current[targetBaseIndex + itemsPerReelRef.current] = selectedPrize;
+      }
+    }
+    
+    await spinPhase1(duration, targetBaseIndex);
     setIsFinalizing(true);
     
-    await spinPhase2(selectedPrize);
+    await spinPhase2(targetBaseIndex);
     
     if (reelContainerRef.current) {
       
       // Get the final result from virtual items using the selected index
       let finalResult: SlotSymbol | null = selectedPrize;
       
-      // If we have a selected index, get the virtual item
-      if (currentSelectedIndexRef.current >= 0 && currentSelectedIndexRef.current < virtualItemsRef.current.length) {
-        const selectedVirtualItem = virtualItemsRef.current[currentSelectedIndexRef.current];
+      // 强制使用目标索引
+      currentSelectedIndexRef.current = targetBaseIndex;
         
-        // Add show-info class to the rendered DOM element (if it exists)
-        if (currentSelectedElementRef.current) {
-          (currentSelectedElementRef.current as HTMLElement).classList.add('show-info');
-        }
-        
-        // If no pre-selected prize, use the virtual item as result
-        if (!finalResult) {
-          finalResult = selectedVirtualItem;
-        }
+      const selectedVirtualItem = virtualItemsRef.current[targetBaseIndex];
+      
+      // Add show-info class to the rendered DOM element (if it exists)
+      // 需要先 updateVirtualItems 确保 DOM 存在
+      updateVirtualItems();
+      const finalItem = renderedItemsMapRef.current.get(targetBaseIndex);
+
+      if (finalItem) {
+        finalItem.classList.add('show-info');
+        currentSelectedElementRef.current = finalItem;
+      }
+      
+      if (!finalResult) {
+        finalResult = selectedVirtualItem;
       }
       
       // Use the pre-selected prize for the result, or the actual stopped item
@@ -861,14 +793,13 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           const reportResult = selectedPrize || finalResult;
           onSpinComplete(reportResult);
         }
-      } else {
       }
     }
     
     setIsFinalizing(false);
     setIsSpinning(false);
     // Don't reset hasStarted here - it should only be reset when selectedPrizeId changes
-  }, [isSpinning, selectedPrize, onSpinStart, onSpinComplete, spinPhase1, spinPhase2, hasStarted]); // Removed symbols dependency
+  }, [isSpinning, selectedPrize, onSpinStart, onSpinComplete, spinPhase1, spinPhase2, hasStarted, spinDuration, updateVirtualItems]); // Removed symbols dependency
 
   // 初始化转轮 - 在组件首次挂载或结构变化时
   const hasInitializedRef = useRef(false);
@@ -917,7 +848,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (!reelContainerRef.current || newSymbols.length === 0 || isSpinning) return;
     
     // 保存当前滚动位置
-    const currentTop = parseFloat(reelContainerRef.current.style.top || '0');
+    const currentTop = currentScrollYRef.current;
     
     // 更新初始符号引用
     initialSymbolsRef.current = newSymbols;
@@ -993,7 +924,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     });
     
     // 保持当前滚动位置，实现无缝切换
-    reelContainerRef.current.style.top = currentTop + 'px';
+    setReelPosition(currentTop);
     
     // 重置选中状态
     currentSelectedIndexRef.current = -1;

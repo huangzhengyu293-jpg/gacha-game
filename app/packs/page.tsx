@@ -14,7 +14,7 @@ export default function PacksPage() {
   const { t } = useI18n();
   
   // 使用筛选 hook
-  const { filters, updateFilters, reset } = usePacksFilters({ type: '1' });
+  const { filters, updateFilters, reset } = usePacksFilters({ type: '1,2' });
   
   // 使用新接口 box/list
   const { data: boxListData } = useQuery({

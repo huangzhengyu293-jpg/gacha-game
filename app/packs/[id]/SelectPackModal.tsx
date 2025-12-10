@@ -15,7 +15,7 @@ export default function SelectPackModal({
   onSelectionChange,
   maxPacks,
   minPacks,
-  boxType = '1',
+  boxType = '1,2',
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,7 +23,7 @@ export default function SelectPackModal({
   onSelectionChange: (ids: string[]) => void;
   maxPacks?: number;
   minPacks?: number;
-  boxType?: '1' | '2';
+  boxType?: '1' | '2'|'1,2'|"5";
 }) {
   const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
   const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;

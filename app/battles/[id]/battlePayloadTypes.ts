@@ -27,6 +27,7 @@ export interface BackendRoundDrop {
   value: number;
   rarity: 'normal' | 'legendary';
   needsSecondStage: boolean;
+  dropProbability?: number;
 }
 
 export interface BackendRoundPlan {

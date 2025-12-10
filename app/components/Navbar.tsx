@@ -619,7 +619,7 @@ export default function Navbar() {
 
   // 钱包数据（从 user.bean 中获取）
   const beanDisplay = (user?.bean as any)?.bean || 0;
-  const integralDisplay = (user?.bean as any)?.integral || 0;
+  // const integralDisplay = (user?.bean as any)?.integral || 0;
 
   return (
     <div className="flex flex-col sticky z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
@@ -719,9 +719,9 @@ export default function Navbar() {
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
+                {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                </button>
+                </button> */}
                 <div className="flex relative" ref={userMenuRef}>
                   <div className="flex justify-center items-center">
                     <div className="hidden lg:flex">
@@ -952,13 +952,13 @@ export default function Navbar() {
                         >
                           <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                         </button>
-                        <button
+                        {/* <button
                           type="button"
                           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-4"
                           onClick={() => { setShowWalletModal(true); }}
                         >
                           <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                        </button>
+                        </button> */}
                       </div>
                     )}
 
@@ -1030,12 +1030,12 @@ export default function Navbar() {
                   >
                     <p className="text-lg text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                   </button>
-                  <button
+                  {/* <button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-6"
                     onClick={() => { setShowWalletModal(true); }}
                   >
                     <p className="text-lg text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                  </button>
+                  </button> */}
                 </div>
                 <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>

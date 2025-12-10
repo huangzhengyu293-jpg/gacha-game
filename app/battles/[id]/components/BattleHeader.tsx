@@ -29,6 +29,7 @@ export interface BattleHeaderProps {
   isInverted?: boolean; // 倒置模式
   onFairnessClick?: () => void;
   onShareClick?: () => void;
+  onPackClick?: (index: number) => void;
 }
 
 export default function BattleHeader({
@@ -50,6 +51,7 @@ export default function BattleHeader({
   isInverted = false,
   onFairnessClick,
   onShareClick,
+  onPackClick,
 }: BattleHeaderProps) {
   const packScrollRefDesktop = useRef<HTMLDivElement>(null);
   const packScrollRefMobile = useRef<HTMLDivElement>(null);

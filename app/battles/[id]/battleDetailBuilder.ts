@@ -211,6 +211,7 @@ function buildSlotSymbolsForBox(box?: RawBox): SlotSymbol[] {
       image: award?.cover ?? '',
       price: parseNumber(award?.bean),
       qualityId: mapQualityFromLv(award?.lv ?? entry.lv),
+      dropProbability: parseNumber((award as any)?.bili ?? (entry as any)?.bili),
     };
    
     
@@ -459,6 +460,7 @@ export function buildBattlePayloadFromRaw(raw: RawBattleDetail, options?: BuildO
         value,
         rarity: legendary ? 'legendary' : 'normal',
         needsSecondStage: legendary,
+        dropProbability: parseNumber((result as any).bili),
       };
 
       if (legendary) {

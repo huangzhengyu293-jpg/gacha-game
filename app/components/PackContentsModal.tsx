@@ -35,6 +35,7 @@ function isCatalogItem(x: any): x is CatalogItem {
 
 export default function PackContentsModal({ open, onClose, title, items }: PackContentsModalProps) {
   if (!open) return null;
+  console.log(items);
   
   const normalized: DisplayProduct[] = items.map((it) => {
     if (isCatalogItem(it)) return toDisplayProductFromCatalog(it);

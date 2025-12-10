@@ -49,7 +49,7 @@ export function useCart() {
         const warehouseId = String(item.id ?? item.awards_id ?? item.awards?.id ?? `cart_${index}`);
         const productId = String(item.awards?.id ?? item.product_id ?? warehouseId);
         const name = item.awards.name || '';
-        const price = Number(item.awards.bean) || 0;
+        const price = Number(item.bean ?? item.awards.bean) || 0;
         const image = item.awards.cover || '';
         const quantity = Math.max(1, Number(item.num ?? item.quantity ?? 1));
 

@@ -88,6 +88,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/favorite',
   '/api/box/open',
   '/api/box/userrecord',
+  '/api/box/myRecent',
   '/api/box/cash',
   '/api/user/bean',
   '/api/user/storage',
@@ -99,6 +100,8 @@ const AUTH_REQUIRED_PATHS = [
   '/api/fight/save',
   '/api/fight/inviterobots',
   '/api/fight/detail',
+  '/api/fight/myBestRecord',
+  '/api/lucky/myBestRecord',
   '/api/shop/buy',
 ];
 
@@ -450,8 +453,10 @@ export const api = {
     price_min?: string;
     price_max?: string;
     type?: string;
+    name?: string;
   }) => {
     const formData = new URLSearchParams();
+    if (params.name) formData.append('name', params.name);
     if (params.search_type) formData.append('search_type', params.search_type);
     if (params.sort_type) formData.append('sort_type', params.sort_type);
     if (params.price_sort) formData.append('price_sort', params.price_sort);
@@ -512,22 +517,28 @@ export const api = {
   },
   // ✅ 获取最佳开启记录
   getBoxBestRecord: async () => {
-    const result = await request<ApiResponse>('/api/box/bestRecord', {
+    const token = getToken();
+    const result = await request<ApiResponse>('/api/box/myRecent', {
       method: 'GET',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },
   // ✅ 对战亮点
   getFightBestRecord: async () => {
-    const result = await request<ApiResponse>('/api/fight/bestRecord', {
+    const token = getToken();
+    const result = await request<ApiResponse>('/api/fight/myBestRecord', {
       method: 'GET',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },
   // ✅ 交易亮点
   getLuckyBestRecord: async () => {
-    const result = await request<ApiResponse>('/api/lucky/bestRecord', {
+    const token = getToken();
+    const result = await request<ApiResponse>('/api/lucky/myBestRecord', {
       method: 'GET',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },

@@ -934,6 +934,7 @@ export interface CatalogItem {
     price: number;
     dropProbability: number;
     qualityId: Quality["id"];
+    lv: number;
 }
 
 // 生成稳定的新 ID（与旧 ID 不同）
@@ -955,6 +956,7 @@ export const catalogItems: CatalogItem[] = products.map((pr, idx) => {
         price: pr.price,
         dropProbability: pr.probability,
         qualityId,
+        lv: 5,
     };
     productIdToCatalogItem[pr.id] = item;
     return item;
@@ -980,6 +982,7 @@ function toCatalogItemFromPackItem(item: any): CatalogItem {
         price: item.price,
         dropProbability: item.probability,
         qualityId,
+        lv: item.lv,
     };
 }
 
@@ -1033,20 +1036,21 @@ export function getGlowColorFromProbability(probability: number | undefined): st
 }
 
 // 🔥 根据 lv 等级返回光晕颜色和品质ID
-export function getQualityFromLv(lv: number | undefined): { qualityId: string; color: string } {
-    switch (lv) {
-        case 1:
-            return { qualityId: 'legendary', color: '#E4AE33' }; // 传说 - 金色
-        case 2:
-            return { qualityId: 'mythic', color: '#EB4B4B' };     // 神话 - 红色
-        case 3:
-            return { qualityId: 'epic', color: '#8847FF' };       // 史诗 - 紫色
-        case 4:
-            return { qualityId: 'rare', color: '#4B69FF' };       // 稀有 - 蓝色
-        default:
-            return { qualityId: 'common', color: '#829DBB' };     // 普通 - 灰色
+    export function getQualityFromLv(lv: number | undefined): { qualityId: string; color: string } {
+        switch (lv) {
+            case 1:
+                return { qualityId: 'legendary', color: '#E4AE33' }; // 传说 - 金色
+            case 2:
+                return { qualityId: 'mythic', color: '#EB4B4B' };     // 神话 - 红色
+            case 3:
+                return { qualityId: 'epic', color: '#8847FF' };       // 史诗 - 紫色
+            case 4:
+                return { qualityId: 'rare', color: '#4B69FF' };       // 稀有 - 蓝色
+            default:
+                return { qualityId: 'common', color: '#829DBB' };     // 普通 - 灰色
+        }
     }
-}
+
 
 // 显示用标准商品类型（供 UI 组件消费，不依赖旧 packs.ts）
 export interface DisplayProduct {
@@ -1067,7 +1071,7 @@ export function toDisplayProductFromCatalog(item: CatalogItem): DisplayProduct {
         image: item.image,
         price: item.price,
         probability: item.dropProbability,
-        backlightColor: getGlowColorFromProbability(item.dropProbability),
+        backlightColor: getQualityFromLv(item.lv)?.color,
     };
 }
 
