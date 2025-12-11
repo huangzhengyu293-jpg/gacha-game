@@ -184,7 +184,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const listLoading = isShopMode ? isShopLoading : shouldShowWarehouseLoading;
   const listLoadingText = isShopMode ? '商城加载中...' : '正在加载仓库...';
   const emptyListText = isShopMode ? '商城暂无数据' : '仓库暂无物品';
-  const actionButtonLabel = isShopMode ? '购物车' : '商城';
+  const actionButtonLabel = isShopMode ? '背包' : '商城';
   const actionButtonDisabled = isShopLoading;
 
 
@@ -362,7 +362,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
         <div className="flex-col gap-1.5 text-center sm:text-left p-4 pt-6 sm:pt-4 h-16 flex justify-center flex-shrink-0" style={{ borderBottom: '1px solid #2E3134' }}>
           <div className="flex items-center">
             <h2 id="cart-title" className="tracking-tight text-left text-base font-extrabold pr-3" style={{ color: '#FEFEFE' }}>
-              {isShopMode ? '商城' : '您的购物车'}
+              {isShopMode ? '商城' : '您的背包'}
             </h2>
             {!isShopMode && (
               <p className="flex gap-2 items-center pl-3" style={{ borderLeft: '1px solid #2E3134' }}>

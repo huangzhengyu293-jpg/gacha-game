@@ -666,7 +666,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           updateVirtualItems();
           updateSelection();
           selectionLockedRef.current = true;
-          setTimeout(() => { resolve(); }, 100);
+          resolve();
         }
       };
       
@@ -717,7 +717,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     // 2. 设定目标：每次随机跑 40-45 格，保持可配置
     const RUN_DISTANCE_MIN = 40;
-    const RUN_DISTANCE_MAX = 45;
+    const RUN_DISTANCE_MAX = 60;
     const runDistance = Math.floor(Math.random() * (RUN_DISTANCE_MAX - RUN_DISTANCE_MIN + 1)) + RUN_DISTANCE_MIN;
     let targetBaseIndex = currentVisualIndex + runDistance;
     
@@ -936,7 +936,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       ref={containerRef}
       style={{ '--item-height': `${itemHeight}px` } as React.CSSProperties}
     >
-      <style jsx global>{`
+      <style>{`
         .lucky-slot-machine-container {
           width: 100%;
           display: flex;
@@ -1066,7 +1066,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           transform: translate(-50%, calc(var(--item-height) * 0.4));
           max-width: var(--item-height);
           opacity: 0;
-          transition: opacity 0.2s;
           z-index: 4;
         }
 
