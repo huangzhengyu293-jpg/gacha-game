@@ -39,7 +39,7 @@ const QUALITY_HEX_MAP: Record<string, string> = {
   placeholder: '#E4AE33',
 };
 
-const RANDOM_OFFSET_MIN_RATIO = 0.48;
+const RANDOM_OFFSET_MIN_RATIO = 0.2;
 const RANDOM_OFFSET_MAX_RATIO = 0.49;
 const FINAL_ALIGNMENT_DURATION = 480;
 
@@ -472,6 +472,20 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     }
   }, [createItemElement, REEL_HEIGHT]);
 
+  // 提前展示目标 item 的 info，用于回正过程中也能看到
+  const revealInfoForIndex = useCallback(
+    (index: number) => {
+      updateVirtualItems();
+      const item = renderedItemsMapRef.current.get(index);
+      if (item) {
+        item.classList.add('show-info');
+        currentSelectedElementRef.current = item;
+        currentSelectedIndexRef.current = index;
+      }
+    },
+    [updateVirtualItems]
+  );
+
   // 初始化转轮 - 只创建虚拟数据，不创建所有DOM
   const initReels = useCallback(() => {
     if (!reelContainerRef.current) return;
@@ -746,6 +760,9 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     await spinPhase1(duration, targetBaseIndex);
     setIsFinalizing(true);
     
+    // 在回正阶段开始前就展示 info，避免等待完全停住才显示
+    revealInfoForIndex(targetBaseIndex);
+
     await spinPhase2(targetBaseIndex);
     
     if (reelContainerRef.current) {
