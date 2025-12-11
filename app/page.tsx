@@ -2,6 +2,8 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Banner from './components/Banner';
+import BattleRecordBanner, { BattleRecordData } from './components/BattleRecordBanner';
+import PackRecordBanner, { PackRecordData } from './components/PackRecordBanner';
 import SectionHeader from './components/SectionHeader';
 import { useI18n } from './components/I18nProvider';
 import { useQuery } from '@tanstack/react-query';
@@ -12,10 +14,12 @@ import BattleModes from './components/BattleModes';
 import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
 import BestLiveSidebar from './components/BestLiveSidebar';
+import { useAuthContext } from './providers/AuthProvider';
 
 export default function Home() {
   const { t } = useI18n();
   const router = useRouter();
+  const { isAuthenticated } = useAuthContext();
 
   // ✅ 获取最新礼包列表（sort_type: '2' = 最新）
   const { data: boxNewListData } = useQuery({
@@ -23,6 +27,123 @@ export default function Home() {
     queryFn: () => api.getBoxNewList(),
     staleTime: 30_000,
   });
+
+  const { data: fightMyBestRecord } = useQuery({
+    queryKey: ['fightMyBestRecord'],
+    queryFn: () => api.getFightMyBestRecord(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  const { data: luckyMyBestRecord } = useQuery({
+    queryKey: ['luckyMyBestRecord'],
+    queryFn: () => api.getLuckyMyBestRecord(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  const { data: boxMyRecentData } = useQuery({
+    queryKey: ['boxMyRecent'],
+    queryFn: () => api.getBoxMyRecent(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  const bestBattleRecord = useMemo<BattleRecordData | undefined>(() => {
+    if (
+      fightMyBestRecord &&
+      typeof fightMyBestRecord === 'object' &&
+      (fightMyBestRecord as any).code === 100000 &&
+      (fightMyBestRecord as any).data &&
+      typeof (fightMyBestRecord as any).data === 'object'
+    ) {
+      return (fightMyBestRecord as any).data as BattleRecordData;
+    }
+    return undefined;
+  }, [fightMyBestRecord]);
+
+  const battleBannerTitle = bestBattleRecord ? '您的最佳对战' : '您的首次对战胜利';
+  const battleBannerHref =
+    bestBattleRecord && bestBattleRecord.id !== undefined && bestBattleRecord.id !== null
+      ? `/battles/${bestBattleRecord.id}`
+      : '/battles';
+
+  const bestPackRecord = useMemo<PackRecordData | undefined>(() => {
+    const normalize = (item: any): PackRecordData => ({
+      id: item?.box_id ?? item?.id ?? item?.pack_id ?? item?.packId,
+      cover: item?.awards?.cover ?? item?.cover ?? item?.box_cover ?? item?.image,
+      bean: item?.awards?.bean ?? item?.bean ?? item?.price ?? item?.amount,
+      name: item?.awards?.name ?? item?.name ?? item?.title ?? item?.box_name,
+      awards: item?.awards,
+    });
+
+    const payload = boxMyRecentData as any;
+    if (payload && typeof payload === 'object' && payload.code === 100000) {
+      const data = payload.data;
+      console.log(data);
+      if (data) {
+        return normalize(data);
+      }
+    }
+    return undefined;
+  }, [boxMyRecentData]);
+console.log(bestPackRecord);
+
+  const packBannerTitle = bestPackRecord ? '您的最佳礼包' : '开启您的第一个礼包！';
+  const packBannerHref =
+    bestPackRecord && bestPackRecord.id !== undefined && bestPackRecord.id !== null
+      ? `/packs/${bestPackRecord.id}`
+      : '/packs';
+
+  const bestTradeRecord = useMemo<PackRecordData | undefined>(() => {
+    const payload = luckyMyBestRecord as any;
+    if (payload && typeof payload === 'object' && payload.code === 100000 && payload.data && typeof payload.data === 'object') {
+      const steam = (payload.data as any).steam;
+      const productId = (payload.data as any).id ?? (payload.data as any).box_id;
+      if (steam && typeof steam === 'object') {
+        return {
+          id: steam.id ?? productId,
+          steamId: steam.id,
+          productId,
+          cover: steam.cover,
+          bean: steam.bean,
+          name: steam.name,
+          awards: {
+            cover: steam.cover,
+            bean: steam.bean,
+            name: steam.name,
+          },
+        };
+      }
+      return {
+        id: productId,
+        productId,
+        cover: (payload.data as any).cover,
+        bean: (payload.data as any).bean,
+        name: (payload.data as any).name,
+        awards: (payload.data as any).awards,
+      };
+    }
+    return undefined;
+  }, [luckyMyBestRecord]);
+
+  const tradeBannerHref = useMemo(() => {
+    if (bestTradeRecord) {
+      const params = new URLSearchParams();
+      if (bestTradeRecord.productId !== undefined && bestTradeRecord.productId !== null) {
+        params.set('productId', String(bestTradeRecord.productId));
+      }
+      if (bestTradeRecord.steamId !== undefined && bestTradeRecord.steamId !== null) {
+        params.set('steamId', String(bestTradeRecord.steamId));
+      } else if (bestTradeRecord.id !== undefined && bestTradeRecord.id !== null) {
+        params.set('steamId', String(bestTradeRecord.id));
+      }
+      const qs = params.toString();
+      if (qs) return `/deals?${qs}`;
+      return '/deals';
+    }
+    return '/deals';
+  }, [bestTradeRecord]);
 
   // 将新接口数据映射为旧格式
   const packs = useMemo(() => {
@@ -57,7 +178,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
                   <Banner
-                    title="您的首次对战胜利"
+                    title={battleBannerTitle}
                     icon={
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M14.2222 16.8889L3.99998 6.66667V4H6.66665L16.8889 14.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -71,10 +192,12 @@ export default function Home() {
                       </svg>
                     }
                     bgClass="bg-new-player-battle-banner py-0.5"
-                    href="/battles"
-                  />
+                    href={battleBannerHref}
+                  >
+                   {fightMyBestRecord && <BattleRecordBanner record={bestBattleRecord} />}
+                  </Banner>
                   <Banner
-                    title="开启您的第一个礼包！"
+                    title={packBannerTitle}
                     icon={
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 4.15385L4 16.8462C4 17.4834 4.70355 18 5.57143 18L13.4286 18C14.2964 18 15 17.4834 15 16.8462L15 4.15385C15 3.5166 14.2964 3 13.4286 3L5.57143 3C4.70355 3 4 3.5166 4 4.15385Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -82,8 +205,10 @@ export default function Home() {
                       </svg>
                     }
                     bgClass="bg-new-player-packs-banner"
-                    href="/packs"
-                  />
+                    href={packBannerHref}
+                  >
+                    {boxMyRecentData && <PackRecordBanner record={bestPackRecord} />}
+                  </Banner>
                   <Banner
                     title="您的最佳交易"
                     icon={
@@ -94,8 +219,10 @@ export default function Home() {
                       </svg>
                     }
                     bgClass="bg-new-player-deal-banner"
-                    href="/deals"
-                  />
+                    href={tradeBannerHref}
+                  >
+                    {luckyMyBestRecord && <PackRecordBanner record={bestTradeRecord} />}
+                  </Banner>
                 </div>
               </div>
 

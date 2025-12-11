@@ -26,13 +26,13 @@ export interface StorageItem {
   [key: string]: any;
 }
 
-export function useCart() {
+export function useCart(priceSort: 'asc' | 'desc' = 'asc') {
   const { isAuthenticated } = useAuth();
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['userStorage'],
+    queryKey: ['userStorage', priceSort],
     queryFn: async () => {
-      const response = await api.getUserStorage();
+      const response = await api.getUserStorage(0, priceSort);
       return response;
     },
     enabled: typeof window !== 'undefined' && isAuthenticated,

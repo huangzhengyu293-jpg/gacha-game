@@ -43,40 +43,10 @@ export default function PackCard({
   
   const { favoriteIds, toggleFavorite } = useAuth();
   const isFavorited = packId ? favoriteIds.includes(String(packId)) : false;
-  
-  const { data: modalPackData } = useQuery({
-    queryKey: ['box-detail', packId, showModal],
-    queryFn: async () => packId ? await api.getBoxDetail(packId) : undefined,
-    enabled: !!packId && showModal,
-    staleTime: 30_000,
-  });
+ 
 
   // 将新接口数据映射为旧格式
-  const modalPack = useMemo(() => {
-    if (!modalPackData || modalPackData.code !== 100000 || !modalPackData.data) return undefined;
-    const box = modalPackData.data;
-
-    return {
-      id: box.id,
-      title: box.name || box.title || '',
-      image: box.cover || '',
-      price: Number(box.bean || 0),
-      itemCount: box.awards?.length || 0,
-      items: (box.awards || []).map((award: any) => {
-        const item = award.awards || {};
-        
-        return {
-          id: item.id,
-          name: item.name || '',
-          image: item.cover || '',
-          price: Number(item.bean || 0),
-          dropProbability:Number(award.bili|| 0),
-          qualityId: '',
-          lv: Number(award.lv || 0),
-        };
-      }),
-    };
-  }, [modalPackData]);
+ 
   
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -229,8 +199,7 @@ export default function PackCard({
           <PackContentsModal
             open={showModal}
             onClose={() => setShowModal(false)}
-            title={`${packTitle ?? ''}${packPrice !== undefined ? ` - $${packPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
-            items={(modalPack?.items ?? []) as any}
+            packId={packId}
           />
         ) : null}
       </>
@@ -243,8 +212,7 @@ export default function PackCard({
         <PackContentsModal
           open={showModal}
           onClose={() => setShowModal(false)}
-          title={`${packTitle ?? ''}${packPrice !== undefined ? ` - $${packPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
-          items={(modalPack?.items ?? []) as any}
+          packId={packId}
         />
       ) : null}
     </>

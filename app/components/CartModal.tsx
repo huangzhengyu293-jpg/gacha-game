@@ -30,16 +30,23 @@ interface CartModalProps {
 export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1.38, items }: CartModalProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('desc');
+  const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('asc');
 
   // 使用购物车 hook 获取数据
-  const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart();
+  const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart(sortByPrice);
   const { fetchUserBean } = useAuth();
   const [viewMode, setViewMode] = useState<'cart' | 'shop'>('cart');
   const isShopMode = viewMode === 'shop';
   const [shopItems, setShopItems] = useState<CartItem[]>([]);
   const [isShopLoading, setIsShopLoading] = useState(false);
   const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
+
+  // 排序方向变化时强制刷新购物车数据（重新调用接口带 price_sort）
+  useEffect(() => {
+    if (!isShopMode) {
+      refetchCart();
+    }
+  }, [sortByPrice, isShopMode, refetchCart]);
 
   // 将购物车数据转换为 CartItem 格式（如果外部未传入 items 则使用购物车数据）
   const expandedWarehouseItems: CartItem[] = cartItems.map((item, index) => ({
@@ -329,9 +336,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     }
   };
 
-  const sortedItems = [...displayedItems].sort((a, b) => {
-    return sortByPrice === 'asc' ? a.price - b.price : b.price - a.price;
-  });
+  const sortedItems = displayedItems; // 由后端根据 price_sort 排序
 
   return (
     <div
@@ -435,18 +440,29 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   type="button"
                 >
                   价格
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-down">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`lucide lucide-arrow-down transition-transform ${sortByPrice === 'desc' ? 'rotate-180' : ''}`}
+                  >
                     <path d="M12 5v14"></path>
                     <path d="m19 12-7 7-7-7"></path>
                   </svg>
                 </button>
                 {!isShopMode && (
-                  <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
-                    style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
-                    onClick={selectAll}
-                    type="button"
-                  >
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
+                style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
+                onClick={selectAll}
+                type="button"
+              >
                     <div
                       className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
                       style={{
@@ -780,7 +796,18 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 type="button"
               >
                 价格
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-down">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`lucide lucide-arrow-down transition-transform ${sortByPrice === 'desc' ? 'rotate-180' : ''}`}
+                >
                   <path d="M12 5v14"></path>
                   <path d="m19 12-7 7-7-7"></path>
                 </svg>

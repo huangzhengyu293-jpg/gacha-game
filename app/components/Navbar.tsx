@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,87 @@ import { useToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
 import { LogoIcon } from './icons/Logo';
+import LoadingSpinnerIcon from './icons/LoadingSpinner';
+
+type PromoCodeFormProps = {
+  value: string;
+  loading: boolean;
+  onChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  className?: string;
+  showTopDivider?: boolean;
+};
+
+function PromoCodeForm({
+  value,
+  loading,
+  onChange,
+  onSubmit,
+  className = '',
+  showTopDivider = false,
+}: PromoCodeFormProps) {
+  const disabled = loading || !value.trim();
+
+  return (
+    <form
+      className={`flex flex-col rounded-lg overflow-hidden ${className}`}
+      onSubmit={onSubmit}
+      style={{ backgroundColor: '#22272b' }}
+    >
+      <div className="flex relative items-center" style={{ padding: showTopDivider ? '1px 1px' : '12px 16px' }}>
+       
+        <input
+          className="flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 bg-gray-800 px-3 py-2 pr-12 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 text-[#7A8084]"
+          style={{ backgroundColor: '#1d2125', color: '#7A8084' }}
+          placeholder="促销码"
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center gap-2  whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
+          style={{ color: loading ? 'rgba(0,0,0,0)' : undefined, cursor: disabled ? 'not-allowed' : 'pointer', marginRight: showTopDivider ? '-4px' : '8px' }}
+          disabled={disabled}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-check size-4 min-w-4 min-h-4"
+          >
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-loader-circle text-white animate-spin w-4 h-4"
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+              </svg>
+            </div>
+          )}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function Navbar() {
   const { t } = useI18n();
   const router = useRouter();
@@ -45,6 +126,8 @@ export default function Navbar() {
   const [showRegister, setShowRegister] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
   const [regPass, setRegPass] = useState('');
   const [showStrength, setShowStrength] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
@@ -123,6 +206,22 @@ export default function Navbar() {
       title: '已登出',
       description: '您已成功登出',
     });
+  };
+
+  const handlePromoSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (promoLoading) return;
+    const code = promoCode.trim();
+    if (!code) return;
+    try {
+      setPromoLoading(true);
+      const res = await api.setUserProfile({ invite: code });
+      
+    } catch (err) {
+      toast.show({ variant: 'error', title: '兑换失败', description: err instanceof Error ? err.message : '请稍后重试' });
+    } finally {
+      setPromoLoading(false);
+    }
   };
 
   const [showVerifyCode, setShowVerifyCode] = useState(false); // 显示验证码弹窗
@@ -794,7 +893,16 @@ export default function Navbar() {
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                         <p className="text-base text-white">注销</p>
                       </div>
+                    
                     </div>
+                    <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+                    <PromoCodeForm
+                      value={promoCode}
+                      loading={promoLoading}
+                      onChange={setPromoCode}
+                      onSubmit={handlePromoSubmit}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
               </div>
@@ -840,6 +948,12 @@ export default function Navbar() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                   </button>
                 </div>
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 xs:h-9 min-w-20"
+                  onClick={() => setShowWalletModal(true)}
+                >
+                  <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                </button>
                 {/* ✅ 暂时隐藏余额按钮 */}
                 {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-3 h-8 xs:h-9 min-w-24">
                   <p className="text-sm text-white font-bold">{user?.bean?.bean?.toFixed(2) || '0.00'}</p>
@@ -942,26 +1056,6 @@ export default function Navbar() {
 
                     <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
 
-                    {/* 登录状态下：钱包快捷入口（置于注销上方） */}
-                    {isAuthenticated && (
-                      <div className="flex flex-col px-2 py-1.5 gap-2">
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none h-10 px-4"
-                          onClick={() => { setShowWalletModal(true); }}
-                        >
-                          <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                        </button>
-                        {/* <button
-                          type="button"
-                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-4"
-                          onClick={() => { setShowWalletModal(true); }}
-                        >
-                          <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                        </button> */}
-                      </div>
-                    )}
-
                     <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
 
                     {/* 登录状态下的注销 */}
@@ -973,6 +1067,14 @@ export default function Navbar() {
                             <p className="text-base text-white">注销</p>
                           </div>
                         </div>
+                        <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
+                        <PromoCodeForm
+                          value={promoCode}
+                          loading={promoLoading}
+                          onChange={setPromoCode}
+                          onSubmit={handlePromoSubmit}
+                          className="mt-2"
+                        />
                       </>
                     ) : null}
                   </div>
@@ -1023,24 +1125,18 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="flex flex-col p-4 gap-4">
-                <div className="flex gap-3 flex-wrap">
-                  <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none h-10 px-6"
-                    onClick={() => { setShowWalletModal(true); }}
-                  >
-                    <p className="text-lg text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                  </button>
-                  {/* <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none h-10 px-6"
-                    onClick={() => { setShowWalletModal(true); }}
-                  >
-                    <p className="text-lg text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                  </button> */}
-                </div>
                 <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                   <p className="text-lg text-white font-semibold">登出</p>
                 </div>
+                <PromoCodeForm
+                  value={promoCode}
+                  loading={promoLoading}
+                  onChange={setPromoCode}
+                  onSubmit={handlePromoSubmit}
+                  className="mt-2"
+                  showTopDivider
+                />
               </div>
             </div>
           ) : (

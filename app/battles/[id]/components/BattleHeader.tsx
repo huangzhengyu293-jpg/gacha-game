@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
+import PackContentsModal from "@/app/components/PackContentsModal";
 import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
 
 export interface PackImage {
@@ -29,7 +30,11 @@ export interface BattleHeaderProps {
   isInverted?: boolean; // 倒置模式
   onFairnessClick?: () => void;
   onShareClick?: () => void;
-  onPackClick?: (index: number) => void;
+}
+
+interface PackModalState {
+  open: boolean;
+  packId: string | null;
 }
 
 export default function BattleHeader({
@@ -51,8 +56,8 @@ export default function BattleHeader({
   isInverted = false,
   onFairnessClick,
   onShareClick,
-  onPackClick,
 }: BattleHeaderProps) {
+  const [packModal, setPackModal] = useState<PackModalState>({ open: false, packId: null });
   const packScrollRefDesktop = useRef<HTMLDivElement>(null);
   const packScrollRefMobile = useRef<HTMLDivElement>(null);
   const packRefs = useRef<(HTMLImageElement | null)[]>([]);
@@ -71,6 +76,7 @@ export default function BattleHeader({
   
   const modeVisual = getModeVisual(gameMode, awardName);
   const optionIcons = getSpecialOptionIcons({ isFastMode, isLastChance, isInverted });
+  const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
 
   // 虚拟滚动：更新可见范围（节流优化）
   const lastUpdateTimeRef = useRef(0);
@@ -272,7 +278,9 @@ export default function BattleHeader({
                       return (
                         <img
                           key={`pack-header-${index}-${pack.id}`}
-                          ref={(el) => { packRefs.current[index] = el; }}
+                          ref={(el) => {
+                            packRefs.current[index] = el;
+                          }}
                           alt={pack.alt}
                           loading="eager"
                           width="42"
@@ -284,6 +292,7 @@ export default function BattleHeader({
                             color: "transparent",
                             opacity: isHighlighted(index) ? 1 : 0.32,
                           }}
+                          onClick={() => setPackModal({ open: true, packId: pack.id })}
                         />
                       );
                     })}
@@ -544,6 +553,13 @@ export default function BattleHeader({
             </div>
           </div>
         </div>
+      {packModal.open && (
+        <PackContentsModal
+          open={packModal.open}
+          packId={packModal.packId}
+          onClose={() => setPackModal({ open: false, packId: null })}
+        />
+      )}
       </div>
     </div>
   );

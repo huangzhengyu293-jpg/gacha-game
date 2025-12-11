@@ -268,10 +268,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const currentSelectedIndexRef = useRef<number>(-1);
   const currentSelectedElementRef = useRef<HTMLElement | null>(null);
   const selectionLockedRef = useRef<boolean>(false); // Lock selection after spin completes
-  const plannedFinalIndexRef = useRef<number | null>(null);
-  const plannedFakeIndexRef = useRef<number | null>(null);
-  const plannedFinalTopRef = useRef<number | null>(null);
-  const plannedFakeTopRef = useRef<number | null>(null);
 
   // 更新选中状态（优化版：只操作变化的元素）
   // CRITICAL: Make this function stable by using refs for all values
@@ -293,7 +289,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       return;
     }
     
-    const container = reelContainerRef.current;
     let containerTop = currentScrollYRef.current;
     
     const totalHeight = itemsPerReelRef.current * itemHeightRef.current;
@@ -343,15 +338,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   }, []); // NO dependencies - completely stable!
 
   // 🚀 查找最接近的虚拟项目索引
-  const findClosestItem = useCallback((container: HTMLDivElement): number => {
-    const containerTop = currentScrollYRef.current;
-    
-    // Directly calculate the closest virtual index using math (O(1))
-    const virtualClosestIndex = Math.round((reelCenterRef.current - containerTop - itemHeightRef.current / 2) / itemHeightRef.current);
-    const clampedIndex = Math.max(0, Math.min(virtualItemsRef.current.length - 1, virtualClosestIndex));
-    
-    return clampedIndex;
-  }, []); // NO dependencies - completely stable!
+
 
   const createItemInfoElement = useCallback((symbol: SlotSymbol): HTMLDivElement => {
     const itemInfo = document.createElement('div');
@@ -562,8 +549,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
       // 2. 检查距离是否足够
       let distance = startTop - targetTop;
       const minRunway = (itemsPerReelRef.current * 0.2) * actualItemHeight; // 至少跑 1/4 圈
-      console.log('minRunway', minRunway);
-      console.log('distance', distance);
       
       // 如果距离太短（比如已经在底部了），我们需要“后退”来制造助跑距离
       // 利用虚拟列表的重复性，我们把 startTop 向上挪动一个周期（itemsPerReel * height）
@@ -582,7 +567,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
         const now = Date.now();
         const frameDelta = now - lastFrameTime;
         lastFrameTime = now;
-        console.log(frameDelta);
         
         
         if (frameDelta > 200) {

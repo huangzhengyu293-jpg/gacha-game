@@ -10,7 +10,6 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import BattleHeader from "./components/BattleHeader";
 import ParticipantsWithPrizes from "./components/ParticipantsWithPrizes";
 import PacksGallery from "./components/PacksGallery";
-import PackDetailModal from "./components/PackDetailModal";
 import type { PackItem, Participant, BattleData } from "./types";
 import LuckySlotMachine, { type SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineHandle } from "./components/EliminationSlotMachine";
@@ -840,6 +839,110 @@ function convertRuntimeRoundToLegacy(runtimeRound: RuntimeRoundPlan): BattleStat
 let audioContext: AudioContext | null = null;
 let tickAudioBuffer: AudioBuffer | null = null;
 let basicWinAudioBuffer: AudioBuffer | null = null;
+const audioInitPromiseRef: { current: Promise<void> | null } = { current: null };
+
+function initAudioOnce(): Promise<void> {
+  if (audioInitPromiseRef.current) return audioInitPromiseRef.current;
+  audioInitPromiseRef.current = (async () => {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      (window as any).__audioContext = audioContext;
+    }
+
+    // 加载tick.mp3
+    if (!tickAudioBuffer) {
+      try {
+        const response = await fetch('/tick.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        tickAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        (window as any).__tickAudioBuffer = tickAudioBuffer;
+      } catch (err) {
+      }
+    }
+
+    // 加载basic_win.mp3
+    if (!basicWinAudioBuffer) {
+      try {
+        const response = await fetch('/basic_win.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        basicWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        (window as any).__basicWinAudioBuffer = basicWinAudioBuffer;
+      } catch (err) {
+      }
+    }
+
+    // 加载special_win.mp3
+    let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
+    if (!specialWinAudioBuffer) {
+      try {
+        const response = await fetch('/special_win.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
+      } catch (err) {
+      }
+    }
+  })();
+  return audioInitPromiseRef.current;
+}
+
+function collectAllImageUrls(rounds: Array<ReturnType<typeof convertRuntimeRoundToLegacy>>, participants: any[], battleData: BattleData): string[] {
+  const urls: string[] = [];
+
+  // 来自回合奖池
+  rounds.forEach((round) => {
+    const pools: Array<SlotSymbol[] | SlotSymbol | undefined> = [
+      round.pools.normal,
+      round.pools.legendary,
+      round.pools.placeholder,
+    ];
+    pools.forEach((pool) => {
+      const list = Array.isArray(pool) ? pool : pool ? [pool] : [];
+      list.forEach((symbol: SlotSymbol) => {
+        if (symbol?.image) {
+          urls.push(symbol.image);
+        }
+      });
+    });
+  });
+
+  // 参与者头像
+  participants.forEach((p) => {
+    if (p?.avatar) {
+      urls.push(p.avatar);
+    }
+  });
+
+  // 卡包与道具
+  (battleData?.packs ?? []).forEach((pack) => {
+    if (!pack) return;
+    const packUrls = [(pack as any)?.image, (pack as any)?.cover, (pack as any)?.banner].filter(Boolean) as string[];
+    urls.push(...packUrls);
+    const items: any[] = Array.isArray((pack as any)?.items) ? (pack as any).items : [];
+    items.forEach((item) => {
+      const itemUrls = [item?.image, item?.cover].filter(Boolean) as string[];
+      urls.push(...itemUrls);
+    });
+  });
+
+  return Array.from(new Set(urls));
+}
+
+function preloadImages(urls: string[]): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (!urls.length) return Promise.resolve();
+  return Promise.all(
+    urls.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = src;
+        }),
+    ),
+  ).then(() => {});
+}
 
 export default function BattleDetailPage() {
   const router = useRouter();
@@ -1049,7 +1152,6 @@ function BattleDetailContent({
     }
     return Object.values(winBox).some((entries) => Array.isArray(entries) && entries.length > 0);
   }, [rawDetail?.data?.win?.box]);
-  const [selectedPack, setSelectedPack] = useState<PackItem | null>(null);
   const [allSlotsFilled, setAllSlotsFilled] = useState(false);
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
   const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
@@ -1347,6 +1449,10 @@ useEffect(() => {
   
   // 🏃 积分冲刺模式：玩家/团队积分
   const [sprintScores, setSprintScores] = useState<Record<string, number>>({});
+
+  // 🕒 记录标签页离开/返回时间与轮次
+  const lastHiddenAtRef = useRef<number | null>(null);
+  const lastHiddenRoundRef = useRef<number | null>(null);
   
   // 🔥 淘汰模式：淘汰老虎机完成回调
   const handleEliminationSlotComplete = useCallback(() => {
@@ -1433,48 +1539,24 @@ useEffect(() => {
   
   // 🎵 使用Web Audio API加载音频（零延迟播放）
   useEffect(() => {
-    const initAudio = async () => {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        (window as any).__audioContext = audioContext;
+    initAudioOnce();
+  }, []);
+
+  // 🎵 首次用户交互时解锁 AudioContext（避免自动播放限制）
+  useEffect(() => {
+    const unlock = () => {
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
       }
-      
-      // 加载tick.mp3
-      if (!tickAudioBuffer) {
-        try {
-          const response = await fetch('/tick.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          tickAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__tickAudioBuffer = tickAudioBuffer;
-        } catch (err) {
-        }
-      }
-      
-      // 加载basic_win.mp3
-      if (!basicWinAudioBuffer) {
-        try {
-          const response = await fetch('/basic_win.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          basicWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__basicWinAudioBuffer = basicWinAudioBuffer;
-        } catch (err) {
-        }
-      }
-      
-      // 加载special_win.mp3
-      let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
-      if (!specialWinAudioBuffer) {
-        try {
-          const response = await fetch('/special_win.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
-        } catch (err) {
-        }
-      }
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
     };
-    
-    initAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
   }, []);
   
   // 🎯 状态机核心状态
@@ -2558,6 +2640,56 @@ useEffect(() => {
     }
   }, [allSlotsFilled, allParticipants.length, gameMode]);
 
+  // 🕒 监听标签页可见性，记录离开时轮次与停留时长，并在返回时补齐轮次
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        lastHiddenAtRef.current = Date.now();
+        lastHiddenRoundRef.current = gameData.currentRound;
+      } else {
+        const hiddenAt = lastHiddenAtRef.current;
+        const hiddenRound = lastHiddenRoundRef.current;
+        if (hiddenAt !== null) {
+          const deltaMs = Date.now() - hiddenAt;
+          const seconds = (deltaMs / 1000).toFixed(1);
+          console.info(`[BattleTab] 离开时第${hiddenRound ?? '未知'}轮，离开时长 ${seconds}s`);
+
+          // 补齐轮次（基于回合时长推算）
+          if (
+            hiddenRound !== null &&
+            Number.isFinite(hiddenRound) &&
+            typeof gameData.totalRounds === 'number' &&
+            gameData.totalRounds > 0
+          ) {
+            const roundDurationMs = isFastMode ? FAST_ROUND_DURATION_MS : NORMAL_ROUND_DURATION_MS;
+            const skipped = Math.floor(deltaMs / roundDurationMs);
+            if (skipped > 0) {
+              const targetRound = Math.min(gameData.totalRounds, hiddenRound + skipped);
+              hydrateRoundsProgress(targetRound);
+              if (targetRound >= gameData.totalRounds) {
+                setCountdownValue(null);
+                setRoundState(null);
+                setMainState('COMPLETED');
+              } else {
+                setRoundState('ROUND_RENDER');
+                setMainState('ROUND_LOOP');
+              }
+            }
+          }
+        }
+        lastHiddenAtRef.current = null;
+        lastHiddenRoundRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [gameData.currentRound]);
+
   // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
     if (isPendingBattle) {
@@ -2597,11 +2729,14 @@ useEffect(() => {
   const participantsSnapshotRef = useRef<any[]>([]);
   
   useEffect(() => {
-    if (mainState === 'LOADING' && !hasGeneratedResultsRef.current) {
-      // 掉落结果未就绪时等待，避免生成空轮次导致回合不记录
-      if (!hasWinBoxData) {
-        return;
-      }
+    if (mainState !== 'LOADING' || hasGeneratedResultsRef.current) {
+      return;
+    }
+    if (!hasWinBoxData) {
+      return;
+    }
+
+    const run = async () => {
       // 🔒 标记已生成，防止重复执行
       hasGeneratedResultsRef.current = true;
       // 🔒 关键：锁定当前的 allParticipants 快照
@@ -2612,6 +2747,17 @@ useEffect(() => {
       
       // 🚀 性能优化：rounds 放在 ref，避免深度比对
       gameRoundsRef.current = rounds;
+      
+      // 预加载音频与图片
+      try {
+        await initAudioOnce();
+      } catch (err) {
+      }
+      try {
+        const urls = collectAllImageUrls(rounds, participantsSnapshotRef.current, battleData);
+        await preloadImages(urls);
+      } catch (err) {
+      }
       
       dispatchProgressState({
         type: 'APPLY_PROGRESS_SNAPSHOT',
@@ -2667,7 +2813,9 @@ useEffect(() => {
       } else {
         startCountdownWithPrepare();
       }
-    }
+    };
+
+    run();
   }, [
     mainState,
     generateAllResults,
@@ -4041,7 +4189,7 @@ useEffect(() => {
                 onComplete={handleJackpotAnimationComplete}
               />
             ) : (
-              <div className="text-sm text-white/70">正在準備最終 JACKPOT 色條...</div>
+              <div ></div>
             )}
             <p className="text-xs tracking-[0.3em] uppercase text-white/60">Jackpot roll</p>
           </div>
@@ -4049,7 +4197,6 @@ useEffect(() => {
           <div ref={galleryRef} className="w-full h-full flex">
             <PacksGallery
               packs={battleData.packs}
-              onPackClick={setSelectedPack}
               countdownValue={countdownValue}
               highlightAlert={galleryAlert}
               forceHidden={hidePacks}
@@ -4101,7 +4248,7 @@ useEffect(() => {
                                 }}
                               >
                                 <LuckySlotMachine
-                                  key={`${participant.id}-first`}
+                                  key={`${participant.id}-first-${gameData.currentRound}`}
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
@@ -4124,7 +4271,7 @@ useEffect(() => {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-second`}
+                                    key={`${participant.id}-second-${gameData.currentRound}`}
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -4326,7 +4473,7 @@ useEffect(() => {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-first`}
+                                    key={`${participant.id}-first-${roundIndex}`}
                                     ref={(ref) => {
                                       if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -4348,7 +4495,7 @@ useEffect(() => {
                                     }}
                                   >
                                     <LuckySlotMachine
-                                      key={`${participant.id}-second`}
+                                      key={`${participant.id}-second-${roundIndex}`}
                                       ref={(ref) => {
                                         if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                       }}
@@ -4386,11 +4533,11 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -4414,11 +4561,11 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -4442,11 +4589,11 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
                             </div>
                           )}
                         </div>
@@ -4501,7 +4648,7 @@ useEffect(() => {
                                 }}
                               >
                                 <LuckySlotMachine
-                                  key={`${participant.id}-first`}
+                                  key={`${participant.id}-first-${roundIndex}`}
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
@@ -4524,7 +4671,7 @@ useEffect(() => {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-second`}
+                                    key={`${participant.id}-second-${roundIndex}`}
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -4589,7 +4736,7 @@ useEffect(() => {
                                 }}
                               >
                                 <LuckySlotMachine
-                                  key={`${participant.id}-first`}
+                                  key={`${participant.id}-first-${roundIndex}`}
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
@@ -4612,7 +4759,7 @@ useEffect(() => {
                                   }}
                                 >
                                   <LuckySlotMachine
-                                    key={`${participant.id}-second`}
+                                    key={`${participant.id}-second-${roundIndex}`}
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
@@ -4788,12 +4935,6 @@ useEffect(() => {
               onPendingSlotAction={isPendingBattle ? onPendingSlotAction : undefined}
               pendingButtonLabel={pendingSlotActionLabel}
             />
-        {selectedPack && (
-          <PackDetailModal
-            pack={selectedPack}
-            onClose={() => setSelectedPack(null)}
-          />
-        )}
           </div>
         </div>
       </div>

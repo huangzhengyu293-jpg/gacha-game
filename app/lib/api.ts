@@ -515,30 +515,45 @@ export const api = {
     });
     return result;
   },
-  // ✅ 获取最佳开启记录
+  // ✅ 获取最佳开启记录（恢复旧接口）
   getBoxBestRecord: async () => {
-    const token = getToken();
+    const result = await request<ApiResponse>('/api/box/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 获取个人最近开箱记录
+  getBoxMyRecent: async () => {
     const result = await request<ApiResponse>('/api/box/myRecent', {
       method: 'GET',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },
-  // ✅ 对战亮点
+  // ✅ 对战亮点（恢复旧接口）
   getFightBestRecord: async () => {
-    const token = getToken();
+    const result = await request<ApiResponse>('/api/fight/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 个人最佳对战记录
+  getFightMyBestRecord: async () => {
     const result = await request<ApiResponse>('/api/fight/myBestRecord', {
       method: 'GET',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },
-  // ✅ 交易亮点
+  // ✅ 交易亮点（恢复旧接口）
   getLuckyBestRecord: async () => {
-    const token = getToken();
+    const result = await request<ApiResponse>('/api/lucky/bestRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
+  // ✅ 个人最佳交易记录
+  getLuckyMyBestRecord: async () => {
     const result = await request<ApiResponse>('/api/lucky/myBestRecord', {
       method: 'GET',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     return result;
   },
@@ -561,10 +576,11 @@ export const api = {
     return result;
   },
   // ✅ 设置用户资料（头像 + 用户名）
-  setUserProfile: async (payload: { avatar: string; name: string }) => {
+  setUserProfile: async (payload: { avatar?: string; name?: string; invite?: string }) => {
     const formData = new FormData();
-    formData.append('avatar', payload.avatar || '');
-    formData.append('name', payload.name || '');
+    if (payload.avatar !== undefined) formData.append('avatar', payload.avatar || '');
+    if (payload.name !== undefined) formData.append('name', payload.name || '');
+    if (payload.invite !== undefined) formData.append('invite', payload.invite || '');
     const result = await request<ApiResponse>('/api/user/set', {
       method: 'POST',
       data: formData,
@@ -724,11 +740,18 @@ export const api = {
   },
   
   // ✅ 获取用户仓库 / 出售记录（status: 0=当前背包，2=出售记录）
-  getUserStorage: async (status: string | number = 0) => {
+  // price_sort: 1=价格高->低，2=价格低->高
+  getUserStorage: async (status: string | number = 0, priceSort?: 'asc' | 'desc') => {
+    const price_sort = priceSort
+      ? priceSort === 'asc'
+        ? '2'
+        : '1'
+      : undefined;
     const result = await request<ApiResponse>('/api/user/storage', {
       method: 'GET',
       params: {
         status: String(status),
+        ...(price_sort ? { price_sort } : {}),
       },
     });
     return result;

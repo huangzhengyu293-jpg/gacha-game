@@ -19,8 +19,8 @@ function DealsPageInner() {
   const [filters, setFilters] = useState<SearchFilters>({
     name: '',
     priceSort: '1',
-    priceMin: 200,
-    priceMax: 5888,
+    priceMin: 20,
+    priceMax: 350000,
   });
   const searchParams = useSearchParams();
 

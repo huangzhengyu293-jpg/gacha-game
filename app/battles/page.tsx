@@ -9,7 +9,7 @@ import BestLiveSidebar from '../components/BestLiveSidebar';
 export default function BattlesPage() {
   const { t } = useI18n();
   const router = useRouter();
-  const [sortValue, setSortValue] = useState<'priceDesc' | 'latest'>('priceDesc');
+  const [sortValue, setSortValue] = useState<'priceDesc' | 'latest'>('latest');
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreateHover, setIsCreateHover] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<'solo' | 'team' | null>(null);

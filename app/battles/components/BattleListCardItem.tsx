@@ -248,12 +248,22 @@ export default function BattleListCardItem({
       }
     : buttonColors;
   const resolvedButtonColors = buttonColor ?? buttonColors ?? DEFAULT_BUTTON_COLORS;
+  const handleCardClick = () => {
+    if (isPendingBattle && onPendingAction) {
+      onPendingAction();
+      return;
+    }
+    if (onPrimaryAction) {
+      onPrimaryAction();
+    }
+  };
 
   return (
     <div className="cursor-pointer">
       <div
         className="flex relative flex-col md:flex-row items-center p-4 rounded-lg cursor-pointer min-w-0 transition-colors"
         style={{ backgroundColor: "#22272B" }}
+        onClick={handleCardClick}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLDivElement).style.backgroundColor = "#2A2D35";
         }}

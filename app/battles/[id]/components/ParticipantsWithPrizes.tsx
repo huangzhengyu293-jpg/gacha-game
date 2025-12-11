@@ -1007,7 +1007,6 @@ function LazyRoundCard({
   const roundId = `round-${packIndex}`;
   const roundPlayerItems = roundResultMap[roundId] || {};
   const playerResult = member ? roundPlayerItems[member.id] : undefined;
-console.log(playerResult);
   
   const isRoundCompleted = completedRounds?.has(packIndex) || false;
   const shouldShowPlayerResult = !!playerResult;

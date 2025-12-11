@@ -15,7 +15,7 @@ type BattleModesProps = {
   enablePolling?: boolean; // 是否轮询，默认 true
 };
 
-export default function BattleModes({ sortValue = "priceDesc", useBestRecord = false, enablePolling = true }: BattleModesProps = {}) {
+export default function BattleModes({ sortValue = "latest", useBestRecord = false, enablePolling = true }: BattleModesProps = {}) {
   const router = useRouter();
   const { t } = useI18n();
 

@@ -29,11 +29,11 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
     return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: frac, maximumFractionDigits: frac });
   }
 
-  const minVal = useMemo(() => clamp(parseCurrency(minPrice), 200, 5888), [minPrice]);
-  const maxVal = useMemo(() => clamp(parseCurrency(maxPrice), 200, 5888), [maxPrice]);
+  const minVal = useMemo(() => clamp(parseCurrency(minPrice), 20, 350000), [minPrice]);
+  const maxVal = useMemo(() => clamp(parseCurrency(maxPrice), 20, 350000), [maxPrice]);
 
-  function onMinBlur() { setMinPrice(formatCurrency(clamp(parseCurrency(minPrice), 200, 5888))); }
-  function onMaxBlur() { setMaxPrice(formatCurrency(clamp(parseCurrency(maxPrice), 200, 5888))); }
+  function onMinBlur() { setMinPrice(formatCurrency(clamp(parseCurrency(minPrice), 20, 350000))); }
+  function onMaxBlur() { setMaxPrice(formatCurrency(clamp(parseCurrency(maxPrice), 20, 350000))); }
 
   const sortOptions: Array<{ key: string; label: '价格从高到低' | '价格从低到高' }> = [
     { key: 'desc', label: '价格从高到低' },
@@ -165,14 +165,14 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
                   style={{ backgroundColor: '#2A2D35', cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
-                  onClick={() => setMinPrice(formatCurrency(Math.max(200, Math.floor(parseCurrency(minPrice) / 2))))}
+                  onClick={() => setMinPrice(formatCurrency(Math.max(20, Math.floor(parseCurrency(minPrice) / 2))))}
                 >1/2x</button>
                 <button
                   className="px-2 py-1 text-xs font-bold rounded text-white"
                   style={{ backgroundColor: '#2A2D35', cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
-                  onClick={() => setMinPrice(formatCurrency(Math.min(5888, Math.max(200, Math.floor(parseCurrency(minPrice) * 2)))))}
+                  onClick={() => setMinPrice(formatCurrency(Math.min(350000, Math.max(20, Math.floor(parseCurrency(minPrice) * 2)))))}
                 >2x</button>
               </div>
             </div>
@@ -197,14 +197,14 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
                   style={{ backgroundColor: '#2A2D35', cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
-                  onClick={() => setMaxPrice(formatCurrency(Math.max(200, Math.min(5888, Math.floor(parseCurrency(maxPrice) / 2)))))}
+                  onClick={() => setMaxPrice(formatCurrency(Math.max(20, Math.min(350000, Math.floor(parseCurrency(maxPrice) / 2)))))}
                 >1/2x</button>
                 <button
                   className="px-2 py-1 text-xs font-bold rounded text-white"
                   style={{ backgroundColor: '#2A2D35', cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
-                  onClick={() => setMaxPrice(formatCurrency(Math.min(5888, Math.max(200, Math.floor(parseCurrency(maxPrice) * 2)))))}
+                  onClick={() => setMaxPrice(formatCurrency(Math.min(350000, Math.max(20, Math.floor(parseCurrency(maxPrice) * 2)))))}
                 >2x</button>
               </div>
             </div>
