@@ -186,6 +186,17 @@ export default function Navbar() {
     syncMuteState(isMuted);
   }, [isMuted, syncMuteState]);
 
+  // 根据用户信息预填促销码（若无则为空）
+  useEffect(() => {
+    const invite = typeof user?.userInfo?.invite === 'string' ? user.userInfo.invite : '';
+    if (!promoCode && invite) {
+      setPromoCode(invite);
+    }
+    if (!invite && promoCode !== '') {
+      setPromoCode('');
+    }
+  }, [user?.userInfo?.invite]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
