@@ -143,9 +143,11 @@ export default function DrawExtraComponent() {
     queryKey: ['draw-config'],
     queryFn: api.getDrawConfig,
   });
-  const { data: drawInfoResponse } = useQuery({
+  const { data: drawInfoResponse, refetch: refetchDrawInfo } = useQuery({
     queryKey: ['draw-info'],
     queryFn: api.drawInfo,
+    enabled: isAuthed,
+    staleTime: 0,
   });
   const difficultyConfig = useMemo(() => {
     const payload = drawConfigResponse?.data;
@@ -184,6 +186,12 @@ export default function DrawExtraComponent() {
       hard: buildDifficultyConfig(hardMultipliers, hardSurvival),
     };
   }, [drawConfigResponse]);
+ 
+  useEffect(() => {
+    if (isAuthed) {
+      refetchDrawInfo().catch(() => {});
+    }
+  }, [isAuthed, refetchDrawInfo]);
  
 
   // 🎵 音频初始化

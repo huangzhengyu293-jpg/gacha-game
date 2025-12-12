@@ -22,6 +22,8 @@ const AUTH_REQUIRED_PATHS = [
   '/api/auth/userinfo',
   '/api/auth/logout',
   '/api/lucky/go',
+  '/api/draw/go',
+  '/api/draw/receive',
 ];
 
 // 请求拦截器
@@ -49,20 +51,24 @@ axiosInstance.interceptors.request.use(
       if (!hasToken) {
         const url = config.url || '';
         const needsAuth = AUTH_REQUIRED_PATHS.some(path => url.includes(path));
+        const method = typeof config.method === 'string' ? config.method.toLowerCase() : 'get';
+        const isUserAction = method !== 'get';
         
         if (needsAuth) {
-          // 触发显示登录弹窗
-          window.dispatchEvent(new CustomEvent('auth:show-login'));
-          
-          // 显示提示
-          import('../components/ToastProvider').then(({ showGlobalToast }) => {
-            showGlobalToast({
-              title: '提示',
-              description: '请先登录',
-              variant: 'error',
-              durationMs: 2000,
+          if (isUserAction) {
+            // 仅在用户触发的操作时弹出登录
+            window.dispatchEvent(new CustomEvent('auth:show-login'));
+            
+            // 显示提示
+            import('../components/ToastProvider').then(({ showGlobalToast }) => {
+              showGlobalToast({
+                title: '提示',
+                description: '请先登录',
+                variant: 'error',
+                durationMs: 2000,
+              });
             });
-          });
+          }
           
           // 阻止请求继续
           return Promise.reject(new Error('未登录'));

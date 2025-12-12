@@ -109,7 +109,6 @@ export default function Navbar() {
     sendVerificationEmail,
     activateAccount,
   } = useAuth();
-  console.log(user);
 
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -618,6 +617,7 @@ export default function Navbar() {
         title: '登录成功',
         description: userName ? `欢迎回来，${userName}！` : '欢迎回来！',
       });
+      router.refresh();
       setShowLogin(false);
       setLoginEmail('');
       setLoginPass('');

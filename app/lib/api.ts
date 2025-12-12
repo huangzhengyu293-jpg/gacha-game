@@ -103,6 +103,8 @@ const AUTH_REQUIRED_PATHS = [
   '/api/fight/myBestRecord',
   '/api/lucky/myBestRecord',
   '/api/shop/buy',
+  '/api/draw/go',
+  '/api/draw/receive',
 ];
 
 function requestInterceptor(url: string, config: RequestInit): { url: string; config: RequestInit } {
@@ -131,18 +133,23 @@ function requestInterceptor(url: string, config: RequestInit): { url: string; co
       const needsAuth = AUTH_REQUIRED_PATHS.some(path => url.includes(path));
       
       if (needsAuth) {
-        // 触发显示登录弹窗
-        window.dispatchEvent(new CustomEvent('auth:show-login'));
+        const method = (config as RequestInit).method;
+        const normalizedMethod = typeof method === 'string' ? method.toUpperCase() : 'GET';
+        const isUserAction = normalizedMethod !== 'GET';
         
-        // 显示提示
-        import('../components/ToastProvider').then(({ showGlobalToast }) => {
-          showGlobalToast({
-            title: '提示',
-            description: '请先登录',
-            variant: 'error',
-            durationMs: 2000,
+        if (isUserAction) {
+          // 仅在用户触发的操作时弹出登录
+          window.dispatchEvent(new CustomEvent('auth:show-login'));
+          
+          import('../components/ToastProvider').then(({ showGlobalToast }) => {
+            showGlobalToast({
+              title: '提示',
+              description: '请先登录',
+              variant: 'error',
+              durationMs: 2000,
+            });
           });
-        });
+        }
         
         // 抛出错误，阻止请求继续
         throw new Error('未登录');
