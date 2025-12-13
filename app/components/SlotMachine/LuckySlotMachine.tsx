@@ -1045,8 +1045,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
 
         .lucky-slot-machine-container .item-image-wrapper {
           position: relative;
-          width: 55%;
-          height: 55%;
+          width: 60%;
+          height: 60%;
           z-index: 3;
           transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
           will-change: transform;

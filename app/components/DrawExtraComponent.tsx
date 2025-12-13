@@ -135,9 +135,16 @@ function formatCurrency(num: number) {
 }
 
 export default function DrawExtraComponent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const isAuthed = isAuthenticated;
   const { t } = useI18n();
+  const userAvatar = useMemo(() => {
+    const raw = (user as any)?.userInfo?.avatar || (user as any)?.avatar;
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw.trim();
+    }
+    return null;
+  }, [user]);
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();
@@ -1313,18 +1320,28 @@ export default function DrawExtraComponent() {
                     <div className="overflow-hidden border border-gray-700 rounded-full relative" style={{ borderWidth: 1 }}>
                       <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }}>
                         <div className="relative rounded-full overflow-hidden" style={{ width: 96, height: 96 }}>
-                          <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="96" height="96">
-                            <mask id="collect-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
-                            <g mask="url(#collect-mask)">
-                              <rect width="36" height="36" fill="#333333"></rect>
-                              <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
-                              <g transform="translate(-1 1) rotate(5 18 18)">
-                                <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
-                                <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
-                                <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                          {userAvatar ? (
+                            <img
+                              alt="avatar"
+                              src={userAvatar}
+                              loading="lazy"
+                              decoding="async"
+                              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', color: 'transparent' }}
+                            />
+                          ) : (
+                            <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="96" height="96">
+                              <mask id="collect-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask>
+                              <g mask="url(#collect-mask)">
+                                <rect width="36" height="36" fill="#333333"></rect>
+                                <rect x="0" y="0" width="36" height="36" transform="translate(-1 5) rotate(305 18 18) scale(1.2)" fill="#0C8F8F" rx="36"></rect>
+                                <g transform="translate(-1 1) rotate(5 18 18)">
+                                  <path d="M13,21 a1,0.75 0 0,0 10,0" fill="#FFFFFF"></path>
+                                  <rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                  <rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#FFFFFF"></rect>
+                                </g>
                               </g>
-                            </g>
-                          </svg>
+                            </svg>
+                          )}
                         </div>
                       </div>
                     </div>

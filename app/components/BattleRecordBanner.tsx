@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import React, { useMemo } from 'react';
+import { useAuthContext } from '../providers/AuthProvider';
 
 export type BattleRecordData = {
   id?: number | string;
@@ -18,6 +19,8 @@ interface BattleRecordBannerProps {
 }
 
 export default function BattleRecordBanner({ record }: BattleRecordBannerProps) {
+  const { user } = useAuthContext();
+
   const safeRecord = useMemo(() => {
     if (record && typeof record === 'object') {
       return record;
@@ -42,13 +45,18 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
   }, [safeRecord]);
 
   const level = useMemo(() => {
+    const vipInfo = user?.userInfo?.vip_info || (user as any)?.userInfo?.vipInfo || {};
+    const globalVip = Number(vipInfo?.vip_id ?? user?.userInfo?.vip ?? (user as any)?.vip ?? 0);
+    if (Number.isFinite(globalVip) && globalVip > 0) {
+      return Math.floor(globalVip);
+    }
     const rawLv = safeRecord?.lv;
     const parsed = rawLv !== undefined && rawLv !== null ? Number(rawLv) : 0;
     if (Number.isFinite(parsed)) {
       return parsed;
     }
     return 0;
-  }, [safeRecord]);
+  }, [safeRecord, user]);
 
   const winBeanValue = useMemo(() => {
     const rawValue = safeRecord?.win_bean;
