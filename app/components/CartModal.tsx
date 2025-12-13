@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useCart } from '../hooks/useCart';
@@ -172,6 +173,11 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [selectionOrder, setSelectionOrder] = useState([] as string[]);
   const [claimableActive, setClaimableActive] = useState(false);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const goExchange = useCallback(() => {
+    onClose();
+    router.push('/exchange');
+  }, [onClose, router]);
   const listSourceItems = isShopMode ? shopItems : defaultItems;
   const displayedItems = activeTab === 'all' ? listSourceItems : listSourceItems.filter(item => selectedItems.has(item.id));
   const selectedCount = isShopMode ? 0 : selectedItems.size;
@@ -532,7 +538,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   disabled={selectedCount === 0}
                   onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-                onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
+                  onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
                 >
                   出售
                 </button>
@@ -544,6 +550,15 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                 >
                   提款
+                </button>
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
+                  style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={goExchange}
+                >
+                  交换
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -657,6 +672,15 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
+                  style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={goExchange}
+                >
+                  交换
+                </button>
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
                   style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
                   disabled={actionButtonDisabled}
                   onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
@@ -712,6 +736,15 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
               >
                 提款
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
+                style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                onClick={goExchange}
+              >
+                交换
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"

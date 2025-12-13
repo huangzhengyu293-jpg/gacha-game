@@ -1218,7 +1218,7 @@ function CreateBattleContent() {
               }}
               maxPacks={undefined}
               minPacks={0}
-              boxType="2"
+              boxType="1,2"
             />
 
             {/* 对战摘要 */}

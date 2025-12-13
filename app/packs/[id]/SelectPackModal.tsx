@@ -169,6 +169,31 @@ export default function SelectPackModal({
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
+      <style jsx global>{`
+        .exchange-scroll::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .exchange-scroll::-webkit-scrollbar-track {
+          background: #2c2c2c;
+        }
+        .exchange-scroll::-webkit-scrollbar-thumb {
+          background: #9f9f9f;
+          border-radius: 9999px;
+        }
+        .exchange-scroll::-webkit-scrollbar-button {
+          background: #9f9f9f;
+          height: 8px;
+          width: 8px;
+        }
+        .exchange-scroll::-webkit-scrollbar-corner {
+          background: #2c2c2c;
+        }
+        .exchange-scroll {
+          scrollbar-color: #9f9f9f #2c2c2c;
+          scrollbar-width: thin;
+        }
+      `}</style>
       <div role="dialog" aria-modal="true" className="overflow-hidden z-50 grid w-full gap-0 shadow-lg rounded-lg relative max-w-[896px]" data-component="SelectPackModal" tabIndex={-1} style={{ pointerEvents: 'auto', animation: 'modalZoomIn 180ms ease', backgroundColor: '#161A1D' }} onClick={(e) => e.stopPropagation()}>
         <div className="px-6 pt-6 pb-4 flex items-center justify-between">
           <h2 className="text-xl text-white font-bold leading-none tracking-tight">选择礼包</h2>
@@ -195,7 +220,7 @@ export default function SelectPackModal({
               <p className="text-gray-400">暂无礼包</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto exchange-scroll">
               {filtered.map((p) => (
               <div key={p.id} className="flex flex-col gap-2 relative items-stretch cursor-pointer w-full">
                 <PackCard

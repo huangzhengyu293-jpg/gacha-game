@@ -88,7 +88,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/favorite',
   '/api/box/open',
   '/api/box/userrecord',
-  '/api/box/myRecent',
+  '/api/box/myBestRecord',
   '/api/box/cash',
   '/api/user/bean',
   '/api/user/storage',
@@ -531,7 +531,7 @@ export const api = {
   },
   // ✅ 获取个人最近开箱记录
   getBoxMyRecent: async () => {
-    const result = await request<ApiResponse>('/api/box/myRecent', {
+    const result = await request<ApiResponse>('/api/box/myBestRecord', {
       method: 'GET',
     });
     return result;
@@ -779,6 +779,20 @@ export const api = {
   getUserRebate: async () => {
     const result = await request<ApiResponse>('/api/user/rebate', {
       method: 'GET',
+    });
+    return result;
+  },
+  exchangeItems: async (payload: { storageIds: string[]; shopIds: string[] }) => {
+    const formData = new FormData();
+    payload.storageIds.forEach((id, idx) => {
+      formData.append(`storage_ids[${idx}]`, id);
+    });
+    payload.shopIds.forEach((id, idx) => {
+      formData.append(`shop_ids[${idx}]`, id);
+    });
+    const result = await request<ApiResponse>('/api/user/exchange', {
+      method: 'POST',
+      data: formData,
     });
     return result;
   },
