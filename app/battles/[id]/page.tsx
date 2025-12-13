@@ -110,30 +110,37 @@ function computeEntryRoundSetting(rawDetail: FightDetailRaw | null | undefined, 
   if (status === 0) {
     return 0;
   }
-  const updatedSource = rawDetail.updated_at ?? rawDetail.updated_at_time;
-  let updatedAt = parseTimestampToDayjs(rawDetail.updated_at);
-  if (!updatedAt) {
-    updatedAt = parseTimestampToDayjs(rawDetail.updated_at_time);
-  }
-  if (!updatedAt) {
+
+  // 只用 now_at 与 updated_at 计算轮次
+  const startAt = parseTimestampToDayjs(rawDetail.updated_at);
+  if (!startAt) {
     return 0;
   }
+
   let nowAt = parseTimestampToDayjs(rawDetail.now_at);
-  let usedFallbackNow = false;
-  if (!nowAt || nowAt.isBefore(updatedAt)) {
+  if (!nowAt || nowAt.isBefore(startAt)) {
     nowAt = dayjs();
-    usedFallbackNow = true;
   }
-  const diffMs = Math.max(0, nowAt.diff(updatedAt));
+
+  const diffMs = Math.max(0, nowAt.diff(startAt));
   const adjustedMs = Math.max(0, diffMs - ENTRY_DELAY_MS);
-  if (adjustedMs <= 0) {
-    return 0;
-  }
   const roundDuration = specialOptions.fast ? FAST_ROUND_DURATION_MS : NORMAL_ROUND_DURATION_MS;
-  if (roundDuration <= 0) {
-    return 0;
+  const computed = roundDuration > 0 ? Math.floor(adjustedMs / roundDuration) : 0;
+
+  // 调试：打印时间与轮次计算
+  if (typeof window !== 'undefined') {
+    console.log('[battle-entry-debug]', {
+      now_at: rawDetail.now_at,
+      updated_at: rawDetail.updated_at,
+      startAt: startAt.toISOString(),
+      nowAt: nowAt.toISOString(),
+      diffSeconds: Number((diffMs / 1000).toFixed(2)),
+      adjustedSeconds: Number((adjustedMs / 1000).toFixed(2)),
+      roundDurationMs: roundDuration,
+      computedRound: computed,
+    });
   }
-  const computed = Math.floor(adjustedMs / roundDuration);
+
   if (!Number.isFinite(computed) || computed <= 0) {
     return 0;
   }
@@ -991,7 +998,8 @@ export default function BattleDetailPage() {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const wasPending = postStartSyncStatusRef.current === 0;
-    if (wasPending && rawStatus !== 0) {
+    // 仅在从待开局(0)切换到进行中(1)时做一次同步，结束态(>=2)不再重复请求
+    if (wasPending && rawStatus === 1) {
       timeout = setTimeout(() => {
         refetch().catch(() => {});
       }, 500);
@@ -1071,6 +1079,7 @@ export default function BattleDetailPage() {
         await refetch();
       } catch (err) {
         console.error('inviteRobots failed', err);
+        throw err;
       }
     },
     [canSummonRobots, normalizedBattleId, refetch],
@@ -1089,6 +1098,7 @@ export default function BattleDetailPage() {
         await refetch();
       } catch (err) {
         console.error('joinFight failed', err);
+        throw err;
       }
     },
     [canJoinBattle, normalizedBattleId, normalizedCurrentUserId, refetch],
@@ -1225,7 +1235,7 @@ useEffect(() => {
     hasGeneratedResultsRef.current = false;
     timelineHydratedRef.current = false;
     skipDirectlyToCompletedRef.current = false;
-    forceFullReplayRef.current = true;
+    forceFullReplayRef.current = false;
   }
   previousPendingStatusRef.current = isPendingBattle;
 }, [isPendingBattle, routeBattleId]);
@@ -2727,7 +2737,8 @@ useEffect(() => {
       }
       
       setMainState('LOADING');
-    } else if (mainState !== 'IDLE' && mainState !== 'COMPLETED' && !allSlotsFilled) {
+    } else if (mainState !== 'IDLE' && mainState !== 'COMPLETED' && !allSlotsFilled && !timelineHydratedRef.current) {
+      // ⚠️ 已经完成进场回放（timelineHydratedRef），不要因人数抖动重置到第一轮
       // 状态守卫：玩家离开，重置到IDLE（但COMPLETED状态不重置）
       setMainState('IDLE');
       setRoundState(null);
@@ -2797,9 +2808,17 @@ useEffect(() => {
           roundEventLog: [],
         },
       });
-      const totalRounds = rounds.length;
-      const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
       const currentStatus = Number(rawDetail?.status ?? 0);
+      const totalRounds = rounds.length;
+      const entryRoundSetting = activeSource.entryRound;
+      if (typeof window !== 'undefined') {
+        console.log('[battle-entry-prepare]', {
+          entryRoundSetting,
+          totalRounds,
+          status: currentStatus,
+          forceFullReplay: forceFullReplayRef.current,
+        });
+      }
       if (currentStatus === 1) {
         if (entryRoundSetting > 0) {
           startCountdownDirect();
@@ -2826,6 +2845,15 @@ useEffect(() => {
 
       const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
       if (entryRoundIndex !== null) {
+        if (typeof window !== 'undefined') {
+          console.log('[battle-entry-resolve]', {
+            entryRoundSetting,
+            entryRoundIndex,
+            totalRounds,
+          });
+        }
+        hydrateRoundsProgress(entryRoundIndex);
+        timelineHydratedRef.current = true;
         setCountdownValue(null);
         setRoundState('ROUND_RENDER');
         setMainState('ROUND_LOOP');
@@ -2861,9 +2889,17 @@ useEffect(() => {
     }
 
     const runtime = battleRuntimeRef.current;
-    const totalRounds = runtime.config.roundsTotal;
-    const entryRoundSetting = forceFullReplayRef.current ? 0 : activeSource.entryRound;
     const currentStatus = Number(rawDetail?.status ?? 0);
+    const totalRounds = runtime.config.roundsTotal;
+    const entryRoundSetting = activeSource.entryRound;
+    if (typeof window !== 'undefined') {
+      console.log('[battle-entry-runtime]', {
+        entryRoundSetting,
+        totalRounds,
+        status: currentStatus,
+        forceFullReplay: forceFullReplayRef.current,
+      });
+    }
     if (currentStatus === 1) {
       if (entryRoundSetting > 0) {
         startCountdownDirect();
@@ -2891,6 +2927,13 @@ useEffect(() => {
     const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
     if (entryRoundIndex !== null) {
       logCurrentRound(entryRoundIndex + 1);
+      if (typeof window !== 'undefined') {
+        console.log('[battle-entry-hydrate]', {
+          entryRoundSetting,
+          entryRoundIndex,
+          totalRounds,
+        });
+      }
       hydrateRoundsProgress(entryRoundIndex);
       setCountdownValue(null);
       setMainState('ROUND_LOOP');
@@ -2899,7 +2942,7 @@ useEffect(() => {
       return;
     }
 
-    if (entryRoundSetting <= 0 || forceFullReplayRef.current) {
+    if (entryRoundSetting <= 0) {
       logCurrentRound(0);
       startCountdownWithPrepare();
       return;

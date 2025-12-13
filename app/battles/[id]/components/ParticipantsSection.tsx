@@ -1,7 +1,7 @@
 'use client';
 
 import type { Participant } from '../types';
-import { useI18n } from '../../components/I18nProvider';
+import { useI18n } from '@/app/components/I18nProvider';
 
 interface ParticipantsSectionProps {
   participants: Participant[];

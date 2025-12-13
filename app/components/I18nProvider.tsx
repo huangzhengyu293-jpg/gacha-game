@@ -25,7 +25,7 @@ const dict: Dict = {
   favorite: { zh: "最喜欢", en: "Favorite", ko: "즐겨찾기", ja: "お気に入り" },
   support: { zh: "支持", en: "Support", ko: "サポート", ja: "サポート" },
   email: { zh: "support@flamedraw.com", en: "support@flamedraw.com", ko: "support@flamedraw.com", ja: "support@flamedraw.com" },
-  chooseLanguage: { zh: "選擇語言", en: "Choose Language", ko: "언어 선택", ja: "言語を選択" },
+  chooseLanguage: { zh: "选择语言", en: "Choose Language", ko: "언어 선택", ja: "言語を選択" },
   copyright: { zh: "版权所有 © FlameDraw 2025", en: "Copyright © FlameDraw 2025", ko: "저작권 © FlameDraw 2025", ja: "著作権 © FlameDraw 2025" },
   // New UI strings
   viewAll: { zh: "查看全部", en: "View All", ko: "전체 보기", ja: "すべて表示" },

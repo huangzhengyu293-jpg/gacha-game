@@ -38,6 +38,10 @@ const GLOW_COLOR_MAP: Record<string, string> = {
   placeholder: '#E4AE33',
 };
 
+// 与纵向老虎机保持一致的随机偏移比例
+const RANDOM_OFFSET_MIN_RATIO = 0.2;
+const RANDOM_OFFSET_MAX_RATIO = 0.49;
+
 function resolveGlowColor(symbol: SlotSymbol): string | null {
   if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
     return '#E4AE33';
@@ -606,7 +610,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     });
   }, [isSpinning, itemsPerReel, repeatTimes, itemWidth, reelCenter, updateVirtualItems, updateSelection]);
 
-  const spinPhase1 = useCallback((duration: number, targetSymbol: SlotSymbol | null = null): Promise<void> => {
+  const spinPhase1 = useCallback((duration: number, finalIndex: number): Promise<void> => {
     return new Promise(resolve => {
       if (!reelContainerRef.current) {
         resolve();
@@ -614,70 +618,26 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       }
       
       const container = reelContainerRef.current;
-      const startLeft = parseFloat(container.style.left || '0');
-      
-      let targetLeft: number;
+      let startLeft = parseFloat(container.style.left || '0');
       
       const actualItemWidth = 195;
+      const baseWidth = itemWidthRef.current || actualItemWidth;
+      const minOffset = baseWidth * RANDOM_OFFSET_MIN_RATIO;
+      const maxOffset = baseWidth * RANDOM_OFFSET_MAX_RATIO;
+      const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
+      const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
       
-      if (targetSymbol) {
-        const matchingIndices: number[] = [];
-        virtualItemsRef.current.forEach((item, index) => {
-          if (item.id === targetSymbol.id) {
-            matchingIndices.push(index);
-          }
-        });
-        
-        const pixelsPerMs = 0.8; // 恢复正常速度
-        const minScrollDistance = duration * pixelsPerMs;
-        
-        // 确保至少滚动0.5个完整周期
-        const minCycles = 0.5;
-        const minScrollByItems = minCycles * itemsPerReelRef.current * 195;
-        const actualMinScroll = Math.max(minScrollDistance, minScrollByItems);
-        
-        let selectedIndex: number | null = null;
-        for (const index of matchingIndices) {
-          const potentialLeft = reelCenterRef.current - (index * actualItemWidth);
-          const scrollDistance = startLeft - potentialLeft;
-          
-          if (scrollDistance >= actualMinScroll) {
-            selectedIndex = index;
-            break;
-          }
-        }
-        
-        if (selectedIndex === null && matchingIndices.length > 0) {
-          selectedIndex = matchingIndices[0];
-          while (true) {
-            targetLeft = reelCenterRef.current - (selectedIndex * actualItemWidth);
-            if (startLeft - targetLeft >= actualMinScroll) {
-              break;
-            }
-            selectedIndex += itemsPerReelRef.current;
-          }
-        }
-        
-         if (selectedIndex !== null) {
-           const minOffset = itemWidthRef.current * 0.46;
-           const maxOffset = itemWidthRef.current * 0.49;
-           const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
-           const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
-           targetLeft = reelCenterRef.current - (selectedIndex * actualItemWidth) + randomOffset;
-        } else {
-          targetLeft = startLeft - minScrollDistance;
-        }
-      } else {
-         const pixelsPerMs = 0.8;
-         const scrollDistance = duration * pixelsPerMs;
-         const minOffset = itemWidthRef.current * 0.46;
-         const maxOffset = itemWidthRef.current * 0.49;
-         const randomMagnitude = Math.random() * (maxOffset - minOffset) + minOffset;
-         const randomOffset = randomMagnitude * (Math.random() < 0.5 ? 1 : -1);
-         targetLeft = startLeft - scrollDistance + randomOffset;
+      const targetLeft = reelCenterRef.current - (finalIndex * actualItemWidth) + randomOffset;
+      
+      let distance = startLeft - targetLeft;
+      const minRunway = (itemsPerReelRef.current * 0.2) * actualItemWidth;
+      if (distance < minRunway) {
+        const cycleWidth = itemsPerReelRef.current * actualItemWidth;
+        startLeft += cycleWidth;
+        container.style.left = `${startLeft}px`;
+        distance = startLeft - targetLeft;
       }
       
-      const distance = startLeft - targetLeft;
       const startTime = Date.now();
       let lastFrameTime = Date.now();
       
@@ -686,16 +646,13 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         const frameDelta = now - lastFrameTime;
         lastFrameTime = now;
         
-        // 🎯 检测时间跳跃（页面失焦超过200ms），直接跳到当前进度，不赶帧
         if (frameDelta > 200) {
           const elapsed = now - startTime;
           const progress = Math.min(elapsed / duration, 1);
           const easedProgress = customEase(progress);
           const currentLeft = startLeft - distance * easedProgress;
           container.style.left = currentLeft + 'px';
-          checkAndResetPosition(container);
           updateVirtualItems();
-          // 跳跃后不播放音效
           
           if (progress < 1) {
             requestAnimationFrame(animate);
@@ -705,7 +662,6 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           return;
         }
         
-        // 正常流程
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const easedProgress = customEase(progress);
@@ -713,9 +669,8 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         const currentLeft = startLeft - distance * easedProgress;
         container.style.left = currentLeft + 'px';
         
-        checkAndResetPosition(container);
         updateVirtualItems();
-        updateSelection(); // 正常播放音效
+        updateSelection();
         
         if (progress < 1) {
           requestAnimationFrame(animate);
@@ -726,10 +681,10 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       animate();
     });
-  }, [checkAndResetPosition, updateVirtualItems, updateSelection, customEase]);
+  }, [updateVirtualItems, updateSelection, customEase]);
 
   // 第二阶段回正
-  const spinPhase2 = useCallback((targetSymbol: SlotSymbol | null = null): Promise<void> => {
+  const spinPhase2 = useCallback((finalIndex: number): Promise<void> => {
     return new Promise(resolve => {
       if (!reelContainerRef.current) {
         resolve();
@@ -750,53 +705,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         container.style.left = currentLeft + 'px';
       }
       
-      let closestIndex = 0;
-      let minDistance = Infinity;
-      
-      for (let i = 0; i < virtualItemsRef.current.length; i++) {
-        // 由于element有transform居中，element.left就是它的中心位置
-        const itemCenter = currentLeft + (i * 195);
-        const distance = Math.abs(itemCenter - reelCenterRef.current);
-        
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestIndex = i;
-        }
-      }
-      
       const actualItemWidth = 195;
       
-      if (targetSymbol) {
-        const targetIndices: number[] = [];
-        virtualItemsRef.current.forEach((item, index) => {
-          if (item.id === targetSymbol.id) {
-            targetIndices.push(index);
-          }
-        });
-        
-        if (targetIndices.length > 0) {
-          let bestIndex = targetIndices[0];
-          let minMovement = Infinity;
-          
-          targetIndices.forEach(index => {
-            const itemCenter = currentLeft + (index * actualItemWidth);
-            const movement = Math.abs(itemCenter - reelCenterRef.current);
-            
-            if (movement < minMovement && itemCenter > 0 && itemCenter < REEL_WIDTH) {
-              minMovement = movement;
-              bestIndex = index;
-            }
-          });
-          
-          closestIndex = bestIndex;
-        }
-      }
-      
-      // 计算精确位置：
-      // element已经有transform: translate(-97.5px, -97.5px)
-      // 所以element.left就是它的中心位置
-      // container.left + (closestIndex * 195) = reelCenter
-      const exactTargetLeft = reelCenterRef.current - (closestIndex * 195);
+      const exactTargetLeft = reelCenterRef.current - (finalIndex * actualItemWidth);
       const distance = exactTargetLeft - currentLeft;
       
       let lastFrameTime = Date.now();
@@ -918,8 +829,36 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
 
     const duration = spinDuration || 6000;
     
-    await spinPhase1(duration, selectedPrize);
-    await spinPhase2(selectedPrize);
+    // 🎯 固定逻辑：计算目标索引并注入结果（与纵向老虎机保持一致）
+    const container = reelContainerRef.current;
+    const currentLeft = parseFloat(container.style.left || '0');
+    const w = itemWidthRef.current || 195;
+    // 与纵向老虎机一致，使用半格偏移对齐中心
+    const currentVisualIndex = Math.round((reelCenterRef.current - currentLeft - w / 2) / w);
+    const runDistance = 40;
+    let targetBaseIndex = currentVisualIndex + runDistance;
+    
+    const cycleLen = itemsPerReelRef.current;
+    const totalLen = virtualItemsRef.current.length;
+    if (targetBaseIndex >= totalLen - 10) {
+      const offsetAmount = cycleLen * w;
+      const nextLeft = currentLeft + offsetAmount;
+      container.style.left = `${nextLeft}`;
+      targetBaseIndex -= cycleLen;
+    }
+    
+    if (selectedPrize) {
+      virtualItemsRef.current[targetBaseIndex] = selectedPrize;
+      if (targetBaseIndex - cycleLen >= 0) {
+        virtualItemsRef.current[targetBaseIndex - cycleLen] = selectedPrize;
+      }
+      if (targetBaseIndex + cycleLen < totalLen) {
+        virtualItemsRef.current[targetBaseIndex + cycleLen] = selectedPrize;
+      }
+    }
+    
+    await spinPhase1(duration, targetBaseIndex);
+    await spinPhase2(targetBaseIndex);
     setSelectedBackdropVisibility(false);
     
     const finalResult = findClosestItem();

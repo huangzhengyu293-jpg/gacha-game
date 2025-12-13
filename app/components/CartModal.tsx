@@ -33,7 +33,8 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('asc');
+  // 初始不带 price_sort，用户点击价格按钮后再传
+  const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc' | undefined>(undefined);
 
   // 使用购物车 hook 获取数据
   const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart(sortByPrice);
@@ -46,7 +47,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
 
   // 排序方向变化时强制刷新购物车数据（重新调用接口带 price_sort）
   useEffect(() => {
-    if (!isShopMode) {
+    if (!isShopMode && sortByPrice) {
       refetchCart();
     }
   }, [sortByPrice, isShopMode, refetchCart]);

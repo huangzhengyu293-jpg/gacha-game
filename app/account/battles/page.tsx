@@ -102,7 +102,15 @@ export default function BattlesPage() {
                         labels={{
                           cost: t("cost"),
                           opened: isWaiting ? t('waitingPlayers') : t("opened"),
+                          preparing: t('preparing'),
+                          waiting: t('waitingPlayers'),
                           button: isWaiting ? t('joinBattle') : t("viewResults"),
+                          join: t('joinBattle'),
+                          modeClassic: t('battleModeClassic'),
+                          modeShare: t('battleModeShare'),
+                          modeSprint: t('battleModeSprint'),
+                          modeJackpot: t('battleModeJackpot'),
+                          modeElimination: t('battleModeElimination'),
                         }}
                         buttonColors={
                           isWaiting

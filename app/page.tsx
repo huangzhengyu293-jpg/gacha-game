@@ -50,14 +50,16 @@ export default function Home() {
   });
 
   const bestBattleRecord = useMemo<BattleRecordData | undefined>(() => {
-    if (
-      fightMyBestRecord &&
-      typeof fightMyBestRecord === 'object' &&
-      (fightMyBestRecord as any).code === 100000 &&
-      (fightMyBestRecord as any).data &&
-      typeof (fightMyBestRecord as any).data === 'object'
-    ) {
-      return (fightMyBestRecord as any).data as BattleRecordData;
+    const payload = fightMyBestRecord as any;
+    if (!payload || typeof payload !== 'object' || payload.code !== 100000) return undefined;
+    const data = payload.data;
+    if (!data) return undefined;
+    if (Array.isArray(data)) {
+      const firstValid = data.find((item) => item && typeof item === 'object' && Object.keys(item).length > 0);
+      return firstValid ? (firstValid as BattleRecordData) : undefined;
+    }
+    if (typeof data === 'object' && Object.keys(data).length > 0) {
+      return data as BattleRecordData;
     }
     return undefined;
   }, [fightMyBestRecord]);
@@ -78,11 +80,15 @@ export default function Home() {
     });
 
     const payload = boxMyRecentData as any;
-    if (payload && typeof payload === 'object' && payload.code === 100000) {
-      const data = payload.data;
-      if (data) {
-        return normalize(data);
-      }
+    if (!payload || typeof payload !== 'object' || payload.code !== 100000) return undefined;
+    const data = payload.data;
+    if (!data) return undefined;
+    if (Array.isArray(data)) {
+      const firstValid = data.find((item: any) => item && typeof item === 'object' && Object.keys(item).length > 0);
+      return firstValid ? normalize(firstValid) : undefined;
+    }
+    if (typeof data === 'object' && Object.keys(data).length > 0) {
+      return normalize(data);
     }
     return undefined;
   }, [boxMyRecentData]);
@@ -95,9 +101,16 @@ export default function Home() {
 
   const bestTradeRecord = useMemo<PackRecordData | undefined>(() => {
     const payload = luckyMyBestRecord as any;
-    if (payload && typeof payload === 'object' && payload.code === 100000 && payload.data && typeof payload.data === 'object') {
-      const steam = (payload.data as any).steam;
-      const productId = (payload.data as any).id ?? (payload.data as any).box_id;
+    if (!payload || typeof payload !== 'object' || payload.code !== 100000) return undefined;
+    const data = payload.data;
+    if (!data) return undefined;
+    const resolvedData = Array.isArray(data)
+      ? data.find((item: any) => item && typeof item === 'object' && Object.keys(item).length > 0)
+      : data;
+    if (!resolvedData || typeof resolvedData !== 'object' || Object.keys(resolvedData).length === 0) return undefined;
+    const steam = (resolvedData as any).steam;
+    const productId = (resolvedData as any).id ?? (resolvedData as any).box_id;
+    if (steam && typeof steam === 'object' && Object.keys(steam).length > 0) {
       if (steam && typeof steam === 'object') {
         return {
           id: steam.id ?? productId,
@@ -116,10 +129,10 @@ export default function Home() {
       return {
         id: productId,
         productId,
-        cover: (payload.data as any).cover,
-        bean: (payload.data as any).bean,
-        name: (payload.data as any).name,
-        awards: (payload.data as any).awards,
+        cover: (resolvedData as any).cover,
+        bean: (resolvedData as any).bean,
+        name: (resolvedData as any).name,
+        awards: (resolvedData as any).awards,
       };
     }
     return undefined;
@@ -192,7 +205,7 @@ export default function Home() {
                     bgClass="bg-new-player-battle-banner py-0.5"
                     href={battleBannerHref}
                   >
-                   {fightMyBestRecord && <BattleRecordBanner record={bestBattleRecord} />}
+                   {bestBattleRecord && <BattleRecordBanner record={bestBattleRecord} />}
                   </Banner>
                   <Banner
                     title={packBannerTitle}
@@ -205,7 +218,7 @@ export default function Home() {
                     bgClass="bg-new-player-packs-banner"
                     href={packBannerHref}
                   >
-                    {boxMyRecentData && <PackRecordBanner record={bestPackRecord} />}
+                    {bestPackRecord && <PackRecordBanner record={bestPackRecord} />}
                   </Banner>
                   <Banner
                     title={t('yourBestDeal')}
@@ -219,7 +232,7 @@ export default function Home() {
                     bgClass="bg-new-player-deal-banner"
                     href={tradeBannerHref}
                   >
-                    {luckyMyBestRecord && <PackRecordBanner record={bestTradeRecord} />}
+                    {bestTradeRecord && <PackRecordBanner record={bestTradeRecord} />}
                   </Banner>
                 </div>
               </div>
