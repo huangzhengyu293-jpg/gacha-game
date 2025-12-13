@@ -20,66 +20,6 @@ export default function EventsPage() {
     }
   }, [consumeData]);
   
-  // 倒计时逻辑
-  const [raffleCountdown, setRaffleCountdown] = useState<string>('计算中...');
-  const [weeklyCountdown, setWeeklyCountdown] = useState<string>('计算中...');
-  const [monthlyCountdown, setMonthlyCountdown] = useState<string>('计算中...');
-
-  const getGmt8Now = () => {
-    const now = Date.now();
-    const offsetMs = 8 * 60 * 60 * 1000;
-    return new Date(now + offsetMs);
-  };
-
-  const formatHMS = (ms: number) => {
-    if (ms <= 0) return '0时 0分 0秒';
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${hours}时 ${minutes}分 ${seconds}秒`;
-  };
-
-  const formatDHMS = (ms: number) => {
-    if (ms <= 0) return '0天 0时 0分 0秒';
-    const totalSeconds = Math.floor(ms / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${days}天 ${hours}时 ${minutes}分 ${seconds}秒`;
-  };
-
-  // 计算目标时间（东八区）
-  const computeRaffleMs = () => {
-    const gmt8 = getGmt8Now();
-    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + 1, 0, 0, 0);
-    return target - gmt8.getTime();
-  };
-  const computeWeeklyMs = () => {
-    const gmt8 = getGmt8Now();
-    const day = gmt8.getUTCDay(); // 0-6
-    const daysUntilMonday = (8 - day) % 7 || 7;
-    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + daysUntilMonday, 0, 0, 0);
-    return target - gmt8.getTime();
-  };
-  const computeMonthlyMs = () => {
-    const gmt8 = getGmt8Now();
-    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth() + 1, 1, 0, 0, 0);
-    return target - gmt8.getTime();
-  };
-
-  useEffect(() => {
-    const tick = () => {
-      setRaffleCountdown(formatHMS(computeRaffleMs()));
-      setWeeklyCountdown(formatDHMS(computeWeeklyMs()));
-      setMonthlyCountdown(formatDHMS(computeMonthlyMs()));
-    };
-    tick();
-    const t = window.setInterval(tick, 1000);
-    return () => window.clearInterval(t);
-  }, []);
-
   const formatMoney = (val: any) => {
     const num = Number(val);
     if (!Number.isFinite(num)) return '--';
@@ -149,36 +89,18 @@ export default function EventsPage() {
     raceType, 
     topThree, 
     tableData,
-    countdownText,
   }: { 
     title: string; 
     raceType: 'weekly' | 'monthly';
     topThree: TopThreePlayer[];
     tableData: TablePlayer[];
-    countdownText: string;
   }) => {
     const prefix = raceType === 'weekly' ? 'weekly' : 'monthly';
     const arrangedTopThree = topThree.length === 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
     
     return (
       <>
-        {/* 组件1：比赛倒计时卡片 */}
-        <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
-          <div className="relative rounded-lg" style={{ backgroundColor: '#1d2125' }}>
-            <div className="absolute -top-6 left-0 w-full overflow-hidden rounded-lg" style={{ height: 'calc(100% + 1.5rem)' }}>
-              <img src="/theme/default/flag.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ left: '-110px', zIndex: 0 }} />
-              <img src="/theme/default/flag.png" alt="" className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]" style={{ right: '-110px', transform: 'scaleX(-1)', zIndex: 0 }} />
-            </div>
-            <div className="relative flex flex-col items-center pt-9 pb-6 md:pb-12">
-              <p className="font-changa text-base sm:text-[25px] lg:text-[32px] text-white mb-3 md:mb-4 leading-none">{title}</p>
-              <p className="flex items-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg h-11 px-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
-                比赛将在 {countdownText} 结束
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* 组件2：排行榜（替换"关于每日抽奖"） */}
+        {/* 排行榜 */}
         <div className="relative py-4 sm:py-6">
           <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-8">
               {arrangedTopThree.map((player, index) => {
@@ -198,7 +120,7 @@ export default function EventsPage() {
                             <path d="M0 4C0 1.79086 1.79086 0 4 0H89C91.2091 0 93 1.79086 93 4V20.6233C93 22.5735 91.5937 24.2394 89.6712 24.5666L46.3392 31.9423C46.1147 31.9805 45.8853 31.9801 45.661 31.941L3.31464 24.5765C1.39868 24.2432 0 22.5803 0 20.6356V4Z" fill="currentColor"></path>
                           </svg>
                         </div>
-                        <p className="absolute top-0.5 text-center w-full font-extrabold text-[10px] sm:text-[12px] md:text-[14px] text-black">第 {player.rank} 名</p>
+                        <p className="absolute top-0.5 text-center w-full font-extrabold text-[10px] sm:text-[12px] md:text-[14px] text-black">{t('placementLabel').replace('{rank}', String(player.rank))}</p>
                       </div>
                       <div className="relative flex flex-col gap-1 sm:gap-1 md:gap-2 items-center px-2 sm:px-4 md:px-7 pb-3 sm:pb-2 md:pb-4 pt-6 sm:pt-6 md:pt-12 w-full rounded-t-lg" style={{ backgroundColor: '#22272b' }}>
                         <div className="relative">
@@ -244,7 +166,7 @@ export default function EventsPage() {
                       </div>
                       <div className="py-2 sm:py-1.5 md:py-2 px-2 sm:px-3 md:px-4 w-full rounded-br-lg rounded-bl-lg" style={{ backgroundColor: '#292f34' }}>
                         <p className="text-[9px] sm:text-[11px] md:text-[13px] font-semibold text-center sm:leading-tight" style={{ color: '#cbd5db' }}>
-                          <span className="block">已开启</span>
+                          <span className="block">{t('openedLabel')}</span>
                           <span className="block">{player.opened}</span>
                         </p>
                       </div>
@@ -261,9 +183,9 @@ export default function EventsPage() {
             <thead className="[&_tr]:border-b">
               <tr className="border-b transition-colors data-[state=selected]:bg-gray-600">
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-[25px]" style={{ color: '#7A8185' }}>#</th>
-                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{title.split(' ')[0]} #245 获奖者</th>
-                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>门票</th>
-                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>奖励</th>
+                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{t('raceWinners')}</th>
+                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('ticketsLabel')}</th>
+                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
               </tr>
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
@@ -366,7 +288,7 @@ export default function EventsPage() {
                       <path d="M13 17v2"></path>
                       <path d="M13 11v2"></path>
                     </svg>
-                    抽奖
+                    {t('eventsRaffleTab')}
                   </button>
                   <button
                     type="button"
@@ -413,7 +335,7 @@ export default function EventsPage() {
                         ></path>
                       </svg>
                     </div>
-                    周赛
+                    {t('eventsWeeklyTab')}
                   </button>
                   <button
                     type="button"
@@ -460,7 +382,7 @@ export default function EventsPage() {
                         ></path>
                       </svg>
                     </div>
-                    月赛
+                    {t('eventsMonthlyTab')}
                   </button>
                 </div>
               </div>
@@ -478,47 +400,26 @@ export default function EventsPage() {
                     tabIndex={0}
                     className="mt-4 interactive-focus"
                   >
-                <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
-                  <div className="relative mb-4 px-8">
-                    <img src="/theme/default/raffle-ticket-l.svg" alt="" className="absolute top-0 left-2 sm:left-1 h-full aspect-[32/170] object-contain" style={{ zIndex: 0 }} />
-                    {/* 背景色与父容器一致，因为两边的图片后面可能会加 */}
-                    <div className="py-6 sm:py-8 gap-3 sm:gap-4" style={{ backgroundColor: '#1d2125' }}>
-                      <div className="relative z-10 flex flex-col items-center justify-center rounded-lg border border-solid px-5 sm:px-9 py-4 sm:py-5 gap-3 sm:gap-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
-                        <div className="flex justify-center items-center gap-3 w-full font-changa text-white text-center md:px-16 mt-0.5">
-                          <span className="hidden md:block flex-1 h-[1px]" style={{ backgroundColor: '#34383c' }}></span>
-                          <p className="md:flex-none flex flex-col sm:flex-row text-center text-base sm:text-[25px] lg:text-[32px] leading-none">
-                            <span className="sm:mr-2 inline-block">每日抽奖 #246</span>
-                            <span>$2,500</span>
-                          </p>
-                          <span className="hidden md:block flex-1 h-[1px]" style={{ backgroundColor: '#34383c' }}></span>
-                        </div>
-                        <p className="flex items-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg h-9 md:h-11 px-4" style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}>
-                          抽奖将在 {raffleCountdown} 开始
-                        </p>
-                      </div>
-                    </div>
-                    <img src="/theme/default/raffle-ticket-l.svg" alt="" className="absolute top-0 right-2 sm:right-1 h-full aspect-[32/170] object-contain" style={{ transform: 'scaleX(-1)', zIndex: 0 }} />
-                  </div>
-                </div>
+              
                 
                 <div className="flex flex-col rounded-lg p-4 pt-6 md:p-8 my-6" style={{ backgroundColor: '#22272B' }}>
                   <div className="flex flex-col md:flex-row mb-4 md:mb-6 xl:mb-8 gap-2 md:gap-8">
-                    <p className="text-white font-semibold text-lg md:text-xl md:w-1/3 flex-none leading-none">关于每日抽奖</p>
+                    <p className="text-white font-semibold text-lg md:text-xl md:w-1/3 flex-none leading-none">{t('aboutDailyRaffleTitle')}</p>
                     <p className="text-sm md:text-base font-semibold leading-5" style={{ color: '#7a8084' }}>
-                      消费 1 美元或更多即可有机会赢取高达 1,000.00 美元！每天随机选择 20 位幸运获奖者。如果您获胜，只需点击领取即可获得奖品。不要错过机会 - 立即开启礼包，看看今天是否是您的幸运日！
+                      {t('aboutDailyRaffleDesc')}
                     </p>
                   </div>
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden items-center min-h-[90px] xl:min-h-[115px] py-4 xl:py-7 px-3" style={{ backgroundColor: '#1d2125' }}>
                       <img src="/theme/default/about-raffle.svg" alt="" className="absolute h-full w-full top-0 left-0 object-cover" style={{ left: '-50px', zIndex: 0 }} />
                       <p className="text-base xl:text-xl font-semibold text-white w-2/3 sm:w-3/5 lg:w-3/5 text-balance leading-tight h-auto relative z-10">
-                        开启每日礼包以获得获胜机会！
+                        {t('dailyCard1')}
                       </p>
                     </div>
                     <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden pl-2 items-center min-h-[90px] xl:min-h-[115px]" style={{ backgroundColor: '#1d2125' }}>
                       <img src="/theme/default/about-raffle-2.svg" alt="" className="absolute h-full object-contain object-left" style={{ width: '66.666%', left: '-20px', zIndex: 0 }} />
                       <p className="text-base xl:text-xl font-semibold text-white text-balance leading-tight h-auto py-4 xl:py-7 pr-5 w-2/3 sm:w-3/5 lg:w-3/5 relative z-10">
-                        时间正在流逝 -- 不要错过您的机会！
+                        {t('dailyCard2')}
                       </p>
                     </div>
                   </div>
@@ -529,9 +430,9 @@ export default function EventsPage() {
                     <thead className="[&_tr]:border-b">
                       <tr className="border-b transition-colors data-[state=selected]:bg-gray-600">
                         <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-[25px]" style={{ color: '#7A8185' }}>#</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>抽奖 #245 获奖者</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>门票</th>
-                        <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>奖励</th>
+                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{t('raceWinners')}</th>
+                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('ticketsLabel')}</th>
+                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
@@ -585,7 +486,7 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title="周赛 30,000 美元" raceType="weekly" topThree={topThree} tableData={tableData} countdownText={weeklyCountdown} />
+                <RaceLeaderboard title={t('weeklyRaceTitle')} raceType="weekly" topThree={topThree} tableData={tableData} />
               </div>
                 );
               })()}
@@ -603,7 +504,7 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title="月赛 30,000 美元" raceType="monthly" topThree={topThree} tableData={tableData} countdownText={monthlyCountdown} />
+                <RaceLeaderboard title={t('monthlyRaceTitle')} raceType="monthly" topThree={topThree} tableData={tableData} />
               </div>
                 );
               })()}

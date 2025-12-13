@@ -8,15 +8,16 @@ import { useAuth } from "../hooks/useAuth";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { useI18n } from "../components/I18nProvider";
 
 export default function AccountPage() {
+  const { t } = useI18n();
   const { user, updateUser } = useAuth() as any;
 
-  const userName =
+const userName =
     (user as any)?.userInfo?.name ||
     (user as any)?.name ||
     "";
-console.log(user);
 
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.userInfo?.avatar || "");
   const [userNameInput, setUserNameInput] = useState<string>(userName || "");
@@ -84,8 +85,6 @@ console.log(user);
       }
     },
   });
-console.log(user);
-
   const setProfileMutation = useMutation({
     mutationFn: async () => {
       return api.setUserProfile({
@@ -180,45 +179,45 @@ console.log(user);
         {/* 左侧菜单 */}
         <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-none">
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">账户</span>
+            <span className="text-sm font-bold text-white/40">{t('accountSection')}</span>
             <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md" style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}>
-              <span className="font-bold">个人资料</span>
+              <span className="font-bold">{t('accountProfile')}</span>
             </Link>
             <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">存款</span>
+              <span className="font-bold">{t('deposits')}</span>
             </Link>
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">提款</span>
+              <span className="font-bold">{t('withdrawals')}</span>
             </Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">领取</span>
+              <span className="font-bold">{t('claims')}</span>
             </Link>
             <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">销售</span>
+              <span className="font-bold">{t('sales')}</span>
             </Link>
             <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">对战历史</span>
+              <span className="font-bold">{t('battleHistory')}</span>
             </Link>
             <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">礼包历史</span>
+              <span className="font-bold">{t('packHistory')}</span>
             </Link>
             <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">交易历史</span>
+              <span className="font-bold">{t('transactionHistory')}</span>
             </Link>
             <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">抽奖历史</span>
+              <span className="font-bold">{t('drawHistory')}</span>
             </Link>
             <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">推荐</span>
+              <span className="font-bold">{t('referrals')}</span>
             </Link>
           </div>
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">设置</span>
+            <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
             <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">公平性</span>
+              <span className="font-bold">{t('fairness')}</span>
             </Link>
             <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">安全</span>
+              <span className="font-bold">{t('security')}</span>
             </Link>
           </div>
         </div>
@@ -227,16 +226,16 @@ console.log(user);
         <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-2">
           <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
             <AccountMobileMenu />
-            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>个人资料</h1>
+            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('profileTitle')}</h1>
             <CopyableId id="cmhb4suqa00agjy0fd3eqxb4n" />
           </div>
           <div className="flex flex-col w-full gap-4">
             <div className="flex flex-col items-stretch w-full p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>
-              <h3 className="text-xl text-white font-bold pb-4">基本信息</h3>
+              <h3 className="text-xl text-white font-bold pb-4">{t('basicInfo')}</h3>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
                 <div className="flex min-w-40 items-center">
-                  <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="profilePicture">个人头像</label>
+                  <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="profilePicture">{t('avatarLabel')}</label>
                 </div>
                 <div className="flex flex-col gap-4 lg:flex-1 lg:flex-row lg:justify-between items-start">
                   <div className="flex gap-4">
@@ -262,13 +261,13 @@ console.log(user);
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <p className="text-base" style={{ color: '#7A8084' }}>个人头像有助于个性化您的账户。</p>
+                      <p className="text-base" style={{ color: '#7A8084' }}>{t('avatarHelp')}</p>
                       <div className="flex">
                         <button
                           className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-9 px-6 py-[10px]"
                           onClick={handleGenerateAvatar}
                         >
-                          生成头像
+                          {t('generateAvatar')}
                         </button>
                       </div>
                       <input
@@ -286,13 +285,13 @@ console.log(user);
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
-                <div className="flex min-w-40 items-center mt-0 xs:mt-2"><label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="username">用户名</label></div>
+                <div className="flex min-w-40 items-center mt-0 xs:mt-2"><label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="username">{t('usernameLabel')}</label></div>
                 <div className="flex w-full max-w-[540px] flex-col gap-6">
                   <input
                     className="acct-input flex h-10 w-full rounded-md border-0 px-3 py-2 text-base"
                     id="username"
                     maxLength={20}
-                    placeholder="请输入您的用户名"
+                    placeholder={t('usernamePlaceholder')}
                     type="text"
                     value={userNameInput}
                     onChange={(e) => setUserNameInput(e.target.value)}
@@ -302,13 +301,13 @@ console.log(user);
                     className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36"
                     onClick={handleSaveProfile}
                   >
-                    保存
+                    {t('save')}
                   </button>
                 </div>
               </div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
                 <div className="flex min-w-40 items-center mt-0 xs:mt-2">
-                  <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="accountAddressBasic">账户地址</label>
+                  <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="accountAddressBasic">{t('walletAddressLabel')}</label>
                   
                 </div>
                 <div className="flex w-full max-w-[540px] flex-col gap-4">
@@ -316,7 +315,7 @@ console.log(user);
                       className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
                       id="accountAddressBasic"
                       maxLength={100}
-                      placeholder="请输入账户地址"
+                      placeholder={t('walletAddressPlaceholder')}
                       type="text"
                       value={addressInput}
                       onChange={(e) => setAddressInput(e.target.value)}
@@ -326,7 +325,7 @@ console.log(user);
                       className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
                       id="accountAddressCode"
                       maxLength={100}
-                      placeholder="请输入账户地址code"
+                      placeholder={t('walletAddressCodePlaceholder')}
                       type="text"
                       value={addressCodeInput}
                       onChange={(e) => setAddressCodeInput(e.target.value)}
@@ -338,49 +337,49 @@ console.log(user);
                         disabled={addressSendCooldown > 0 || sendAddressCodeMutation.isPending}
                         onClick={() => sendAddressCodeMutation.mutate()}
                       >
-                        {addressSendCooldown > 0 ? `请求账户地址code (${addressSendCooldown}s)` : '请求账户地址code'}
+                        {addressSendCooldown > 0 ? t('requestAddressCodeCooldown').replace('{s}', String(addressSendCooldown)) : t('requestAddressCode')}
                       </button>
                       <button
                         className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
                         disabled={setWalletAddressMutation.isPending}
                         onClick={() => setWalletAddressMutation.mutate()}
                       >
-                        保存
+                        {t('save')}
                       </button>
                     </div>
                 </div>
               </div>
             </div>
             <div className="flex flex-col items-stretch w-full p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>
-              <h3 className="text-xl text-white font-bold pb-2">个人信息</h3>
+              <h3 className="text-xl text-white font-bold pb-2">{t('personalInfo')}</h3>
               <p className="text-base pb-4 max-w-[700px]" style={{ color: '#7A8084' }}>
-                您可能需要在将来提供一种或多种形式的个人身份证明。您提供的信息应与您的身份证件上的信息一致。您可能无法在将来更改此信息。请在提交前仔细检查。
+                {t('personalInfoDesc')}
               </p>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="legalName">全名</label>
-                <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="legalName" maxLength={50} placeholder="名字和姓氏" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="legalName">{t('fullName')}</label>
+                <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="legalName" maxLength={50} placeholder={t('fullNamePlaceholder')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="dOb">出生日期</label>
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="dOb">{t('dobLabel')}</label>
                 <DatePickerField id="dOb" defaultValue="2025-11-02" />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="address">居住地址</label>
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="address">{t('residenceAddress')}</label>
                 <div className="flex w-full max-w-[540px] flex-col gap-4">
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address1" maxLength={50} placeholder="地址行 1" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address2" maxLength={50} placeholder="地址行 2" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="city" maxLength={50} placeholder="城市" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="state" maxLength={50} placeholder="州/省" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="zip" maxLength={15} placeholder="邮政编码" type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address1" maxLength={50} placeholder={t('address1')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address2" maxLength={50} placeholder={t('address2')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="city" maxLength={50} placeholder={t('city')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="state" maxLength={50} placeholder={t('state')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="zip" maxLength={15} placeholder={t('zip')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
                   <button type="button" role="combobox" aria-expanded="false" aria-autocomplete="none" data-state="closed" className="flex h-10 w-full items-center justify-between rounded-md px-3 py-2 text-base max-w-[540px]" style={{ backgroundColor: '#292F34', color: '#7A8084' }}>
-                    <span style={{ pointerEvents: 'none' }}>国家</span>
+                    <span style={{ pointerEvents: 'none' }}>{t('country')}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
                   </button>
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="phone" maxLength={50} placeholder="(123) 456-7890" type="tel" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36 mt-2">保存</button>
+                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="phone" maxLength={50} placeholder={t('phonePlaceholder')} type="tel" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                  <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36 mt-2">{t('saveChanges')}</button>
                 </div>
               </div>
             </div>

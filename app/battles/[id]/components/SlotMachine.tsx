@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../../components/I18nProvider";
 
 export interface SlotMachineSymbol {
   id: string;
@@ -44,8 +45,10 @@ export default function SlotMachine({
   selectedPrizeId,
   onSpinStart,
   onSpinComplete,
-  buttonLabel = "开始",
+  buttonLabel,
 }: SlotMachineProps) {
+  const { t } = useI18n();
+  const displayButtonLabel = buttonLabel || t("start");
   const reelRef = useRef<HTMLDivElement | null>(null);
   const reelContainerRef = useRef<HTMLDivElement | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -319,7 +322,7 @@ export default function SlotMachine({
         </div>
         <div className="controls">
           <button type="button" onClick={startSpin} disabled={isSpinning}>
-            {buttonLabel}
+            {displayButtonLabel}
           </button>
         </div>
         <div className="result">{result}</div>

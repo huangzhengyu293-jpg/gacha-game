@@ -2,6 +2,7 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { SearchFilters } from '../deals/page';
+import { useI18n } from './I18nProvider';
 
 interface Props {
   filters: SearchFilters;
@@ -9,12 +10,11 @@ interface Props {
 }
 
 export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) {
+  const { t } = useI18n();
   const [query, setQuery] = useState(filters.name);
   const [minPrice, setMinPrice] = useState(`$${filters.priceMin}`);
   const [maxPrice, setMaxPrice] = useState(`$${filters.priceMax}`);
-  const [sortLabel, setSortLabel] = useState<'价格从高到低' | '价格从低到高'>(
-    filters.priceSort === '1' ? '价格从高到低' : '价格从低到高'
-  );
+  const [sortKey, setSortKey] = useState<'asc' | 'desc'>(filters.priceSort === '1' ? 'desc' : 'asc');
   const [sortOpen, setSortOpen] = useState(false);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const sortRef = useRef<HTMLDivElement | null>(null);
@@ -35,10 +35,15 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
   function onMinBlur() { setMinPrice(formatCurrency(clamp(parseCurrency(minPrice), 20, 350000))); }
   function onMaxBlur() { setMaxPrice(formatCurrency(clamp(parseCurrency(maxPrice), 20, 350000))); }
 
-  const sortOptions: Array<{ key: string; label: '价格从高到低' | '价格从低到高' }> = [
-    { key: 'desc', label: '价格从高到低' },
-    { key: 'asc', label: '价格从低到高' },
-  ];
+  const sortOptions: Array<{ key: 'asc' | 'desc'; label: string }> = useMemo(
+    () => [
+      { key: 'desc', label: t('sortPriceHighLow') },
+      { key: 'asc', label: t('sortPriceLowHigh') },
+    ],
+    [t],
+  );
+
+  const sortLabel = useMemo(() => (sortKey === 'desc' ? t('sortPriceHighLow') : t('sortPriceLowHigh')), [sortKey, t]);
 
   useEffect(() => {
     const handleOutside = (ev: MouseEvent) => {
@@ -56,11 +61,18 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
   useEffect(() => {
     onFiltersChange({
       name: query,
-      priceSort: sortLabel === '价格从高到低' ? '1' : '2',
+      priceSort: sortKey === 'desc' ? '1' : '2',
       priceMin: minVal,
       priceMax: maxVal,
     });
-  }, [query, sortLabel, minVal, maxVal, onFiltersChange]);
+  }, [query, sortKey, minVal, maxVal, onFiltersChange]);
+
+  useEffect(() => {
+    setQuery(filters.name);
+    setMinPrice(`$${filters.priceMin}`);
+    setMaxPrice(`$${filters.priceMax}`);
+    setSortKey(filters.priceSort === '1' ? 'desc' : 'asc');
+  }, [filters.name, filters.priceMin, filters.priceMax, filters.priceSort]);
 
   const buttonHoverStyle = {
     backgroundColor: '#2A2D35',
@@ -87,7 +99,7 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
             <input
               className="flex h-10 rounded-md border border-gray-600 focus:border-gray-600 px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 pl-10 pr-10 font-semibold border-none w-full placeholder:text-[#7A8084]"
               style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
-              placeholder="搜索"
+              placeholder={t('dealsSearchPlaceholder')}
               enterKeyHint="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -116,7 +128,7 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
           {sortOpen && (
             <div className="absolute right-0 mt-2 z-50 w-48 rounded-md p-1 shadow-md" style={{ backgroundColor: '#22272B', color: '#FFFFFF' }} role="menu">
               {sortOptions.map((opt) => {
-                const checked = sortLabel === opt.label;
+                const checked = sortKey === opt.key;
                 return (
                   <div
                     key={opt.key}
@@ -125,7 +137,7 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
                     style={{ backgroundColor: hoveredKey === opt.key ? '#34383C' : 'transparent' }}
                     onMouseEnter={() => setHoveredKey(opt.key)}
                     onMouseLeave={() => setHoveredKey(null)}
-                    onClick={() => { setSortLabel(opt.label); setSortOpen(false); }}
+                    onClick={() => { setSortKey(opt.key); setSortOpen(false); }}
                   >
                     {checked && (
                       <span className="absolute flex h-3.5 w-3.5 items-center justify-center" style={{ right: 8, top: '50%', transform: 'translateY(-50%)' }}>
@@ -149,7 +161,7 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
           {/* 最低 */}
           <div className="relative flex flex-1 rounded-md items-center h-10" style={{ backgroundColor: '#22272B' }}>
             <div className="rounded-tl-md rounded-bl-md flex items-center h-full font-bold text-sm gap-2 px-3" style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}>
-              <span>最低</span>
+              <span>{t('minPrice')}</span>
             </div>
             <div className="flex flex-1 relative items-center">
               <input
@@ -181,7 +193,7 @@ export default function DealsSearchToolbar({ filters, onFiltersChange }: Props) 
           {/* 最高 */}
           <div className="relative flex flex-1 rounded-md items-center h-10" style={{ backgroundColor: '#22272B' }}>
             <div className="rounded-tl-md rounded-bl-md flex items-center h-full font-bold text-sm gap-2 px-3" style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}>
-              <span>最高</span>
+              <span>{t('maxPrice')}</span>
             </div>
             <div className="flex flex-1 relative items-center">
               <input

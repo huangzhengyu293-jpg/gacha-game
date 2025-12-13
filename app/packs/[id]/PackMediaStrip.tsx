@@ -6,6 +6,7 @@ import type { DisplayProduct } from '../../lib/catalogV2';
 import ProductCard from './ProductCard';
 import { useAuth } from '../../hooks/useAuth';
 import { showGlobalToast } from '../../components/ToastProvider';
+import { useI18n } from '../../components/I18nProvider';
 
 interface PackMediaStripProps {
   slotPackIds: string[];
@@ -15,6 +16,7 @@ interface PackMediaStripProps {
 }
 
 export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPacksData, primaryPackId }: PackMediaStripProps) {
+  const { t } = useI18n();
   const dashed = "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='rgb(90 94 98)' stroke-width='1' stroke-dasharray='4%25%2c 4%25' stroke-dashoffset='5' stroke-linecap='square'/%3e%3c/svg%3e\")";
   const [hoverAdd, setHoverAdd] = useState(false);
   const [hoverAddIdx, setHoverAddIdx] = useState<number | null>(null);
@@ -84,8 +86,8 @@ export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPa
     
     if (result.success) {
       showGlobalToast({
-        title: '成功',
-        description: '操作成功',
+        title: t('success'),
+        description: t('actionSuccess'),
         variant: 'success',
         durationMs: 2000,
       });
@@ -274,7 +276,7 @@ export default function PackMediaStrip({ slotPackIds, onSlotPackIdsChange, allPa
                         </div>
                       </button>
                     </div>
-                    <span className="font-semibold" style={{ color: '#7A8084' }}>{items.length} 个物品</span>
+                    <span className="font-semibold" style={{ color: '#7A8084' }}>{items.length} {t('itemsLabel') ?? ''}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">

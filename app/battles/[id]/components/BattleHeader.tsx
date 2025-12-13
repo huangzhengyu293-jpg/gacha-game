@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import PackContentsModal from "@/app/components/PackContentsModal";
 import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
+import { useI18n } from "@/app/components/I18nProvider";
 
 export interface PackImage {
   src: string;
@@ -16,6 +17,7 @@ export interface BattleHeaderProps {
   highlightedIndices?: number[];
   awardName?: string;
   statusText?: string; // 状态文本，如 "等待玩家"
+  modeLabel?: string;
   currentRound?: number; // 当前轮次
   totalRounds?: number; // 总轮次
   currentPackName?: string;
@@ -40,8 +42,8 @@ interface PackModalState {
 export default function BattleHeader({
   packImages = [],
   highlightedIndices = [],
-  awardName = "普通",
-  statusText = "等待玩家",
+  awardName = "",
+  statusText = "",
   currentRound = 0,
   totalRounds = 0,
   currentPackName = "",
@@ -56,7 +58,11 @@ export default function BattleHeader({
   isInverted = false,
   onFairnessClick,
   onShareClick,
+  modeLabel,
 }: BattleHeaderProps) {
+  const { t } = useI18n();
+  const displayAwardName = awardName || t("battleModeClassic");
+  const displayStatusText = statusText || t("waitingPlayers");
   const [packModal, setPackModal] = useState<PackModalState>({ open: false, packId: null });
   const packScrollRefDesktop = useRef<HTMLDivElement>(null);
   const packScrollRefMobile = useRef<HTMLDivElement>(null);
@@ -74,7 +80,8 @@ export default function BattleHeader({
   const initialVisibleCount = Math.ceil(VISIBLE_WIDTH / (PACK_WIDTH + GAP)) + BUFFER_SIZE + 1;
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: initialVisibleCount });
   
-  const modeVisual = getModeVisual(gameMode, awardName);
+  const modeVisual = getModeVisual(gameMode, displayAwardName);
+  const displayModeLabel = modeLabel || modeVisual.label;
   const optionIcons = getSpecialOptionIcons({ isFastMode, isLastChance, isInverted });
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
 
@@ -217,7 +224,7 @@ export default function BattleHeader({
                       ></path>
                     </svg>
                   </div>
-                  <p className="text-sm text-white font-bold ml-2">所有对战</p>
+                  <p className="text-sm text-white font-bold ml-2">{t("allBattles")}</p>
                 </div>
               </Link>
               <div className="flex flex-col-reverse items-start md:flex-row md:items-center">
@@ -229,7 +236,7 @@ export default function BattleHeader({
                     __html: `.mode-badge::after { background-color: ${modeVisual.accentColor} !important; }`
                   }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {modeVisual.label}
+                    {displayModeLabel}
                   </p>
                   {optionIcons.map(icon => icon)}
                 </div>
@@ -304,13 +311,13 @@ export default function BattleHeader({
               <div className="flex self-center">
                 {isCountingDown ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    准备开始
+                    {t("readyToStart")}
                   </span>
                 ) : isPlaying ? (
                   <div className="flex gap-1 items-center">
                     <span className="text-base font-bold ml-1" style={{ color: "#E1E7EF" }}>
-                        回合
-                      </span>
+                      {t("roundLabel")}
+                    </span>
                     <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                       {currentRound + 1}/{totalRounds}
                       </span>
@@ -325,11 +332,11 @@ export default function BattleHeader({
                   </div>
                 ) : isCompleted ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    已结束
+                    {t("endedStatus")}
                   </span>
                 ) : (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    {statusText}
+                    {displayStatusText}
                   </span>
                 )}
               </div>
@@ -360,7 +367,7 @@ export default function BattleHeader({
                       ></path>
                     </svg>
                   </div>
-                  <p>公平性</p>
+                  <p>{t("fairness")}</p>
                 </button>
                 <button
                   onClick={onShareClick}
@@ -393,7 +400,7 @@ export default function BattleHeader({
                       ></path>
                     </svg>
                   </div>
-                  <p>分享</p>
+                  <p>{t("shareAction")}</p>
                 </button>
               </div>
 
@@ -401,7 +408,7 @@ export default function BattleHeader({
               <div className="flex justify-end">
                 <div className="flex gap-1">
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    总费用：
+                    {t("totalCostLabel")}：
                   </span>
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                     {totalCost}
@@ -426,7 +433,7 @@ export default function BattleHeader({
                     __html: `.mode-badge-mobile::after { background-color: ${modeVisual.accentColor} !important; }`
                   }} />
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
-                    {modeVisual.label}
+                    {displayModeLabel}
                   </p>
                   {optionIcons.map(icon => icon)}
                 </div>
@@ -513,12 +520,12 @@ export default function BattleHeader({
             <div className="flex self-center">
                 {isCountingDown ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    准备开始
+                    {t("readyToStart")}
                   </span>
                 ) : isPlaying ? (
                   <div className="flex gap-1 items-center flex-wrap justify-center">
                     <span className="text-base font-bold ml-1" style={{ color: "#E1E7EF" }}>
-                      回合
+                      {t("roundLabel")}
                     </span>
                     <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                       {currentRound + 1}/{totalRounds}
@@ -534,17 +541,17 @@ export default function BattleHeader({
                   </div>
                 ) : isCompleted ? (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    已结束
+                    {t("endedStatus")}
                   </span>
                 ) : (
                   <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                    {statusText}
+                    {displayStatusText}
                   </span>
               )}
               </div>
               <div className="flex gap-1">
                 <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
-                  总费用：
+                  {t("totalCostLabel")}：
                 </span>
                 <span className="text-base font-bold" style={{ color: "#E1E7EF" }}>
                   {totalCost}

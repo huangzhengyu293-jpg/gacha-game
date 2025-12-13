@@ -1,8 +1,11 @@
 "use client";
 
+'use client';
+
 import Link from "next/link";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/app/components/I18nProvider";
 
 type SessionInfo = {
     id: string;
@@ -13,6 +16,7 @@ type SessionInfo = {
 };
 
 export default function SecurityPage() {
+    const { t } = useI18n();
     const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
 
     useEffect(() => {
@@ -44,22 +48,22 @@ export default function SecurityPage() {
                 {/* 左侧菜单 */}
                 <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-none">
                     <div className="flex flex-col gap-3 items-stretch w-full">
-                        <span className="text-sm font-bold text-white/40">账户</span>
-                        <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">个人资料</span></Link>
-                        <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">存款</span></Link>
-                        <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">提款</span></Link>
-                        <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">领取</span></Link>
-                        <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">销售</span></Link>
-                        <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">对战历史</span></Link>
-                        <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">礼包历史</span></Link>
-                        <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">交易历史</span></Link>
-                        <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">抽奖历史</span></Link>
-                        <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">推荐</span></Link>
+                        <span className="text-sm font-bold text-white/40">{t('accountSection')}</span>
+                        <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountProfile')}</span></Link>
+                        <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDepositsTitle')}</span></Link>
+                        <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountWithdrawalsTitle')}</span></Link>
+                        <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountClaimsTitle')}</span></Link>
+                        <Link href="/account/sales" className="inline-flex itemscenter gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSalesTitle')}</span></Link>
+                        <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountBattlesTitle')}</span></Link>
+                        <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountPacksTitle')}</span></Link>
+                        <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountTransactionsTitle')}</span></Link>
+                        <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDrawsTitle')}</span></Link>
+                        <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('referrals')}</span></Link>
                     </div>
                     <div className="flex flex-col gap-3 items-stretch w-full">
-                        <span className="text-sm font-bold text-white/40">设置</span>
-                        <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">公平性</span></Link>
-                        <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">安全</span></Link>
+                        <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
+                        <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountFairnessTitle')}</span></Link>
+                        <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">{t('accountSecurityTitle')}</span></Link>
                     </div>
                 </div>
 
@@ -67,32 +71,32 @@ export default function SecurityPage() {
                 <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-4">
                     <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0">
                         <AccountMobileMenu />
-                        <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>安全</h1>
+                        <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('accountSecurityTitle')}</h1>
                     </div>
 
                     {/* 更改密码 */}
                     <div className="flex flex-col items-start p-6 gap-6 rounded-lg w-full" style={{ backgroundColor: '#22272B' }}>
                         <div className="flex flex-col gap-2">
-                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>更改密码</h3>
-                            <p className="text-base" style={{ color: '#FFFFFF' }}>为了您的安全，密码重置请求将发送到您的账户电子邮件地址。如果您没有收到电子邮件，请检查您的垃圾邮件文件夹。</p>
+                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>{t('changePasswordTitle')}</h3>
+                            <p className="text-base" style={{ color: '#FFFFFF' }}>{t('changePasswordDesc')}</p>
                         </div>
-                        <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-72">请求密码重置链接</button>
+                        <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-72">{t('requestPasswordReset')}</button>
                     </div>
 
                     {/* 双重认证 */}
                     <div className="flex flex-col items-start p-6 gap-6 rounded-lg w-full" style={{ backgroundColor: '#22272B' }}>
                         <div className="flex flex-col gap-2">
-                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>双重认证</h3>
-                            <p className="text-base" style={{ color: '#FFFFFF' }}>要禁用双重认证，请输入认证器应用中的代码。</p>
+                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>{t('twoFactorTitle')}</h3>
+                            <p className="text-base" style={{ color: '#FFFFFF' }}>{t('twoFactorDesc')}</p>
                         </div>
-                        <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-72">启用双重认证</button>
+                        <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-72">{t('enable2FA')}</button>
                     </div>
 
                     {/* 活动会话 */}
                     <div className="flex flex-col items-start p-6 gap-6 rounded-lg w-full" style={{ backgroundColor: '#22272B' }}>
                         <div className="flex flex-col gap-2">
-                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>活动会话</h3>
-                            <p className="text-base" style={{ color: '#FFFFFF' }}>为了您的安全，请注销所有您当前未使用或不认识的会话。</p>
+                            <h3 className="text-xl font-bold" style={{ color: '#7A8084' }}>{t('activeSessionsTitle')}</h3>
+                            <p className="text-base" style={{ color: '#FFFFFF' }}>{t('activeSessionsDesc')}</p>
                         </div>
 
                         {Array.isArray(sessions) && sessions.length > 0 ? (
@@ -103,10 +107,10 @@ export default function SecurityPage() {
                               <div className="flex items-start gap-3 w-full md:w-auto min-w-0">
                                 {/* 左列：标题（小屏可缩小，最大 220） */}
                                 <div className="flex flex-col gap-2 shrink-0" style={{ width: 'clamp(140px, 35vw, 220px)' }}>
-                                  <p className="text-base" style={{ color: '#7A8084' }}>会话 ID：</p>
-                                  <p className="text-base" style={{ color: '#7A8084' }}>IP 地址：</p>
-                                  <p className="text-base" style={{ color: '#7A8084' }}>位置：</p>
-                                  <p className="text-base" style={{ color: '#7A8084' }}>首次登录：</p>
+                                  <p className="text-base" style={{ color: '#7A8084' }}>{t('sessionIdLabel')}</p>
+                                  <p className="text-base" style={{ color: '#7A8084' }}>{t('ipAddressLabel')}</p>
+                                  <p className="text-base" style={{ color: '#7A8084' }}>{t('locationLabel')}</p>
+                                  <p className="text-base" style={{ color: '#7A8084' }}>{t('firstLoginLabel')}</p>
                                 </div>
                                 {/* 中列：内容（不超过父容器；自适应剩余空间；可换行；默认330 最小210） */}
                                 <div className="flex flex-col gap-2 min-w-0" style={{ flex: '1 1 330px', minWidth: 330, maxWidth: 330 }}>
@@ -122,7 +126,7 @@ export default function SecurityPage() {
                                   <div className="flex justify-center items-center rounded-full min-h-4 min-w-4 size-4" style={{ backgroundColor: '#22C55E' }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check size-2.5 text-white"><path d="M20 6 9 17l-5-5"></path></svg>
                                   </div>
-                                  <p className="text-base" style={{ color: '#FFFFFF' }}>{sessions[0].isCurrent ? '这是您当前的会话' : '活动会话'}</p>
+                                  <p className="text-base" style={{ color: '#FFFFFF' }}>{sessions[0].isCurrent ? t('currentSession') : t('activeSession')}</p>
                                 </div>
                               </div>
                             </div>

@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastProvider';
 import FireworkArea, { type FireworkAreaHandle } from './FireworkArea';
 import { LogoIcon } from './icons/Logo';
+import { useI18n } from './I18nProvider';
 
 interface DealsCenterPanelProps {
   percent?: number;
@@ -28,6 +29,7 @@ const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '600', '700', '8
 
 export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
   const toast = useToast();
+  const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const fireworkRef = useRef<FireworkAreaHandle>(null);
   const [dragging, setDragging] = useState<null | 'start' | 'end' | 'body' | 'percent'>(null);
@@ -171,8 +173,8 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       if (result.code === 200000) {
         toast.show({
           variant: 'error',
-          title: '转动失败',
-          description: result.message || '转动失败，请稍后重试',
+          title: t('spinFailedTitle'),
+          description: result.message || t('spinFailedDesc'),
         });
         return;
       }
@@ -198,17 +200,17 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         // 其他 code 值，也视为错误
         toast.show({
           variant: 'error',
-          title: '转动失败',
-          description: result.message || '转动失败，请稍后重试',
+          title: t('spinFailedTitle'),
+          description: result.message || t('spinFailedDesc'),
         });
       }
     },
     onError: (error: any) => {
       console.error('❌ 转动接口失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '转动失败，请稍后重试';
+      const errorMessage = error instanceof Error ? error.message : t('spinFailedDesc');
       toast.show({
         variant: 'error',
-        title: '转动失败',
+        title: t('spinFailedTitle'),
         description: errorMessage,
       });
     },
@@ -732,7 +734,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           style={{ backgroundColor: '#48BB78', color: (uiLocked || demoRunning || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (uiLocked || demoRunning || !isAuthed) ? 'default' : 'pointer' }}
           disabled={uiLocked || demoRunning || !isAuthed}
           onClick={startRealSpin}
-        >转动获取 {spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$')}</button>
+        >{t('spinFor').replace('{amount}', spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$'))}</button>
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6"
           style={{ backgroundColor: uiLocked || demoRunning ? '#34383C' : '#2A2D35', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
@@ -747,7 +749,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
               <path fillRule="evenodd" clipRule="evenodd" d="M14.9554 7.06726C15.6673 6.64369 15.9162 5.71443 15.5113 4.9917C13.3794 1.18654 8.63378 -0.14786 4.89436 2.07691C1.15495 4.30168 -0.0964166 9.20398 2.0355 13.0091C4.16742 16.8143 8.91303 18.1487 12.6524 15.9239C13.3644 15.5004 13.6133 14.5711 13.2084 13.8484C12.8035 13.1257 11.898 12.8831 11.1861 13.3067C8.90694 14.6627 5.95662 13.8721 4.61371 11.4752C3.2708 9.07835 4.08155 6.05011 6.36071 4.69413C8.63988 3.33814 11.5902 4.12872 12.9331 6.52561C13.338 7.24833 14.2434 7.49084 14.9554 7.06726Z" fill="currentColor"></path>
             </svg>
           </div>
-          演示转动
+          {t('demoSpin')}
         </button>
       </div>
 
@@ -757,7 +759,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           style={{ backgroundColor: '#48BB78', color: (uiLocked || demoRunning || !isAuthed) ? '#7A8084' : '#FFFFFF', cursor: (uiLocked || demoRunning || !isAuthed) ? 'default' : 'pointer' }}
           disabled={uiLocked || demoRunning || !isAuthed}
           onClick={startRealSpin}
-        >转动获取 {spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$')}</button>
+        >{t('spinFor').replace('{amount}', spinPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'USD' }).replace('$', '$'))}</button>
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6"
           style={{ backgroundColor: uiLocked || demoRunning ? '#34383C' : '#2A2D35', color: uiLocked || demoRunning ? '#7A8084' : '#FFFFFF', cursor: uiLocked || demoRunning ? 'default' : 'pointer' }}
@@ -772,7 +774,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
               <path fillRule="evenodd" clipRule="evenodd" d="M14.9554 7.06726C15.6673 6.64369 15.9162 5.71443 15.5113 4.9917C13.3794 1.18654 8.63378 -0.14786 4.89436 2.07691C1.15495 4.30168 -0.0964166 9.20398 2.0355 13.0091C4.16742 16.8143 8.91303 18.1487 12.6524 15.9239C13.3644 15.5004 13.6133 14.5711 13.2084 13.8484C12.8035 13.1257 11.898 12.8831 11.1861 13.3067C8.90694 14.6627 5.95662 13.8721 4.61371 11.4752C3.2708 9.07835 4.08155 6.05011 6.36071 4.69413C8.63988 3.33814 11.5902 4.12872 12.9331 6.52561C13.338 7.24833 14.2434 7.49084 14.9554 7.06726Z" fill="currentColor"></path>
             </svg>
           </div>
-          演示转动
+          {t('demoSpin')}
         </button>
       </div>
     </div>

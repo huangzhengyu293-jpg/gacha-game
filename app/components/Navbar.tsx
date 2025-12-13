@@ -30,6 +30,7 @@ function PromoCodeForm({
   className = '',
   showTopDivider = false,
 }: PromoCodeFormProps) {
+  const { t } = useI18n();
   const disabled = loading || !value.trim();
 
   return (
@@ -43,7 +44,7 @@ function PromoCodeForm({
         <input
           className="flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 bg-gray-800 px-3 py-2 pr-12 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 text-[#7A8084]"
           style={{ backgroundColor: '#1d2125', color: '#7A8084' }}
-          placeholder="促销码"
+          placeholder={t("promoCodePlaceholder")}
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -213,8 +214,8 @@ export default function Navbar() {
     await authLogout();
     toast.show({
       variant: 'success',
-      title: '已登出',
-      description: '您已成功登出',
+      title: t("logoutTitle"),
+      description: t("logoutDesc"),
     });
   };
 
@@ -228,7 +229,7 @@ export default function Navbar() {
       const res = await api.setUserProfile({ invite: code });
       
     } catch (err) {
-      toast.show({ variant: 'error', title: '兑换失败', description: err instanceof Error ? err.message : '请稍后重试' });
+      toast.show({ variant: 'error', title: t("redeemFailTitle"), description: err instanceof Error ? err.message : t("retryLater") });
     } finally {
       setPromoLoading(false);
     }
@@ -419,8 +420,8 @@ export default function Navbar() {
       setVerifyCode('');
       toast.show({
         variant: 'success',
-        title: '注册成功',
-        description: result.message || '请查收验证邮件',
+        title: t("registerSuccessTitle"),
+        description: result.message || t("registerSuccessDesc"),
       });
     }
     // code === 200000: 邮箱已注册但未验证，弹出验证码弹窗
@@ -435,8 +436,8 @@ export default function Navbar() {
       setVerifyCode('');
       toast.show({
         variant: 'success',
-        title: '邮箱已注册',
-        description: result.message || '请验证您的邮箱',
+        title: t("emailRegisteredTitle"),
+        description: result.message || t("emailRegisteredDesc"),
       });
     }
   };
@@ -476,14 +477,14 @@ export default function Navbar() {
       }
       toast.show({
         variant: 'success',
-        title: '发送成功',
-        description: result.message || '验证码已发送到您的邮箱',
+        title: t("sendSuccessTitle"),
+        description: result.message || t("sendSuccessDesc"),
       });
     } else {
       toast.show({
         variant: 'error',
-        title: '发送失败',
-        description: result.message || '请稍后重试',
+        title: t("sendFailTitle"),
+        description: result.message || t("retryLater"),
       });
     }
   }, [forgotEmail, forgotEmailValid, forgotCountdown, sendVerificationEmail, toast]);
@@ -499,8 +500,8 @@ export default function Navbar() {
     if (res.code === 100000) {
       toast.show({
         variant: 'success',
-        title: '重置成功',
-        description: '请使用新密码登录',
+        title: t("resetSuccessTitle"),
+        description: t("resetSuccessDesc"),
       });
       setShowForgot(false);
       setShowLogin(true);
@@ -510,8 +511,8 @@ export default function Navbar() {
     } else {
       toast.show({
         variant: 'error',
-        title: '重置失败',
-        description: res.message || '请稍后重试',
+        title: t("resetFailTitle"),
+        description: res.message || t("retryLater"),
       });
     }
   }, [forgotEmail, forgotCode, forgotNewPass, forgotEmailValid, forgotCodeValid, forgotPassValid, isSubmitting, toast, api.forgotPassword]);
@@ -524,24 +525,24 @@ export default function Navbar() {
       if (res?.code === 100000) {
         toast.show({
           variant: 'success',
-          title: '提交成功',
-          description: res?.message || 'CDK 已提交',
+          title: t("submitSuccessTitle"),
+          description: res?.message || t("actionSuccess"),
         });
         setShowWalletModal(false);
         setCdkValue('');
       } else {
         toast.show({
           variant: 'error',
-          title: '提交失败',
-          description: res?.message || '请稍后重试',
+          title: t("submitFailTitle"),
+          description: res?.message || t("retryLater"),
         });
       }
     },
     onError: (err: any) => {
       toast.show({
         variant: 'error',
-        title: '提交失败',
-        description: err?.message || '请稍后重试',
+        title: t("submitFailTitle"),
+        description: err?.message || t("retryLater"),
       });
     },
   });
@@ -560,8 +561,8 @@ export default function Navbar() {
       setResendCountdown(60);
       toast.show({
         variant: 'success',
-        title: '发送成功',
-        description: result.message || '验证码已发送到您的邮箱',
+        title: t("sendSuccessTitle"),
+        description: result.message || t("sendSuccessDesc"),
       });
     }
   };
@@ -574,8 +575,8 @@ export default function Navbar() {
     if (!email || !code) {
       toast.show({
         variant: 'error',
-        title: '验证失败',
-        description: '邮箱或验证码不能为空',
+        title: t("verifyFailTitle"),
+        description: t("verifyFailDesc"),
       });
       return;
     }
@@ -587,15 +588,15 @@ export default function Navbar() {
       setVerifyEmail('');
       toast.show({
         variant: 'success',
-        title: '验证成功',
-        description: result.message || '邮箱验证成功！请登录。',
+        title: t("verifySuccessTitle"),
+        description: result.message || t("verifySuccessDesc"),
       });
       setShowLogin(true);
     } else {
       toast.show({
         variant: 'error',
-        title: '验证失败',
-        description: result.message || '请稍后重试',
+        title: t("verifyFailTitle"),
+        description: result.message || t("retryLater"),
       });
     }
   };
@@ -614,8 +615,8 @@ export default function Navbar() {
       const userName = result.data?.userInfo?.name || '';
       toast.show({
         variant: 'success',
-        title: '登录成功',
-        description: userName ? `欢迎回来，${userName}！` : '欢迎回来！',
+        title: t("loginSuccessTitle"),
+        description: userName ? t("welcomeBackUser").replace("{name}", userName) : t("welcomeBack"),
       });
       router.refresh();
       setShowLogin(false);
@@ -788,7 +789,7 @@ export default function Navbar() {
             {/* Sound button (>=sm) */}
             <div className="hidden sm:flex mr-0 sm:mr-2 gap-0 sm:gap-2 items-center">
               <button
-                aria-label={isMuted ? '开启声音' : '关闭声音'}
+                aria-label={isMuted ? t("soundOn") : t("soundOff")}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                 style={{ color: '#7A8084' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
@@ -819,7 +820,7 @@ export default function Navbar() {
               <div className="hidden sm:flex gap-2 items-center">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9" onClick={() => setShowCart(true)}>
                   <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
-                    <p className="text-sm text-white font-bold">购物车</p>
+                    <p className="text-sm text-white font-bold">{t("cart")}</p>
                     <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
                       <span className="font-bold text-xs">{warehouseCount}</span>
                     </div>
@@ -835,7 +836,7 @@ export default function Navbar() {
                 <div className="flex relative" ref={userMenuRef}>
                   <div className="flex justify-center items-center">
                     <div className="hidden lg:flex">
-                      <button onClick={() => setShowUserMenu((v) => !v)} className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }} aria-label="用户菜单">
+                      <button onClick={() => setShowUserMenu((v) => !v)} className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: 1 }} aria-label={t("userMenu")}>
                         <div className="relative rounded-full overflow-hidden" style={{ width: 32, height: 32 }}>
                           {user?.userInfo?.avatar ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -893,8 +894,8 @@ export default function Navbar() {
                           </div>
                         </div>
                         <div className="flex flex-1 flex-col overflow-hidden">
-                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
-                          <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                          <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || t("welcomeBack")}</p>
+                          <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>{t("viewProfile")}</p>
                         </div>
                       </div>
                     </div>
@@ -902,7 +903,7 @@ export default function Navbar() {
                     <div className="flex flex-col px-2 py-1.5 gap-2">
                       <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg transition-colors" onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
-                        <p className="text-base text-white">注销</p>
+                        <p className="text-base text-white">{t("logoutBtn")}</p>
                       </div>
                     
                     </div>
@@ -933,7 +934,7 @@ export default function Navbar() {
               <div className="flex sm:hidden flex-row gap-3 items-center">
                 <div className="nav-vol flex mr-0 xs:mr-2 gap-0 xs:gap-2 items-center max-[390px]:hidden">
                   <button
-                    aria-label={isMuted ? '开启声音' : '关闭声音'}
+                    aria-label={isMuted ? t("soundOn") : t("soundOff")}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                     style={{ color: '#7A8084' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
@@ -951,7 +952,7 @@ export default function Navbar() {
                 <div className="flex">
                   <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 xs:h-9" onClick={() => setShowCart(true)}>
                     <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
-                      <p className="text-sm text-white font-bold">购物车</p>
+                      <p className="text-sm text-white font-bold">{t("cart")}</p>
                       <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
                         <span className="font-bold text-xs">{warehouseCount}</span>
                       </div>
@@ -1041,8 +1042,8 @@ export default function Navbar() {
                             </div>
                           </div>
                           <div className="flex flex-1 flex-col overflow-hidden">
-                            <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
-                            <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                            <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || t("welcomeBack")}</p>
+                            <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>{t("viewProfile")}</p>
                           </div>
                         </div>
                       </div>
@@ -1075,7 +1076,7 @@ export default function Navbar() {
                         <div className="flex flex-col px-2 py-1.5 gap-2">
                           <div className="flex items-center gap-2 cursor-pointer menu-item px-3 py-2 rounded-lg" onClick={() => { setShowMidMenu(false); handleLogout(); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
-                            <p className="text-base text-white">注销</p>
+                            <p className="text-base text-white">{t("logoutBtn")}</p>
                           </div>
                         </div>
                         <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
@@ -1131,14 +1132,14 @@ export default function Navbar() {
                   </div>
                 </div>
                 <div className="flex flex-1 flex-col">
-                  <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || '用户'}</p>
-                  <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>查看个人资料</p>
+                  <p className="text-xl text-white font-bold overflow-hidden text-ellipsis whitespace-nowrap leading-tight">{user?.userInfo?.name || user?.userInfo?.email || t("welcomeBack")}</p>
+                  <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>{t("viewProfile")}</p>
                 </div>
               </div>
               <div className="flex flex-col p-4 gap-4">
                 <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
-                  <p className="text-lg text-white font-semibold">登出</p>
+                  <p className="text-lg text-white font-semibold">{t("logoutBtn")}</p>
                 </div>
                 <PromoCodeForm
                   value={promoCode}
@@ -1205,26 +1206,26 @@ export default function Navbar() {
           style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
         >
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
-            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎来到 FlameDraw</h2>
-            <p className="text-md" style={{ color: '#9CA3AF' }}>注册以开始</p>
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("registerTitle")}</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>{t("registerSubtitle")}</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
             <form className="flex flex-col" onSubmit={handleRegister}>
 
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-base font-medium" htmlFor="reg-username" style={{ color: '#FFFFFF' }}>用户名</label>
-                  <input id="reg-username" type="text" autoComplete="username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入用户名" />
+                  <label className="text-base font-medium" htmlFor="reg-username" style={{ color: '#FFFFFF' }}>{t("usernameLabel")}</label>
+                  <input id="reg-username" type="text" autoComplete="username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder={t("inputUsername")} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-base font-medium" htmlFor="reg-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
-                  <input id="reg-email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
+                  <label className="text-base font-medium" htmlFor="reg-email" style={{ color: '#FFFFFF' }}>{t("emailLabel")}</label>
+                  <input id="reg-email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder={t("emailLabel")} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-base font-medium" htmlFor="reg-pass" style={{ color: '#FFFFFF' }}>密码</label>
+                  <label className="text-base font-medium" htmlFor="reg-pass" style={{ color: '#FFFFFF' }}>{t("passwordLabel")}</label>
                   <div className="relative">
-                    <input id="reg-pass" type={showPass ? 'text' : 'password'} autoComplete="new-password" value={regPass} onChange={(e) => setRegPass(e.target.value)} onFocus={() => setShowStrength(true)} onBlur={(e) => { if (!e.target.value) setShowStrength(false); }} className="flex h-10 w-full rounded-md pr-10 px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} />
-                    <button type="button" onClick={() => setShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: showPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={showPass ? '隐藏密码' : '显示密码'}>
+                    <input id="reg-pass" type={showPass ? 'text' : 'password'} autoComplete="new-password" value={regPass} onChange={(e) => setRegPass(e.target.value)} onFocus={() => setShowStrength(true)} onBlur={(e) => { if (!e.target.value) setShowStrength(false); }} className="flex h-10 w-full rounded-md pr-10 px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder={t("inputPassword")} />
+                    <button type="button" onClick={() => setShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: showPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={showPass ? t("hidePassword") : t("showPassword")}>
                       {showPass ? (
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
                       ) : (
@@ -1239,8 +1240,8 @@ export default function Navbar() {
                 <div className="flex justify-start items-center gap-2">
                   <input id="agree2" type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
                   <label className="text-sm space-x-1 font-medium cursor-pointer" style={{ color: '#FFFFFF' }} htmlFor="agree2">
-                    <span>通过访问网站，我确认我已年满 18 岁并同意</span>
-                    <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline cursor-pointer" onClick={(e) => e.stopPropagation()}>服务条款</Link>
+                    <span>{t("ageConfirm")}</span>
+                    <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline cursor-pointer" onClick={(e) => e.stopPropagation()}>{t("termsOfService")}</Link>
                     <span>。</span>
                   </label>
                 </div>
@@ -1251,11 +1252,11 @@ export default function Navbar() {
                 style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (canRegister && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!canRegister || isSubmitting}
               >
-                {isSubmitting ? '注册中...' : '注册'}
+                {isSubmitting ? t("registering") : t("registerBtn")}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
-              <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
+              <p className="text-base" style={{ color: '#FFFFFF' }}>{t("alreadyHaveAccount")}</p>
               <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
                 setShowRegister(false);
                 setShowLogin(true);
@@ -1263,7 +1264,7 @@ export default function Navbar() {
                 setRegUsername('');
                 setRegEmail('');
                 setRegPass('');
-              }}>登录</span>
+              }}>{t("loginBtn")}</span>
             </div>
           </div>
         </div>
@@ -1273,21 +1274,21 @@ export default function Navbar() {
       {showLogin && (
         <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
-            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>欢迎回来</h2>
-            <p className="text-md" style={{ color: '#9CA3AF' }}>登录以访问您的账户</p>
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("loginTitle")}</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>{t("loginSubtitle")}</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
 
             <form className="flex flex-col gap-4 mt-4" onSubmit={handleLogin}>
               <div className="flex flex-col gap-2">
-                <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                <label className="text-base font-medium" htmlFor="login-email" style={{ color: '#FFFFFF' }}>{t("emailLabel")}</label>
                 <input id="login-email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-base font-medium" htmlFor="login-pass" style={{ color: '#FFFFFF' }}>密码</label>
+                <label className="text-base font-medium" htmlFor="login-pass" style={{ color: '#FFFFFF' }}>{t("passwordLabel")}</label>
                 <div className="relative">
                   <input id="login-pass" type={loginShowPass ? 'text' : 'password'} autoComplete="current-password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="flex h-10 w-full rounded-md pr-10 px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} />
-                  <button type="button" onClick={() => setLoginShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: loginShowPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={loginShowPass ? '隐藏密码' : '显示密码'}>
+                  <button type="button" onClick={() => setLoginShowPass((v) => !v)} className="inline-flex items-center justify-center absolute right-0 top-0 h-full px-3 text-base font-bold" style={{ color: loginShowPass ? '#FFFFFF' : '#9CA3AF', cursor: 'pointer' }} aria-label={loginShowPass ? t("hidePassword") : t("showPassword")}>
                     {loginShowPass ? (
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     ) : (
@@ -1299,9 +1300,9 @@ export default function Navbar() {
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={loginRemember} onChange={(e) => setLoginRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
-                  <span className="text-base" style={{ color: '#FFFFFF' }}>保持登录</span>
+                  <span className="text-base" style={{ color: '#FFFFFF' }}>{t("keepLoggedIn")}</span>
                 </label>
-                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>忘记密码？</span>
+                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>{t("forgotPassword")}</span>
               </div>
               <button
                 type="submit"
@@ -1309,13 +1310,13 @@ export default function Navbar() {
                 style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!loginCanSubmit || isSubmitting}
               >
-                {isSubmitting ? '登录中...' : '登录'}
+                {isSubmitting ? t("loggingIn") : t("loginBtn")}
               </button>
             </form>
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
-            <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
-            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowRegister(true); }}>注册</span>
+            <p className="text-base" style={{ color: '#FFFFFF' }}>{t("noAccount")}</p>
+            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowRegister(true); }}>{t("registerBtn")}</span>
           </div>
         </div>
       )}
@@ -1324,18 +1325,18 @@ export default function Navbar() {
       {showForgot && (
         <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
-            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>忘记密码？</h2>
-            <p className="text-md" style={{ color: '#9CA3AF' }}>请求密码重置说明</p>
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("forgotTitle")}</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>{t("forgotSubtitle")}</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
             <form className="flex flex-col gap-4" onSubmit={handleForgotSubmit}>
               <div className="flex flex-col gap-2">
-                <label className="text-base font-medium" htmlFor="forgot-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                <label className="text-base font-medium" htmlFor="forgot-email" style={{ color: '#FFFFFF' }}>{t("emailLabel")}</label>
                 <input id="forgot-email" type="email" inputMode="email" autoComplete="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="name@example.com" />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-base font-medium" htmlFor="forgot-code" style={{ color: '#FFFFFF' }}>验证码</label>
-                <input id="forgot-code" type="text" autoComplete="one-time-code" value={forgotCode} onChange={(e) => setForgotCode(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入验证码" />
+                <label className="text-base font-medium" htmlFor="forgot-code" style={{ color: '#FFFFFF' }}>{t("codeLabel")}</label>
+                <input id="forgot-code" type="text" autoComplete="one-time-code" value={forgotCode} onChange={(e) => setForgotCode(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder={t("inputCode")} />
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-2"
@@ -1343,12 +1344,12 @@ export default function Navbar() {
                   disabled={!forgotEmailValid || forgotCountdown > 0}
                   onClick={handleSendForgotEmail}
                 >
-                  {forgotCountdown > 0 ? `重新发送 (${forgotCountdown}s)` : '获取验证码'}
+                  {forgotCountdown > 0 ? t("resendWithCountdown").replace("{s}", String(forgotCountdown)) : t("resend")}
                 </button>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-base font-medium" htmlFor="forgot-pass" style={{ color: '#FFFFFF' }}>新密码</label>
-                <input id="forgot-pass" type="password" autoComplete="new-password" value={forgotNewPass} onChange={(e) => setForgotNewPass(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder="输入新密码" />
+                <label className="text-base font-medium" htmlFor="forgot-pass" style={{ color: '#FFFFFF' }}>{t("newPasswordLabel")}</label>
+                <input id="forgot-pass" type="password" autoComplete="new-password" value={forgotNewPass} onChange={(e) => setForgotNewPass(e.target.value)} className="flex h-10 w-full rounded-md px-3 py-2 text-base" style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }} placeholder={t("inputNewPassword")} />
               </div>
               <button
                 type="submit"
@@ -1356,13 +1357,13 @@ export default function Navbar() {
                 style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!forgotEmailValid || !forgotCodeValid || !forgotPassValid || isSubmitting}
               >
-                {isSubmitting ? '重置中...' : '重置密码'}
+                {isSubmitting ? t("resetting") : t("resetPassword")}
               </button>
             </form>
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
-            <p className="text-base" style={{ color: '#FFFFFF' }}>还没有账户？</p>
-            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>注册</span>
+            <p className="text-base" style={{ color: '#FFFFFF' }}>{t("noAccount")}</p>
+            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>{t("registerBtn")}</span>
           </div>
         </div>
       )}
@@ -1376,14 +1377,14 @@ export default function Navbar() {
           style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
         >
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
-            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>验证邮箱</h2>
-            <p className="text-md" style={{ color: '#9CA3AF' }}>请输入发送到您邮箱的验证码</p>
+            <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("verifyEmailTitle")}</h2>
+            <p className="text-md" style={{ color: '#9CA3AF' }}>{t("verifyEmailSubtitle")}</p>
           </div>
           <div className="flex flex-col justify-center px-2 md:px-10">
             <form className="flex flex-col" onSubmit={handleVerifyCode}>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-base font-medium" htmlFor="verify-email" style={{ color: '#FFFFFF' }}>电子邮件地址</label>
+                  <label className="text-base font-medium" htmlFor="verify-email" style={{ color: '#FFFFFF' }}>{t("emailLabel")}</label>
                   <input
                     id="verify-email"
                     type="email"
@@ -1394,7 +1395,7 @@ export default function Navbar() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-base font-medium" htmlFor="verify-code" style={{ color: '#FFFFFF' }}>验证码</label>
+                  <label className="text-base font-medium" htmlFor="verify-code" style={{ color: '#FFFFFF' }}>{t("codeLabel")}</label>
                   <input
                     id="verify-code"
                     type="text"
@@ -1403,7 +1404,7 @@ export default function Navbar() {
                     onChange={(e) => setVerifyCode(e.target.value)}
                     className="flex h-10 w-full rounded-md px-3 py-2 text-base"
                     style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }}
-                    placeholder="输入验证码"
+                    placeholder={t("inputCode")}
                   />
                 </div>
               </div>
@@ -1413,29 +1414,29 @@ export default function Navbar() {
                 style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }}
                 disabled={verifyCode.trim().length === 0 || isSubmitting}
               >
-                {isSubmitting ? '验证中...' : '验证'}
+                {isSubmitting ? t("verifying") : t("verifyAction")}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1 mt-4">
-              <p className="text-base" style={{ color: '#FFFFFF' }}>没有收到验证码？</p>
+              <p className="text-base" style={{ color: '#FFFFFF' }}>{t("noCodeReceived")}</p>
               {resendCountdown > 0 ? (
                 <span className="text-base" style={{ color: '#7A8084' }}>
-                  重新发送 ({resendCountdown}s)
+                  {t("resendWithCountdown").replace("{s}", String(resendCountdown))}
                 </span>
               ) : (
                 <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={handleResendCode}>
-                  重新发送
+                  {t("resend")}
                 </span>
               )}
             </div>
             <div className="flex flex-row justify-center py-2 gap-1">
-              <p className="text-base" style={{ color: '#FFFFFF' }}>已有账户？</p>
+              <p className="text-base" style={{ color: '#FFFFFF' }}>{t("alreadyHaveAccount")}</p>
               <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
                 setShowVerifyCode(false);
                 setVerifyCode('');
                 setVerifyEmail('');
                 setShowLogin(true);
-              }}>登录</span>
+              }}>{t("loginBtn")}</span>
             </div>
           </div>
         </div>
@@ -1458,7 +1459,7 @@ export default function Navbar() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-col gap-1.5 text-center sm:text-left flex border-b border-gray-700 h-16 p-6">
-              <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">存款</h2>
+              <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{t("depositTitle")}</h2>
             </div>
             <div className="flex flex-1 p-6">
               <div className="flex flex-col w-full gap-6">
@@ -1482,7 +1483,7 @@ export default function Navbar() {
                     );
                   })}
                   {(commonChannelData?.data ?? []).length === 0 && (
-                    <div className="text-center text-sm text-gray-400 w-full col-span-full">暂无支付方式</div>
+                    <div className="text-center text-sm text-gray-400 w-full col-span-full">{t("noPaymentMethod")}</div>
                   )}
                 </div>
                 {selectedChannel && (
@@ -1496,7 +1497,7 @@ export default function Navbar() {
                           onChange={(e) => setCdkValue(e.target.value)}
                           className="flex h-10 w-full rounded-md px-3 py-2 text-base"
                           style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
-                          placeholder="请输入 CDK"
+                          placeholder={t("enterCDK")}
                         />
                         <div className="flex w-full justify-end">
                           <button
@@ -1509,7 +1510,7 @@ export default function Navbar() {
                               cdkPayMutation.mutate(cdkValue.trim());
                             }}
                           >
-                            {cdkPayMutation.isPending ? '提交中...' : '充值'}
+                            {cdkPayMutation.isPending ? t("submitting") : t("topUp")}
                           </button>
                         </div>
                       </div>
@@ -1534,7 +1535,7 @@ export default function Navbar() {
                             ))}
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-400">暂无可选金额</div>
+                          <div className="text-sm text-gray-400">{t("noAmountOptions")}</div>
                         )}
                       </>
                     )}
@@ -1544,7 +1545,7 @@ export default function Navbar() {
             </div>
             <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
               <p className="text-center" style={{ color: '#7a8084', fontSize: 14 }}>
-                请选择支付方式以及金额
+                {t("selectPaymentAndAmount")}
               </p>
             </div>
             <button

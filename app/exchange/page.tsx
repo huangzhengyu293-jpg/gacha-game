@@ -7,39 +7,9 @@ import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
 import { showGlobalToast } from '../components/ToastProvider';
+import { useI18n } from '../components/I18nProvider';
 
 type SortOrder = 'asc' | 'desc';
-
-function mapShopItems(payload: any): ExchangeItem[] {
-  const rows = Array.isArray(payload?.data?.data)
-    ? payload.data.data
-    : Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload)
-        ? payload
-        : [];
-  return rows
-    .filter((item: any) => !!item)
-    .map((item: any, index: number) => {
-      const baseId = String(item.id ?? item.box_id ?? `shop_${index}`);
-      return {
-        id: baseId,
-        warehouseId: baseId,
-        productId: String(item.product_id ?? item.id ?? baseId),
-        name: item.name ?? item.title ?? item.awards?.name ?? `商品 ${index + 1}`,
-        price: Number(item.bean ?? item.price ?? item.amount ?? item.awards?.bean ?? 0),
-        image: item.cover ?? item.image ?? item.icon ?? item.awards?.cover ?? '',
-      };
-    });
-}
-
-function filterAndSort(list: ExchangeItem[], keyword: string, sort: SortOrder) {
-  const safeList = Array.isArray(list) ? list : [];
-  const filtered = keyword.trim()
-    ? safeList.filter((item) => (item?.name || '').toLowerCase().includes(keyword.trim().toLowerCase()))
-    : safeList;
-  return [...filtered].sort((a, b) => (sort === 'asc' ? a.price - b.price : b.price - a.price));
-}
 
 type SectionProps = {
   id: string;
@@ -84,6 +54,7 @@ function SectionPanel({
   isSparklesButton,
   hideCollapsible,
 }: SectionProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(true);
   const selectedItems = useMemo(() => items.filter((item) => selectedIds.has(item.id)), [items, selectedIds]);
 
@@ -98,7 +69,7 @@ function SectionPanel({
     if (loading) {
       return (
         <div className="flex items-center justify-center h-full text-sm font-semibold text-center text-gray-400">
-          加载中...
+          {t('loadingText')}
         </div>
       );
     }
@@ -139,7 +110,7 @@ function SectionPanel({
           <div key={item.id} className="h-28 relative">
             <button
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus text-base text-white font-bold select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] absolute top-1 right-1 z-10"
-              aria-label="remove"
+        aria-label={t('remove')}
               type="button"
               style={{ backgroundColor: '#34383C', cursor: 'pointer' }}
               onMouseEnter={(e) => {
@@ -239,7 +210,7 @@ function SectionPanel({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = '#22272B';
                 }}
-                aria-label="清除选择"
+                aria-label={t('clearSelection')}
                 type="button"
               >
                 <svg
@@ -267,7 +238,7 @@ function SectionPanel({
               >
                 {selectedCount}
               </div>
-              <p className="font-extrabold text-white">${selectedTotal.toFixed(2)}</p>
+              <p className="font-extrabold text-white">{t('totalAmountLabel')} ${selectedTotal.toFixed(2)}</p>
             </div>
           </div>
           {isOpen && (
@@ -304,7 +275,7 @@ function SectionPanel({
               </div>
               <input
                 className="flex h-10 rounded-md px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 pl-10 font-semibold border-none w-full pr-10 text-[#7A8084] placeholder-[#7A8084] bg-[#22272b]"
-                placeholder="搜索"
+                placeholder={t('searchPlaceholder')}
                 enterKeyHint="search"
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
@@ -320,7 +291,7 @@ function SectionPanel({
                   style={{ backgroundColor: '#34383c' }}
                 >
                   <div className="rounded-tl-md rounded-bl-md flex items-center h-full font-bold text-sm gap-2 px-3 text-white">
-                    <span>Max</span>
+                    <span>{t('max')}</span>
                   </div>
                   <div className="flex flex-1 relative items-center">
                     <input
@@ -356,7 +327,7 @@ function SectionPanel({
                 <path d="M12 5v14"></path>
                 <path d="m19 12-7 7-7-7"></path>
               </svg>
-              价格
+              {t('priceLabel')}
             </button>
             {isSparklesButton ? (
               <button
@@ -398,7 +369,7 @@ function SectionPanel({
                 if (items.length) onSelectAll(items.map((it) => it.id));
               }}
               >
-                全部
+                {t('selectAll')}
                 <div
                   className="size-4 shrink-0 rounded border flex items-center justify-center transition-all"
                   style={{ backgroundColor: '#22272b', borderColor: '#6B7280' }}
@@ -449,7 +420,38 @@ function ExchangeScrollStyles() {
 }
 
 export default function ExchangePage() {
+  const { t } = useI18n();
   const [mobileTab, setMobileTab] = useState<'yourItems' | 'youReceive'>('yourItems');
+  const mapShopItems = (payload: any): ExchangeItem[] => {
+    const rows = Array.isArray(payload?.data?.data)
+      ? payload.data.data
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+    return rows
+      .filter((item: any) => !!item)
+      .map((item: any, index: number) => {
+        const baseId = String(item.id ?? item.box_id ?? `shop_${index}`);
+        return {
+          id: baseId,
+          warehouseId: baseId,
+          productId: String(item.product_id ?? item.id ?? baseId),
+          name: item.name ?? item.title ?? item.awards?.name ?? t('freePackFallback'),
+          price: Number(item.bean ?? item.price ?? item.amount ?? item.awards?.bean ?? 0),
+          image: item.cover ?? item.image ?? item.icon ?? item.awards?.cover ?? '',
+        };
+      });
+  };
+
+  const filterAndSort = (list: ExchangeItem[], keyword: string, sort: SortOrder) => {
+    const safeList = Array.isArray(list) ? list : [];
+    const filtered = keyword.trim()
+      ? safeList.filter((item) => (item?.name || '').toLowerCase().includes(keyword.trim().toLowerCase()))
+      : safeList;
+    return [...filtered].sort((a, b) => (sort === 'asc' ? a.price - b.price : b.price - a.price));
+  };
   const [yourSearch, setYourSearch] = useState('');
   const [receiveSearch, setReceiveSearch] = useState('');
   const [yourSort, setYourSort] = useState<SortOrder>('asc');
@@ -565,7 +567,7 @@ export default function ExchangePage() {
   const leftTotal = yourSelectedTotal;
   const rightTotal = receiveSelectedTotal;
   const diff = leftTotal - rightTotal;
-  const exchangeLabel = diff > 0 ? '信用余额' : '交换所需';
+  const exchangeLabel = diff > 0 ? t('creditBalance') : t('exchangeNeeded');
   const exchangeAmount = diff > 0 ? diff : Math.max(-diff, 0);
   const canExchange = leftTotal > 0 && rightTotal > 0 && leftTotal >= rightTotal;
 
@@ -582,26 +584,26 @@ export default function ExchangePage() {
     onSuccess: (res: any) => {
       if (res?.code === 100000) {
         showGlobalToast({
-          title: '成功',
-          description: '交换成功',
+          title: t('success'),
+          description: t('exchangeSuccess'),
           variant: 'success',
         });
         setSelectedYour(new Set());
         setSelectedReceive(new Set());
       } else {
-        throw new Error(res?.message || '交换失败');
+        throw new Error(res?.message || t('exchangeFailed'));
       }
     },
     onError: (error: any) => {
       showGlobalToast({
-        title: '错误',
-        description: error?.message || '交换失败，请稍后重试',
+        title: t('error'),
+        description: error?.message || t('exchangeFailedRetry'),
         variant: 'error',
       });
     },
   });
 
-  const yourDisableMessage = isAuthenticated ? '' : '请先登录查看您的物品';
+  const yourDisableMessage = isAuthenticated ? '' : t('loginToViewItems');
 
   return (
     <>
@@ -610,7 +612,7 @@ export default function ExchangePage() {
         <div className="container max-w-[1280px] mx-auto py-6 px-4 gap-4 items-start relative flex-1 hidden lg:flex">
         <SectionPanel
           id="exchange-my-items"
-          title="您的物品"
+          title={t('yourItemsTitle')}
           search={yourSearch}
           onSearchChange={setYourSearch}
           sortOrder={yourSort}
@@ -620,7 +622,7 @@ export default function ExchangePage() {
           onToggleSelect={toggleYourSelect}
           onSelectAll={selectAllYour}
           loading={cartLoading}
-          emptyTip="从下方的购物车中选择您想要交换的物品"
+          emptyTip={t('yourItemsEmpty')}
           maxValue={`$${yourTotal.toFixed(2)}`}
           selectedCount={selectedYour.size}
           selectedTotal={yourSelectedTotal}
@@ -657,7 +659,7 @@ export default function ExchangePage() {
               <path d="m16 21 4-4-4-4"></path>
               <path d="M20 17H4"></path>
             </svg>
-            交换物品
+            {t('exchangeItems')}
           </button>
           <div className="flex flex-col items-center gap-2 p-4 pt-6 min-w-44 min-h-40">
             <p className="font-semibold text-sm" style={{ color: '#7A8084' }}>
@@ -668,7 +670,7 @@ export default function ExchangePage() {
         </div>
         <SectionPanel
           id="exchange-receive-items"
-          title="您收到"
+          title={t('youReceiveTitle')}
           search={receiveSearch}
           onSearchChange={setReceiveSearch}
           sortOrder={receiveSort}
@@ -678,7 +680,7 @@ export default function ExchangePage() {
           onToggleSelect={toggleReceiveSelect}
           onSelectAll={selectAllReceive}
           loading={shopLoading}
-          emptyTip="从下方的市场中选择您想要获得的物品"
+          emptyTip={t('youReceiveEmpty')}
           maxValue={`$${receiveTotal.toFixed(2)}`}
           selectedCount={selectedReceive.size}
           selectedTotal={receiveSelectedTotal}
@@ -715,7 +717,7 @@ export default function ExchangePage() {
                   {selectedYour.size}
                 </span>
                 <div className="flex flex-col items-start text-white">
-                  <span className="font-extrabold leading-tight">您的物品</span>
+                  <span className="font-extrabold leading-tight">{t('yourItemsTitle')}</span>
                   <span className="font-extrabold text-sm leading-tight">${yourSelectedTotal.toFixed(2)}</span>
                 </div>
               </button>
@@ -736,7 +738,7 @@ export default function ExchangePage() {
                   {selectedReceive.size}
                 </span>
                 <div className="flex flex-col items-start text-white">
-                  <span className="font-extrabold leading-tight">您收到</span>
+                  <span className="font-extrabold leading-tight">{t('youReceiveTitle')}</span>
                   <span className="font-extrabold text-sm leading-tight">${receiveSelectedTotal.toFixed(2)}</span>
                 </div>
               </button>
@@ -756,7 +758,7 @@ export default function ExchangePage() {
               <div className="bg-gray-900 lg:rounded-lg space-y-4 md:space-y-6 h-full" style={{ backgroundColor: '#161a1d' }}>
                 <SectionPanel
                   id="mobile-your-items-section"
-                  title="您的物品"
+                  title={t('yourItemsTitle')}
                   search={yourSearch}
                   onSearchChange={setYourSearch}
                   sortOrder={yourSort}
@@ -766,7 +768,7 @@ export default function ExchangePage() {
                   onToggleSelect={toggleYourSelect}
                 onSelectAll={selectAllYour}
                   loading={cartLoading}
-                  emptyTip="从购物车中选择您想要交换的物品"
+                  emptyTip={t('yourItemsEmpty')}
                   maxValue={`$${yourTotal.toFixed(2)}`}
                   selectedCount={selectedYour.size}
                   selectedTotal={yourSelectedTotal}
@@ -791,7 +793,7 @@ export default function ExchangePage() {
               <div className="bg-gray-900 lg:rounded-lg space-y-4 md:space-y-6 h-full" style={{ backgroundColor: '#161a1d' }}>
                 <SectionPanel
                   id="mobile-receive-items-section"
-                  title="您收到"
+                  title={t('youReceiveTitle')}
                   search={receiveSearch}
                   onSearchChange={setReceiveSearch}
                   sortOrder={receiveSort}
@@ -801,7 +803,7 @@ export default function ExchangePage() {
                   onToggleSelect={toggleReceiveSelect}
                 onSelectAll={selectAllReceive}
                   loading={shopLoading}
-                  emptyTip="从市场中选择您想要获得的物品"
+                  emptyTip={t('youReceiveEmpty')}
                   maxValue={`$${receiveTotal.toFixed(2)}`}
                   selectedCount={selectedReceive.size}
                   selectedTotal={receiveSelectedTotal}
@@ -830,7 +832,7 @@ export default function ExchangePage() {
               onClick={clearAll}
               type="button"
             >
-              清除全部
+              {t('clearAll')}
             </button>
             <button
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none px-6 h-12 w-full cursor-pointer flex-shrink"
@@ -850,7 +852,7 @@ export default function ExchangePage() {
               }}
               type="button"
             >
-              交换物品
+              {t('exchangeItems')}
             </button>
           </div>
         </div>

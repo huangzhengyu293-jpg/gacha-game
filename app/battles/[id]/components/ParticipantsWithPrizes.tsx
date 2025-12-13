@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
+import { useI18n } from "@/app/components/I18nProvider";
 
 function clampSlotIndex(value: number, totalSlots: number) {
   if (!Number.isFinite(value)) return 0;
@@ -89,9 +90,11 @@ export default function ParticipantsWithPrizes({
   currentRound = 0,
   completedRounds = new Set(),
   onPendingSlotAction,
-  pendingButtonLabel = '召唤机器人',
+  pendingButtonLabel,
 }: ParticipantsWithPrizesProps) {
   const { participants, packs, playersCount, battleType, teamStructure } = battleData;
+  const { t } = useI18n();
+  const pendingLabel = pendingButtonLabel || t('summonBot');
   
   // 🔥 调试：打印淘汰轮次信息
   useEffect(() => {
@@ -487,7 +490,7 @@ export default function ParticipantsWithPrizes({
                   }}
                   disabled={!isRealSlot}
                 >
-                  {pendingButtonLabel}
+                  {pendingLabel}
                 </button>
               )}
             </div>

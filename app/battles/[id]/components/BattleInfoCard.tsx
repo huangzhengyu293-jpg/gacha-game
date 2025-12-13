@@ -12,9 +12,9 @@ export default function BattleInfoCard({ battleData }: BattleInfoCardProps) {
   const { t } = useI18n();
 
   const getStatusText = () => {
-    if (battleData.status === 'completed') return '已完成';
-    if (battleData.status === 'active') return '进行中';
-    return '待开始';
+    if (battleData.status === 'completed') return t('completedStatus');
+    if (battleData.status === 'active') return t('preparing');
+    return t('waitingPlayers');
   };
 
   const getStatusColor = () => {
@@ -40,8 +40,8 @@ export default function BattleInfoCard({ battleData }: BattleInfoCardProps) {
             </span>
             <span className="text-sm text-gray-400">
               {battleData.status === 'completed' && battleData.completedAt
-                ? `完成于 ${formatDate(battleData.completedAt)}`
-                : `创建于 ${formatDate(battleData.createdAt)}`}
+                ? t('completedAt').replace('{time}', formatDate(battleData.completedAt))
+                : t('createdAt').replace('{time}', formatDate(battleData.createdAt))}
             </span>
           </div>
         </div>
@@ -57,11 +57,11 @@ export default function BattleInfoCard({ battleData }: BattleInfoCardProps) {
           <p className="text-lg font-extrabold text-white">{battleData.totalOpened}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-bold" style={{ color: '#7A8084' }}>参与者</p>
+          <p className="text-sm font-bold" style={{ color: '#7A8084' }}>{t('participantsLabel')}</p>
           <p className="text-lg font-extrabold text-white">{battleData.participants.length}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-bold" style={{ color: '#7A8084' }}>礼包数量</p>
+          <p className="text-sm font-bold" style={{ color: '#7A8084' }}>{t('packCountLabel')}</p>
           <p className="text-lg font-extrabold text-white">{battleData.packs.length}</p>
         </div>
       </div>

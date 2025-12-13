@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { showGlobalToast } from './ToastProvider';
+import { useI18n } from './I18nProvider';
 
 interface PackCardProps {
   imageUrl: string;
@@ -36,6 +37,7 @@ export default function PackCard({
   packTitle,
   packPrice,
 }: PackCardProps) {
+  const { t } = useI18n();
   const cardRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ rotateX: 0, rotateY: 0, scale: 1 });
   const [showModal, setShowModal] = useState(false);
@@ -63,8 +65,8 @@ export default function PackCard({
     
     if (result.success) {
       showGlobalToast({
-        title: '成功',
-        description: '操作成功',
+        title: t("success"),
+        description: t("actionSuccess"),
         variant: 'success',
         durationMs: 2000,
       });
@@ -124,7 +126,7 @@ export default function PackCard({
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-all duration-200 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
-            aria-label="收藏"
+            aria-label={t("favorite")}
             style={{ backgroundColor: '#34383C' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
@@ -151,7 +153,7 @@ export default function PackCard({
           </button>
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-opacity duration-100 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
-            aria-label="详情"
+            aria-label={t("viewDetails")}
             style={{ backgroundColor: '#34383C' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}

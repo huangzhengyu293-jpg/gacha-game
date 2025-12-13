@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { LogoIcon } from './icons/Logo';
+import { useI18n } from './I18nProvider';
 
 interface DealsRightPanelProps {
   percent?: number;
@@ -12,6 +13,7 @@ interface DealsRightPanelProps {
 }
 
 export default function DealsRightPanel({ percent = 35.04, product = null, inactive = false, originalPrice = 0, rate = 1 }: DealsRightPanelProps) {
+  const { t } = useI18n();
   // 计算：商品金额 / 转动花费金额
   // 商品金额 = 商品原价 = originalPrice
   // 转动花费金额 = spinPrice = 百分比 × 商品原价 × 系数 = product.price
@@ -57,7 +59,7 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
       {!inactive && product && (
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 z-10 absolute top-2 right-2"
-          aria-label="view details"
+          aria-label={t('viewDetails')}
           style={{ backgroundColor: '#2A2D35', color: '#FFFFFF', cursor: 'pointer' }}
           onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
           onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
@@ -90,13 +92,13 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
               )}
             </div>
           </div>
-          <div className="flex flex-col w-full items-start justify-between mt-auto gap-2">
-            <p className="text-sm font-black w-full text-white">{inactive ? '选择下面的产品开始' : (product?.name || '')}</p>
-            <div className="flex justify-between w-full overflow-hidden">
-              <p className="text-lg font-black" style={{ color: '#7A8084' }}>{fixedPriceLabel}</p>
-              <p className="text-lg font-black text-yellow-500">x{inactive ? '0.00' : multiplier.toFixed(2)}</p>
+            <div className="flex flex-col w-full items-start justify-between mt-auto gap-2">
+              <p className="text-sm font-black w-full text-white">{inactive ? t('selectProductHint') : (product?.name || '')}</p>
+              <div className="flex justify-between w-full overflow-hidden">
+                <p className="text-lg font-black" style={{ color: '#7A8084' }}>{fixedPriceLabel}</p>
+                <p className="text-lg font-black text-yellow-500">x{inactive ? '0.00' : multiplier.toFixed(2)}</p>
+              </div>
             </div>
-          </div>
         </div>
       </div>
 
@@ -115,7 +117,7 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-1.5 text-center sm:text-left">
-              <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>产品详情</h2>
+              <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>{t('productDetailsTitle')}</h2>
             </div>
             <div>
               <div className="rounded-lg" style={{ backgroundColor: '#34383C', padding: 24 }}>
@@ -129,7 +131,7 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
                   <p className="text-xl" style={{ color: '#FFFFFF' }}>{product ? `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` : ''}</p>
                 </div>
                 <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-                <p style={{ color: '#7A8084' }}>产品详情将由后端提供。</p>
+                <p style={{ color: '#7A8084' }}>{t('productDescFallback')}</p>
               </div>
             </div>
             <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center" onClick={closeQuickView} style={{ color: '#9CA3AF' }}>
@@ -137,7 +139,7 @@ export default function DealsRightPanel({ percent = 35.04, product = null, inact
                 <path d="M18 6 6 18"></path>
                 <path d="m6 6 12 12"></path>
               </svg>
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{t('close')}</span>
             </button>
           </div>
         </div>

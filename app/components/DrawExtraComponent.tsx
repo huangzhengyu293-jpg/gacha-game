@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LogoIcon } from './icons/Logo';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
 import { showGlobalToast } from './ToastProvider';
+import { useI18n } from './I18nProvider';
 
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -136,6 +137,7 @@ function formatCurrency(num: number) {
 export default function DrawExtraComponent() {
   const { isAuthenticated } = useAuth();
   const isAuthed = isAuthenticated;
+  const { t } = useI18n();
   const SOURCE_PRODUCTS = useSourceProducts();
   const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();
@@ -282,8 +284,8 @@ export default function DrawExtraComponent() {
     },
     onError: (error: unknown) => {
       showGlobalToast({
-        title: '领取失败',
-        description: error instanceof Error ? error.message : '请稍后重试',
+        title: t('error'),
+        description: error instanceof Error ? error.message : t('retryLater'),
         variant: 'error',
       });
     },
@@ -737,8 +739,8 @@ export default function DrawExtraComponent() {
     if (visibleRound === null) return;
     if (!drawSessionId) {
       showGlobalToast({
-        title: '无法领取',
-        description: '当前抽奖会话不存在，请稍后重试',
+        title: t('error'),
+        description: t('drawSessionMissing'),
         variant: 'error',
       });
       return;
@@ -746,8 +748,8 @@ export default function DrawExtraComponent() {
     const cardData = serverCardMap[idx];
     if (!cardData || cardData.id === undefined || cardData.id === null) {
       showGlobalToast({
-        title: '无法领取',
-        description: '未找到卡片信息，请稍后重试',
+        title: t('error'),
+        description: t('retryLater'),
         variant: 'error',
       });
       return;
@@ -839,7 +841,7 @@ export default function DrawExtraComponent() {
         setCardServerStatus(statusArr);
         runGameSequence();
       } else {
-        throw new Error(response?.message || '抽奖失败');
+        throw new Error(response?.message || t('drawFailed'));
       }
     },
   });
@@ -847,7 +849,7 @@ export default function DrawExtraComponent() {
     mutationFn: async (variables: { payload: { type: string; money: string }; multiplierIdx: number }) => {
       const response = await api.drawGo(variables.payload);
       if (!response || response.code !== 100000) {
-        throw new Error(response?.message || '抽奖失败');
+        throw new Error(response?.message || t('drawFailed'));
       }
       return { response, multiplierIdx: variables.multiplierIdx };
     },
@@ -1542,7 +1544,7 @@ export default function DrawExtraComponent() {
           <div ref={setupPanelRef} className={layerReady ? 'absolute inset-0' : ''} style={layerReady ? { transition: 'transform 220ms ease, opacity 220ms ease', transform: showActions ? 'translateY(100%)' : 'translateY(0)', opacity: showActions ? 0 : 1, pointerEvents: showActions ? 'none' : 'auto' } : undefined}>
             <div className="flex flex-col w-full gap-4">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-extrabold" style={{ color: '#FFFFFF' }}>输入金额</label>
+                <label className="text-sm font-extrabold" style={{ color: '#FFFFFF' }}>{t('drawInputAmount')}</label>
                 <div className="flex gap-2">
                   <div className="flex relative flex-1">
                     <div className="rounded-tl rounded-bl px-4 text-sm font-bold flex items-center" style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}>$</div>
@@ -1567,7 +1569,7 @@ export default function DrawExtraComponent() {
                         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                         onClick={setMin}
                         type="button"
-                      >最小</button>
+                    >{t('drawMin')}</button>
                       <button
                         className="inline-flex items-center justify-center rounded-md text-sm h-6 px-2 font-bold"
                         style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
@@ -1575,14 +1577,14 @@ export default function DrawExtraComponent() {
                         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                         onClick={setMax}
                         type="button"
-                      >最大</button>
+                    >{t('drawMax')}</button>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 justify-between">
-                <label className="text-sm font-medium" style={{ color: '#FFFFFF' }}>选择难度</label>
+                <label className="text-sm font-medium" style={{ color: '#FFFFFF' }}>{t('drawSelectDifficulty')}</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -1591,7 +1593,7 @@ export default function DrawExtraComponent() {
                     style={{ backgroundColor: difficulty === 'easy' ? '#34383C' : '#22272B', color: '#FFFFFF', cursor: 'pointer' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = (difficulty === 'easy') ? '#34383C' : '#22272B'; }}
-                  >简单</button>
+                  >{t('drawEasy')}</button>
                   <button
                     type="button"
                     onClick={() => setDifficulty('medium')}
@@ -1599,7 +1601,7 @@ export default function DrawExtraComponent() {
                     style={{ backgroundColor: difficulty === 'medium' ? '#34383C' : '#22272B', color: '#FFFFFF', cursor: 'pointer' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = (difficulty === 'medium') ? '#34383C' : '#22272B'; }}
-                  >中等</button>
+                  >{t('drawMedium')}</button>
                   <button
                     type="button"
                     onClick={() => setDifficulty('hard')}
@@ -1607,7 +1609,7 @@ export default function DrawExtraComponent() {
                     style={{ backgroundColor: difficulty === 'hard' ? '#34383C' : '#22272B', color: '#FFFFFF', cursor: 'pointer' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = (difficulty === 'hard') ? '#34383C' : '#22272B'; }}
-                  >困难</button>
+                  >{t('drawHard')}</button>
                 </div>
               </div>
 
@@ -1642,10 +1644,10 @@ export default function DrawExtraComponent() {
                 {drawStartMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <LoadingSpinnerIcon size={22} />
-                    启动中…
+                    {t('drawLaunching')}
                   </span>
                 ) : (
-                  `开始游戏 $${formatCurrency(parsedAmount)}`
+                  t('drawStartGameFor').replace('{price}', `$${formatCurrency(parsedAmount)}`)
                 )}
               </button>
             </div>
@@ -1684,7 +1686,7 @@ export default function DrawExtraComponent() {
                     <LoadingSpinnerIcon size={22} />
                   </span>
                 ) : (
-                  '抽奖'
+                  t('drawAction')
                 )}
               </button>
               <button
@@ -1711,8 +1713,8 @@ export default function DrawExtraComponent() {
                   }
                   if (!overlayItems.length) {
                     showGlobalToast({
-                      title: '没有可领取的奖品',
-                      description: '请先完成抽奖或选择卡片',
+                      title: t('drawNoPrize'),
+                      description: t('retryLater'),
                       variant: 'error',
                     });
                     return;
@@ -1754,7 +1756,7 @@ export default function DrawExtraComponent() {
             onMouseEnter={() => setHoverGuide(true)}
             onMouseLeave={() => setHoverGuide(false)}
             onClick={() => { setShowGuide(true); }}
-          >游戏玩法</button>
+          >{t('howTo')}</button>
           <div className="flex" style={{ width: 1, height: 18, backgroundColor: '#4B5563' }} />
           <button
             className="h-11 px-6 text-base font-bold rounded-md"
@@ -1762,7 +1764,7 @@ export default function DrawExtraComponent() {
             onMouseEnter={() => setHoverFair(true)}
             onMouseLeave={() => setHoverFair(false)}
             onClick={() => { setShowFair(true); }}
-          >公平性</button>
+          >{t('fairness')}</button>
         </div>
 
         {/* 小屏：倍数/生存率/价格 表格 */}
@@ -1818,28 +1820,28 @@ export default function DrawExtraComponent() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex flex-col gap-1.5 text-center sm:text-left p-6" style={{ borderBottom: '1px solid #374151' }}>
-                <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>游戏玩法</h2>
+                <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>{t('howTo')}</h2>
               </div>
               <ul className="flex flex-col gap-6 px-8 py-10 font-bold" style={{ color: '#7A8084' }}>
                 <li className="flex gap-2">
                   <div className="flex size-2 rounded-full" style={{ backgroundColor: '#FFFFFF', marginTop: '0.5rem' }} />
-                  <span className="text-base">点击开始游戏，以 x1 倍数显示 9 张产品卡片（每张卡片 = 1/9）</span>
+                  <span className="text-base">{t('drawHowToIntro')}</span>
                 </li>
                 <li className="flex gap-2">
                   <div className="flex size-2 rounded-full" style={{ backgroundColor: '#FFFFFF', marginTop: '0.5rem' }} />
-                  <span className="text-base">点击抽奖，尝试将所有卡片单独升级到下一个倍数（x2、x5 等）</span>
+                  <span className="text-base">{t('drawHowTo1')}</span>
                 </li>
                 <li className="flex gap-2">
                   <div className="flex size-2 rounded-full" style={{ backgroundColor: '#FFFFFF', marginTop: '0.5rem' }} />
-                  <span className="text-base">失败的卡片变成灰色</span>
+                  <span className="text-base">{t('drawHowToFail')}</span>
                 </li>
                 <li className="flex gap-2">
                   <div className="flex size-2 rounded-full" style={{ backgroundColor: '#FFFFFF', marginTop: '0.5rem' }} />
-                  <span className="text-base">成功的卡片显示新产品 — 点击任意卡片领取，或继续抽奖以获得更高倍数</span>
+                  <span className="text-base">{t('drawHowTo2')}</span>
                 </li>
                 <li className="flex gap-2">
                   <div className="flex size-2 rounded-full" style={{ backgroundColor: '#FFFFFF', marginTop: '0.5rem' }} />
-                  <span className="text-base">最大累积获胜金额限制为 ${formatCurrency(350000)}</span>
+                  <span className="text-base">{t('drawHowToCap').replace('{amount}', formatCurrency(350000))}</span>
                 </li>
               </ul>
               <button
@@ -1852,7 +1854,7 @@ export default function DrawExtraComponent() {
                   <path d="M18 6 6 18"></path>
                   <path d="m6 6 12 12"></path>
                 </svg>
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t('close')}</span>
               </button>
             </div>
           </div>
@@ -1879,13 +1881,13 @@ export default function DrawExtraComponent() {
                     <path d="M17.81 3.44111L10.72 1.10111C10.3117 0.960924 9.8683 0.960924 9.46 1.10111L2.37 3.44111C1.97089 3.57358 1.62369 3.82847 1.37774 4.16956C1.13179 4.51066 0.999619 4.9206 1 5.34111V7.89111C1.00003 10.5829 1.78277 13.2166 3.25287 15.4715C4.72298 17.7263 6.81703 19.5051 9.28 20.5911C9.53616 20.7 9.81165 20.7562 10.09 20.7562C10.3684 20.7562 10.6438 20.7 10.9 20.5911C13.363 19.5051 15.457 17.7263 16.9271 15.4715C18.3972 13.2166 19.18 10.5829 19.18 7.89111V5.34111C19.1804 4.9206 19.0482 4.51066 18.8023 4.16956C18.5563 3.82847 18.2091 3.57358 17.81 3.44111ZM14.09 9.39111L11.26 12.2211C11.0743 12.4071 10.8537 12.5546 10.6109 12.6552C10.3681 12.7559 10.1078 12.8077 9.845 12.8077C9.58217 12.8077 9.32192 12.7559 9.07912 12.6552C8.83632 12.5546 8.61575 12.4071 8.43 12.2211L7.09 10.8011C6.90375 10.6138 6.79921 10.3603 6.79921 10.0961C6.79921 9.83193 6.90375 9.57848 7.09 9.39111C7.18296 9.29739 7.29356 9.22299 7.41542 9.17222C7.53728 9.12145 7.66799 9.09532 7.8 9.09532C7.93201 9.09532 8.06272 9.12145 8.18458 9.17222C8.30644 9.22299 8.41704 9.29739 8.51 9.39111L9.92 10.8011L12.75 7.98111C12.843 7.88739 12.9536 7.81299 13.0754 7.76222C13.1973 7.71146 13.328 7.68532 13.46 7.68532C13.592 7.68532 13.7227 7.71146 13.8446 7.76222C13.9664 7.81299 14.077 7.88739 14.17 7.98111C14.346 8.17886 14.4365 8.43834 14.4215 8.70265C14.4065 8.96697 14.2873 9.21455 14.09 9.39111Z" fill="currentColor"></path>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>游戏公平性</h2>
+                <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>{t('fairness')}</h2>
               </div>
               <div className="space-y-4 p-6">
                 <div className="p-4 rounded-lg shadow-lg relative space-y-4" style={{ backgroundColor: '#22272B' }}>
                  
                   <div className="w-full grid grid-cols-4 gap-4 overflow-x-scroll pb-4 custom-scroll">
-                    <p className="text-sm col-span-1 font-medium" style={{ color: '#7A8084' }}>服务器种子哈希</p>
+                    <p className="text-sm col-span-1 font-medium" style={{ color: '#7A8084' }}>{t('serverSeedHash')}</p>
                     <div className="col-span-3">
                       {fairServerHash ? (
                         <div className="h-6 w-full flex items-center" style={{ backgroundColor: 'transparent', color: '#CBD5E0' }}>{fairServerHash}</div>
@@ -1893,7 +1895,7 @@ export default function DrawExtraComponent() {
                         <div className="rounded-md h-6 w-full" style={{ backgroundColor: '#374151' }}></div>
                       )}
                     </div>
-                    <p className="text-sm col-span-1 font-medium" style={{ color: '#7A8084' }}>客户端种子</p>
+                    <p className="text-sm col-span-1 font-medium" style={{ color: '#7A8084' }}>{t('clientSeed')}</p>
                     <div className="col-span-3">
                       {fairClientSeed ? (
                         <div className="h-6 w-full flex items-center" style={{ backgroundColor: 'transparent', color: '#CBD5E0' }}>{fairClientSeed}</div>

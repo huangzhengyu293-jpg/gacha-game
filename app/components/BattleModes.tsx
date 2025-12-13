@@ -76,7 +76,15 @@ export default function BattleModes({ sortValue = "latest", useBestRecord = fals
           labels={{
             cost: t("cost"),
             opened: t("opened"),
+            preparing: t("preparing"),
+            waiting: t("waitingPlayers"),
             button: t("viewResults"),
+            join: t("joinBattle"),
+            modeClassic: t("battleModeClassic"),
+            modeShare: t("battleModeShare"),
+            modeSprint: t("battleModeSprint"),
+            modeJackpot: t("battleModeJackpot"),
+            modeElimination: t("battleModeElimination"),
           }}
           isPendingBattle={card.status === 0}
           onPrimaryAction={() => router.push(`/battles/${card.id}`)}

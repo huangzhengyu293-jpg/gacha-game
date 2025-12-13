@@ -33,6 +33,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useI18n } from "../components/I18nProvider";
 
 const MODE_TO_API_VALUE: Record<
   "classic" | "share" | "sprint" | "jackpot" | "elimination",
@@ -73,6 +74,7 @@ interface SortablePackItemProps {
 }
 
 function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -131,7 +133,7 @@ function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
         }}
         onClick={onRemove}
       >
-        {isHovered ? 'Remove' : `$${pack.price.toFixed(2)}`}
+        {isHovered ? t("remove") : `$${pack.price.toFixed(2)}`}
       </button>
     </div>
   );
@@ -141,6 +143,7 @@ function CreateBattleContent() {
   const router = useRouter();
   const { fetchUserBean } = useAuth();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   // 从URL读取初始值，确保单人模式默认为2
   const getInitialType = () => {
@@ -193,18 +196,10 @@ function CreateBattleContent() {
     const typeParam = searchParams?.get("type");
     const isSoloMode = !typeParam || typeParam === "solo";
 
-    console.log('🔍 [CreateBattle初始化]', {
-      typeParam,
-      isSoloMode,
-      playersCount,
-      urlPlayersInSolo: searchParams?.get("playersInSolo")
-    });
-
     if (isSoloMode) {
       const playersParam = searchParams?.get("playersInSolo");
       // 如果没有参数，或者参数无效，设置默认值2
       if (!playersParam || Number(playersParam) < 1 || Number(playersParam) > 6) {
-        console.log('✅ [CreateBattle] 设置默认玩家数: 2');
         replaceUrl({ playersInSolo: "2" });
         setPlayersCount("2");
       }
@@ -300,15 +295,14 @@ function CreateBattleContent() {
     onSuccess: (response: ApiResponse<CreateBattleResult>) => {
 
       const result = response?.data ?? {};
-      console.log(result);
 
       const createdBattleId =
         result
 
       if (response?.code === 100000 && createdBattleId) {
         showGlobalToast({
-          title: "创建成功",
-          description: "即将跳转到对战详情",
+          title: t("success"),
+          description: t("actionSuccess"),
           variant: "success",
           durationMs: 2000,
         });
@@ -320,9 +314,9 @@ function CreateBattleContent() {
     },
     onError: (error: Error) => {
       showGlobalToast({
-        title: "创建失败",
+        title: t("error"),
         description:
-          error instanceof Error ? error.message : "请稍后重试",
+          error instanceof Error ? error.message : t("retryLater"),
         variant: "error",
         durationMs: 2600,
       });
@@ -506,8 +500,8 @@ function CreateBattleContent() {
                     }
                   }}
                   options={[
-                    { label: "单人对战", value: "solo" },
-                    { label: "团队对战", value: "team" },
+                    { label: t("soloBattle"), value: "solo" },
+                    { label: t("teamBattle"), value: "team" },
                   ]}
                   centerLabel
                 />
@@ -571,7 +565,7 @@ function CreateBattleContent() {
               className="text-xl font-semibold mb-4 text-center"
               style={{ color: "#7A8084" }}
             >
-              游戏模式
+              {t("battleGameMode")}
             </h2>
             <div
               className={`grid grid-cols-2 gap-3 mb-6 w-full ${
@@ -625,7 +619,7 @@ function CreateBattleContent() {
                   >
                     <Image
                       src={MODE_ILLUSTRATIONS.classic}
-                      alt="经典模式插图"
+                      alt={t("battleModeClassic")}
                       fill
                       className="object-contain w-full h-full"
                       sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
@@ -636,7 +630,7 @@ function CreateBattleContent() {
                     className="md:p-4"
                     style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
                   >
-                    <h3 className="font-semibold mb-1 text-center">经典</h3>
+                    <h3 className="font-semibold mb-1 text-center">{t("battleModeClassic")}</h3>
                   </div>
                 </div>
               </div>
@@ -685,7 +679,7 @@ function CreateBattleContent() {
                     >
                     <Image
                       src={MODE_ILLUSTRATIONS.share}
-                      alt="分享模式插图"
+                      alt={t("battleModeShare")}
                       fill
                       className="object-contain w-full h-full"
                       sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
@@ -693,10 +687,10 @@ function CreateBattleContent() {
                     </div>
                     
                     <div
-                      className="md:p-4"
-                      style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
-                    >
-                      <h3 className="font-semibold mb-1 text-center">分享模式</h3>
+                    className="md:p-4"
+                    style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
+                  >
+                    <h3 className="font-semibold mb-1 text-center">{t("battleModeShare")}</h3>
                     </div>
                   </div>
                 </div>
@@ -744,7 +738,7 @@ function CreateBattleContent() {
                       >
                         <Image
                           src={MODE_ILLUSTRATIONS.sprint}
-                          alt="积分冲刺模式插图"
+                          alt={t("battleModeSprint")}
                           fill
                           className="object-contain w-full h-full"
                           sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
@@ -755,7 +749,7 @@ function CreateBattleContent() {
                         className="md:p-4"
                         style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
                       >
-                        <h3 className="font-semibold mb-1 text-center">积分冲刺</h3>
+                        <h3 className="font-semibold mb-1 text-center">{t("battleModeSprint")}</h3>
                       </div>
                     </div>
                   </div>
@@ -801,7 +795,7 @@ function CreateBattleContent() {
                       >
                         <Image
                           src={MODE_ILLUSTRATIONS.jackpot}
-                          alt="大奖模式插图"
+                          alt={t("battleModeJackpot")}
                           fill
                           className="object-contain"
                           sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
@@ -812,7 +806,7 @@ function CreateBattleContent() {
                         className="md:p-4"
                         style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
                       >
-                        <h3 className="font-semibold mb-1 text-center">大奖</h3>
+                        <h3 className="font-semibold mb-1 text-center">{t("battleModeJackpot")}</h3>
                       </div>
                     </div>
                   </div>
@@ -860,7 +854,7 @@ function CreateBattleContent() {
                       >
                       <Image
                         src={MODE_ILLUSTRATIONS.elimination}
-                        alt="淘汰模式插图"
+                        alt={t("battleModeElimination")}
                         fill
                         className="object-contain w-full h-full"
                         sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
@@ -871,7 +865,7 @@ function CreateBattleContent() {
                         className="md:p-4"
                         style={{ backgroundColor: "#22272B", color: "#FFFFFF" }}
                       >
-                        <h3 className="font-semibold mb-1 text-center">淘汰</h3>
+                        <h3 className="font-semibold mb-1 text-center">{t("battleModeElimination")}</h3>
                       </div>
                     </div>
                   </div>
@@ -881,11 +875,12 @@ function CreateBattleContent() {
                 className="text-gray-400 font-semibold max-w-2xl text-center mx-auto mt-4"
                 style={{ color: "#7A8084" }}
               >
-                {selectedMode === "classic" && "在经典模式下，在最后一轮之后，总价值最高的玩家赢得对战并获得所有物品。"}
-                {selectedMode === "share" && "在分享模式下，在最后一轮之后，累积的总价值在所有玩家之间平均分配。"}
-                {selectedMode === "sprint" && "在积分冲刺模式下，每轮最高价值的抽取获得1分。积分最多的玩家赢得对战并获得所有物品。"}
-                {selectedMode === "jackpot" && "在大奖模式下，在最后一轮之后，为总'大奖'价值转动轮盘。每个玩家的获胜机会等于他们在总抽取价值中的份额。"}
-                {selectedMode === "elimination" && `在淘汰模式下，从倒数第${actualPlayersCount - 1}轮开始，每轮价值${optInverted ? '最高' : '最低'}的玩家被淘汰，直到只剩下一名玩家。淘汰模式需要至少${actualPlayersCount - 1}个卡包（${actualPlayersCount}名玩家）。`}
+                {selectedMode === "classic" && t("modeClassicDesc")}
+                {selectedMode === "share" && t("modeShareDesc")}
+                {selectedMode === "sprint" && t("modeSprintDesc")}
+                {selectedMode === "jackpot" && t("modeJackpotDesc")}
+                {selectedMode === "elimination" &&
+                  t("modeEliminationDesc")}
               </p>
             </div>
 
@@ -895,7 +890,7 @@ function CreateBattleContent() {
                 className="text-xl font-semibold mb-4 text-center"
                 style={{ color: "#7A8084" }}
               >
-                选项
+                {t("optionsTitle")}
               </h2>
               <div className="flex flex-col gap-3 md:gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 w-full">
@@ -929,9 +924,9 @@ function CreateBattleContent() {
                               className="font-semibold whitespace-nowrap"
                               style={{ color: "#FFFFFF" }}
                             >
-                              快速对战
+                              {t("fastBattle")}
                             </span>
-                            <InfoTooltip content="启用时，对战进行得更快，动画延迟减少。" />
+                            <InfoTooltip content={t("fastBattleTip")} />
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1007,9 +1002,9 @@ function CreateBattleContent() {
                               className="font-semibold whitespace-nowrap"
                               style={{ color: "#FFFFFF" }}
                             >
-                              最后机会
+                              {t("lastChance")}
                             </span>
-                            <InfoTooltip content="启用时，只有最后一轮重要。在最后一轮抽取最有价值物品的玩家获得一切。" />
+                            <InfoTooltip content={t("lastChanceTip")} />
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1085,9 +1080,9 @@ function CreateBattleContent() {
                               className="font-semibold whitespace-nowrap"
                               style={{ color: "#FFFFFF" }}
                             >
-                              倒置
+                              {t("inverted")}
                             </span>
-                            <InfoTooltip content="启用时，总物品价值最低的玩家获胜并获得所有物品。" />
+                            <InfoTooltip content={t("invertedTip")} />
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1139,7 +1134,7 @@ function CreateBattleContent() {
             <div className="w-full space-y-4">
               <div className="flex flex-row gap-3 justify-between w-full">
                 <p className="text-xl font-bold" style={{ color: "#7A8084" }}>
-                  已选礼包 ({selectedPackIds.length})
+                  {t("selectedPacks")} ({selectedPackIds.length})
                 </p>
               </div>
               <DndContext
@@ -1187,7 +1182,7 @@ function CreateBattleContent() {
                             <path d="M12 5v14"></path>
                           </svg>
                         </div>
-                        <p className="font-medium">添加礼包</p>
+                        <p className="font-medium">{t("addPack")}</p>
                       </div>
                     </div>
                     {selectedPacks.map((pack, index) => {
@@ -1225,13 +1220,13 @@ function CreateBattleContent() {
             <div className="w-full" style={{ backgroundColor: "#1D2125" }}>
               <div className="max-w-screen-xl mx-auto w-full space-y-4 py-4">
                 <p className="font-semibold text-xl" style={{ color: "#7A8084" }}>
-                  对战摘要
+                  {t("battleSummary")}
                 </p>
                 <div className="space-y-1">
                   {[
-                    { k: "玩家", v: String(actualPlayersCount) },
-                    { k: "包装/回合", v: String(selectedPackIds.length) },
-                    { k: "总成本", v: `$${totalCost.toFixed(2)}` },
+                    { k: t("summaryPlayers"), v: String(actualPlayersCount) },
+                    { k: t("summaryPacksPerRound"), v: String(selectedPackIds.length) },
+                    { k: t("summaryTotalCost"), v: `$${totalCost.toFixed(2)}` },
                   ].map((row) => (
                     <div
                       key={row.k}
@@ -1260,8 +1255,8 @@ function CreateBattleContent() {
               onClick={handleCreateBattle}
             >
               {createBattleMutation.isPending
-                ? "创建中..."
-                : `创建对战 for ${totalCost.toFixed(2)}`}
+                ? t("creatingBattle")
+                : t("createBattleFor").replace("{price}", `$${totalCost.toFixed(2)}`)}
             </button>
           </div>
         </div>
@@ -1270,8 +1265,9 @@ function CreateBattleContent() {
 }
 
       export default function CreateBattlePage() {
+  const { t } = useI18n();
   return (
-      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p className="text-white">加载中...</p></div>}>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p className="text-white">{t("loading")}</p></div>}>
         <CreateBattleContent />
       </Suspense>
       );

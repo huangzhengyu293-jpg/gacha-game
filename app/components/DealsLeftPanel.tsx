@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from './I18nProvider';
 
 interface DealsLeftPanelProps {
   priceMin?: number;
@@ -35,6 +36,7 @@ export default function DealsLeftPanel({
   onReset,
   calculatedPrice = 0,
 }: DealsLeftPanelProps) {
+  const { t } = useI18n();
   const baseAtOnePercent = 3780; // 1% 对应金额
   const [priceInput, setPriceInput] = useState<string>(formatCurrency(initialPrice));
   const [sliderValue, setSliderValue] = useState<number>(initialSlider);
@@ -157,7 +159,7 @@ export default function DealsLeftPanel({
     <div className="col-span-1 px-4 py-6 lg:p-8 lg:pb-6 lg:pt-14 overflow-hidden min-w-0 rounded-md items-center justify-center flex order-1 sm:order-0 self-stretch h-full" style={{ backgroundColor: '#22272B' }}>
       <div className="flex flex-col gap-7 items-stretch flex-1 h-full">
         <div className="grid w-full items-center gap-2">
-          <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>价格</label>
+          <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>{t('priceLabel')}</label>
           <div className="flex relative">
             <div className="rounded-tl rounded-bl px-4 text-sm font-bold flex items-center" style={{ backgroundColor: '#34383C', color: disabled ? '#7A8084' : '#FFFFFF' }}>$</div>
             <input
@@ -180,7 +182,7 @@ export default function DealsLeftPanel({
               style={{ backgroundColor: '#34383C', color: '#7A8084', cursor: 'not-allowed' }}
               disabled={true}
             >
-              max
+              {t('maxPrice')}
             </button>
           </div>
         </div>
@@ -189,7 +191,7 @@ export default function DealsLeftPanel({
           <div className="flex py-4 lg:py-2">
             <div className="w-full flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>结果</label>
+                <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>{t('resultLabel')}</label>
                 <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>{inactive ? '0.00%' : selectedPercent.toFixed(2) + '%'}</label>
               </div>
               <div className="w-full px-1 rounded-md flex items-center" style={{ backgroundColor: '#1D2125' }}>
@@ -222,7 +224,7 @@ export default function DealsLeftPanel({
               onMouseEnter={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
               onMouseLeave={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
               disabled={disabled}
-            >最低</button>
+            >{t('minPrice')}</button>
             <button
               type="button"
               onClick={() => { if (!inactive) setSliderByPct(10); }}
@@ -258,7 +260,7 @@ export default function DealsLeftPanel({
               onMouseEnter={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
               onMouseLeave={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
               disabled={disabled}
-            >最高</button>
+            >{t('maxPrice')}</button>
           </div>
         </div>
 
@@ -272,7 +274,7 @@ export default function DealsLeftPanel({
           onMouseEnter={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
           onMouseLeave={(e) => { if (!disabled) (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
           disabled={disabled}
-        >重置</button>
+        >{t('reset')}</button>
       </div>
     </div>
   );

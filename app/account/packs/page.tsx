@@ -5,8 +5,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { api } from "@/app/lib/api";
+import { useI18n } from "@/app/components/I18nProvider";
 
 export default function PacksPage() {
+  const { t } = useI18n();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["accountPackHistory"],
     queryFn: () => api.getBoxUserRecord(),
@@ -32,45 +34,45 @@ export default function PacksPage() {
       <div className="flex flex-col lg:flex-row items-start gap-0 lg:gap-10">
         <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-none">
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">账户</span>
+            <span className="text-sm font-bold text-white/40">{t('accountSection')}</span>
             <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">个人资料</span>
+              <span className="font-bold">{t('accountProfile')}</span>
             </Link>
             <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">存款</span>
+              <span className="font-bold">{t('accountDepositsTitle')}</span>
             </Link>
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">提款</span>
+              <span className="font-bold">{t('accountWithdrawalsTitle')}</span>
             </Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">领取</span>
+              <span className="font-bold">{t('accountClaimsTitle')}</span>
             </Link>
             <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">销售</span>
+              <span className="font-bold">{t('accountSalesTitle')}</span>
             </Link>
             <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">对战历史</span>
+              <span className="font-bold">{t('accountBattlesTitle')}</span>
             </Link>
             <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active">
-              <span className="font-bold">礼包历史</span>
+              <span className="font-bold">{t('accountPacksTitle')}</span>
             </Link>
             <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">交易历史</span>
+              <span className="font-bold">{t('accountTransactionsTitle')}</span>
             </Link>
             <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">抽奖历史</span>
+              <span className="font-bold">{t('accountDrawsTitle')}</span>
             </Link>
             <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">推荐</span>
+              <span className="font-bold">{t('referrals')}</span>
             </Link>
           </div>
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">设置</span>
+            <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
             <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">公平性</span>
+              <span className="font-bold">{t('accountFairnessTitle')}</span>
             </Link>
             <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">安全</span>
+              <span className="font-bold">{t('accountSecurityTitle')}</span>
             </Link>
           </div>
         </div>
@@ -79,26 +81,26 @@ export default function PacksPage() {
           <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
             <AccountMobileMenu />
             <h1 className="text-2xl font-bold hidden lg:block" style={{ color: "#FFFFFF" }}>
-              礼包历史
+              {t('accountPacksTitle')}
             </h1>
           </div>
 
           {isLoading ? (
             <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
               <span className="font-semibold" style={{ color: "#FFFFFF" }}>
-                加载中...
+                {t('loading')}
               </span>
             </div>
           ) : isError ? (
             <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
               <span className="font-semibold" style={{ color: "#FFFFFF" }}>
-                加载失败，请稍后重试。
+                {t('loadFailedRetry')}
               </span>
             </div>
           ) : records.length === 0 ? (
             <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
               <span className="font-semibold" style={{ color: "#FFFFFF" }}>
-                您还没有任何礼包历史记录。
+                {t('noPackHistory')}
               </span>
             </div>
           ) : (
@@ -132,9 +134,9 @@ export default function PacksPage() {
                     <div className="flex justify-between items-center text-white">
                       <div className="flex gap-10 max-w-[100%] lg:max-w-[calc(100%-150px)]">
                         <div className="flex-none flex flex-col items-start gap-2">
-                          <span className="font-semibold">产品:</span>
-                          <span className="font-semibold">品牌:</span>
-                          <span className="font-semibold">金额 USD:</span>
+                          <span className="font-semibold">{t('productLabel')}:</span>
+                          <span className="font-semibold">{t('brandLabel')}:</span>
+                          <span className="font-semibold">{t('amountUsdLabel')}:</span>
                         </div>
                         <div className="flex flex-col items-start overflow-hidden max-w-full gap-2">
                           <span className="truncate max-w-full">{productLabel}</span>

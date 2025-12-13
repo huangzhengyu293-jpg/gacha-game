@@ -7,6 +7,7 @@ import LiveFeedElement from './LiveFeedElement';
 import LiveFeedTicker from './LiveFeedTicker';
 import { getGlowColorFromProbability } from '../lib/catalogV2';
 import { useLiveFeed } from './live-feed/LiveFeedProvider';
+import { useI18n } from './I18nProvider';
 
 type BestOpenItem = {
   id?: string;
@@ -60,13 +61,16 @@ export default function BestLiveSidebar({
   liveTickerMaxItems = 9,
   liveTickerIntervalMs = 2000,
   livePollMs = 10_000,
-  bestOpensTitle = '最佳开启',
-  liveTitle = '直播开启',
+  bestOpensTitle,
+  liveTitle,
   bestOpensIcon = defaultStarIcon,
   liveIcon = defaultCircleIcon,
   className = '',
   width = '224px',
 }: SidebarProps) {
+  const { t } = useI18n();
+  const resolvedBestOpensTitle = bestOpensTitle ?? t("bestOpens");
+  const resolvedLiveTitle = liveTitle ?? t("liveStart");
   const { push, setInitialItems } = useLiveFeed();
   const latestIdsRef = useRef<Set<string>>(new Set());
   const hydratedRef = useRef(false);
@@ -228,7 +232,7 @@ export default function BestLiveSidebar({
           <div className="flex size-4 text-yellow-400">
             {bestOpensIcon}
           </div>
-          <p className="text-base text-white font-extrabold">{bestOpensTitle}</p>
+          <p className="text-base text-white font-extrabold">{resolvedBestOpensTitle}</p>
         </div>
         <div className="live-feed flex flex-col gap-3">
           {finalBestOpens.map((item, idx) => (
@@ -252,7 +256,7 @@ export default function BestLiveSidebar({
           <div className="flex size-4 text-yellow-400">
             {liveIcon}
           </div>
-          <p className="text-base text-white font-extrabold">{liveTitle}</p>
+          <p className="text-base text-white font-extrabold">{resolvedLiveTitle}</p>
         </div>
         <LiveFeedTicker maxItems={liveTickerMaxItems} intervalMs={liveTickerIntervalMs} />
       </div>

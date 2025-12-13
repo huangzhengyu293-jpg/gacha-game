@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { useCart } from '../hooks/useCart';
 import { showGlobalToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
+import { useI18n } from './I18nProvider';
 
 
 interface CartItem {
@@ -29,6 +30,7 @@ interface CartModalProps {
 
 
 export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1.38, items }: CartModalProps) {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc'>('asc');
@@ -84,11 +86,12 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
           : [];
     return rows.map((item: any, index: number) => {
       const baseId = String(item.id ?? item.box_id ?? `shop_${index}`);
+      const fallbackName = t("itemPlaceholder").replace("{index}", String(index + 1));
       return {
         id: baseId,
         warehouseId: baseId,
         productId: String(item.product_id ?? item.id ?? baseId),
-        name: item.name ?? item.title ?? item.awards?.name ?? `商品 ${index + 1}`,
+        name: item.name ?? item.title ?? item.awards?.name ?? fallbackName,
         price: Number(item.bean ?? item.price ?? item.amount ?? item.awards?.bean ?? 0),
         image: item.cover ?? item.image ?? item.icon ?? item.awards?.cover ?? '',
       };
@@ -116,12 +119,12 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
       if (response.code === 100000) {
         setShopItems(mapShopItems(response));
       } else {
-        throw new Error(response.message || '获取商城失败');
+        throw new Error(response.message || t('shopFetchFail'));
       }
     } catch (error: any) {
       showGlobalToast({
-        title: '错误',
-        description: error?.message || '获取商城失败',
+        title: t('error'),
+        description: error?.message || t('shopFetchFail'),
         variant: 'error',
       });
       setShopItems([]);
@@ -188,17 +191,25 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
         .reduce((sum, item) => sum + item.price, 0);
   const cartTotal = defaultItems.reduce((sum, item) => sum + item.price, 0);
   const listLoading = isShopMode ? isShopLoading : shouldShowWarehouseLoading;
-  const listLoadingText = isShopMode ? '商城加载中...' : '正在加载仓库...';
-  const emptyListText = isShopMode ? '商城暂无数据' : '仓库暂无物品';
-  const actionButtonLabel = isShopMode ? '背包' : '商城';
+  const listLoadingText = isShopMode ? t('shopLoading') : t('warehouseLoadingText');
+  const emptyListText = isShopMode ? t('shopEmpty') : t('warehouseEmpty');
+  const actionButtonLabel = isShopMode ? t('cartTitle') : t('shop');
   const actionButtonDisabled = isShopLoading;
+  const headerTitle = isShopMode ? t('shop') : t('cartTitle');
+  const allTabLabel = `${t('allItems')} (${defaultItems.length})`;
+  const selectedTabLabel = `${t('selectedItems')} (${selectedCount})`;
+  const selectAllChecked = (selectedItems.size === defaultItems.length && defaultItems.length > 0);
+  const selectAllLabel = selectAllChecked ? t('unselectAll') : `${t('selectAll')} (${defaultItems.length})`;
+  const selectedSummaryText = t('selectedSummary')
+    .replace('{count}', String(selectedCount))
+    .replace('{amount}', `$${selectedTotal.toFixed(2)}`);
 
 
 
   // ✅ 暂时禁用分割功能，等待后续实现仓库接口
   const splitMutation = useMutation({
     mutationFn: async (item: CartItem) => {
-      throw new Error('仓库功能暂未开放');
+      throw new Error(t('warehouseUnavailable'));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouse'] });
@@ -209,26 +220,26 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const buyShopItemMutation = useMutation({
     mutationFn: async (productId: string) => {
       if (!productId) {
-        throw new Error('商品 ID 无效');
+        throw new Error(t('invalidProduct'));
       }
       const response = await api.buyShopItem(productId);
       if (response.code !== 100000) {
-        throw new Error(response.message || '购买失败，请稍后再试');
+        throw new Error(response.message || t('buyFailRetry'));
       }
       return response;
     },
     onSuccess: () => {
       showGlobalToast({
-        title: '购买成功',
-        description: '余额已更新',
+        title: t('buySuccess'),
+        description: t('balanceUpdated'),
         variant: 'success',
       });
       fetchUserBean().catch(() => {});
     },
     onError: (error: any) => {
       showGlobalToast({
-        title: '购买失败',
-        description: error?.message || '请稍后重试',
+        title: t('buyFail'),
+        description: error?.message || t('retryLater'),
         variant: 'error',
       });
     },
@@ -252,7 +263,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const confirmSellMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (!ids.length) {
-        throw new Error('请选择要出售的物品');
+        throw new Error(t('selectItemsFirst'));
       }
       return api.cashOutBoxes(ids);
     },
@@ -262,8 +273,8 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
       queryClient.invalidateQueries({ queryKey: ['userStorage'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
       showGlobalToast({
-        title: '出售成功',
-        description: '余额已更新',
+        title: t('sellSuccess'),
+        description: t('balanceUpdated'),
         variant: 'success',
       });
       fetchUserBean().catch(() => {});
@@ -302,8 +313,8 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const handleBuyShopItem = (item: CartItem) => {
     if (!item?.productId) {
       showGlobalToast({
-        title: '错误',
-        description: '商品信息缺失，无法购买',
+        title: t('error'),
+        description: t('missingProductInfo'),
         variant: 'error',
       });
       return;
@@ -368,7 +379,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
         <div className="flex-col gap-1.5 text-center sm:text-left p-4 pt-6 sm:pt-4 h-16 flex justify-center flex-shrink-0" style={{ borderBottom: '1px solid #2E3134' }}>
           <div className="flex items-center">
             <h2 id="cart-title" className="tracking-tight text-left text-base font-extrabold pr-3" style={{ color: '#FEFEFE' }}>
-              {isShopMode ? '商城' : '您的背包'}
+              {headerTitle}
             </h2>
             {!isShopMode && (
               <p className="flex gap-2 items-center pl-3" style={{ borderLeft: '1px solid #2E3134' }}>
@@ -394,7 +405,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               onClick={() => setActiveTab('all')}
               style={{ backgroundColor: activeTab === 'all' ? '#34383C' : 'transparent' }}
             >
-              <span className="font-extrabold" style={{ color: '#FFFFFF' }}>所有物品 ({defaultItems.length})</span>
+              <span className="font-extrabold" style={{ color: '#FFFFFF' }}>{allTabLabel}</span>
             </button>
             {!isShopMode && (
               <button
@@ -410,7 +421,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onClick={() => setActiveTab('selected')}
                 style={{ backgroundColor: activeTab === 'selected' ? '#34383C' : 'transparent' }}
               >
-                <span className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择的物品 ({selectedCount})</span>
+                <span className="font-extrabold" style={{ color: '#FFFFFF' }}>{selectedTabLabel}</span>
               </button>
             )}
           </div>
@@ -434,7 +445,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: '1px solid #45484A' }}
                     type="button"
                   >
-                    可认领物品
+                    {t('claimableItems')}
                   </button>
                 )}
               </div>
@@ -445,7 +456,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onClick={() => setSortByPrice(sortByPrice === 'asc' ? 'desc' : 'asc')}
                   type="button"
                 >
-                  价格
+                  {t('priceLabel')}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -483,7 +494,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                         </svg>
                       )}
                     </div>
-                    {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
+                    {selectAllLabel}
                   </button>
                 )}
               </div>
@@ -528,7 +539,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       </div>
                     </button>
                   )}
-                  <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                  <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>{selectedSummaryText}</p>
                 </div>
               </div>
               <div className="flex gap-3 w-full sm:w-auto">
@@ -540,7 +551,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
                   onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
                 >
-                  出售
+                  {t('sell')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -549,7 +560,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                 >
-                  提款
+                  {t('withdraw')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -558,7 +569,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onClick={goExchange}
                 >
-                  交换
+                  {t('exchange')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -601,17 +612,17 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       </svg>
                     </div>
                   </button>
-                  <p className="font-extrabold" style={{ color: '#FFFFFF' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                  <p className="font-extrabold" style={{ color: '#FFFFFF' }}>{selectedSummaryText}</p>
                 </div>
               ) : (
-                <p className="font-extrabold" style={{ color: '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                <p className="font-extrabold" style={{ color: '#7A8084' }}>{selectedSummaryText}</p>
               )}
             </div>
             
             {/* 物品区域 */}
             <div className="flex-1 overflow-y-auto min-h-0 rounded-lg" style={{ backgroundColor: '#1D2125', maxHeight: 'calc(100vh - 320px)' }}>
               {selectedCount === 0 ? (
-                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>请选择物品来管理他们</div>
+                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{t('manageHint')}</div>
               ) : (
                 <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 p-4">
                   {selectionOrder.filter((id) => selectedItems.has(id)).map((id) => {
@@ -647,7 +658,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       </div>
                     </button>
                   )}
-                  <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                  <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>{selectedSummaryText}</p>
                 </div>
               </div>
               <div className="flex gap-3 w-full sm:w-auto">
@@ -659,7 +670,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
                   onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
                 >
-                  出售
+                  {t('sell')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -668,7 +679,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                 >
-                  提款
+                  {t('withdraw')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -677,7 +688,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                   onClick={goExchange}
                 >
-                  交换
+                  {t('exchange')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -714,7 +725,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     </div>
                   </button>
                 )}
-                <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>已选择 {selectedCount} 个 ${selectedTotal.toFixed(2)}</p>
+                <p className="font-extrabold" style={{ color: selectedCount > 0 ? '#FFFFFF' : '#7A8084' }}>{selectedSummaryText}</p>
               </div>
             </div>
             <div className="flex gap-3 w-full sm:w-auto">
@@ -726,7 +737,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
                 onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
               >
-                出售
+                {t('sell')}
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -735,7 +746,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                 onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
               >
-                提款
+                {t('withdraw')}
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -744,7 +755,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
                 onClick={goExchange}
               >
-                交换
+                {t('exchange')}
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -760,9 +771,9 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
           </div>
           <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ backgroundColor: '#1D2125' }}>
             {shouldShowWarehouseLoading ? (
-              <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>正在加载仓库...</div>
+              <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{t('warehouseLoadingText')}</div>
             ) : selectedCount === 0 ? (
-              <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>选择物品来管理它们</div>
+              <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{t('selectItemsToManage')}</div>
             ) : (
               <div className="h-full w-full grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 grid-rows-[repeat(2,min-content)] sm:grid-rows-[auto]">
                 {selectionOrder.filter((id) => selectedItems.has(id)).map((id) => {
@@ -817,7 +828,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onClick={() => setClaimableActive(!claimableActive)}
                   type="button"
                 >
-                  可认领物品
+                  {t('claimableItems')}
                 </button>
               )}
             </div>
@@ -828,7 +839,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onClick={() => setSortByPrice(sortByPrice === 'asc' ? 'desc' : 'asc')}
                 type="button"
               >
-                价格
+                {t('priceLabel')}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"
@@ -866,7 +877,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       </svg>
                     )}
                   </div>
-                  {(selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '取消全选' : `全选 (${defaultItems.length})`}
+                  {selectAllLabel}
                 </button>
               )}
             </div>
@@ -927,15 +938,15 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             >
               <div className="flex flex-col gap-1.5 text-center sm:text-left">
                 <h2 id="sell-confirm-title" className="text-xl font-bold leading-none tracking-tight text-left">
-                  出售 {confirmCount} 个物品
+                  {t('sellConfirmTitle').replace('{count}', String(confirmCount))}
                 </h2>
               </div>
               <div className="flex flex-col items-start gap-4 py-2" id="sell-confirm-desc">
-                <p>您的余额将增加 ${confirmGain.toFixed(2)}</p>
+                <p>{t('sellConfirmGain').replace('{amount}', `$${confirmGain.toFixed(2)}`)}</p>
                 <div className="flex flex-col items-start gap-4 rounded-lg p-4" style={{ border: '1px solid #161A1D', backgroundColor: '#161A1D' }}>
-                  <p className="font-bold">请注意</p>
-                  <p className="text-sm">一旦您出售物品，它将无法恢复。请确保您想要出售这些物品，然后再继续。</p>
-                  <p className="text-sm">您的余额将在销售完成后立即入账。</p>
+                  <p className="font-bold">{t('sellNoticeTitle')}</p>
+                  <p className="text-sm">{t('sellNoticeLine1')}</p>
+                  <p className="text-sm">{t('sellNoticeLine2')}</p>
                 </div>
               </div>
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2 gap-2">
@@ -947,7 +958,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
                 >
-                  取消
+                  {t('cancel')}
                 </button>
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6"
@@ -959,7 +970,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   disabled={confirmSellMutation.isPending || confirmPayload.length === 0}
                   style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: 'pointer' }}
                 >
-                  继续
+                  {t('continueAction')}
                 </button>
               </div>
               <button
@@ -1045,17 +1056,22 @@ function CartItemCard({
   onBuy?: (item: CartItem) => void;
   isBuying?: boolean;
 }) {
+  const { t } = useI18n();
   const isVoucher = item.productId?.startsWith('voucher:') || item.name === 'Voucher' || item.price === 0.01;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const depthForMenu = (item.productId?.startsWith('voucher:') ? Number(item.productId.split(':').pop()) || 1 : 0);
+  const sellPriceLabel = `${t('sellPricePrefix')} $${item.price.toFixed(2)}`;
+  const splitLabel = t('splitIntoTwo');
+  const claimLabel = t('claimItem');
+  const detailsLabel = t('itemDetails');
   const menuItems: string[] = depthForMenu >= 2
-    ? ['出售价格 $' + item.price.toFixed(2), '物品详情']
+    ? [sellPriceLabel, detailsLabel]
     : depthForMenu === 1
-    ? ['出售价格 $' + item.price.toFixed(2), '分成 2 份', '物品详情']
-    : ['出售价格 $' + item.price.toFixed(2), '分成 2 份', '领取物品', '物品详情'];
+    ? [sellPriceLabel, splitLabel, detailsLabel]
+    : [sellPriceLabel, splitLabel, claimLabel, detailsLabel];
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1070,7 +1086,7 @@ function CartItemCard({
   }, [menuOpen]);
 
   const isBuyingState = Boolean(isBuying);
-  const actionLabel = isShopMode ? (isBuyingState ? '购买中...' : '购买') : '出售';
+  const actionLabel = isShopMode ? (isBuyingState ? t('purchasing') : t('purchase')) : t('sell');
 
   const handleCardClick = () => {
     if (isShopMode) return;
@@ -1120,7 +1136,7 @@ function CartItemCard({
                     className="relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (label.includes('分成')) { onSplit(item); setMenuOpen(false); return; }
+                      if (label === splitLabel) { onSplit(item); setMenuOpen(false); return; }
                       setMenuOpen(false);
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#3C4044'; (e.currentTarget as HTMLDivElement).style.color = '#FFFFFF'; }}

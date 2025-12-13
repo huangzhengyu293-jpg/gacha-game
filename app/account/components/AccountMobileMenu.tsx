@@ -2,40 +2,40 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/app/components/I18nProvider';
 
-type MenuItem = { label: string; href: string };
-
-const MENU_ITEMS: MenuItem[] = [
-  { label: '个人资料', href: '/account' },
-  { label: '存款', href: '/account/deposits' },
-  { label: '提款', href: '/account/withdrawals' },
-  { label: '领取', href: '/account/claims' },
-  { label: '销售', href: '/account/sales' },
-  { label: '对战历史', href: '/account/battles' },
-  { label: '礼包历史', href: '/account/packs' },
-  { label: '交易历史', href: '/account/transactions' },
-  { label: '抽奖历史', href: '/account/draws' },
-  { label: '推荐', href: '/account/referrals' },
-  { label: '公平性', href: '/account/fairness' },
-  { label: '安全', href: '/account/security' },
-];
-
-function getCurrentLabelFromPath(pathname: string): string {
-  const match = MENU_ITEMS.find((i) => i.href === pathname);
-  if (match) return match.label;
-  // 兼容动态路由或末尾斜杠
-  const cleaned = pathname.replace(/\/+$/, '');
-  const again = MENU_ITEMS.find((i) => i.href === cleaned);
-  return again?.label ?? '个人资料';
-}
+type MenuItem = { labelKey: string; href: string };
 
 export default function AccountMobileMenu() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const label = getCurrentLabelFromPath(pathname);
+
+  const MENU_ITEMS: MenuItem[] = useMemo(
+    () => [
+      { labelKey: 'accountProfile', href: '/account' },
+      { labelKey: 'accountDepositsTitle', href: '/account/deposits' },
+      { labelKey: 'accountWithdrawalsTitle', href: '/account/withdrawals' },
+      { labelKey: 'accountClaimsTitle', href: '/account/claims' },
+      { labelKey: 'accountSalesTitle', href: '/account/sales' },
+      { labelKey: 'accountBattlesTitle', href: '/account/battles' },
+      { labelKey: 'accountPacksTitle', href: '/account/packs' },
+      { labelKey: 'accountTransactionsTitle', href: '/account/transactions' },
+      { labelKey: 'accountDrawsTitle', href: '/account/draws' },
+      { labelKey: 'referrals', href: '/account/referrals' },
+      { labelKey: 'accountFairnessTitle', href: '/account/fairness' },
+      { labelKey: 'accountSecurityTitle', href: '/account/security' },
+    ],
+    [t],
+  );
+
+  const label = useMemo(() => {
+    const match = MENU_ITEMS.find((i) => i.href === pathname || i.href === pathname.replace(/\/+$/, ''));
+    return t(match?.labelKey ?? 'accountProfile');
+  }, [MENU_ITEMS, pathname, t]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -91,7 +91,7 @@ export default function AccountMobileMenu() {
                 onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#34383C'; (e.currentTarget as HTMLAnchorElement).style.color = '#FFFFFF'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#7A8084'; }}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             ))}
           </div>

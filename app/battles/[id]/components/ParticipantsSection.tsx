@@ -1,15 +1,17 @@
 'use client';
 
 import type { Participant } from '../types';
+import { useI18n } from '../../components/I18nProvider';
 
 interface ParticipantsSectionProps {
   participants: Participant[];
 }
 
 export default function ParticipantsSection({ participants }: ParticipantsSectionProps) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-extrabold text-white">参与者</h2>
+      <h2 className="text-xl font-extrabold text-white">{t('participantsLabel')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {participants.map((participant) => (
           <div
@@ -41,11 +43,13 @@ export default function ParticipantsSection({ participants }: ParticipantsSectio
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-bold text-white truncate">{participant.name}</p>
-              <p className="text-sm font-bold text-white">总价值: {participant.totalValue}</p>
+              <p className="text-sm font-bold text-white">
+                {t('totalValueLabel')}: {participant.totalValue}
+              </p>
             </div>
             {participant.isWinner && (
               <div className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: '#10B981', color: '#FFFFFF' }}>
-                获胜者
+                {t('winner')}
               </div>
             )}
           </div>

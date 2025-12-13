@@ -19,7 +19,15 @@ type BattleListCardItemProps = {
   labels: {
     cost: string;
     opened: string;
+    preparing: string;
+    waiting: string;
     button: string;
+    join: string;
+    modeClassic: string;
+    modeShare: string;
+    modeSprint: string;
+    modeJackpot: string;
+    modeElimination: string;
   };
   onPrimaryAction?: () => void;
   buttonColors?: {
@@ -171,6 +179,22 @@ export default function BattleListCardItem({
   const Connector = card.connectorStyle === "share" ? ShareConnectorIcon : BattleConnectorIcon;
   const entryCost = formatCurrency(card.entryCost);
   const openedValue = formatCurrency(card.totalOpenedValue);
+  const modeLabel = (() => {
+    switch (card.mode) {
+      case "classic":
+        return labels.modeClassic;
+      case "share":
+        return labels.modeShare;
+      case "sprint":
+        return labels.modeSprint;
+      case "jackpot":
+        return labels.modeJackpot;
+      case "elimination":
+        return labels.modeElimination;
+      default:
+        return modeVisual.label;
+    }
+  })();
   const hasTeams = Boolean(card.isTeamBattle && card.teams?.length);
   const maxSlots =
     card.participantSlots?.length && card.participantSlots.length > 0
@@ -238,9 +262,9 @@ export default function BattleListCardItem({
     );
   };
 
-  const buttonLabel = isPendingBattle ? "加入对战" : labels.button;
+  const buttonLabel = isPendingBattle ? labels.join : labels.button;
   const isWaitingState = card.status === 0;
-  const openedLabel = card.status === 1 ? "准备中" : isPendingBattle ? "等待玩家" : labels.opened;
+  const openedLabel = card.status === 1 ? labels.preparing : isPendingBattle ? labels.waiting : labels.opened;
   const buttonColor = isPendingBattle
     ? {
         default: "#4299e1",
@@ -279,7 +303,7 @@ export default function BattleListCardItem({
         <div className="flex flex-col items-center gap-2 w-full md:w-[21rem] min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-base font-extrabold" style={{ color: "#7A8084" }}>
-              {modeVisual.label}
+              {modeLabel}
             </p>
             {optionIcons.map((icon, idx) => (
               <span key={`option-${card.id}-${idx}`} className="flex items-center justify-center">

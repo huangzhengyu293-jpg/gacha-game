@@ -1,10 +1,14 @@
 "use client";
 
+'use client';
+
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import AccountMobileMenu from "../components/AccountMobileMenu";
+import { useI18n } from "@/app/components/I18nProvider";
 
 export default function ReferralsPage() {
+  const { t } = useI18n();
   const referralCode = "30558719";
   const [claimAmount] = useState<number>(0);
   const isZero = claimAmount <= 0;
@@ -42,22 +46,22 @@ export default function ReferralsPage() {
         {/* 左侧菜单 */}
         <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-none">
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">账户</span>
-            <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">个人资料</span></Link>
-            <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">存款</span></Link>
-            <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">提款</span></Link>
-            <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">领取</span></Link>
-            <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">销售</span></Link>
-            <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">对战历史</span></Link>
-            <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">礼包历史</span></Link>
-            <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">交易历史</span></Link>
-            <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">抽奖历史</span></Link>
-            <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">推荐</span></Link>
+            <span className="text-sm font-bold text-white/40">{t('accountSection')}</span>
+            <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountProfile')}</span></Link>
+            <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDepositsTitle')}</span></Link>
+            <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountWithdrawalsTitle')}</span></Link>
+            <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountClaimsTitle')}</span></Link>
+            <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSalesTitle')}</span></Link>
+            <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountBattlesTitle')}</span></Link>
+            <Link href="/account/packs" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountPacksTitle')}</span></Link>
+            <Link href="/account/transactions" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountTransactionsTitle')}</span></Link>
+            <Link href="/account/draws" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDrawsTitle')}</span></Link>
+            <Link href="/account/referrals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">{t('referrals')}</span></Link>
           </div>
           <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">设置</span>
-            <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">公平性</span></Link>
-            <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">安全</span></Link>
+            <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
+            <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountFairnessTitle')}</span></Link>
+            <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSecurityTitle')}</span></Link>
           </div>
         </div>
 
@@ -65,17 +69,17 @@ export default function ReferralsPage() {
         <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-2">
           <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
             <AccountMobileMenu />
-            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>联盟计划</h1>
+            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('affiliateProgram')}</h1>
             <button onClick={copyLink} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-sm font-bold select-none h-8 px-3" style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy size-3 text-white"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0 0 0 0 0"></path><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
-              复制联盟链接
+              {t('copyReferralLink')}
             </button>
           </div>
 
           <div className="flex flex-col gap-6 items-stretch self-stretch pb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>您的推荐码</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('referralCodeLabel')}</dt>
                 <dd className="font-extrabold text-white text-2xl leading-9">
                   <div className="flex items-center justify-between max-w-full">
                     <div className="overflow-hidden max-w-full">
@@ -92,27 +96,27 @@ export default function ReferralsPage() {
                 </dd>
               </div>
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>已推荐用户</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('referredUsers')}</dt>
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">0</dd></div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>总存款</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('totalDeposits')}</dt>
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">$0.00</dd></div>
               </div>
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>总开启次数</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('totalOpens')}</dt>
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">$0.00</dd></div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>总收益</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('totalEarnings')}</dt>
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">$0.00</dd></div>
               </div>
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
-                <dt className="text-sm" style={{ color: '#FFFFFF' }}>未领取收益</dt>
+                <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('unclaimedEarnings')}</dt>
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">$0.00</dd></div>
               </div>
             </div>
@@ -121,7 +125,7 @@ export default function ReferralsPage() {
               <form className="flex h-full flex-col">
                 <div className="flex h-full gap-2">
                   <div className="flex h-full flex-1 flex-col justify-between">
-                    <label className="font-bold text-base" htmlFor="claim-amount" style={{ color: '#FFFFFF' }}>可领取金额</label>
+                    <label className="font-bold text-base" htmlFor="claim-amount" style={{ color: '#FFFFFF' }}>{t('claimableAmount')}</label>
                     <div className="flex gap-3" id="claim-amount-group">
                       <input
                         id="claim-amount"
@@ -137,8 +141,8 @@ export default function ReferralsPage() {
                         readOnly
                         style={{ backgroundColor: '#262B2F', color: isZero ? '#7A8084' : '#FFFFFF' }}
                       />
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="submit" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>领取</button>
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="button" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>全部领取</button>
+                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="submit" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>{t('claim')}</button>
+                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="button" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>{t('claimAll')}</button>
                     </div>
                   </div>
                 </div>

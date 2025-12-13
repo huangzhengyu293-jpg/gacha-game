@@ -6,6 +6,7 @@ import ProductDetailsModal from './ProductDetailsModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { SearchFilters } from '../deals/page';
+import { useI18n } from './I18nProvider';
 
 export interface ProductItem {
   id: string;
@@ -25,6 +26,7 @@ export interface ProductItem {
 }
 
 function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; onSelect?: (p: ProductItem) => void; selected?: boolean; onQuickView?: (p: ProductItem) => void; }) {
+  const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [isSmall, setIsSmall] = useState(false);
   useEffect(() => {
@@ -50,7 +52,7 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
       onClick={() => onSelect && onSelect(p)}
     >
       <button
-        aria-label="view details"
+        aria-label={t('viewDetails')}
         className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md cursor-pointer"
         style={{ backgroundColor: '#2A2D35', color: '#7A8084' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
@@ -93,6 +95,7 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
 }
 
 export default function DealsProductGridSection({ filters, onSelectProduct, selectedId, preselectSteamId, onPreselectMatch }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string; preselectSteamId?: string | null; onPreselectMatch?: (p: ProductItem) => void; }) {
+  const { t } = useI18n();
   const { data: products = [] as ProductItem[] } = useQuery({
     queryKey: ['lucky-list', filters],
     queryFn: async () => {
@@ -127,7 +130,7 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
             rate: rate, // 保存系数
             percent: 1, // 默认1%概率
             description: item.description || '',
-            subtitle: `转动获取: ¥${userEarnings.toFixed(2)}`,
+            subtitle: t('spinEarning').replace('{amount}', userEarnings.toFixed(2)),
             brand: item.brand || '',
             category: item.category || 'catalog',
             badge: item.badge || '',

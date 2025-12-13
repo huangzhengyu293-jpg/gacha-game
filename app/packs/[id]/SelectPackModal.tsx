@@ -7,6 +7,7 @@ import type { CatalogPack } from '../../lib/api';
 import PacksToolbar from '../../components/PacksToolbar';
 import PackCard from '../../components/PackCard';
 import { usePacksFilters } from '../../hooks/usePacksFilters';
+import { useI18n } from '../../components/I18nProvider';
 
 export default function SelectPackModal({
   open,
@@ -25,6 +26,7 @@ export default function SelectPackModal({
   minPacks?: number;
   boxType?: '1' | '2'|'1,2'|"5";
 }) {
+  const { t } = useI18n();
   const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
   const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
@@ -196,8 +198,8 @@ export default function SelectPackModal({
       `}</style>
       <div role="dialog" aria-modal="true" className="overflow-hidden z-50 grid w-full gap-0 shadow-lg rounded-lg relative max-w-[896px]" data-component="SelectPackModal" tabIndex={-1} style={{ pointerEvents: 'auto', animation: 'modalZoomIn 180ms ease', backgroundColor: '#161A1D' }} onClick={(e) => e.stopPropagation()}>
         <div className="px-6 pt-6 pb-4 flex items-center justify-between">
-          <h2 className="text-xl text-white font-bold leading-none tracking-tight">选择礼包</h2>
-          <button type="button" className="rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#7A8084' }} aria-label="关闭">
+          <h2 className="text-xl text-white font-bold leading-none tracking-tight">{t('selectPackTitle')}</h2>
+          <button type="button" className="rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#7A8084' }} aria-label={t('cancel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
           </button>
         </div>
@@ -209,15 +211,15 @@ export default function SelectPackModal({
         <div className="px-6 pt-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-[555px]">
-              <p className="text-white">加载中...</p>
+              <p className="text-white">{t('loading')}</p>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-[555px]">
-              <p className="text-red-500">加载失败，请重试</p>
+              <p className="text-red-500">{t('loadFailRetry')}</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex items-center justify-center h-[555px]">
-              <p className="text-gray-400">暂无礼包</p>
+              <p className="text-gray-400">{t('noPacks')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto exchange-scroll">
@@ -245,7 +247,7 @@ export default function SelectPackModal({
                       style={{ backgroundColor: hoverAddButtonId === p.id ? '#5A5E62' : '#34383C' }}
                     >
                       <span className="font-bold text-sm">
-                        {hoverAddButtonId === p.id ? 'Add Pack' : `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        {hoverAddButtonId === p.id ? t('addPack') : `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </button>
                   </div>
@@ -296,12 +298,12 @@ export default function SelectPackModal({
         </div>
         <div className="flex font-semibold gap-2 px-6 border-t h-14 items-center justify-end" style={{ borderColor: '#34383C' }}>
           <div className="flex gap-2">
-            <span style={{ color: '#7A8084' }}>已选礼包:</span>
+            <span style={{ color: '#7A8084' }}>{t('selectedPacksLabel')}:</span>
             <span style={{ color: '#FFFFFF' }}>{selectedCount}</span>
           </div>
           <span style={{ color: '#7A8084' }}>|</span>
           <div className="flex gap-2">
-            <span style={{ color: '#7A8084' }}>总金额:</span>
+            <span style={{ color: '#7A8084' }}>{t('totalAmountLabel')}:</span>
             <span style={{ color: '#FFFFFF' }}>${selectedTotal.toFixed(2)}</span>
           </div>
         </div>

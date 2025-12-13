@@ -1,6 +1,7 @@
 'use client';
 
 import type { PackItem } from '../types';
+import { useI18n } from '../../components/I18nProvider';
 
 interface PackDetailModalProps {
   pack: PackItem;
@@ -8,6 +9,7 @@ interface PackDetailModalProps {
 }
 
 export default function PackDetailModal({ pack, onClose }: PackDetailModalProps) {
+  const { t } = useI18n();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -46,11 +48,13 @@ export default function PackDetailModal({ pack, onClose }: PackDetailModalProps)
           <div>
             <p className="font-black text-base sm:text-lg text-white">{pack.value}</p>
             {pack.openedBy && (
-              <p className="text-xs sm:text-sm" style={{ color: '#7A8084' }}>开启者: {pack.openedBy}</p>
+              <p className="text-xs sm:text-sm" style={{ color: '#7A8084' }}>
+                {t('packOpenedBy')}: {pack.openedBy}
+              </p>
             )}
           </div>
           <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-          <p className="text-sm" style={{ color: '#7A8084' }}>礼包详情将由后端提供。</p>
+          <p className="text-sm" style={{ color: '#7A8084' }}>{t('packDetailsFallback')}</p>
         </div>
         <button
           type="button"
@@ -61,7 +65,7 @@ export default function PackDetailModal({ pack, onClose }: PackDetailModalProps)
             <path d="M18 6 6 18"></path>
             <path d="m6 6 12 12"></path>
           </svg>
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('close')}</span>
         </button>
       </div>
     </div>

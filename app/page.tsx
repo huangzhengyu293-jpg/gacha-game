@@ -62,7 +62,7 @@ export default function Home() {
     return undefined;
   }, [fightMyBestRecord]);
 
-  const battleBannerTitle = bestBattleRecord ? '您的最佳对战' : '您的首次对战胜利';
+  const battleBannerTitle = t(bestBattleRecord ? 'yourBestBattle' : 'firstBattleWin');
   const battleBannerHref =
     bestBattleRecord && bestBattleRecord.id !== undefined && bestBattleRecord.id !== null
       ? `/battles/${bestBattleRecord.id}`
@@ -80,16 +80,14 @@ export default function Home() {
     const payload = boxMyRecentData as any;
     if (payload && typeof payload === 'object' && payload.code === 100000) {
       const data = payload.data;
-      console.log(data);
       if (data) {
         return normalize(data);
       }
     }
     return undefined;
   }, [boxMyRecentData]);
-console.log(bestPackRecord);
 
-  const packBannerTitle = bestPackRecord ? '您的最佳礼包' : '开启您的第一个礼包！';
+  const packBannerTitle = t(bestPackRecord ? 'yourBestPack' : 'openFirstPack');
   const packBannerHref =
     bestPackRecord && bestPackRecord.id !== undefined && bestPackRecord.id !== null
       ? `/packs/${bestPackRecord.id}`
@@ -210,7 +208,7 @@ console.log(bestPackRecord);
                     {boxMyRecentData && <PackRecordBanner record={bestPackRecord} />}
                   </Banner>
                   <Banner
-                    title="您的最佳交易"
+                    title={t('yourBestDeal')}
                     icon={
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7.5 3.06729C4.23742 4.71411 2 8.09576 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 8.09576 19.7626 4.71411 16.5 3.06729" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"></path>

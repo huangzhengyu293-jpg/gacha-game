@@ -10,8 +10,8 @@ export default function RewardsPage() {
   const { t } = useI18n();
   const { isAuthenticated, user, fetchUserBean } = useAuth();
   const queryClient = useQueryClient();
-  const [weekCountdown, setWeekCountdown] = useState('');
-  const [monthCountdown, setMonthCountdown] = useState('');
+  const [weekCountdown, setWeekCountdown] = useState(t('calculating'));
+  const [monthCountdown, setMonthCountdown] = useState(t('calculating'));
   const [isWeekRestDay, setIsWeekRestDay] = useState(false);
   const [isMonthRestDay, setIsMonthRestDay] = useState(false);
   const disableTextColor = '#2b6cb0';
@@ -125,16 +125,16 @@ export default function RewardsPage() {
     isRestDay: boolean,
   ) => {
     if (!isAuthenticated) {
-      return { label: '登录以领取', disabled: false, onClick: showLoginDialog };
+      return { label: t('loginToClaim'), disabled: false, onClick: showLoginDialog };
     }
     if (status === 0) {
       const isClaiming = claimingType === type;
-      return { label: isClaiming ? '领取中...' : '领取奖励', disabled: isClaiming, onClick: () => handleClaim(type) };
+      return { label: isClaiming ? t('claiming') : t('claimReward'), disabled: isClaiming, onClick: () => handleClaim(type) };
     }
     if (needCountdown && !isRestDay && countdown) {
       return { label: countdown, disabled: true };
     }
-    return { label: '没有可领取的内容', disabled: true };
+    return { label: t('nothingToClaim'), disabled: true };
   };
 
   const dayBtn = buildButtonState(dayStatus, '', false, 1, false);
@@ -205,8 +205,8 @@ export default function RewardsPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-center w-full gap-2">
-                        <p className="text-base text-white text-center font-extrabold leading-tight">每日奖励</p>
-                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您昨天游戏的奖励！</p>
+                      <p className="text-base text-white text-center font-extrabold leading-tight">{t('dailyRewardTitle')}</p>
+                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>{t('dailyRewardDesc')}</p>
                       </div>
                       {renderButton(dayBtn)}
                     </div>
@@ -225,8 +225,8 @@ export default function RewardsPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-center w-full gap-2">
-                        <p className="text-base text-white text-center font-extrabold leading-tight">每周奖励</p>
-                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您过去 7 天游戏的奖励！</p>
+                      <p className="text-base text-white text-center font-extrabold leading-tight">{t('weeklyRewardTitle')}</p>
+                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>{t('weeklyRewardDesc')}</p>
                       </div>
                       {renderButton(weekBtn)}
                     </div>
@@ -246,8 +246,8 @@ export default function RewardsPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-center w-full gap-2">
-                        <p className="text-base text-white text-center font-extrabold leading-tight">每月奖励</p>
-                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>领取您过去 30 天游戏的奖励！</p>
+                      <p className="text-base text-white text-center font-extrabold leading-tight">{t('monthlyRewardTitle')}</p>
+                        <p className="text-base text-center font-semibold leading-tight" style={{ color: '#7a8084' }}>{t('monthlyRewardDesc')}</p>
                       </div>
                       {renderButton(monthBtn)}
                     </div>
@@ -294,15 +294,15 @@ export default function RewardsPage() {
                     </div>
                   </div>
                   <div className="flex flex-col w-full">
-                    <p className="text-base font-extrabold text-white mb-3 leading-none break-words">Welcome, {profileName}</p>
+                  <p className="text-base font-extrabold text-white mb-3 leading-none break-words">{t('welcomeUser').replace('{name}', profileName)}</p>
                     <div className="w-full border p-0.5 rounded-full h-4" style={{ borderColor: '#2F3337' }}>
                       <div className="relative overflow-hidden rounded-full w-full h-full" style={{ backgroundColor: '#22272b' }}>
                         <div className="h-full flex-1 transition-all" style={{ width: `${profileProgressNumber}%`, backgroundColor: '#4199e1' }}></div>
                       </div>
                     </div>
                     <div className="flex justify-between mt-2">
-                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>Level {profileLevel}</p>
-                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{profileProgressLabel}</p>
+                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{t('levelLabel').replace('{level}', String(profileLevel))}</p>
+                      <p className="uppercase font-bold text-xs md:text-sm" style={{ color: '#7a8084' }}>{t('progressLabel').replace('{progress}', profileProgressLabel)}</p>
                     </div>
                   </div>
                 </div>
@@ -315,7 +315,7 @@ export default function RewardsPage() {
                       <path d="M8.08771 19.0127C7.98916 19.5993 8.54002 20.1807 9.3181 20.3115L16.3622 21.495C17.1403 21.6257 17.8509 21.2562 17.9495 20.6697L19.9123 8.98725C20.0109 8.4007 19.46 7.81924 18.6819 7.68851L15.1599 7.09675" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
                     </svg>
                   </div>
-                  Free Packs
+                  {t('freePacks')}
                 </h2>
                 <div className="grid grid-cols-2 xxs:grid-cols-3 xs:grid-cols-4 md:grid-cols-5 gap-4">
                   {Array.isArray(boxListData?.data) && boxListData.data.length > 0 ? (
@@ -347,7 +347,7 @@ export default function RewardsPage() {
                                       <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
                                     </svg>
                                   </div>
-                                  <p className="text-base text-white font-extrabold truncate max-w-[160px]">{name || 'Free Pack'}</p>
+                                  <p className="text-base text-white font-extrabold truncate max-w-[160px]">{name || t('freePackFallback')}</p>
                                 </div>
                               </div>
                             </div>
@@ -356,7 +356,7 @@ export default function RewardsPage() {
                       );
                     })
                   ) : (
-                    <div className="col-span-full text-center text-sm text-gray-400 py-6">暂无数据</div>
+                    <div className="col-span-full text-center text-sm text-gray-400 py-6">{t('noData')}</div>
                   )}
                 </div>
               </div>

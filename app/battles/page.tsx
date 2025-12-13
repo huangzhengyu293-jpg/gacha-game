@@ -35,8 +35,8 @@ export default function BattlesPage() {
               value={sortValue}
               onChange={(v) => setSortValue((v as 'priceDesc' | 'latest'))}
               options={[
-                { label: '价格：从高到低', value: 'priceDesc' },
-                { label: '最新', value: 'latest' },
+                { label: t('battleSortPriceDesc'), value: 'priceDesc' },
+                { label: t('battleSortLatest'), value: 'latest' },
               ]}
             />
             <button
@@ -50,7 +50,7 @@ export default function BattlesPage() {
                 <div className="size-5">
                   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.2222 16.8889L3.99998 6.66667V4H6.66665L16.8889 14.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12.8889 18.2222L18.2223 12.8889" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M15.5557 15.5555L19.1113 19.1111" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M18.2223 20L20 18.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M14.2223 7.11112L17.3334 4H20V6.66667L16.8889 9.77779" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M5.77771 13.7777L9.33328 17.3333" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M7.55558 16.4445L4.88891 19.1112" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M3.99998 18.2222L5.77776 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path></svg>
                 </div>
-                <p className="font-bold">创建对战</p>
+                <p className="font-bold">{t('createBattle')}</p>
               </div>
             </button>
           </div>
@@ -58,7 +58,7 @@ export default function BattlesPage() {
             <div data-state="open" className="fixed px-4 inset-0 z-50 overflow-y-auto flex justify-center items-start py-16" style={{ pointerEvents: 'auto', backgroundColor: 'rgba(0, 0, 0, 0.48)' }} onClick={() => setCreateOpen(false)}>
               <div role="dialog" aria-modal="true" data-state="open" className="overflow-hidden z-50 grid w-full gap-4 p-6 shadow-lg duration-200 rounded-lg relative max-w-xl mt-20 pt-14 pb-4 md:p-20 px-4 md:px-16" tabIndex={-1} style={{ pointerEvents: 'auto', backgroundColor: '#161A1D' }} onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}></h2>
-                <p className="text-xl font-semibold text-center" style={{ color: '#FFFFFF' }}>选择游戏类型</p>
+                <p className="text-xl font-semibold text-center" style={{ color: '#FFFFFF' }}>{t('chooseBattleType')}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     className="text-card-foreground shadow-sm p-4 md:py-8 flex flex-col items-center justify-center gap-2 rounded-2xl cursor-pointer"
@@ -70,7 +70,7 @@ export default function BattlesPage() {
                     <div className="size-6" style={{ color: '#60A5FA' }}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.2222 16.8889L3.99998 6.66667V4H6.66665L16.8889 14.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12.8889 18.2222L18.2223 12.8889" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M15.5557 15.5555L19.1113 19.1111" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M18.2223 20L20 18.2222" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M14.2223 7.11112L17.3334 4H20V6.66667L16.8889 9.77779" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M5.77771 13.7777L9.33328 17.3333" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M7.55558 16.4445L4.88891 19.1112" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path><path d="M3.99998 18.2222L5.77776 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path></svg>
                     </div>
-                    <p className="font-semibold cursor-default" style={{ color: '#FFFFFF' }}>单人对战</p>
+                    <p className="font-semibold cursor-default" style={{ color: '#FFFFFF' }}>{t('soloBattle')}</p>
                   </button>
                   <button
                     className="text-card-foreground shadow-sm p-4 md:py-8 flex flex-col items-center justify-center gap-2 rounded-2xl cursor-pointer"
@@ -86,7 +86,7 @@ export default function BattlesPage() {
                       </div>
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     </div>
-                    <p className="font-semibold cursor-default" style={{ color: '#FFFFFF' }}>团队对战</p>
+                    <p className="font-semibold cursor-default" style={{ color: '#FFFFFF' }}>{t('teamBattle')}</p>
                   </button>
                 </div>
                 <button

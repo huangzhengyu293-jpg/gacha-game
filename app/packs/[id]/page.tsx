@@ -8,6 +8,7 @@ import ActionBarClient from './ActionBarClient';
 import PackMediaStrip from './PackMediaStrip';
 import HorizontalSlotMachineClient from './HorizontalSlotMachineClient';
 import { LogoIcon } from '../../components/icons/Logo';
+import { useI18n } from '../../components/I18nProvider';
 
 // 统一的数据映射函数
 function mapBoxDetailToPackData(rawPack: any) {
@@ -41,6 +42,7 @@ function mapBoxDetailToPackData(rawPack: any) {
 export default function PackDetailPage() {
   const params = useParams();
   const primaryPackId = params.id as string;
+  const { t } = useI18n();
 
   // 管理选中的卡包列表（最多6个，第一个是主卡包）
   const [slotPackIds, setSlotPackIds] = useState<string[]>([primaryPackId]);
@@ -89,7 +91,7 @@ export default function PackDetailPage() {
   if (primaryLoading) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>加载中...</span>
+        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>{t('loading')}</span>
       </div>
     );
   }
@@ -104,7 +106,7 @@ export default function PackDetailPage() {
             <div className="size-5">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none"><path d="M8 3L3 8L8 13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path><path d="M13 8L3 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path></svg>
             </div>
-            <p className="text-sm text-white font-bold ml-2">返回包裹</p>
+            <p className="text-sm text-white font-bold ml-2">{t('backToPacks')}</p>
           </a>
           <div className="flex justify-center items-center gap-1">
             <LogoIcon width={20} height={20} className="mr-1 w-5 h-5" color="#FFFFFF" aria-hidden />

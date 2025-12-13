@@ -1,5 +1,8 @@
 'use client';
 
+import type React from "react";
+import { useI18n } from "./I18nProvider";
+
 interface SectionHeaderProps {
   title: string;
   icon: React.ReactNode;
@@ -12,9 +15,11 @@ export default function SectionHeader({
   title, 
   icon, 
   onViewAll, 
-  viewAllText = "查看全部",
+  viewAllText,
   className = "" 
 }: SectionHeaderProps) {
+  const { t } = useI18n();
+  const resolvedViewAll = viewAllText ?? t("viewAll");
   return (
     <div className={`flex flex-row justify-between items-center gap-2 ${className}`}>
       <div className="flex flex-row items-center gap-2">
@@ -32,7 +37,7 @@ export default function SectionHeader({
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
           onClick={onViewAll}
         >
-          {viewAllText}
+          {resolvedViewAll}
         </button>
       )}
     </div>

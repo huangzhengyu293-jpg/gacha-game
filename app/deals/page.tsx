@@ -5,6 +5,7 @@ import DealsSearchToolbar from "../components/DealsSearchToolbar";
 import DealsProductGridSection, { ProductItem } from "../components/DealsProductGridSection";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useI18n } from "../components/I18nProvider";
 
 export interface SearchFilters {
   name: string;
@@ -14,6 +15,7 @@ export interface SearchFilters {
 }
 
 function DealsPageInner() {
+  const { t } = useI18n();
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
   const [preselectSteamId, setPreselectSteamId] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({
@@ -98,8 +100,9 @@ function DealsPageInner() {
 }
 
 export default function DealsPage() {
+  const { t } = useI18n();
   return (
-    <Suspense fallback={<div className="w-full max-w-[1280px] px-4 py-8 text-center text-white">加载中...</div>}>
+    <Suspense fallback={<div className="w-full max-w-[1280px] px-4 py-8 text-center text-white">{t('loading')}</div>}>
       <DealsPageInner />
     </Suspense>
   );

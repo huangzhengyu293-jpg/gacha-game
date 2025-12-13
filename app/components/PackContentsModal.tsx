@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { type CatalogItem, type DisplayProduct, toDisplayProductFromCatalog, getQualityFromLv } from '../lib/catalogV2';
 import ProductCard from '../packs/[id]/ProductCard';
+import { useI18n } from './I18nProvider';
 
 interface PackContentsModalProps {
   open: boolean;
@@ -32,6 +33,7 @@ function mapAwardsToCatalog(awards: any[]): CatalogItem[] {
 }
 
 export default function PackContentsModal({ open, onClose, packId }: PackContentsModalProps) {
+  const { t } = useI18n();
   const { data, isLoading } = useQuery({
     queryKey: ['pack-contents-modal', packId, open],
     enabled: open && !!packId,
@@ -41,7 +43,6 @@ export default function PackContentsModal({ open, onClose, packId }: PackContent
     },
     staleTime: 30_000,
   });
-  console.log(data);
   
 
   const modalData = useMemo(() => {
@@ -55,8 +56,6 @@ export default function PackContentsModal({ open, onClose, packId }: PackContent
       items,
     };
   }, [data]);
-console.log(modalData);
-console.log(data);
 
 
   if (!open) return null;
@@ -70,7 +69,7 @@ console.log(data);
       `}</style>
       <div role="dialog" data-state="open" className="overflow-hidden z-50 grid w-full gap-4 p-6 shadow-lg rounded-lg relative max-w-4xl" data-component="PackContentsModal" tabIndex={-1} style={{ pointerEvents: 'auto', animation: 'modalZoomIn 180ms ease', backgroundColor: '#161A1D' }} onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-col gap-1.5 text-center sm:text-left">
-          <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{modalData?.title || '礼包内容'}</h2>
+          <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{modalData?.title || t('packContents')}</h2>
         </div>
         {isLoading || !modalData ? (
           <div className="flex items-center justify-center w-full py-10">
@@ -78,7 +77,7 @@ console.log(data);
               className="text-base font-semibold"
               style={{ color: '#FFFFFF', fontFamily: 'Urbanist, sans-serif' }}
             >
-              加载中...
+              {t('loading')}
             </p>
           </div>
         ) : (
@@ -90,7 +89,7 @@ console.log(data);
         )}
         <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#7A8084' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('close')}</span>
         </button>
       </div>
     </div>

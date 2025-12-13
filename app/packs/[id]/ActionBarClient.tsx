@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../components/I18nProvider';
 
 interface PackData {
   id: string;
@@ -19,6 +20,7 @@ export default function ActionBarClient({
   allPacksData: Record<string, PackData>; 
   slotPackIds: string[] 
 }) {
+  const { t } = useI18n();
   const { fetchUserBean } = useAuth();
   const [quantity, setQuantity] = useState<number>(1);
   const [hoverMinus, setHoverMinus] = useState<boolean>(false);
@@ -158,7 +160,7 @@ export default function ActionBarClient({
             cursor: isSlotMachineSpinning ? 'not-allowed' : 'pointer',
           }}
         >
-          开启 {quantity} 次价格 {totalLabel}
+          {t('openTimesPrice').replace('{count}', String(quantity)).replace('{price}', totalLabel)}
         </button>
       </div>
       {/* Right side extra buttons */}
@@ -237,7 +239,7 @@ export default function ActionBarClient({
                 <path d="M17 3V6.75H13.25" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"></path>
               </svg>
             </div>
-            <span className="hidden md:flex">演示转动</span>
+            <span className="hidden md:flex">{t('demoSpin')}</span>
           </button>
           <button
             type="button"

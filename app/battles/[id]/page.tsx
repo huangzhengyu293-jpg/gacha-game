@@ -19,6 +19,7 @@ import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } f
 import { api, type CreateBattlePayload } from '@/app/lib/api';
 import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
+import { useI18n } from '../../components/I18nProvider';
 import type { FightDetailRaw } from '@/types/fight';
 import type {
   BackendBattlePayload,
@@ -949,6 +950,7 @@ export default function BattleDetailPage() {
   const params = useParams<{ id?: string }>();
   const routeBattleId = params?.id ?? null;
   const { user } = useAuth();
+  const { t } = useI18n();
   const currentUserId = user?.userInfo?.id ?? user?.id ?? null;
   const normalizedCurrentUserId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
   const previousStatusRef = useRef<number | null>(null);
@@ -1092,7 +1094,7 @@ export default function BattleDetailPage() {
     [canJoinBattle, normalizedBattleId, normalizedCurrentUserId, refetch],
   );
   const pendingSlotActionHandler = canSummonRobots ? handleSummonRobot : canJoinBattle ? handleJoinBattle : undefined;
-  const pendingSlotActionLabel = canSummonRobots ? '召唤机器人' : canJoinBattle ? '加入对战' : undefined;
+  const pendingSlotActionLabel = canSummonRobots ? t('summonBot') : canJoinBattle ? t('joinBattle') : undefined;
 
   if (!routeBattleId) {
     return null;
@@ -1105,7 +1107,7 @@ export default function BattleDetailPage() {
   if ((isLoading && !fightDetailResponse) || !rawDetail || !activeSource || !battleData) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>加载中...</span>
+        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>{t('loading')}</span>
       </div>
     );
   }
@@ -1141,6 +1143,7 @@ function BattleDetailContent({
   pendingSlotActionLabel?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
 
   useEffect(() => {
     // no-op placeholder to keep consistent effect lifecycle if future side effects are needed
@@ -1284,6 +1287,22 @@ useEffect(() => {
   
   // 🎮 游戏模式
   const gameMode = battleData.mode;
+  const gameModeLabel = useMemo(() => {
+    switch (gameMode) {
+      case 'classic':
+        return t('battleModeClassic');
+      case 'share':
+        return t('battleModeShare');
+      case 'sprint':
+        return t('battleModeSprint');
+      case 'jackpot':
+        return t('battleModeJackpot');
+      case 'elimination':
+        return t('battleModeElimination');
+      default:
+        return t('battleModeClassic');
+    }
+  }, [gameMode, t]);
   const shareWinnerIds = useMemo(
     () =>
       (battleData.participants ?? [])
@@ -1529,7 +1548,7 @@ useEffect(() => {
         return {
           id: entityId,
           score,
-          label: participant?.name || '未知玩家',
+          label: participant?.name || t('unknownPlayer'),
           avatars: participant ? [participant] : [],
           subtitle: participant?.teamId ? teamLabelMap.get(participant.teamId) || participant.teamId : undefined,
         };
@@ -3641,7 +3660,7 @@ useEffect(() => {
           const prize = perRound[participant.id];
           return {
             玩家: participant.name,
-            道具: prize?.name ?? '尚未揭晓',
+            道具: prize?.name ?? t('notRevealed'),
             金额: prize ? `¥${Number(prize.price ?? 0).toFixed(2)}` : '—',
           };
         });
@@ -3847,10 +3866,10 @@ useEffect(() => {
 
   const headerStatusText =
     prepareDelay
-      ? '准备区块中'
+      ? t('preparingBlocks')
       : Number(rawDetail?.status ?? 0) === 1
-        ? '准备中'
-        : '等待玩家';
+        ? t('preparing')
+        : t('waitingPlayers');
 
   return (
     <div className="flex flex-col flex-1 items-stretch relative">
@@ -3860,6 +3879,8 @@ useEffect(() => {
             packImages={packImages}
             highlightedIndices={highlightedIndices}
           statusText={headerStatusText}
+          awardName={gameModeLabel}
+          modeLabel={gameModeLabel}
             totalCost={battleData.cost}
           isCountingDown={countdownValue !== null && countdownValue > 0}
           isPlaying={showSlotMachines && !allRoundsCompleted}
@@ -4019,7 +4040,9 @@ useEffect(() => {
                     onClick={handleRecreateBattle}
                   >
                     <p className="text-base font-bold" style={{ color: '#ffffff' }}>
-                      {isRecreatingBattle ? '创建中...' : `用 ${battleData.cost} 重新创建此对战`}
+                      {isRecreatingBattle
+                        ? t('creatingBattle')
+                        : t('recreateBattleFor').replace('{price}', battleData.cost)}
                     </p>
                   </button>
                   <div className="flex gap-3">
@@ -4100,7 +4123,7 @@ useEffect(() => {
                         router.replace('/create-battle?type=solo&playersInSolo=2&gameMode=classic&fastBattle=false');
                       }}
                     >
-                      <p className="text-base font-bold" style={{ color: '#ffffff' }}>创建新对战</p>
+                      <p className="text-base font-bold" style={{ color: '#ffffff' }}>{t('createNewBattle')}</p>
                     </button>
                     <button 
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
