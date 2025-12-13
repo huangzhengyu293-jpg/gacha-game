@@ -89,7 +89,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/open',
   '/api/box/userrecord',
   '/api/box/myBestRecord',
-  '/api/box/cash',
+  '/api/user/cash',
   '/api/user/bean',
   '/api/user/storage',
   '/api/user/rebate',
@@ -651,7 +651,7 @@ export const api = {
       formData.append(`ids[${index}]`, String(id));
     });
 
-    const result = await request<ApiResponse>('/api/box/cash', {
+    const result = await request<ApiResponse>('/api/user/cash', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

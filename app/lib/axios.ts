@@ -16,7 +16,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/favorite',
   '/api/box/open',
   '/api/box/userrecord',
-  '/api/box/cash',
+  '/api/user/cash',
   '/api/user/bean',
   '/api/user/storage',
   '/api/auth/userinfo',
