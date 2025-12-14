@@ -1075,7 +1075,10 @@ export default function BattleDetailPage() {
     async (order: number) => {
       if (!canSummonRobots) return;
       try {
-        await api.inviteRobots({ id: normalizedBattleId, order });
+        const res = await api.inviteRobots({ id: normalizedBattleId, order });
+        if (res?.code !== 100000) {
+          throw new Error(res?.message || 'inviteRobots failed');
+        }
         await refetch();
       } catch (err) {
         console.error('inviteRobots failed', err);
@@ -1094,7 +1097,10 @@ export default function BattleDetailPage() {
         return;
       }
       try {
-        await api.joinFight({ id: normalizedBattleId, order, user_id: normalizedCurrentUserId, debug: 1 });
+        const res = await api.joinFight({ id: normalizedBattleId, order, user_id: normalizedCurrentUserId, debug: 1 });
+        if (res?.code !== 100000) {
+          throw new Error(res?.message || 'joinFight failed');
+        }
         await refetch();
       } catch (err) {
         console.error('joinFight failed', err);

@@ -135,7 +135,7 @@ function formatCurrency(num: number) {
 }
 
 export default function DrawExtraComponent() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, fetchUserBean } = useAuth();
   const isAuthed = isAuthenticated;
   const { t } = useI18n();
   const userAvatar = useMemo(() => {
@@ -828,12 +828,17 @@ export default function DrawExtraComponent() {
     setCardServerStatus(Array(9).fill(0));
   }, []);
 
+  const hasRefreshedBalanceRef = useRef(false);
   const drawStartMutation = useMutation({
     mutationFn: async (payload: { type: string; money: string }) => {
       return api.drawGo(payload);
     },
-    onSuccess: (response: ApiResponse<DrawGoResponse>) => {
+    onSuccess: async (response: ApiResponse<DrawGoResponse>) => {
       if (response?.code === 100000 && Array.isArray(response.data?.card)) {
+        if (!hasRefreshedBalanceRef.current) {
+          hasRefreshedBalanceRef.current = true;
+          fetchUserBean?.().catch(() => {});
+        }
         if (response.data?.id !== undefined && response.data.id !== null) {
           setDrawSessionId(String(response.data.id));
         }
@@ -841,7 +846,7 @@ export default function DrawExtraComponent() {
         const statusArr = Array(9).fill(0);
         response.data.card.forEach((card: CardServerPayload) => {
           const idx = Math.min(8, Math.max(0, Number(card.num ?? 0) - 1));
-        map[idx] = mapCardToDisplay(card);
+          map[idx] = mapCardToDisplay(card);
           statusArr[idx] = Number(card.status) || 1;
         });
         setServerCardMap(map);
@@ -1464,7 +1469,7 @@ export default function DrawExtraComponent() {
                                     loading="lazy"
                                     decoding="async"
                                     className="pointer-events-none" 
-                                    src={prod.image}
+                                    src={prod.image || undefined}
                                     style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
                                   />
                                 </div>

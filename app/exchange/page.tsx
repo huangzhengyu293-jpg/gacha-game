@@ -454,13 +454,14 @@ export default function ExchangePage() {
   };
   const [yourSearch, setYourSearch] = useState('');
   const [receiveSearch, setReceiveSearch] = useState('');
-  const [yourSort, setYourSort] = useState<SortOrder>('asc');
-  const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
+const [yourSort, setYourSort] = useState<SortOrder>('asc');
+const [yourSortApplied, setYourSortApplied] = useState(false);
+const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
   const [selectedYour, setSelectedYour] = useState<Set<string>>(new Set());
   const [selectedReceive, setSelectedReceive] = useState<Set<string>>(new Set());
 
   const { isAuthenticated } = useAuth();
-  const { cartItems, isLoading: cartLoading } = useCart(yourSort);
+  const { cartItems, isLoading: cartLoading } = useCart(yourSortApplied ? yourSort : undefined);
 
   const { data: shopResponse, isLoading: shopLoading } = useQuery({
     queryKey: ['shop-list'],
@@ -616,7 +617,10 @@ export default function ExchangePage() {
           search={yourSearch}
           onSearchChange={setYourSearch}
           sortOrder={yourSort}
-          onToggleSort={() => setYourSort((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+          onToggleSort={() => {
+            setYourSortApplied(true);
+            setYourSort((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+          }}
           items={yourItems}
           selectedIds={selectedYour}
           onToggleSelect={toggleYourSelect}
@@ -762,7 +766,10 @@ export default function ExchangePage() {
                   search={yourSearch}
                   onSearchChange={setYourSearch}
                   sortOrder={yourSort}
-                  onToggleSort={() => setYourSort((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  onToggleSort={() => {
+                    setYourSortApplied(true);
+                    setYourSort((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                  }}
                   items={yourItems}
                   selectedIds={selectedYour}
                   onToggleSelect={toggleYourSelect}
@@ -816,7 +823,7 @@ export default function ExchangePage() {
           )}
         </div>
 
-        <div className="sticky bottom-0 left-0 right-0 z-50 mt-3 px-4 pb-4" style={{ backgroundColor: '#1d2125' }}>
+        <div className="sticky bottom-0 left-0 right-0 z-10 mt-3 px-4 pb-4" style={{ backgroundColor: '#1d2125' }}>
           <div className="flex items-center justify-center h-16 rounded-lg mb-2" style={{ backgroundColor: '#161a1d' }}>
             <p className="font-semibold text-sm text-center space-x-2" style={{ color: '#7A8084' }}>
               <span>{exchangeLabel}</span>

@@ -111,6 +111,7 @@ export default function Navbar() {
     logout: authLogout,
     sendVerificationEmail,
     activateAccount,
+    fetchUserBean,
   } = useAuth();
 
 
@@ -545,6 +546,7 @@ export default function Navbar() {
           title: t("submitSuccessTitle"),
           description: res?.message || t("actionSuccess"),
         });
+        fetchUserBean().catch(() => {});
         setShowWalletModal(false);
         setCdkValue('');
       } else {

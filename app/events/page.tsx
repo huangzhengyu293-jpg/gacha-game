@@ -63,6 +63,7 @@ export default function EventsPage() {
       : Array.isArray(consumeData?.data?.ranking_yesterday)
         ? consumeData?.data?.ranking_yesterday
         : [];
+  const rankingDaily = mapRanking(rankingYesterday);
 
   // 比赛排行榜组件（周赛/月赛共用）
   type TopThreePlayer = {
@@ -91,11 +92,11 @@ export default function EventsPage() {
     tableData,
   }: { 
     title: string; 
-    raceType: 'weekly' | 'monthly';
+    raceType: 'weekly' | 'monthly' | 'daily';
     topThree: TopThreePlayer[];
     tableData: TablePlayer[];
   }) => {
-    const prefix = raceType === 'weekly' ? 'weekly' : 'monthly';
+    const prefix = raceType === 'weekly' ? 'weekly' : raceType === 'monthly' ? 'monthly' : 'daily';
     const arrangedTopThree = topThree.length === 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
     
     return (
@@ -389,7 +390,7 @@ export default function EventsPage() {
               
               {/* 抽奖 Tab 面板 */}
               {activeTab === 'raffle' && (() => {
-                const raffleRows = Array.isArray(rankingYesterday) ? rankingYesterday : [];
+                const { topThree, tableData } = rankingDaily;
                 return (
                   <div
                     data-state="active"
@@ -400,76 +401,8 @@ export default function EventsPage() {
                     tabIndex={0}
                     className="mt-4 interactive-focus"
                   >
-              
-                
-                {/* <div className="flex flex-col rounded-lg p-4 pt-6 md:p-8 my-6" style={{ backgroundColor: '#22272B' }}>
-                  <div className="flex flex-col md:flex-row mb-4 md:mb-6 xl:mb-8 gap-2 md:gap-8">
-                    <p className="text-white font-semibold text-lg md:text-xl md:w-1/3 flex-none leading-none">{t('aboutDailyRaffleTitle')}</p>
-                    <p className="text-sm md:text-base font-semibold leading-5" style={{ color: '#7a8084' }}>
-                      {t('aboutDailyRaffleDesc')}
-                    </p>
+                    <RaceLeaderboard title={t('eventsRaffleTab')} raceType="daily" topThree={topThree} tableData={tableData} />
                   </div>
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden items-center min-h-[90px] xl:min-h-[115px] py-4 xl:py-7 px-3" style={{ backgroundColor: '#1d2125' }}>
-                      <img src="/theme/default/about-raffle.svg" alt="" className="absolute h-full w-full top-0 left-0 object-cover" style={{ left: '-50px', zIndex: 0 }} />
-                      <p className="text-base xl:text-xl font-semibold text-white w-2/3 sm:w-3/5 lg:w-3/5 text-balance leading-tight h-auto relative z-10">
-                        {t('dailyCard1')}
-                      </p>
-                    </div>
-                    <div className="flex-1 rounded-lg relative flex justify-end overflow-hidden pl-2 items-center min-h-[90px] xl:min-h-[115px]" style={{ backgroundColor: '#1d2125' }}>
-                      <img src="/theme/default/about-raffle-2.svg" alt="" className="absolute h-full object-contain object-left" style={{ width: '66.666%', left: '-20px', zIndex: 0 }} />
-                      <p className="text-base xl:text-xl font-semibold text-white text-balance leading-tight h-auto py-4 xl:py-7 pr-5 w-2/3 sm:w-3/5 lg:w-3/5 relative z-10">
-                        {t('dailyCard2')}
-                      </p>
-                    </div>
-                  </div>
-                </div> */}
-                
-                <div className="relative w-full overflow-auto">
-                  <table className="w-full caption-bottom text-sm">
-                    <thead className="[&_tr]:border-b">
-                      <tr className="border-b transition-colors data-[state=selected]:bg-gray-600">
-                        <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-[25px]" style={{ color: '#7A8185' }}>#</th>
-                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{t('raceWinners')}</th>
-                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('ticketsLabel')}</th>
-                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="[&_tr:last-child]:border-0">
-                      {raffleRows.map((row, idx) => {
-                        const user = row?.user || {};
-                        return (
-                        <tr key={row?.rank ?? `${user?.id ?? 'u'}-${idx}`} className="border-b transition-colors hover:bg-[#111417] data-[state=selected]:bg-gray-600">
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-extrabold" style={{ color: '#7A8084' }}>{idx + 1}</td>
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                            <div className="flex gap-2 items-center">
-                              <div className="overflow-hidden border rounded-full border-white" style={{ borderWidth: '1px' }}>
-                                <div className="relative rounded-full overflow-hidden" style={{ width: 24, height: 24 }}>
-                                  {user?.avatar ? (
-                                    <img alt="" src={user.avatar} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', color: 'transparent' }} />
-                                  ) : (
-                                    <svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-                                      <rect width="36" height="36" fill="#333333"></rect>
-                                    </svg>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="relative flex w-full h-9 flex-1">
-                                <div className="absolute flex inset-0 items-center">
-                                  <p className="text-white font-extrabold text-ellipsis overflow-hidden whitespace-nowrap">{user?.name || '--'}</p>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-white font-extrabold">{row?.tickets ? row.tickets : '--'}</td>
-                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-right font-extrabold" style={{ color: '#68d391' }}>{row?.prize || '--'}</td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
                 );
               })()}
 

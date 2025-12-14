@@ -74,7 +74,7 @@ export function useCart(priceSort?: 'asc' | 'desc') {
     isLoading,
     error,
     refetch,
-    count: cartItems.length,
+    count: data?.data?.total ?? 0,
   };
 }
 

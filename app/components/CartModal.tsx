@@ -1058,21 +1058,19 @@ function CartItemCard({
   isBuying?: boolean;
 }) {
   const { t } = useI18n();
-  const isVoucher = item.productId?.startsWith('voucher:') || item.name === 'Voucher' || item.price === 0.01;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const depthForMenu = (item.productId?.startsWith('voucher:') ? Number(item.productId.split(':').pop()) || 1 : 0);
   const sellPriceLabel = `${t('sellPricePrefix')} $${item.price.toFixed(2)}`;
-  const splitLabel = t('splitIntoTwo');
   const claimLabel = t('claimItem');
   const detailsLabel = t('itemDetails');
   const menuItems: string[] = depthForMenu >= 2
     ? [sellPriceLabel, detailsLabel]
     : depthForMenu === 1
-    ? [sellPriceLabel, splitLabel, detailsLabel]
-    : [sellPriceLabel, splitLabel, claimLabel, detailsLabel];
+    ? [sellPriceLabel,  detailsLabel]
+    : [sellPriceLabel,  claimLabel, detailsLabel];
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1137,7 +1135,6 @@ function CartItemCard({
                     className="relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (label === splitLabel) { onSplit(item); setMenuOpen(false); return; }
                       setMenuOpen(false);
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#3C4044'; (e.currentTarget as HTMLDivElement).style.color = '#FFFFFF'; }}
