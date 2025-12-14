@@ -469,11 +469,16 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         itemInfo.style.display = 'flex';
         itemInfo.style.flexDirection = 'column';
         itemInfo.style.alignItems = 'center';
-        itemInfo.style.background = 'rgba(55, 65, 81, 0.4)';
+        // 背景与纵向老虎机保持一致，避免被父级压缩
+        itemInfo.style.background = '#1D2125';
+        itemInfo.style.border = '1px solid #2A2F33';
+        itemInfo.style.boxSizing = 'border-box';
         itemInfo.style.padding = '4px 8px';
         itemInfo.style.borderRadius = '6px';
         itemInfo.style.transform = 'translateY(78px)'; // 195px * 0.4
         itemInfo.style.maxWidth = '195px';
+        itemInfo.style.minWidth = 'max-content';
+        itemInfo.style.whiteSpace = 'nowrap';
         itemInfo.style.opacity = '0';
         itemInfo.style.transition = 'opacity 0.2s';
         itemInfo.style.zIndex = '3';

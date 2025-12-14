@@ -130,19 +130,13 @@ export default function PacksGallery({
     }, 500);
   }, [currentRound, isOverflowing, packs.length, updateVisibleRange]);
 
-  const isCountdownActive = countdownValue !== null && countdownValue !== undefined && countdownValue > 0;
-  const shouldHidePacks = forceHidden || isCountdownActive || highlightAlert;
+  const isCountdownActive = countdownValue !== null && countdownValue !== undefined;
+  const shouldHidePacks = forceHidden || highlightAlert || isCountdownActive;
 
   return (
     <div className="flex self-stretch relative w-full h-full" style={{ backgroundColor: highlightAlert ? '#B91C1C' : 'transparent' }}>
       <div className="flex w-full h-full z-[1] relative justify-center items-center">
-        {shouldHidePacks ? (
-          <div className="absolute inset-0 flex justify-center items-center">
-            {isCountdownActive ? (
-              <p className="text-[200px] text-white font-bold">{countdownValue}</p>
-            ) : null}
-          </div>
-        ) : (
+        {shouldHidePacks ? null : (
           <div
             ref={scrollRef}
             className={`flex gap-8 items-center px-10 overflow-x-scroll w-full hide-scrollbar ${
@@ -205,6 +199,11 @@ export default function PacksGallery({
             })}
           </div>
         )}
+        {isCountdownActive ? (
+          <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
+            <p className="text-[200px] text-white font-bold">{countdownValue}</p>
+          </div>
+        ) : null}
        
       </div>
     </div>

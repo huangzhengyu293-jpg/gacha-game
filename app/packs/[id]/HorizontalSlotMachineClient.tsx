@@ -93,6 +93,19 @@ export default function HorizontalSlotMachineClient({
           console.error('加载basic_win音效失败:', err);
         }
       }
+
+      // 加载special_win.mp3（与对战页保持一致，用于金色占位触发音效）
+      let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
+      if (!specialWinAudioBuffer) {
+        try {
+          const response = await fetch('/special_win.mp3');
+          const arrayBuffer = await response.arrayBuffer();
+          specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
+        } catch (err) {
+          console.error('加载special_win音效失败:', err);
+        }
+      }
     };
     
     initAudio();
@@ -407,6 +420,18 @@ export default function HorizontalSlotMachineClient({
     }
   }, []);
 
+  const playSpecialWinSound = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const ctx = (window as any).__audioContext;
+    const buffer = (window as any).__specialWinAudioBuffer;
+    if (ctx && buffer) {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    }
+  }, []);
+
   const handleSpinComplete = (result: SlotSymbol, index: number) => {
     const slotSnapshot = packSlots[index];
     const packLabel = slotSnapshot ? String(slotSnapshot.packId).slice(-6) : '';
@@ -425,6 +450,7 @@ export default function HorizontalSlotMachineClient({
       console.log(`   检查是否进入第二阶段: ${shouldEnterLegendary}`);
       
       if (shouldEnterLegendary) {
+        playSpecialWinSound();
         triggeredSecondStage = true;
         nextSlots[index] = {
           ...slot,

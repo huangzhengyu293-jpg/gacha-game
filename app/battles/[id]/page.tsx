@@ -2811,6 +2811,7 @@ useEffect(() => {
       const currentStatus = Number(rawDetail?.status ?? 0);
       const totalRounds = rounds.length;
       const entryRoundSetting = activeSource.entryRound;
+      const shouldSkipPrepare = forceFullReplayRef.current;
       if (typeof window !== 'undefined') {
         console.log('[battle-entry-prepare]', {
           entryRoundSetting,
@@ -2823,7 +2824,7 @@ useEffect(() => {
         if (entryRoundSetting > 0) {
           startCountdownDirect();
         } else {
-          startCountdownWithPrepare();
+          shouldSkipPrepare ? startCountdownDirect() : startCountdownWithPrepare();
         }
         return;
       }
@@ -2892,6 +2893,7 @@ useEffect(() => {
     const currentStatus = Number(rawDetail?.status ?? 0);
     const totalRounds = runtime.config.roundsTotal;
     const entryRoundSetting = activeSource.entryRound;
+    const shouldSkipPrepare = forceFullReplayRef.current;
     if (typeof window !== 'undefined') {
       console.log('[battle-entry-runtime]', {
         entryRoundSetting,
@@ -2904,7 +2906,7 @@ useEffect(() => {
       if (entryRoundSetting > 0) {
         startCountdownDirect();
       } else {
-        startCountdownWithPrepare();
+        shouldSkipPrepare ? startCountdownDirect() : startCountdownWithPrepare();
       }
       return;
     }
@@ -3913,6 +3915,9 @@ useEffect(() => {
       : Number(rawDetail?.status ?? 0) === 1
         ? t('preparing')
         : t('waitingPlayers');
+  const shouldShowGallery =
+    !showSlotMachines &&
+    (mainState === 'IDLE' || mainState === 'LOADING' || mainState === 'COUNTDOWN');
 
   return (
     <div className="flex flex-col flex-1 items-stretch relative">
@@ -4143,7 +4148,7 @@ useEffect(() => {
                         // 🎯 重置COMPLETED状态的防重复标记
                         completedWinnerSetRef.current = false;
                         
-                        startCountdownWithPrepare();
+                        startCountdownDirect();
                         dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });
                         dispatchProgressState({ type: 'RESET_SLOT_KEY_SUFFIX' });
                         dispatchProgressState({ type: 'RESET_SPIN_STATE' });
@@ -4259,11 +4264,11 @@ useEffect(() => {
             )}
             <p className="text-xs tracking-[0.3em] uppercase text-white/60">Jackpot roll</p>
           </div>
-        ) : !showSlotMachines ? (
+        ) : shouldShowGallery ? (
           <div ref={galleryRef} className="w-full h-full flex">
             <PacksGallery
               packs={battleData.packs}
-              countdownValue={countdownValue}
+              countdownValue={mainState === 'COUNTDOWN' ? countdownValue : null}
               highlightAlert={galleryAlert}
               forceHidden={hidePacks}
               currentRound={currentRound}
