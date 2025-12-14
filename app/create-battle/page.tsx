@@ -71,9 +71,10 @@ interface SortablePackItemProps {
   pack: CatalogPack;
   onRemove: () => void;
   uniqueId: string; // 添加唯一 ID
+  highlightLastChance?: boolean;
 }
 
-function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
+function SortablePackItem({ pack, onRemove, uniqueId, highlightLastChance }: SortablePackItemProps) {
   const { t } = useI18n();
   const {
     attributes,
@@ -115,6 +116,29 @@ function SortablePackItem({ pack, onRemove, uniqueId }: SortablePackItemProps) {
           sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
           unoptimized
         />
+        {highlightLastChance && (
+          <div className="flex justify-start items-start absolute inset-0 border-2 border-red-400 rounded-lg pointer-events-none">
+            <div className="flex m-1.5 justify-center items-center rounded size-6" style={{ backgroundColor: '#34383C' }}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-skull text-red-400 size-4"
+              >
+                <path d="m12.5 17-.5-1-.5 1h1z"></path>
+                <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+                <circle cx="15" cy="12" r="1"></circle>
+                <circle cx="9" cy="12" r="1"></circle>
+              </svg>
+            </div>
+          </div>
+        )}
       </div>
       <button
         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative font-bold select-none h-10 px-6 text-white text-sm cursor-pointer"
@@ -219,6 +243,7 @@ function CreateBattleContent() {
   const [optInverted, setOptInverted] = useState<boolean>(false);
 
   const replaceUrl = useCallback((updates: Record<string, string | undefined>) => {
+    if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     Object.entries(updates).forEach(([k, v]) => {
       if (v === undefined || v === null || v === "") params.delete(k);
@@ -227,7 +252,10 @@ function CreateBattleContent() {
     const qs = params.toString();
     const pathname = window.location.pathname || "/create-battle";
     const url = qs ? `${pathname}?${qs}` : pathname;
-    window.history.replaceState(null, "", url);
+    // 异步更新地址，避免在渲染阶段触发 Router 更新警告
+    queueMicrotask(() => {
+      window.history.replaceState(null, "", url);
+    });
   }, []);
 
   // 初始化游戏模式和选项
@@ -1187,11 +1215,13 @@ function CreateBattleContent() {
                     </div>
                     {selectedPacks.map((pack, index) => {
                       const uniqueId = `${pack.id}-${index}`;
+                      const isLastSelected = optLastChance && index === selectedPacks.length - 1;
                       return (
                         <SortablePackItem
                           key={uniqueId}
                           uniqueId={uniqueId}
                           pack={pack}
+                          highlightLastChance={isLastSelected}
                           onRemove={() => {
                             // 找到该 pack 在 selectedPackIds 中对应位置并删除
                             setSelectedPackIds(prev => prev.filter((_, i) => i !== index));

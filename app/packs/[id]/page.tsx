@@ -49,6 +49,7 @@ export default function PackDetailPage() {
 
   // 缓存已获取的卡包数据
   const [packsDataCache, setPacksDataCache] = useState<Record<string, any>>({});
+  const [initialAssetsReady, setInitialAssetsReady] = useState(false);
 
   // 获取主卡包数据
   const { data: primaryBoxData, isLoading: primaryLoading, error: primaryError } = useQuery({
@@ -57,22 +58,77 @@ export default function PackDetailPage() {
     staleTime: 30_000,
   });
 
+  const primaryPackData = useMemo(() => {
+    if (primaryBoxData?.code === 100000 && primaryBoxData.data) {
+      return mapBoxDetailToPackData(primaryBoxData.data);
+    }
+    return null;
+  }, [primaryBoxData]);
+
   // 更新主卡包到缓存
   useEffect(() => {
-    if (primaryBoxData?.code === 100000 && primaryBoxData.data) {
-      const packData = mapBoxDetailToPackData(primaryBoxData.data);
-      setPacksDataCache(prev => ({
-        ...prev,
-        [primaryPackId]: packData
-      }));
+    if (primaryPackData) {
+      setPacksDataCache(prev => {
+        if (prev[primaryPackId]) return prev;
+        return {
+          ...prev,
+          [primaryPackId]: primaryPackData
+        };
+      });
     }
-  }, [primaryBoxData, primaryPackId]);
+  }, [primaryPackData, primaryPackId]);
+
+  // 预加载主卡包相关图片，全部完成后才解除 loading
+  useEffect(() => {
+    setInitialAssetsReady(false);
+  }, [primaryPackId]);
+
+  useEffect(() => {
+    if (!primaryPackData) return;
+    let cancelled = false;
+
+    const preloadImage = (src: string) =>
+      new Promise<void>((resolve) => {
+        if (!src) return resolve();
+        if (typeof window === 'undefined') return resolve();
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = src;
+      });
+
+    const run = async () => {
+      const images = [
+        primaryPackData.image,
+        ...primaryPackData.items.map((item: any) => item.image).filter(Boolean),
+      ];
+      await Promise.all(images.map(preloadImage));
+      if (!cancelled) {
+        setInitialAssetsReady(true);
+      }
+    };
+
+    run().catch(() => {
+      if (!cancelled) setInitialAssetsReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryPackData]);
+
+  useEffect(() => {
+    if (primaryError) {
+      setInitialAssetsReady(true);
+    }
+  }, [primaryError]);
 
   // 监听 slotPackIds 变化，为新的 ID 获取数据
   useEffect(() => {
     const uniqueIds = Array.from(new Set(slotPackIds));
 
     uniqueIds.forEach(id => {
+      if (id === primaryPackId) return;
       if (!packsDataCache[id]) {
         api.getBoxDetail(id).then(response => {
           if (response.code === 100000 && response.data) {
@@ -85,10 +141,10 @@ export default function PackDetailPage() {
         }).catch(() => { });
       }
     });
-  }, [slotPackIds, packsDataCache]);
+  }, [slotPackIds, packsDataCache, primaryPackId]);
 
 
-  if (primaryLoading) {
+  if (primaryLoading || !initialAssetsReady) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
         <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>{t('loading')}</span>

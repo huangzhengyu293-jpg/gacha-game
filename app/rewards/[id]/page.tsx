@@ -113,8 +113,8 @@ export default function RewardPackDetailPage() {
 
   const btnBaseBg = '#34383C';
   const btnHoverBg = '#5A5E62';
-  const disabledBg = '#48BB78';
-  const disabledText = '#2F855A';
+  const disabledBg = '#23272B';
+  const disabledText = '#7A8185';
   const openBg = '#48BB78';
   const openHoverBg = '#38a169';
   const lockedText = '#2F855A';

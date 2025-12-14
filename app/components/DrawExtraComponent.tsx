@@ -10,6 +10,10 @@ import LoadingSpinnerIcon from './icons/LoadingSpinner';
 import { showGlobalToast } from './ToastProvider';
 import { useI18n } from './I18nProvider';
 
+const isSiteMuted = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as any).__siteMuted);
+};
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -45,39 +49,6 @@ const buildDifficultyConfig = (multipliersRaw: string[], survivalRaw: string[]):
   return { multipliers, rounds, prices };
 };
 
-// 参考产品从新的后端接口读取
-function useSourceProducts() {
-  const [items, setItems] = React.useState<Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>>([]);
-  React.useEffect(() => {
-    let aborted = false;
-    (async () => {
-      try {
-        // ✅ 使用 api.getLuckyList
-        const result = await api.getLuckyList({
-          name: '',
-          price_sort: '1',
-          price_min: '200',
-          price_max: '5888',
-        });
-        
-        if (!aborted && result.code === 100000 && result.data && Array.isArray(result.data)) {
-          setItems(result.data.map((item: any) => ({
-            id: String(item.id || Math.random()),
-            name: item.steam?.name || 'Unknown',
-            image: item.steam?.cover || '',
-            price: item.steam?.bean || 0,
-            qualityId: item.qualityId || '',
-          })));
-        }
-      } catch {
-        setItems([]);
-      }
-    })();
-    return () => { aborted = true; };
-  }, []);
-  return items;
-}
-
 type CardServerPayload = {
   id: number | string;
   num: number;
@@ -101,6 +72,12 @@ type DisplayProduct = {
   qualityId?: string;
 };
 
+const PLACEHOLDER_PRODUCT: DisplayProduct = {
+  name: '占位',
+  image: '',
+  price: 0,
+};
+
 type DrawGoResponse = {
   id?: string | number;
   card?: CardServerPayload[];
@@ -120,16 +97,6 @@ const mapCardToDisplay = (card: CardServerPayload): DisplayProduct => {
   };
 };
 
-function getRoundProductFactory(source: Array<{ id: string; name: string; image: string; price: number; qualityId?: string }>): (roundIdx: number) => DisplayProduct {
-  return (roundIdx: number) => {
-    const list = source && source.length ? source : [{ name: '占位', image: '', price: 0 }];
-    // 使用倒序：从列表末尾开始取商品
-    const reversedIdx = list.length - 1 - (roundIdx % list.length);
-    const p = list[reversedIdx] as any;
-    return p as DisplayProduct;
-  };
-}
-
 function formatCurrency(num: number) {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -145,8 +112,6 @@ export default function DrawExtraComponent() {
     }
     return null;
   }, [user]);
-  const SOURCE_PRODUCTS = useSourceProducts();
-  const getRoundProduct = React.useMemo(() => getRoundProductFactory(SOURCE_PRODUCTS), [SOURCE_PRODUCTS]);
   const queryClient = useQueryClient();
   const { data: drawConfigResponse } = useQuery({
     queryKey: ['draw-config'],
@@ -241,6 +206,7 @@ export default function DrawExtraComponent() {
   // 🎵 播放翻牌音效
   const playFlipSound = () => {
     if (typeof window === 'undefined') return;
+    if (isSiteMuted()) return;
     try {
       const ctx = (window as any).__audioContext;
       const buffer = (window as any).__flipAudioBuffer;
@@ -258,6 +224,7 @@ export default function DrawExtraComponent() {
   // 🎵 播放选择商品音效
   const playClaimSound = () => {
     if (typeof window === 'undefined') return;
+    if (isSiteMuted()) return;
     try {
       const ctx = (window as any).__audioContext;
       const buffer = (window as any).__claimAudioBuffer;
@@ -626,7 +593,7 @@ export default function DrawExtraComponent() {
       setOverlayArm(false);
       setCollectOverlayOpen(true);
     }
-  }, [canSelect, selectedLocked, cardWonRound, cardBack, frontRound, backRound, collectOverlayOpen, getRoundProduct, overlayArm]);
+  }, [canSelect, selectedLocked, cardWonRound, cardBack, frontRound, backRound, collectOverlayOpen, overlayArm]);
 
   // 展示层动画 variants（Framer Motion）
   const overlayContainerVariants = {
@@ -793,15 +760,14 @@ export default function DrawExtraComponent() {
     medium: '2',
     hard: '3',
   };
-  const getDisplayProduct = (roundIdx: number | null, cardIdx: number): DisplayProduct => {
+  const getDisplayProduct = (_roundIdx: number | null, cardIdx: number): DisplayProduct => {
     if (cardServerStatus[cardIdx] === 3) {
-      return { name: '占位', image: '', price: 0 };
+      return PLACEHOLDER_PRODUCT;
     }
     if (serverCardMap[cardIdx]) {
       return serverCardMap[cardIdx];
     }
-    const fallbackRound = Number.isFinite(roundIdx) ? Number(roundIdx) : 0;
-    return getRoundProduct(fallbackRound);
+    return PLACEHOLDER_PRODUCT;
   };
 
   const resetGameState = React.useCallback(() => {
@@ -1532,14 +1498,16 @@ export default function DrawExtraComponent() {
                                     backgroundColor: glowHex, 
                                     opacity: isLocked ? 0.4 : (isHovered ? 0.9 : 0.4)
                                   }}></div>
-                                  <img 
-                                    alt={prod.name} 
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="pointer-events-none" 
-                                    src={prod.image}
-                                    style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
-                                  />
+                                  {prod.image ? (
+                                    <img 
+                                      alt={prod.name} 
+                                      loading="lazy"
+                                      decoding="async"
+                                      className="pointer-events-none" 
+                                      src={prod.image}
+                                      style={{ position: 'absolute', height: '100%', width: '100%', inset: '0px', objectFit: 'contain', color: 'transparent', zIndex: 1 }} 
+                                    />
+                                  ) : null}
                                 </div>
                                 <div className="flex flex-col leading-tight">
                                   <p className="text-[10px] sm:text-xs truncate max-w-[60px] sm:max-w-[100px] text-center" style={{ color: '#7a8084', fontWeight: 100, fontFamily: 'Urbanist, sans-serif' }}>{prod.name}</p>

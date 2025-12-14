@@ -8,6 +8,13 @@ import HorizontalLuckySlotMachine from '@/app/components/SlotMachine/HorizontalL
 import type { SlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
 import LuckySlotMachine from '@/app/components/SlotMachine/LuckySlotMachine';
 
+const isSiteMuted = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as any).__siteMuted);
+};
+
+let audioInitPromise: Promise<void> | null = null;
+
 const GOLDEN_PLACEHOLDER_ID = 'golden_placeholder';
 
 const createGoldenPlaceholder = (placeholderImage: string): SlotSymbol => ({
@@ -61,51 +68,59 @@ export default function HorizontalSlotMachineClient({
   useEffect(() => {
     const initAudio = async () => {
       if (typeof window === 'undefined') return;
-      
-      let audioContext = (window as any).__audioContext;
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        (window as any).__audioContext = audioContext;
+      if (audioInitPromise) {
+        await audioInitPromise;
+        return;
       }
       
-      // 加载tick.mp3
-      let tickAudioBuffer = (window as any).__tickAudioBuffer;
-      if (!tickAudioBuffer) {
-        try {
-          const response = await fetch('/tick.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          tickAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__tickAudioBuffer = tickAudioBuffer;
-        } catch (err) {
-          console.error('加载tick音效失败:', err);
+      audioInitPromise = (async () => {
+        let audioContext = (window as any).__audioContext;
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          (window as any).__audioContext = audioContext;
         }
-      }
-      
-      // 加载basic_win.mp3
-      let basicWinAudioBuffer = (window as any).__basicWinAudioBuffer;
-      if (!basicWinAudioBuffer) {
-        try {
-          const response = await fetch('/basic_win.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          basicWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__basicWinAudioBuffer = basicWinAudioBuffer;
-        } catch (err) {
-          console.error('加载basic_win音效失败:', err);
+        
+        // 加载tick.mp3
+        let tickAudioBuffer = (window as any).__tickAudioBuffer;
+        if (!tickAudioBuffer) {
+          try {
+            const response = await fetch('/tick.mp3');
+            const arrayBuffer = await response.arrayBuffer();
+            tickAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            (window as any).__tickAudioBuffer = tickAudioBuffer;
+          } catch (err) {
+            console.error('加载tick音效失败:', err);
+          }
         }
-      }
+        
+        // 加载basic_win.mp3
+        let basicWinAudioBuffer = (window as any).__basicWinAudioBuffer;
+        if (!basicWinAudioBuffer) {
+          try {
+            const response = await fetch('/basic_win.mp3');
+            const arrayBuffer = await response.arrayBuffer();
+            basicWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            (window as any).__basicWinAudioBuffer = basicWinAudioBuffer;
+          } catch (err) {
+            console.error('加载basic_win音效失败:', err);
+          }
+        }
 
-      // 加载special_win.mp3（与对战页保持一致，用于金色占位触发音效）
-      let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
-      if (!specialWinAudioBuffer) {
-        try {
-          const response = await fetch('/special_win.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
-        } catch (err) {
-          console.error('加载special_win音效失败:', err);
+        // 加载special_win.mp3（与对战页保持一致，用于金色占位触发音效）
+        let specialWinAudioBuffer = (window as any).__specialWinAudioBuffer;
+        if (!specialWinAudioBuffer) {
+          try {
+            const response = await fetch('/special_win.mp3');
+            const arrayBuffer = await response.arrayBuffer();
+            specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
+          } catch (err) {
+            console.error('加载special_win音效失败:', err);
+          }
         }
-      }
+      })();
+
+      await audioInitPromise;
     };
     
     initAudio();
@@ -410,6 +425,7 @@ export default function HorizontalSlotMachineClient({
 
   const playWinSound = useCallback(() => {
     if (typeof window === 'undefined') return;
+    if (isSiteMuted()) return;
     const ctx = (window as any).__audioContext;
     const buffer = (window as any).__basicWinAudioBuffer;
     if (ctx && buffer) {
@@ -422,6 +438,7 @@ export default function HorizontalSlotMachineClient({
 
   const playSpecialWinSound = useCallback(() => {
     if (typeof window === 'undefined') return;
+    if (isSiteMuted()) return;
     const ctx = (window as any).__audioContext;
     const buffer = (window as any).__specialWinAudioBuffer;
     if (ctx && buffer) {

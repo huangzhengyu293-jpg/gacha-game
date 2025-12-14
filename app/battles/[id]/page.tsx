@@ -849,6 +849,11 @@ let tickAudioBuffer: AudioBuffer | null = null;
 let basicWinAudioBuffer: AudioBuffer | null = null;
 const audioInitPromiseRef: { current: Promise<void> | null } = { current: null };
 
+const isSiteMuted = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as any).__siteMuted);
+};
+
 function initAudioOnce(): Promise<void> {
   if (audioInitPromiseRef.current) return audioInitPromiseRef.current;
   audioInitPromiseRef.current = (async () => {
@@ -1388,15 +1393,15 @@ useEffect(() => {
   
   // 🎵 播放胜利音效的辅助函数
   const playWinSound = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const ctx = (window as any).__audioContext;
-      const buffer = (window as any).__winAudioBuffer;
-      if (ctx && buffer) {
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start(0);
-      }
+    if (typeof window === 'undefined') return;
+    if (isSiteMuted()) return;
+    const ctx = (window as any).__audioContext;
+    const buffer = (window as any).__winAudioBuffer;
+    if (ctx && buffer) {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
     }
   }, []);
 
@@ -1580,9 +1585,10 @@ useEffect(() => {
   // 🎵 首次用户交互时解锁 AudioContext（避免自动播放限制）
   useEffect(() => {
     const unlock = () => {
-      if (audioContext && audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {});
-      }
+    if (isSiteMuted()) return;
+    if (audioContext && audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
     };
@@ -1869,10 +1875,76 @@ useEffect(() => {
 
     if (gameMode === 'sprint') {
       const sprintData = sprintDataRef.current;
+      const scoreMap = sprintScores || sprintData?.scores || {};
       const precomputedContenders =
         sprintData?.needsTiebreaker && sprintData.tiebreakerPlayers.length > 1
           ? sprintData.tiebreakerPlayers
           : [];
+
+      // 团队模式：按队伍总分判定平分，平分队伍的全体成员进入老虎机
+      if (isTeamMode) {
+        const teamTotals: Record<string, number> = {};
+        allParticipants.forEach((participant) => {
+          if (!participant?.id || !participant.teamId) return;
+          const value = Number(scoreMap[participant.id] ?? 0);
+          teamTotals[participant.teamId] = (teamTotals[participant.teamId] ?? 0) + value;
+        });
+
+        if (Object.keys(teamTotals).length) {
+          const resolveTeamIdByPlayer = (playerId?: string | null) => {
+            if (!playerId) return null;
+            const member = allParticipants.find((p) => p?.id === playerId);
+            return member?.teamId ?? null;
+          };
+
+          const declaredWinnerTeamId = resolveTeamIdByPlayer(primaryDeclaredWinnerId);
+          const rawWinnerTeamId = resolveTeamIdByPlayer(primaryRawWinnerId);
+
+          const leaderValue =
+            (declaredWinnerTeamId && teamTotals[declaredWinnerTeamId] !== undefined
+              ? teamTotals[declaredWinnerTeamId]
+              : null) ??
+            (rawWinnerTeamId && teamTotals[rawWinnerTeamId] !== undefined
+              ? teamTotals[rawWinnerTeamId]
+              : null) ??
+            Math.max(...Object.values(teamTotals));
+
+          const contenderTeamIds = Object.entries(teamTotals)
+            .filter(([, value]) => value === leaderValue)
+            .map(([teamId]) => teamId);
+
+          if (contenderTeamIds.length > 1) {
+            const contenderIds = allParticipants
+              .filter((participant) => participant?.id && participant.teamId && contenderTeamIds.includes(participant.teamId))
+              .map((participant) => participant.id);
+
+            if (contenderIds.length > 1) {
+              const resolveCandidate = (candidate?: string | null) => {
+                if (!candidate) return null;
+                const member = allParticipants.find((p) => p?.id === candidate);
+                if (member?.teamId && contenderTeamIds.includes(member.teamId) && contenderIds.includes(member.id)) {
+                  return member.id;
+                }
+                return null;
+              };
+
+              const resolvedWinnerId =
+                resolveCandidate(primaryRawWinnerId) ??
+                resolveCandidate(primaryDeclaredWinnerId) ??
+                resolveCandidate(sprintData?.finalWinnerId ?? null) ??
+                contenderIds[0];
+
+              return {
+                mode: 'sprint',
+                contenderIds,
+                winnerId: resolvedWinnerId,
+              };
+            }
+          }
+        }
+      }
+
+      // 单人模式：保留原有平分决胜逻辑
       const contenderSource =
         sprintScoreLeaders.length > 1 ? sprintScoreLeaders : precomputedContenders;
       if (contenderSource.length > 1) {
@@ -1976,6 +2048,7 @@ useEffect(() => {
     isTeamMode,
     primaryRawWinnerId,
     sprintScoreLeaders,
+    sprintScores,
   ]);
 
   const resolveClassicModeWinner = useCallback(() => {
@@ -2891,6 +2964,10 @@ useEffect(() => {
     if (!hasGeneratedResultsRef.current) {
       return;
     }
+    // 回放模式强制使用本地快照，不再按时间轴跳到已完成状态
+    if (forceFullReplayRef.current) {
+      return;
+    }
     if (timelineHydratedRef.current) {
       return;
     }
@@ -2998,13 +3075,15 @@ useEffect(() => {
   useEffect(() => {
     if (mainState === 'COUNTDOWN' && countdownValue !== null && countdownValue > 0) {
       // 🎵 使用Web Audio API播放tick音效（零延迟）
-      const ctx = (window as any).__audioContext;
-      const buffer = (window as any).__tickAudioBuffer;
-      if (ctx && buffer) {
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start(0);
+      if (!isSiteMuted()) {
+        const ctx = (window as any).__audioContext;
+        const buffer = (window as any).__tickAudioBuffer;
+        if (ctx && buffer) {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        }
       }
       
       const timer = setTimeout(() => {
@@ -3129,7 +3208,7 @@ useEffect(() => {
       
       if (gotLegendary.size > 0) {
         // 🎵 有人中legendary，播放 special_win 音效
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !isSiteMuted()) {
           const ctx = (window as any).__audioContext;
           const buffer = (window as any).__specialWinAudioBuffer;
           if (ctx && buffer) {
@@ -4872,6 +4951,8 @@ useEffect(() => {
                   const keySuffix = slotMachineKeySuffix[participant.id] || '';
                   const isGoldenPlayer = roundData.spinStatus.firstStage.gotLegendary.has(participant.id);
                   const showDivider = shouldShowSoloSlotSeparators && index < allParticipants.length - 1;
+                  const isFinalLastChanceRound =
+                    isLastChance && gameData.totalRounds > 0 && roundIndex >= gameData.totalRounds - 1;
 
                   return (
                     <Fragment key={participant.id}>
@@ -4928,10 +5009,70 @@ useEffect(() => {
 
                       {showDivider && (
                         <div className="relative w-0 flex items-center justify-center pointer-events-none">
-                          <BattleSlotDivider
-                            orientation="vertical"
-                            className="pointer-events-none absolute left-1/2 -translate-x-1/2"
-                          />
+                          {isFinalLastChanceRound ? (
+                            <div
+                              className="absolute h-full flex items-center"
+                              style={{ left: '50%', transform: 'translateX(-50%)' }}
+                            >
+                              <div className="flex h-full w-6 flex-col self-center justify-center items-center">
+                                <div
+                                  className="flex transition-colors duration-300 animate-in tran justify-center items-center w-[1px] min-w-[1px] sm:w-[2px] sm:min-w-[2px] h-[175px] sm:h-[150px] mx-1 xs:mx-2 md:mx-3"
+                                  style={{ background: 'linear-gradient(0deg, rgb(245, 101, 101) 4.24%, rgba(245, 101, 101, 0) 100%)' }}
+                                />
+                                <div className="flex justify-center items-center relative h-[32px] w-[1px]">
+                                  <div className="hidden sm:flex absolute justify-center items-center size-[32px] bg-gradient-to-br from-[#F56565] to-[#F56565] rounded-full">
+                                    <div className="flex justify-center items-center size-[28px] bg-gray-650 rounded-full overflow-clip">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="lucide lucide-skull size-4 min-h-4 min-w-4 text-gray-400"
+                                      >
+                                        <path d="m12.5 17-.5-1-.5 1h1z"></path>
+                                        <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+                                        <circle cx="15" cy="12" r="1"></circle>
+                                        <circle cx="9" cy="12" r="1"></circle>
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  <div className="flex sm:hidden absolute justify-center items-center h-[25px]">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="24"
+                                      height="24"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="lucide lucide-skull size-2.5 min-h-2.5 min-w-2.5 text-gray-400"
+                                    >
+                                      <path d="m12.5 17-.5-1-.5 1h1z"></path>
+                                      <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+                                      <circle cx="15" cy="12" r="1"></circle>
+                                      <circle cx="9" cy="12" r="1"></circle>
+                                    </svg>
+                                  </div>
+                                </div>
+                                <div
+                                  className="flex transition-colors duration-300 animate-in justify-center items-center w-[1px] min-w-[1px] sm:w-[2px] sm:min-w-[2px] h-[175px] sm:h-[150px] mx-1 xs:mx-2 md:mx-3"
+                                  style={{ background: 'linear-gradient(rgb(245, 101, 101) 4.24%, rgba(245, 101, 101, 0) 100%)' }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <BattleSlotDivider
+                              orientation="vertical"
+                              className="pointer-events-none absolute left-1/2 -translate-x-1/2"
+                            />
+                          )}
                         </div>
                       )}
                     </Fragment>

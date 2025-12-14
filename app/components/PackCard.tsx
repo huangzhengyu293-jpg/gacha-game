@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import PackContentsModal from './PackContentsModal';
+import LoadingSpinner from './icons/LoadingSpinner';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -42,6 +43,8 @@ export default function PackCard({
   const [transform, setTransform] = useState({ rotateX: 0, rotateY: 0, scale: 1 });
   const [showModal, setShowModal] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
   
   const { favoriteIds, toggleFavorite } = useAuth();
   const isFavorited = packId ? favoriteIds.includes(String(packId)) : false;
@@ -97,7 +100,10 @@ export default function PackCard({
   }, [hoverTilt]);
 
   const content = (
-    <div className="flex relative">
+    <div
+      className="flex relative overflow-hidden bg-[#0f1113]"
+      style={{ aspectRatio: `${width}/${height}` }}
+    >
       <img
         alt={alt}
         loading="lazy"
@@ -105,11 +111,18 @@ export default function PackCard({
         height={height}
         decoding="async"
         src={imageUrl}
-        className="color-transparent h-auto w-full"
+        className={`color-transparent h-full w-full object-cover transition-opacity duration-300 ${
+          isImageLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
         style={{ color: 'transparent' }}
+        onLoad={() => setIsImageLoaded(true)}
+        onError={() => {
+          setHasImageError(true);
+          setIsImageLoaded(true);
+        }}
       />
       {overlayUrl ? (
-        <div className="flex absolute w-full">
+        <div className="flex absolute w-full h-full inset-0 items-center justify-center">
           <img
             alt=""
             loading="lazy"
@@ -117,11 +130,27 @@ export default function PackCard({
             height={height - 17}
             decoding="async"
             src={overlayUrl}
-            className="color-transparent"
+            className={`color-transparent object-contain transition-opacity duration-300 ${
+              isImageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
             style={{ color: 'transparent' }}
           />
         </div>
       ) : null}
+      {!isImageLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]">
+          <LoadingSpinner
+            className="h-10 w-10"
+            indicatorColor="#1D2125"
+            trackColor="#1D212533"
+          />
+        </div>
+      )}
+      {hasImageError && isImageLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-gray-300 text-sm">
+          {t('loadFailed') || 'Load failed'}
+        </div>
+      )}
       {showActions ? (
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           <button

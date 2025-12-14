@@ -52,6 +52,26 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number>(0);
   const MAX_BACKLOG = 5; // 隐藏期间最多保留的待播条数
+  const nextTimerRef = useRef<number | null>(null);
+
+  const scheduleNext = useCallback(
+    (delayMs = 0) => {
+      if (nextTimerRef.current) {
+        window.clearTimeout(nextTimerRef.current);
+        nextTimerRef.current = null;
+      }
+      if (!queueRef.current.length) return;
+      nextTimerRef.current = window.setTimeout(() => {
+        nextTimerRef.current = null;
+        const next = queueRef.current.shift();
+        if (next) {
+          setEnteringId(next.id);
+          setItems((prev) => [next, ...prev].slice(0, MAX_ITEMS));
+        }
+      }, delayMs);
+    },
+    [MAX_ITEMS],
+  );
 
   const startPrepend = useCallback((newItem: FeedItem) => {
     setEnteringId(newItem.id);
@@ -61,40 +81,51 @@ export function LiveFeedProvider({ children, visibleCount = 9, intervalMs = 2000
   const finishEnter = useCallback(() => {
     setItems((prev) => prev.slice(0, MAX_ITEMS));
     setEnteringId(null);
-    const next = queueRef.current.shift();
-    if (next) startPrepend(next);
-  }, [MAX_ITEMS, startPrepend]);
+    // 间隔 0.5s 后播下一条
+    scheduleNext(500);
+  }, [MAX_ITEMS, scheduleNext]);
 
   // 可见性处理，仅更新可见状态
   useEffect(() => {
     const onVis = () => {
       visibleRef.current = typeof document !== 'undefined' ? !document.hidden : true;
+      if (visibleRef.current && !enteringId && !nextTimerRef.current) {
+        scheduleNext(0);
+      }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
+  }, [enteringId, scheduleNext]);
 
   const push = useCallback((item: Omit<FeedItem, "id">) => {
     const newItem: FeedItem = { id: `push-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ...item };
     // 预加载图片，确保加入时就有图
     preloadItemImages(item).then(() => {
       const readyItem = { ...newItem };
-      if (!visibleRef.current || enteringId) {
+      const shouldQueue = !visibleRef.current || enteringId || Boolean(nextTimerRef.current);
+      if (shouldQueue) {
         queueRef.current.push(readyItem);
         if (queueRef.current.length > MAX_BACKLOG) {
           queueRef.current.splice(0, queueRef.current.length - MAX_BACKLOG);
+        }
+        if (visibleRef.current && !enteringId && !nextTimerRef.current) {
+          scheduleNext(0);
         }
       } else {
         startPrepend(readyItem);
       }
     });
-  }, [enteringId, startPrepend]);
+  }, [enteringId, scheduleNext, startPrepend]);
 
   const setInitialItems = useCallback((list: FeedItem[]) => {
     if (!Array.isArray(list)) return;
     setItems(list.slice(0, MAX_ITEMS));
     queueRef.current = [];
     setEnteringId(null);
+    if (nextTimerRef.current) {
+      window.clearTimeout(nextTimerRef.current);
+      nextTimerRef.current = null;
+    }
   }, [MAX_ITEMS]);
 
   // 移除模拟播报逻辑，真实数据由外部 push 驱动

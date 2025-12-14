@@ -43,10 +43,11 @@ export default function EventsPage() {
     });
     const tableData = list.slice(3).map((item, idx) => {
       const user = item?.user || {};
+      const opened = formatMoney(item?.bean);
       return {
         rank: idx + 4,
         name: user?.name || '--',
-        tickets: '--',
+        tickets: opened,
         prize: '--',
         avatar: `r-row-${idx + 4}`,
         avatarImage: typeof user?.avatar === 'string' ? user.avatar : undefined,
@@ -79,7 +80,7 @@ export default function EventsPage() {
   type TablePlayer = {
     rank: number;
     name: string;
-    tickets: string; // 门票数，空缺用 "--"
+    tickets: string; // 展示已开启金额
     prize: string;
     avatar: string;
     avatarImage?: string;
@@ -185,7 +186,7 @@ export default function EventsPage() {
               <tr className="border-b transition-colors data-[state=selected]:bg-gray-600">
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-[25px]" style={{ color: '#7A8185' }}>#</th>
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{t('raceWinners')}</th>
-                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('ticketsLabel')}</th>
+                <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('openedLabel')}</th>
                 <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
               </tr>
             </thead>

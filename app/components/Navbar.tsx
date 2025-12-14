@@ -136,14 +136,7 @@ export default function Navbar() {
   const [showStrength, setShowStrength] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem('site-muted') === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [isMuted, setIsMuted] = useState<boolean>(false);
 
   const syncMuteState = useCallback((muted: boolean) => {
     if (typeof window === 'undefined') return;

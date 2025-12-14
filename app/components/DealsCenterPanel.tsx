@@ -10,6 +10,11 @@ import FireworkArea, { type FireworkAreaHandle } from './FireworkArea';
 import { LogoIcon } from './icons/Logo';
 import { useI18n } from './I18nProvider';
 
+const isSiteMuted = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as any).__siteMuted);
+};
+
 interface DealsCenterPanelProps {
   percent?: number;
   onPercentChange?: (p: number) => void;
@@ -46,12 +51,17 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   const [demoOutcome, setDemoOutcome] = useState<'win' | 'lose'>('win');
   const { isAuthenticated, fetchUserBean } = useAuth();
   const isAuthed = isAuthenticated;
+  const audioInitPromiseRef = useRef<Promise<void> | null>(null);
   
   // 🎵 初始化音效（spin.mp3 和 win.wav）
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (audioInitPromiseRef.current) {
+      audioInitPromiseRef.current.then(() => {}).catch(() => {});
+      return;
+    }
     
-    const initAudio = async () => {
+    audioInitPromiseRef.current = (async () => {
       if (!(window as any).__audioContext) {
         (window as any).__audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
@@ -79,14 +89,12 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           console.error('加载 win.wav 失败:', error);
         }
       }
-    };
-    
-    initAudio();
+    })();
   }, []);
   // 执行转动动画
   const runSpinAnimation = (winResult: boolean) => {
     // 🎵 播放 spin.mp3 音效
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isSiteMuted()) {
       const ctx = (window as any).__audioContext;
       const buffer = (window as any).__spinAudioBuffer;
       if (ctx && buffer) {
@@ -143,7 +151,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           fireworkRef.current?.triggerFirework();
           
           // 🎵 播放 win.wav 音效
-          if (typeof window !== 'undefined') {
+          if (typeof window !== 'undefined' && !isSiteMuted()) {
             const ctx = (window as any).__audioContext;
             const buffer = (window as any).__winAudioBuffer;
             if (ctx && buffer) {
