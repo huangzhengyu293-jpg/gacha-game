@@ -402,7 +402,7 @@ export default function EventsPage() {
                   >
               
                 
-                <div className="flex flex-col rounded-lg p-4 pt-6 md:p-8 my-6" style={{ backgroundColor: '#22272B' }}>
+                {/* <div className="flex flex-col rounded-lg p-4 pt-6 md:p-8 my-6" style={{ backgroundColor: '#22272B' }}>
                   <div className="flex flex-col md:flex-row mb-4 md:mb-6 xl:mb-8 gap-2 md:gap-8">
                     <p className="text-white font-semibold text-lg md:text-xl md:w-1/3 flex-none leading-none">{t('aboutDailyRaffleTitle')}</p>
                     <p className="text-sm md:text-base font-semibold leading-5" style={{ color: '#7a8084' }}>
@@ -423,7 +423,7 @@ export default function EventsPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 
                 <div className="relative w-full overflow-auto">
                   <table className="w-full caption-bottom text-sm">

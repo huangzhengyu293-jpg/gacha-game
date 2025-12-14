@@ -20,6 +20,7 @@ type PromoCodeFormProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   className?: string;
   showTopDivider?: boolean;
+  placeholder?: string;
 };
 
 function PromoCodeForm({
@@ -29,6 +30,7 @@ function PromoCodeForm({
   onSubmit,
   className = '',
   showTopDivider = false,
+  placeholder,
 }: PromoCodeFormProps) {
   const { t } = useI18n();
   const disabled = loading || !value.trim();
@@ -44,7 +46,7 @@ function PromoCodeForm({
         <input
           className="flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 bg-gray-800 px-3 py-2 pr-12 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 text-[#7A8084]"
           style={{ backgroundColor: '#1d2125', color: '#7A8084' }}
-          placeholder={t("promoCodePlaceholder")}
+          placeholder={placeholder ?? t("promoCodePlaceholder")}
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -129,6 +131,7 @@ export default function Navbar() {
   const [promoCode, setPromoCode] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
   const [regPass, setRegPass] = useState('');
+  const [regInvite, setRegInvite] = useState('');
   const [showStrength, setShowStrength] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
@@ -186,16 +189,28 @@ export default function Navbar() {
     syncMuteState(isMuted);
   }, [isMuted, syncMuteState]);
 
-  // 根据用户信息预填促销码（若无则为空）
+  // 根据用户信息预填邀请码（若无则为空）
+  const inviterId = Number(user?.userInfo?.inviter_id ?? 0);
+  const invitePlaceholder = inviterId === 0 ? t("inviteBindPlaceholder") : t("inviteUpdatePlaceholder");
+
   useEffect(() => {
-    const invite = typeof user?.userInfo?.invite === 'string' ? user.userInfo.invite : '';
+    const invite = typeof user?.userInfo?.invite_code === 'string' ? user.userInfo.invite_code : '';
     if (!promoCode && invite) {
       setPromoCode(invite);
     }
     if (!invite && promoCode !== '') {
       setPromoCode('');
     }
-  }, [user?.userInfo?.invite]);
+    // 仅在后端邀请码变动时尝试预填，不干扰用户手动清空
+  }, [user?.userInfo?.invite_code]);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const invite = typeof user?.userInfo?.invite_code === 'string' ? user.userInfo.invite_code : '';
+    if (invite) {
+      setPromoCode(invite);
+    }
+  }, [showUserMenu, user?.userInfo?.invite_code]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -405,7 +420,8 @@ export default function Navbar() {
     const result = await register({
       name: regUsername.trim(),
       email: regEmail.trim(),
-      password: regPass
+      password: regPass,
+      invite: regInvite.trim() || undefined,
     });
 
     // code === 100000: 注册成功
@@ -415,6 +431,7 @@ export default function Navbar() {
       setRegUsername('');
       setRegEmail('');
       setRegPass('');
+      setRegInvite('');
       setAgreed(false);
       setShowVerifyCode(true);
       setVerifyCode('');
@@ -586,6 +603,8 @@ export default function Navbar() {
       setShowVerifyCode(false);
       setVerifyCode('');
       setVerifyEmail('');
+      setLoginEmail(email);
+      setLoginPass('');
       toast.show({
         variant: 'success',
         title: t("verifySuccessTitle"),
@@ -914,6 +933,7 @@ export default function Navbar() {
                       onChange={setPromoCode}
                       onSubmit={handlePromoSubmit}
                       className="mt-1"
+                      placeholder={invitePlaceholder}
                     />
                   </div>
                 </div>
@@ -1086,6 +1106,7 @@ export default function Navbar() {
                           onChange={setPromoCode}
                           onSubmit={handlePromoSubmit}
                           className="mt-2"
+                          placeholder={invitePlaceholder}
                         />
                       </>
                     ) : null}
@@ -1234,6 +1255,19 @@ export default function Navbar() {
                     </button>
                   </div>
                 
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-base font-medium" htmlFor="reg-invite" style={{ color: '#FFFFFF' }}>{t("inviteLabel")}</label>
+                  <input
+                    id="reg-invite"
+                    type="text"
+                    autoComplete="off"
+                    value={regInvite}
+                    onChange={(e) => setRegInvite(e.target.value)}
+                    className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                    style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }}
+                    placeholder={t("invitePlaceholderOptional")}
+                  />
                 </div>
               </div>
               <div className="space-y-2 mt-3">

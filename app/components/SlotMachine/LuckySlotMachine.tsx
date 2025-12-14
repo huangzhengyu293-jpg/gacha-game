@@ -730,7 +730,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     const currentVisualIndex = Math.round((-currentTop + reelCenterRef.current - h / 2) / h);
     
     // 2. 设定目标：每次随机跑 40-45 格，保持可配置
-    const runDistance = 33;
+    const runDistance = 40;
     let targetBaseIndex =  runDistance;
     
     // 3. 越界回绕处理：如果目标超出了列表范围，将整体坐标向上回滚一圈

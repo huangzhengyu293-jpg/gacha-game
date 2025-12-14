@@ -13,6 +13,7 @@ interface RegisterParams {
   name: string;
   email: string;
   password: string;
+  invite?: string;
 }
 
 interface ActivateParams {

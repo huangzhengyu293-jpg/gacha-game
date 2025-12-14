@@ -408,6 +408,13 @@ export const api = {
     });
     return result;
   },
+  // 抽奖历史记录
+  drawMyRecord: async () => {
+    const result = await request<ApiResponse>('/api/draw/myRecord', {
+      method: 'GET',
+    });
+    return result;
+  },
   drawReceive: async (payload: { id: string | number; card_id?: string | number }) => {
     const formData = new URLSearchParams();
     formData.append('id', String(payload.id));
