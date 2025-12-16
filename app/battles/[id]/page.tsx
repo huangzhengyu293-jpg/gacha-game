@@ -3094,18 +3094,9 @@ useEffect(() => {
       
       // 🚀 性能优化：rounds 放在 ref，避免深度比对
       gameRoundsRef.current = rounds;
-      
-      // 预加载音频与图片
-      try {
-        await initAudioOnce();
-      } catch (err) {
-      }
-      try {
-        const urls = collectAllImageUrls(rounds, participantsSnapshotRef.current, battleData);
-        await preloadImages(urls);
-      } catch (err) {
-      }
-      
+
+      // ✅ 关键修复：先写入进度快照（totalRounds 等关键状态），不要被资源预加载阻塞
+      // 否则 runtime 先进入 COUNTDOWN，倒计时结束时 totalRounds 仍为 0，会误判已完成直接跳到 COMPLETED。
       dispatchProgressState({
         type: 'APPLY_PROGRESS_SNAPSHOT',
         snapshot: {
@@ -3125,6 +3116,14 @@ useEffect(() => {
           roundEventLog: [],
         },
       });
+
+      // 预加载音频与图片（不阻塞主流程）
+      void initAudioOnce().catch(() => {});
+      try {
+        const urls = collectAllImageUrls(rounds, participantsSnapshotRef.current, battleData);
+        void preloadImages(urls).catch(() => {});
+      } catch (err) {
+      }
       const currentStatus = Number(rawDetail?.status ?? 0);
       const totalRounds = rounds.length;
       const entryRoundSetting = activeSource.entryRound;
