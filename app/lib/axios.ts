@@ -18,6 +18,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/userrecord',
   '/api/user/cash',
   '/api/user/bean',
+  '/api/user/rechargeLog',
   '/api/user/storage',
   '/api/auth/userinfo',
   '/api/auth/logout',
@@ -25,6 +26,27 @@ const AUTH_REQUIRED_PATHS = [
   '/api/draw/go',
   '/api/draw/receive',
 ];
+
+const AUTH_PROMPT_COOLDOWN_MS = 2500;
+let lastAuthPromptAt = 0;
+let lastTokenExpiredHandledAt = 0;
+
+function requestLoginOnce(options: { title: string; description: string; durationMs: number }) {
+  if (typeof window === 'undefined') return;
+  const now = Date.now();
+  if (now - lastAuthPromptAt < AUTH_PROMPT_COOLDOWN_MS) return;
+  lastAuthPromptAt = now;
+
+  window.dispatchEvent(new CustomEvent('auth:show-login'));
+  import('../components/ToastProvider').then(({ showGlobalToast }) => {
+    showGlobalToast({
+      title: options.title,
+      description: options.description,
+      variant: 'error',
+      durationMs: options.durationMs,
+    });
+  });
+}
 
 // 请求拦截器
 axiosInstance.interceptors.request.use(
@@ -57,17 +79,7 @@ axiosInstance.interceptors.request.use(
         if (needsAuth) {
           if (isUserAction) {
             // 仅在用户触发的操作时弹出登录
-            window.dispatchEvent(new CustomEvent('auth:show-login'));
-            
-            // 显示提示
-            import('../components/ToastProvider').then(({ showGlobalToast }) => {
-              showGlobalToast({
-                title: '提示',
-                description: '请先登录',
-                variant: 'error',
-                durationMs: 2000,
-              });
-            });
+            requestLoginOnce({ title: '提示', description: '请先登录', durationMs: 2000 });
           }
           
           // 阻止请求继续
@@ -92,6 +104,12 @@ axiosInstance.interceptors.response.use(
       // code === 300000: token 过期
       if (data.code === 300000) {
         if (typeof window !== 'undefined') {
+          const now = Date.now();
+          if (now - lastTokenExpiredHandledAt < AUTH_PROMPT_COOLDOWN_MS) {
+            return Promise.reject(new Error('Token expired'));
+          }
+          lastTokenExpiredHandledAt = now;
+
           // 删除用户信息和 token
           localStorage.removeItem('user');
           
@@ -99,16 +117,10 @@ axiosInstance.interceptors.response.use(
           window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'token_expired' } }));
           
           // 触发显示登录弹窗
-          window.dispatchEvent(new CustomEvent('auth:show-login'));
-          
-          // 显示错误提示
-          import('../components/ToastProvider').then(({ showGlobalToast }) => {
-            showGlobalToast({
-              title: '登录已过期',
-              description: data.message || '请重新登录',
-              variant: 'error',
-              durationMs: 3000,
-            });
+          requestLoginOnce({
+            title: '登录已过期',
+            description: data.message || '请重新登录',
+            durationMs: 3000,
           });
         }
         return Promise.reject(new Error('Token expired'));

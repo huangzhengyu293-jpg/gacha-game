@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from './I18nProvider';
 import { useWithdrawalTypes } from '../hooks/useWithdrawalTypes';
 import type { WithdrawalType } from '@/types/withdrawal';
-import { useAuth } from '../hooks/useAuth';
 import InfoTooltip from './InfoTooltip';
 
 export type WithdrawAssetOption = {
@@ -38,7 +37,6 @@ export default function WithdrawCryptoModal({
   isSubmitting?: boolean;
 }) {
   const { t } = useI18n();
-  const { user } = useAuth() as any;
   const { data: withdrawalTypes, isLoading: withdrawalTypesLoading } = useWithdrawalTypes({ enabled: isOpen });
   const safeAssets = useMemo<WithdrawAssetOption[]>(
     () =>
@@ -59,14 +57,8 @@ export default function WithdrawCryptoModal({
   useEffect(() => {
     if (!isOpen) return;
     setSelectedAssetId(defaultAssetId);
-    const wallet =
-      (user as any)?.userInfo?.wallet_address ||
-      (user as any)?.wallet_address ||
-      (user as any)?.userInfo?.walletAddress ||
-      (user as any)?.walletAddress ||
-      '';
-    setAddress(wallet ? String(wallet) : '');
-  }, [isOpen, defaultAssetId, user]);
+    setAddress('');
+  }, [isOpen, defaultAssetId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -79,7 +71,8 @@ export default function WithdrawCryptoModal({
 
   const selectedAsset = safeAssets.find((a) => a.id === selectedAssetId) ?? safeAssets.find((a) => a?.status === 1) ?? safeAssets[0];
   const normalizedAmountUsd = Number.isFinite(amountUsd) ? amountUsd : 0;
-  const normalizedFeeUsd = Number.isFinite(estimatedFeeUsd) ? estimatedFeeUsd : 0;
+  const calculatedFeeUsd = selectedAssetId === '1' ? 2.5 : estimatedFeeUsd;
+  const normalizedFeeUsd = Number.isFinite(calculatedFeeUsd) ? calculatedFeeUsd : 0;
   const receiveUsd = Math.max(0, normalizedAmountUsd - normalizedFeeUsd);
 
   if (!isOpen) return null;
@@ -168,7 +161,7 @@ export default function WithdrawCryptoModal({
                 id="withdrawAddress"
                 placeholder={t('withdrawAddressPlaceholder')}
                 value={address}
-                readOnly
+                onChange={(e) => setAddress(e.target.value)}
               />
               <div className="absolute flex right-1 top-1 bottom-1 items-center justify-center size-10 min-h-10 min-w-10">
                 <InfoTooltip

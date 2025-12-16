@@ -604,20 +604,6 @@ export const api = {
     });
     return result;
   },
-  // ✅ 设置账户地址
-  setWalletAddress: async (payload: { address: string; verify: string }) => {
-    const formData = new FormData();
-    formData.append('address', payload.address || '');
-    formData.append('verify', payload.verify || '');
-    const result = await request<ApiResponse>('/api/user/setWalletAddress', {
-      method: 'POST',
-      data: formData,
-      headers: {
-        // multipart 由浏览器处理
-      },
-    });
-    return result;
-  },
   // ✅ 直播开启记录
   getBoxRecord2: async () => {
     const result = await request<ApiResponse>('/api/box/record2', {

@@ -21,17 +21,6 @@ const userName =
 
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.userInfo?.avatar || "");
   const [userNameInput, setUserNameInput] = useState<string>(userName || "");
-  const [addressInput, setAddressInput] = useState<string>('');
-  const [addressCodeInput, setAddressCodeInput] = useState<string>('');
-
-  // 初始化账户地址：从用户信息预填 wallet_address
-  useEffect(() => {
-    const wallet = (user as any)?.userInfo?.wallet_address || (user as any)?.wallet_address;
-    if (wallet && !addressInput) {
-      setAddressInput(String(wallet));
-    }
-  }, [user, addressInput]);
-  const [addressSendCooldown, setAddressSendCooldown] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 当全局用户数据异步就绪时同步头像预览（避免刷新后为空）
@@ -99,7 +88,6 @@ const userName =
           const info = await api.getUserInfo(token);
           if (info?.code === 100000) {
             const newInfo = info.data;
-            console.log(newInfo);
             updateUser({
               userInfo: newInfo,
               token: (user as any)?.token,
@@ -114,40 +102,6 @@ const userName =
       }
     },
   });
-
-  const setWalletAddressMutation = useMutation({
-    mutationFn: async () => {
-      return api.setWalletAddress({
-        address: addressInput || '',
-        verify: addressCodeInput || '',
-      });
-    },
-  });
-
-  const sendAddressCodeMutation = useMutation({
-    mutationFn: async () => {
-      const email =
-        (user as any)?.userInfo?.email ||
-        (user as any)?.email ||
-        '';
-      if (!email) throw new Error('缺少邮箱');
-      return api.sendVerificationEmail({ to: email, type: '0' });
-    },
-    onSuccess: (res: any) => {
-      if (res?.code === 100000 && res?.data?.code) {
-        setAddressCodeInput(String(res.data.code));
-      }
-      setAddressSendCooldown(60);
-    },
-  });
-
-  useEffect(() => {
-    if (addressSendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setAddressSendCooldown((v) => (v > 0 ? v - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [addressSendCooldown]);
 
   const handleSaveProfile = () => {
     setProfileMutation.mutate();
@@ -305,50 +259,7 @@ const userName =
                   </button>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
-                <div className="flex min-w-40 items-center mt-0 xs:mt-2">
-                  <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white" htmlFor="accountAddressBasic">{t('walletAddressLabel')}</label>
-                  
-                </div>
-                <div className="flex w-full max-w-[540px] flex-col gap-4">
-                    <input
-                      className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
-                      id="accountAddressBasic"
-                      maxLength={100}
-                      placeholder={t('walletAddressPlaceholder')}
-                      type="text"
-                      value={addressInput}
-                      onChange={(e) => setAddressInput(e.target.value)}
-                      style={{ backgroundColor: '#292F34' }}
-                    />
-                    <input
-                      className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
-                      id="accountAddressCode"
-                      maxLength={100}
-                      placeholder={t('walletAddressCodePlaceholder')}
-                      type="text"
-                      value={addressCodeInput}
-                      onChange={(e) => setAddressCodeInput(e.target.value)}
-                      style={{ backgroundColor: '#292F34' }}
-                    />
-                    <div className="flex gap-3 self-end">
-                      <button
-                        className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                        disabled={addressSendCooldown > 0 || sendAddressCodeMutation.isPending}
-                        onClick={() => sendAddressCodeMutation.mutate()}
-                      >
-                        {addressSendCooldown > 0 ? t('requestAddressCodeCooldown').replace('{s}', String(addressSendCooldown)) : t('requestAddressCode')}
-                      </button>
-                      <button
-                        className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                        disabled={setWalletAddressMutation.isPending}
-                        onClick={() => setWalletAddressMutation.mutate()}
-                      >
-                        {t('save')}
-                      </button>
-                    </div>
-                </div>
-              </div>
+              {/* 账户地址设置功能已移除 */}
             </div>
             <div className="flex flex-col items-stretch w-full p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>
               <h3 className="text-xl text-white font-bold pb-2">{t('personalInfo')}</h3>

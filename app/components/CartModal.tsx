@@ -219,6 +219,16 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const openWithdrawCrypto = () => {
     if (isShopMode) return;
     if (selectedCount === 0) return;
+    const MIN_WITHDRAW_USD = 15;
+    if (!Number.isFinite(selectedTotal) || selectedTotal < MIN_WITHDRAW_USD) {
+      showGlobalToast({
+        title: t('withdrawCryptoTitle'),
+        description: t('withdrawMinAmountNotice'),
+        variant: 'error',
+        durationMs: 3000,
+      });
+      return;
+    }
     setWithdrawCryptoOpen(true);
   };
 

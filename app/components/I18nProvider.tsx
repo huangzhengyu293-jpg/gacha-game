@@ -221,11 +221,7 @@ const dict: Dict = {
   generateAvatar: { zh: "生成头像", en: "Generate avatar", ko: "아바타 생성", ja: "アバターを生成" },
   usernamePlaceholder: { zh: "请输入您的用户名", en: "Enter your username", ko: "사용자명을 입력하세요", ja: "ユーザー名を入力してください" },
   save: { zh: "保存", en: "Save", ko: "저장", ja: "保存" },
-  walletAddressLabel: { zh: "账户地址", en: "Account address", ko: "계정 주소", ja: "アカウントアドレス" },
-  walletAddressPlaceholder: { zh: "请输入账户地址", en: "Enter account address", ko: "계정 주소를 입력하세요", ja: "アカウントアドレスを入力してください" },
-  walletAddressCodePlaceholder: { zh: "请输入账户地址验证码", en: "Enter address verification code", ko: "주소 인증 코드를 입력하세요", ja: "アドレス認証コードを入力してください" },
-  requestAddressCode: { zh: "请求验证码", en: "Request code", ko: "인증 코드 요청", ja: "認証コードをリクエスト" },
-  requestAddressCodeCooldown: { zh: "请求验证码 ({s}s)", en: "Request code ({s}s)", ko: "인증 코드 요청 ({s}초)", ja: "認証コードをリクエスト（{s}秒）" },
+  // 账户地址设置功能已移除
   personalInfo: { zh: "个人信息", en: "Personal information", ko: "개인 정보", ja: "個人情報" },
   personalInfoDesc: { zh: "您可能需要在将来提供一种或多种形式的个人身份证明。您提供的信息应与您的身份证件上的信息一致。您可能无法在将来更改此信息。请在提交前仔细检查。", en: "You may need to provide one or more forms of identification in the future. Ensure the information matches your ID; you may not be able to change it later. Please double-check before submitting.", ko: "추후 신분증을 제출해야 할 수 있습니다. 정보가 신분증과 일치하는지 확인하세요. 나중에 변경하지 못할 수 있으니 제출 전에 다시 확인하세요.", ja: "将来、身分証の提出が必要になる場合があります。情報が身分証と一致していることを確認してください。後から変更できない場合があるので、送信前に再確認してください。" },
   fullName: { zh: "全名", en: "Full name", ko: "전체 이름", ja: "氏名" },
@@ -362,6 +358,12 @@ const dict: Dict = {
   itemPlaceholder: { zh: "商品 {index}", en: "Item {index}", ko: "상품 {index}", ja: "商品 {index}" },
   // Withdraw crypto modal
   withdrawCryptoTitle: { zh: "提取加密货币", en: "Withdraw crypto", ko: "암호화폐 출금", ja: "暗号資産の出金" },
+  withdrawMinAmountNotice: {
+    zh: "最低提款金额为 $15.00 美元。选择多个物品以捆绑提款。",
+    en: "Minimum withdrawal amount is $15.00. Select multiple items to bundle your withdrawal.",
+    ko: "최소 출금 금액은 $15.00입니다. 여러 아이템을 선택해 묶어서 출금하세요.",
+    ja: "最低出金額は $15.00 です。複数のアイテムを選択してまとめて出金してください。",
+  },
   withdrawAmountLabel: { zh: "提取金额:", en: "Withdrawal amount:", ko: "출금 금액:", ja: "出金額:" },
   estimatedNetworkFee: { zh: "预计交易费用 {value}", en: "Estimated network fee {value}", ko: "예상 네트워크 수수료 {value}", ja: "推定ネットワーク手数料 {value}" },
   youWillReceiveLabel: { zh: "您将收到:", en: "You will receive:", ko: "수령 금액:", ja: "受取額:" },
