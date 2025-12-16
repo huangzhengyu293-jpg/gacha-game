@@ -60,7 +60,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh" data-theme="dark">
-      <body className={`${urbanist.className} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
+      <body className={`${urbanist.className} ${urbanist.variable} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
         <I18nProvider>
           <Providers>
             <QueryProvider>

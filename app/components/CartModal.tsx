@@ -8,6 +8,8 @@ import { useCart } from '../hooks/useCart';
 import { showGlobalToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from './I18nProvider';
+import WithdrawCryptoModal from './WithdrawCryptoModal';
+import { useWithdrawalStorageMutation } from '../hooks/useWithdrawalStorageMutation';
 
 
 interface CartItem {
@@ -44,6 +46,13 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [shopItems, setShopItems] = useState<CartItem[]>([]);
   const [isShopLoading, setIsShopLoading] = useState(false);
   const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
+  // 确认出售弹窗状态
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmCount, setConfirmCount] = useState(0);
+  const [confirmGain, setConfirmGain] = useState(0);
+  const [confirmPayload, setConfirmPayload] = useState<string[]>([]);
+  const [withdrawCryptoOpen, setWithdrawCryptoOpen] = useState(false);
+  const withdrawalStorageMutation = useWithdrawalStorageMutation();
 
   // 排序方向变化时强制刷新购物车数据（重新调用接口带 price_sort）
   useEffect(() => {
@@ -171,6 +180,8 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
       setActiveTab('all');
       setSelectedItems(new Set());
       setSelectionOrder([]);
+      setConfirmOpen(false);
+      setWithdrawCryptoOpen(false);
     }
   }, [isOpen, refetchCart]);
 
@@ -204,6 +215,12 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const selectedSummaryText = t('selectedSummary')
     .replace('{count}', String(selectedCount))
     .replace('{amount}', `$${selectedTotal.toFixed(2)}`);
+
+  const openWithdrawCrypto = () => {
+    if (isShopMode) return;
+    if (selectedCount === 0) return;
+    setWithdrawCryptoOpen(true);
+  };
 
 
 
@@ -246,12 +263,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     },
   });
 
-  // 确认出售弹窗状态
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmCount, setConfirmCount] = useState(0);
-  const [confirmGain, setConfirmGain] = useState(0);
-  const [confirmPayload, setConfirmPayload] = useState<string[]>([]);
-
   const itemMap = useMemo(() => {
     const map = new Map<string, CartItem>();
     defaultItems.forEach((item) => {
@@ -292,6 +303,8 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     }
     return ids;
   };
+
+  const buildSelectedStorageIds = (): string[] => buildSelectedSellIds();
 
   const openConfirmForSelected = () => {
     if (selectedCount === 0) return;
@@ -560,6 +573,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   disabled={selectedCount === 0}
                   onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={openWithdrawCrypto}
                 >
                   {t('withdraw')}
                 </button>
@@ -679,6 +693,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   disabled={selectedCount === 0}
                   onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                   onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onClick={openWithdrawCrypto}
                 >
                   {t('withdraw')}
                 </button>
@@ -746,6 +761,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 disabled={selectedCount === 0}
                 onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
                 onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                onClick={openWithdrawCrypto}
               >
                 {t('withdraw')}
               </button>
@@ -991,6 +1007,50 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             </div>
           </div>
         )}
+
+        <WithdrawCryptoModal
+          isOpen={withdrawCryptoOpen}
+          onClose={() => setWithdrawCryptoOpen(false)}
+          amountUsd={selectedTotal}
+          estimatedFeeUsd={0}
+          isSubmitting={withdrawalStorageMutation.isPending}
+          requestDisabled={withdrawalStorageMutation.isPending}
+          onRequestWithdraw={({ assetId, address }) => {
+            const storageIds = buildSelectedStorageIds();
+            if (!assetId || storageIds.length === 0 || !address) return;
+            withdrawalStorageMutation.mutate(
+              { id: String(assetId), storageIds, walletAddress: String(address) },
+              {
+                onSuccess: (resp: any) => {
+                  if (resp?.code === 100000) {
+                    showGlobalToast({
+                      title: t('success'),
+                      description: resp?.message || t('balanceUpdated'),
+                      variant: 'success',
+                    });
+                    setWithdrawCryptoOpen(false);
+                    setSelectedItems(new Set());
+                    setSelectionOrder([]);
+                    fetchUserBean().catch(() => {});
+                  } else {
+                    showGlobalToast({
+                      title: t('error'),
+                      description: resp?.message || t('retryLater'),
+                      variant: 'error',
+                    });
+                  }
+                },
+                onError: (error: any) => {
+                  showGlobalToast({
+                    title: t('error'),
+                    description: error?.message || t('retryLater'),
+                    variant: 'error',
+                  });
+                },
+              },
+            );
+          }}
+        />
       </div>
     </div>
   );

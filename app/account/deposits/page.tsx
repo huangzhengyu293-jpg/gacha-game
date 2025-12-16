@@ -3,9 +3,13 @@
 import Link from "next/link";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { useI18n } from "@/app/components/I18nProvider";
+import { useRechargeLog } from "@/app/hooks/useRechargeLog";
+import { useAuth } from "@/app/hooks/useAuth";
 
 export default function DepositsPage() {
   const { t } = useI18n();
+  const { isAuthenticated } = useAuth();
+  useRechargeLog({ enabled: isAuthenticated });
   return (
     <div className="w-full max-w-screen-xl px-4 pt-4 pb-40 mx-auto" style={{ color: '#7A8084' }}>
       <style>{`
