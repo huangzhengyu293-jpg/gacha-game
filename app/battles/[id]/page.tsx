@@ -1621,6 +1621,8 @@ useEffect(() => {
   // 🕒 记录标签页离开/返回时间与轮次
   const lastHiddenAtRef = useRef<number | null>(null);
   const lastHiddenRoundRef = useRef<number | null>(null);
+  const totalRoundsRef = useRef<number>(0);
+  const isFastModeRef = useRef<boolean>(false);
   
   // 🔥 淘汰模式：淘汰老虎机完成回调
   const handleEliminationSlotComplete = useCallback(() => {
@@ -2011,11 +2013,11 @@ useEffect(() => {
 
       // 团队模式：按队伍总分判定平分，平分队伍的全体成员进入老虎机
       if (isTeamMode) {
+        // sprint 团队积分现在直接以 teamId 作为 key 存储（每轮按最高/倒置最低玩家给队伍 +1）
         const teamTotals: Record<string, number> = {};
-        allParticipants.forEach((participant) => {
-          if (!participant?.id || !participant.teamId) return;
-          const value = Number(scoreMap[participant.id] ?? 0);
-          teamTotals[participant.teamId] = (teamTotals[participant.teamId] ?? 0) + value;
+        Object.entries(scoreMap || {}).forEach(([teamId, score]) => {
+          if (!teamId) return;
+          teamTotals[teamId] = Number(score ?? 0);
         });
 
         if (Object.keys(teamTotals).length) {
@@ -2069,6 +2071,10 @@ useEffect(() => {
               };
             }
           }
+
+          // 团队模式下如果队伍总分没有出现平分（只有一个领先队伍），则不应该进入后续“个人平分”逻辑
+          // 否则会在队伍总分不平分时，因为个人最高分平分而错误触发决胜老虎机
+          return null;
         }
       }
 
@@ -2487,6 +2493,25 @@ useEffect(() => {
       },
     });
     currentRoundRef.current = safeRound;
+
+    // 🏃 积分冲刺模式：补轮次时同步补齐累计积分（否则只会补金额，不会补分）
+    if (gameMode === 'sprint') {
+      const sprintData = sprintDataRef.current;
+      const winnersByRound = sprintData?.roundWinners || {};
+      const nextScores: Record<string, number> = {};
+
+      runtime.rounds.slice(0, safeRound).forEach((roundPlan) => {
+        const winners = (winnersByRound as any)?.[roundPlan.roundIndex];
+        if (!Array.isArray(winners) || !winners.length) return;
+        winners.forEach((winnerId: any) => {
+          const key = winnerId !== undefined && winnerId !== null ? String(winnerId) : '';
+          if (!key) return;
+          nextScores[key] = (nextScores[key] ?? 0) + 1;
+        });
+      });
+
+      setSprintScores(nextScores);
+    }
   }, [dispatchProgressState, gameMode, participantIdList, shareWinnerIds]);
   
   // UI状态
@@ -2800,39 +2825,67 @@ useEffect(() => {
       
       runtime.rounds.forEach((roundPlan) => {
         const roundIdx = roundPlan.roundIndex;
-        const roundPrices: Record<string, number> = {};
         
         if (isTeam) {
-          const teamTotals: Record<string, number> = {};
-          allParticipants.forEach((participant) => {
-            if (!participant?.id || !participant.teamId) return;
-            const drop = roundPlan.drops[participant.id];
-            if (!drop) return;
-            teamTotals[participant.teamId] = (teamTotals[participant.teamId] || 0) + drop.value;
+          // 新规则（团队）：本轮“金额最高/倒置最低”的玩家所属队伍各记 1 分；
+          // 若最高/最低玩家来自不同队伍，则这些队伍各 +1（同队多名玩家并列只记 1 分）
+          const playerEntries = allParticipants
+            .map((participant) => {
+              if (!participant?.id || !participant.teamId) return null;
+              const drop = roundPlan.drops[participant.id];
+              if (!drop) return null;
+              return {
+                playerId: participant.id,
+                teamId: participant.teamId,
+                value: Number(drop.value ?? 0),
+              };
+            })
+            .filter(Boolean) as Array<{ playerId: string; teamId: string; value: number }>;
+
+          if (!playerEntries.length) {
+            roundWinners[roundIdx] = [];
+            return;
+          }
+
+          const comparator = runtime.config.specialRules.inverted ? Math.min : Math.max;
+          const targetValue = comparator(...playerEntries.map((entry) => entry.value));
+          const winningTeamIds = Array.from(
+            new Set(
+              playerEntries
+                .filter((entry) => entry.value === targetValue)
+                .map((entry) => entry.teamId)
+                .filter(Boolean),
+            ),
+          );
+
+          winningTeamIds.forEach((teamId) => {
+            scores[teamId] = (scores[teamId] || 0) + 1;
           });
-          Object.assign(roundPrices, teamTotals);
+          roundWinners[roundIdx] = winningTeamIds;
+          return;
         } else {
+          const roundPrices: Record<string, number> = {};
           Object.entries(roundPlan.drops).forEach(([playerId, drop]) => {
             roundPrices[playerId] = drop.value;
           });
-        }
 
-        if (Object.keys(roundPrices).length === 0) {
-          roundWinners[roundIdx] = [];
-          return;
-        }
+          if (Object.keys(roundPrices).length === 0) {
+            roundWinners[roundIdx] = [];
+            return;
+          }
 
-        const comparator = runtime.config.specialRules.inverted ? Math.min : Math.max;
-        const targetPrice = comparator(...Object.values(roundPrices));
-        const winners = Object.entries(roundPrices)
-          .filter(([, price]) => price === targetPrice)
-          .map(([id]) => id);
+          const comparator = runtime.config.specialRules.inverted ? Math.min : Math.max;
+          const targetPrice = comparator(...Object.values(roundPrices));
+          const winners = Object.entries(roundPrices)
+            .filter(([, price]) => price === targetPrice)
+            .map(([id]) => id);
 
-        winners.forEach((id) => {
+          winners.forEach((id) => {
             scores[id] = (scores[id] || 0) + 1;
-        });
-        
-        roundWinners[roundIdx] = winners;
+          });
+
+          roundWinners[roundIdx] = winners;
+        }
       });
       
       const maxScore = Math.max(...Object.values(scores));
@@ -2990,30 +3043,44 @@ useEffect(() => {
     if (typeof document === 'undefined') return;
 
     const handleVisibility = () => {
+      // 只允许在正式对战进行中补轮次：等待区 / 倒计时 / 已完成（展示获胜者）都不应触发
+      const canHydrateTimeline =
+        mainStateRef.current === 'ROUND_LOOP' && roundStateRef.current !== null;
+
       if (document.hidden) {
+        if (!canHydrateTimeline) {
+          lastHiddenAtRef.current = null;
+          lastHiddenRoundRef.current = null;
+          return;
+        }
         lastHiddenAtRef.current = Date.now();
-        lastHiddenRoundRef.current = gameData.currentRound;
+        lastHiddenRoundRef.current = currentRoundRef.current;
       } else {
         const hiddenAt = lastHiddenAtRef.current;
         const hiddenRound = lastHiddenRoundRef.current;
+        if (!canHydrateTimeline) {
+          lastHiddenAtRef.current = null;
+          lastHiddenRoundRef.current = null;
+          return;
+        }
         if (hiddenAt !== null) {
           const deltaMs = Date.now() - hiddenAt;
-          const seconds = (deltaMs / 1000).toFixed(1);
-          console.info(`[BattleTab] 离开时第${hiddenRound ?? '未知'}轮，离开时长 ${seconds}s`);
 
           // 补齐轮次（基于回合时长推算）
           if (
             hiddenRound !== null &&
             Number.isFinite(hiddenRound) &&
-            typeof gameData.totalRounds === 'number' &&
-            gameData.totalRounds > 0
+            typeof totalRoundsRef.current === 'number' &&
+            totalRoundsRef.current > 0
           ) {
-            const roundDurationMs = isFastMode ? FAST_ROUND_DURATION_MS : NORMAL_ROUND_DURATION_MS;
+            const roundDurationMs = isFastModeRef.current
+              ? FAST_ROUND_DURATION_MS
+              : NORMAL_ROUND_DURATION_MS;
             const skipped = Math.floor(deltaMs / roundDurationMs);
             if (skipped > 0) {
-              const targetRound = Math.min(gameData.totalRounds, hiddenRound + skipped);
+              const targetRound = Math.min(totalRoundsRef.current, hiddenRound + skipped);
               hydrateRoundsProgress(targetRound);
-              if (targetRound >= gameData.totalRounds) {
+              if (targetRound >= totalRoundsRef.current) {
                 setCountdownValue(null);
                 setRoundState(null);
                 setMainState('COMPLETED');
@@ -3033,7 +3100,7 @@ useEffect(() => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [gameData.currentRound]);
+  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState]);
 
   // 🎯 STATE TRANSITION: IDLE → LOADING
   useEffect(() => {
@@ -4065,6 +4132,18 @@ useEffect(() => {
   useEffect(() => {
     currentRoundRef.current = gameData.currentRound;
   }, [gameData.currentRound]);
+
+  useEffect(() => {
+    mainStateRef.current = mainState;
+  }, [mainState]);
+  
+  useEffect(() => {
+    totalRoundsRef.current = gameData.totalRounds;
+  }, [gameData.totalRounds]);
+  
+  useEffect(() => {
+    isFastModeRef.current = Boolean(isFastMode);
+  }, [isFastMode]);
   
   useEffect(() => {
     roundStateRef.current = roundState;
