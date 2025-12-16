@@ -96,13 +96,6 @@ export default function ParticipantsWithPrizes({
   const { t } = useI18n();
   const pendingLabel = pendingButtonLabel || t('summonBot');
   
-  // 🔥 调试：打印淘汰轮次信息
-  useEffect(() => {
-    if (Object.keys(eliminationRounds).length > 0) {
-      console.log('🔥 [ParticipantsWithPrizes] eliminationRounds:', eliminationRounds);
-      console.log('🔥 [ParticipantsWithPrizes] eliminatedPlayerIds:', Array.from(eliminatedPlayerIds));
-    }
-  }, [eliminationRounds, eliminatedPlayerIds]);
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeTeamGroup, setActiveTeamGroup] = useState(0); // 团队模式tabs
   const [isLargeScreen, setIsLargeScreen] = useState(false);
@@ -111,6 +104,13 @@ export default function ParticipantsWithPrizes({
   
   // 🎯 团队模式判断
   const isTeamMode = battleType === 'team';
+  const isLastChanceJackpot = gameMode === 'jackpot' && Boolean(battleData.isLastChance);
+  const totalRoundsForJackpot = Array.isArray(packs) ? packs.length : 0;
+  const lastRoundIndexForJackpot = totalRoundsForJackpot > 0 ? totalRoundsForJackpot - 1 : 0;
+  const isLastChanceJackpotLastRoundRevealed =
+    isLastChanceJackpot &&
+    ((completedRounds && completedRounds.has(lastRoundIndexForJackpot)) ||
+      (typeof currentRound === 'number' && currentRound > lastRoundIndexForJackpot));
   
   // 🏆 大奖模式：计算总奖池
   const jackpotPercentages = useMemo(() => {
@@ -118,29 +118,62 @@ export default function ParticipantsWithPrizes({
       return {};
     }
     const isInvertedJackpot = battleData.isInverted;
-    const entries = Object.entries(participantValues).map(([participantId, value]) => {
-      const normalizedValue = Number(value) || 0;
-      return {
-        participantId,
-        rawValue: normalizedValue,
-        inverseWeight: normalizedValue > 0 ? 1 / normalizedValue : 0,
-      };
-    });
+    const isLastChanceMode = Boolean(battleData.isLastChance);
+    type JackpotEntry = { participantId: string; rawValue: number; inverseWeight: number };
+
+    const totalRounds = Array.isArray(packs) ? packs.length : 0;
+    const lastRoundIndex = totalRounds > 0 ? totalRounds - 1 : 0;
+    const lastRoundId = `round-${lastRoundIndex}`;
+    const isLastRoundRevealed =
+      (completedRounds && completedRounds.has(lastRoundIndex)) ||
+      (typeof currentRound === 'number' && currentRound > lastRoundIndex);
+
+    const lastRoundItems =
+      isLastChanceMode && isLastRoundRevealed
+        ? (roundResults.find((r) => r?.roundId === lastRoundId)?.playerItems ?? {})
+        : null;
+
+    const entries: JackpotEntry[] = isLastChanceMode
+      ? isLastRoundRevealed
+        ? (participants ?? []).reduce<JackpotEntry[]>((acc, participant) => {
+            if (!participant?.id) return acc;
+            const normalizedValue = Number(lastRoundItems?.[participant.id]?.price ?? 0) || 0;
+            acc.push({
+              participantId: participant.id,
+              rawValue: normalizedValue,
+              inverseWeight: normalizedValue > 0 ? 1 / normalizedValue : 0,
+            });
+            return acc;
+          }, [])
+        : []
+      : Object.entries(participantValues).reduce<JackpotEntry[]>((acc, [participantId, value]) => {
+          if (!participantId) return acc;
+          const normalizedValue = Number(value) || 0;
+          acc.push({
+            participantId,
+            rawValue: normalizedValue,
+            inverseWeight: normalizedValue > 0 ? 1 / normalizedValue : 0,
+          });
+          return acc;
+        }, []);
+
     const totalValue = entries.reduce((sum, entry) => sum + entry.rawValue, 0);
     const totalInverseWeight = entries.reduce((sum, entry) => sum + entry.inverseWeight, 0);
+    const fallbackCount = entries.length;
+    const fallbackPercentage = fallbackCount ? 100 / fallbackCount : 0;
     const result: Record<string, string> = {};
     entries.forEach((entry) => {
       let percentage: number;
       if (isInvertedJackpot) {
         percentage =
-          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : 0;
+          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : fallbackPercentage;
       } else {
-        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : 0;
+        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : fallbackPercentage;
       }
       result[entry.participantId] = percentage.toFixed(2);
     });
     return result;
-  }, [gameMode, participantValues, battleData.isInverted]);
+  }, [gameMode, participantValues, battleData.isInverted, battleData.isLastChance, packs, participants, roundResults, completedRounds, currentRound]);
   
   const getPlayerPercentage = (participantId: string) => {
     if (gameMode !== 'jackpot') return null;
@@ -469,10 +502,15 @@ export default function ParticipantsWithPrizes({
                       style={{ backgroundColor: jackpotBackground }}
                     >
                       <p className="text-xxs sm:text-xs lg:text-sm text-white font-semibold">
-                        {gameMode === 'jackpot'
-                          ? `${getPlayerPercentage(participant.id) || '0.00'}%`
-                          : `$${participantValue.toFixed(2)}`
-                        }
+                        {gameMode === 'jackpot' ? (
+                          isLastChanceJackpot && !isLastChanceJackpotLastRoundRevealed ? (
+                            'TBD'
+                          ) : (
+                            `${getPlayerPercentage(participant.id) ?? '0.00'}%`
+                          )
+                        ) : (
+                          `$${participantValue.toFixed(2)}`
+                        )}
                       </p>
                     </div>
                   </div>
@@ -599,7 +637,11 @@ export default function ParticipantsWithPrizes({
               style={{ backgroundColor: gameMode === 'jackpot' ? playerColors[member.id] || '#34383C' : '#34383C' }}
             >
               <p className="text-xxs sm:text-xs lg:text-sm text-white font-semibold">
-                {gameMode === 'jackpot' ? `${getPlayerPercentage(member.id) || '0.00'}%` : `$${(participantValues[member.id] || 0).toFixed(2)}`}
+                {gameMode === 'jackpot'
+                  ? (isLastChanceJackpot && !isLastChanceJackpotLastRoundRevealed
+                      ? 'TBD'
+                      : `${getPlayerPercentage(member.id) ?? '0.00'}%`)
+                  : `$${(participantValues[member.id] || 0).toFixed(2)}`}
               </p>
             </div>
           </div>
@@ -870,8 +912,10 @@ export default function ParticipantsWithPrizes({
                             }}
                           >
                             <p className="text-xxs sm:text-xs lg:text-sm text-white font-semibold">
-                              {gameMode === 'jackpot' 
-                                ? `${getPlayerPercentage(participant.id) || '0.00'}%`
+                              {gameMode === 'jackpot'
+                                ? (isLastChanceJackpot && !isLastChanceJackpotLastRoundRevealed
+                                    ? 'TBD'
+                                    : `${getPlayerPercentage(participant.id) ?? '0.00'}%`)
                                 : `$${(participantValues[participant.id] || 0).toFixed(2)}`
                               }
                             </p>

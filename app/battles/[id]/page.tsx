@@ -1557,8 +1557,16 @@ useEffect(() => {
     }
 
     const isJackpotInverted = battleData.isInverted;
+    const isLastChanceMode = Boolean(battleData.isLastChance);
+    const runtime = battleRuntimeRef.current;
+    const lastRoundPlan =
+      isLastChanceMode && runtime?.rounds?.length
+        ? runtime.rounds[runtime.rounds.length - 1]
+        : null;
     const contributions = validParticipants.map((participant) => {
-      const rawValue = Number(participantValues[participant.id]) || 0;
+      const rawValue = isLastChanceMode
+        ? Number(lastRoundPlan?.drops?.[participant.id]?.value ?? 0) || 0
+        : Number(participantValues[participant.id]) || 0;
       return {
         id: participant.id,
         name: participant.name,
@@ -1593,7 +1601,14 @@ useEffect(() => {
     setJackpotPlayerSegments(segments);
     setJackpotWinnerId(winnerId);
     jackpotInitialized.current = true;
-  }, [allParticipants, participantValues, playerColors, predeterminedWinnerIds, battleData.isInverted]);
+  }, [
+    allParticipants,
+    participantValues,
+    playerColors,
+    predeterminedWinnerIds,
+    battleData.isInverted,
+    battleData.isLastChance,
+  ]);
 
   
   // 🎉 大奖模式：动画完成回调（稳定引用）
@@ -2247,32 +2262,7 @@ useEffect(() => {
       }
     }
 
-    if (gameMode === 'jackpot' && isLastChance) {
-      const comparison = getLastChanceValueMap();
-      const values = Object.values(comparison);
-      if (!values.length) return null;
-      const comparator = isInverted ? Math.min : Math.max;
-      const computedWinnerValue =
-        declaredWinnerId && comparison[declaredWinnerId] !== undefined
-          ? comparison[declaredWinnerId]
-          : comparator(...values);
-      const contenders = Object.entries(comparison)
-        .filter(([, value]) => value === computedWinnerValue)
-        .map(([id]) => id);
-      if (contenders.length > 1) {
-        const winnerPayload = jackpotWinnerRef.current;
-        const winnerId =
-          (declaredWinnerId && contenders.includes(declaredWinnerId) && declaredWinnerId) ||
-          (winnerPayload?.id && contenders.includes(winnerPayload.id)
-            ? winnerPayload.id
-            : contenders[0]);
-        return {
-          mode: 'jackpot',
-          contenderIds: contenders,
-          winnerId,
-        };
-      }
-    }
+    // 🎰 大奖模式：不使用决胜老虎机（即使 Last Chance 最后一轮出现并列也不走 tie-breaker）
 
     return null;
   }, [
@@ -4107,7 +4097,8 @@ useEffect(() => {
         // 回到ROUND_RENDER开始新一轮
         setRoundState('ROUND_RENDER');
       } else {
-        if (gameMode === 'jackpot' && !isJackpotWithLastChance && !jackpotRollTriggeredRef.current) {
+        // 🎰 大奖模式：结束后进入色条滚动阶段（包含 Last Chance：仅在最后一轮结束时按最后一轮金额计算百分比并滚动）
+        if (gameMode === 'jackpot' && !jackpotRollTriggeredRef.current) {
           jackpotRollTriggeredRef.current = true;
           prepareJackpotDisplayData();
           setJackpotPhase('rolling');
@@ -4124,7 +4115,6 @@ useEffect(() => {
     gameData.currentRound,
     gameData.totalRounds,
     gameMode,
-    isJackpotWithLastChance,
     prepareJackpotDisplayData,
     setJackpotPhase,
   ]);
