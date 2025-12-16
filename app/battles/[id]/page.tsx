@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { gsap } from "gsap";
@@ -967,13 +967,23 @@ export default function BattleDetailPage() {
   const normalizedCurrentUserId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
   const previousStatusRef = useRef<number | null>(null);
   const postStartSyncStatusRef = useRef<number | null>(null);
-  const pendingPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingPollIntervalRef = useRef<ReturnType<typeof setInterval> | ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!routeBattleId) {
       router.push('/battles');
     }
   }, [routeBattleId, router]);
+
+  const queryClient = useQueryClient();
+
+  // 🔥 强制刷新：每次 routeBattleId 变化时（从列表页点击进入时），清除缓存并强制刷新
+  useEffect(() => {
+    if (routeBattleId) {
+      // 清除该查询的缓存
+      queryClient.removeQueries({ queryKey: ['fightDetail', routeBattleId], exact: false });
+    }
+  }, [routeBattleId, queryClient]);
 
   const { data: fightDetailResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['fightDetail', routeBattleId],
@@ -984,12 +994,16 @@ export default function BattleDetailPage() {
       }
       return api.getFightDetail(routeBattleId);
     },
-    keepPreviousData: true,
+    keepPreviousData: false, // 🔥 不使用缓存数据，每次都获取最新数据
+    refetchOnMount: false, // 🔥 禁用自动刷新，由轮询逻辑统一控制
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    staleTime: 0, // 🔥 数据立即过期，强制重新获取
+    cacheTime: 0, // 🔥 不使用缓存
   });
 
   const refetchRef = useRef(refetch);
+  const currentRouteBattleIdRef = useRef(routeBattleId); // 🔥 存储当前的 routeBattleId，用于轮询时检查
   const rawDetail = fightDetailResponse?.data;
   const rawStatus = Number(rawDetail?.status ?? 0);
   const hasWinBoxData = useMemo(() => {
@@ -1021,30 +1035,138 @@ export default function BattleDetailPage() {
     refetchRef.current = refetch;
   }, [refetch]);
 
+  // 🔥 更新当前的 routeBattleId ref
   useEffect(() => {
+    currentRouteBattleIdRef.current = routeBattleId;
+  }, [routeBattleId]);
+
+  useEffect(() => {
+    // 🔥 清除之前的轮询（无论是 interval 还是 timeout）
     if (pendingPollIntervalRef.current) {
-      clearInterval(pendingPollIntervalRef.current);
+      if (typeof pendingPollIntervalRef.current === 'number') {
+        clearTimeout(pendingPollIntervalRef.current);
+      } else {
+        clearInterval(pendingPollIntervalRef.current);
+      }
       pendingPollIntervalRef.current = null;
     }
 
     // 轮询进行中：等待开局或等待掉落数据生成（win.box 未就绪时继续）
+    // 🔥 修复：status >= 2 时（已完成），应该停止轮询
     const shouldPoll =
-      Boolean(routeBattleId) && (rawStatus === 0 || rawStatus === 1 || !hasWinBoxData);
+      Boolean(routeBattleId) && 
+      (rawStatus < 2 || !hasWinBoxData);
+    
     if (!shouldPoll) {
+      // 🔥 确保停止轮询：如果 status >= 2，清除可能存在的轮询
+      if (rawStatus >= 2 && pendingPollIntervalRef.current) {
+        if (typeof pendingPollIntervalRef.current === 'number') {
+          clearTimeout(pendingPollIntervalRef.current);
+        } else {
+          clearInterval(pendingPollIntervalRef.current);
+        }
+        pendingPollIntervalRef.current = null;
+      }
       return undefined;
     }
 
-    pendingPollIntervalRef.current = setInterval(() => {
-      refetchRef.current?.();
-    }, 1000);
+    // 🔥 优化：改为串行轮询，只有在上一次请求成功返回后才发起下一次请求
+    // 这样可以避免请求堆积，确保读取到最新的数据
+    const pollOnce = async () => {
+      // 🔥 修复：检查 routeBattleId 是否变化，如果变化了则停止轮询
+      const currentId = currentRouteBattleIdRef.current;
+      if (!currentId || currentId !== routeBattleId) {
+        // routeBattleId 已经变化，停止轮询
+        pendingPollIntervalRef.current = null;
+        return;
+      }
+
+      try {
+        const result = await refetchRef.current?.();
+        
+        // 🔥 再次检查 routeBattleId 是否变化（可能在请求过程中变化了）
+        if (currentRouteBattleIdRef.current !== routeBattleId) {
+          pendingPollIntervalRef.current = null;
+          return;
+        }
+        
+        // 🔥 使用 refetch 返回的最新数据来判断是否继续轮询
+        // refetch 返回的 result.data 就是 ApiResponse<FightDetailRaw>，result.data.data 才是 FightDetailRaw
+        const latestDetail = result?.data?.data;
+        if (latestDetail) {
+          const currentStatus = Number(latestDetail.status ?? 0);
+          const currentWinBox = latestDetail.data?.win?.box;
+          const currentHasWinBoxData = currentWinBox && typeof currentWinBox === 'object' 
+            ? Object.values(currentWinBox).some((entries) => Array.isArray(entries) && entries.length > 0)
+            : false;
+          
+          // 🔥 再次检查 routeBattleId 是否变化
+          if (currentRouteBattleIdRef.current !== routeBattleId) {
+            pendingPollIntervalRef.current = null;
+            return;
+          }
+          
+          const shouldContinuePoll =
+            Boolean(routeBattleId) && 
+            (currentStatus < 2 || !currentHasWinBoxData);
+          
+          if (shouldContinuePoll) {
+            // 🔥 如果返回结果没达到要求，1秒后发起下一次查询
+            pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
+          } else {
+            // 停止轮询
+            pendingPollIntervalRef.current = null;
+          }
+        } else {
+          // 🔥 再次检查 routeBattleId 是否变化
+          if (currentRouteBattleIdRef.current !== routeBattleId) {
+            pendingPollIntervalRef.current = null;
+            return;
+          }
+          // 如果没有返回数据，1秒后继续轮询（可能是网络问题或数据未准备好）
+          pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
+        }
+      } catch (err) {
+        // 🔥 再次检查 routeBattleId 是否变化
+        if (currentRouteBattleIdRef.current !== routeBattleId) {
+          pendingPollIntervalRef.current = null;
+          return;
+        }
+        // 请求失败也1秒后继续轮询，避免网络问题导致停止
+        pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
+      }
+    };
+
+    // 🔥 修复：延迟开始第一次轮询，避免与 useQuery 的初始查询冲突
+    // 同时检查是否已经有轮询在进行，避免重复启动
+    if (pendingPollIntervalRef.current) {
+      // 已经有轮询在进行，不重复启动
+      return;
+    }
+    
+    // 延迟启动，确保 useQuery 的初始查询完成
+    const initialTimeout = setTimeout(() => {
+      // 🔥 再次检查 routeBattleId 是否变化（可能在延迟期间变化了）
+      if (currentRouteBattleIdRef.current === routeBattleId && !pendingPollIntervalRef.current) {
+        pollOnce();
+      }
+    }, 100);
 
     return () => {
+      // 清除初始轮询的 timeout
+      clearTimeout(initialTimeout);
+      
+      // 清除轮询的 timeout/interval
       if (pendingPollIntervalRef.current) {
-        clearInterval(pendingPollIntervalRef.current);
+        if (typeof pendingPollIntervalRef.current === 'number') {
+          clearTimeout(pendingPollIntervalRef.current);
+        } else {
+          clearInterval(pendingPollIntervalRef.current);
+        }
         pendingPollIntervalRef.current = null;
       }
     };
-  }, [routeBattleId, rawStatus, hasWinBoxData]);
+  }, [routeBattleId, rawStatus, hasWinBoxData, fightDetailResponse?.data]);
 
   const normalizedBattleId = String(rawDetail?.id ?? routeBattleId ?? '');
   const battleOwnerId = rawDetail?.user_id !== undefined && rawDetail?.user_id !== null ? String(rawDetail.user_id) : null;
@@ -1084,13 +1206,13 @@ export default function BattleDetailPage() {
         if (res?.code !== 100000) {
           throw new Error(res?.message || 'inviteRobots failed');
         }
-        await refetch();
+        // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
       } catch (err) {
         console.error('inviteRobots failed', err);
         throw err;
       }
     },
-    [canSummonRobots, normalizedBattleId, refetch],
+    [canSummonRobots, normalizedBattleId],
   );
   const handleJoinBattle = useCallback(
     async (order: number) => {
@@ -1106,13 +1228,13 @@ export default function BattleDetailPage() {
         if (res?.code !== 100000) {
           throw new Error(res?.message || 'joinFight failed');
         }
-        await refetch();
+        // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
       } catch (err) {
         console.error('joinFight failed', err);
         throw err;
       }
     },
-    [canJoinBattle, normalizedBattleId, normalizedCurrentUserId, refetch],
+    [canJoinBattle, normalizedBattleId, normalizedCurrentUserId],
   );
   const pendingSlotActionHandler = canSummonRobots ? handleSummonRobot : canJoinBattle ? handleJoinBattle : undefined;
   const pendingSlotActionLabel = canSummonRobots ? t('summonBot') : canJoinBattle ? t('joinBattle') : undefined;
@@ -1183,7 +1305,10 @@ function BattleDetailContent({
   const skipDirectlyToCompletedRef = useRef(false);
   const forceFullReplayRef = useRef(false);
   const [runtimeReadyVersion, setRuntimeReadyVersion] = useState(0);
+  const initializationEntryRoundRef = useRef<number | null>(null); // 记录初始化时的 entryRound，避免重复初始化
   const previousPendingStatusRef = useRef(isPendingBattle);
+  // 🔥 使用 useMemo 创建稳定的 status 值，避免依赖项数组大小变化
+  const rawDetailStatus = useMemo(() => Number(rawDetail?.status ?? 0), [rawDetail?.status]);
   const [isRecreatingBattle, setIsRecreatingBattle] = useState(false);
   const handleRecreateBattle = useCallback(async () => {
     if (isRecreatingBattle) return;
@@ -1247,6 +1372,7 @@ useEffect(() => {
     timelineHydratedRef.current = false;
     skipDirectlyToCompletedRef.current = false;
     forceFullReplayRef.current = false;
+    initializationEntryRoundRef.current = null; // 🔥 重置初始化记录
   }
   previousPendingStatusRef.current = isPendingBattle;
 }, [isPendingBattle, routeBattleId]);
@@ -1390,6 +1516,8 @@ useEffect(() => {
   
   // 🎉 烟花动画 ref
   const winnerFireworkRef = useRef<FireworkAreaHandle>(null);
+  // 避免烟花提前触发：确保获胜者组件已渲染后再放烟花
+  const winnerCelebrationFiredRef = useRef(false);
   
   // 🎵 播放胜利音效的辅助函数
   const playWinSound = useCallback(() => {
@@ -1990,18 +2118,125 @@ useEffect(() => {
           ? comparison[declaredWinnerId]
           : comparator(...values);
 
+      // 团队模式：先按队伍总金额判定是否需要决胜
+      if (isTeamMode) {
+        const teamTotals: Record<string, number> = {};
+        allParticipants.forEach((participant) => {
+          if (!participant?.id || !participant.teamId) return;
+          const val = comparison[participant.id];
+          if (val === undefined) return;
+          teamTotals[participant.teamId] = (teamTotals[participant.teamId] ?? 0) + val;
+        });
+
+        if (Object.keys(teamTotals).length) {
+          const resolveTeamIdByPlayer = (playerId?: string | null) => {
+            if (!playerId) return null;
+            const member = allParticipants.find((p) => p?.id === playerId);
+            return member?.teamId ?? null;
+          };
+
+          const declaredWinnerTeamId = resolveTeamIdByPlayer(primaryDeclaredWinnerId ?? declaredWinnerId);
+          const rawWinnerTeamId = resolveTeamIdByPlayer(primaryRawWinnerId);
+
+          const leaderValue =
+            (declaredWinnerTeamId && teamTotals[declaredWinnerTeamId] !== undefined
+              ? teamTotals[declaredWinnerTeamId]
+              : null) ??
+            (rawWinnerTeamId && teamTotals[rawWinnerTeamId] !== undefined
+              ? teamTotals[rawWinnerTeamId]
+              : null) ??
+            comparator(...Object.values(teamTotals));
+
+          const contenderTeamIds = Object.entries(teamTotals)
+            .filter(([, value]) => value === leaderValue)
+            .map(([teamId]) => teamId);
+
+          if (contenderTeamIds.length > 1) {
+            const contenderIds = allParticipants
+              .filter((participant) => participant?.id && participant.teamId && contenderTeamIds.includes(participant.teamId))
+              .map((participant) => participant.id);
+
+            if (contenderIds.length > 1) {
+              const resolveCandidate = (candidate?: string | null) => {
+                if (!candidate) return null;
+                const member = allParticipants.find((p) => p?.id === candidate);
+                if (member?.teamId && contenderTeamIds.includes(member.teamId) && contenderIds.includes(member.id)) {
+                  return member.id;
+                }
+                return null;
+              };
+
+              const fallbackWinnerTeamId = declaredWinnerTeamId ?? rawWinnerTeamId ?? contenderTeamIds[0];
+              const fallbackWinnerId =
+                allParticipants.find(
+                  (p) => p?.id && p.teamId === fallbackWinnerTeamId && contenderIds.includes(p.id),
+                )?.id ?? contenderIds[0];
+
+              const resolvedWinnerId =
+                resolveCandidate(primaryRawWinnerId) ??
+                resolveCandidate(primaryDeclaredWinnerId) ??
+                resolveCandidate(declaredWinnerId) ??
+                fallbackWinnerId;
+
+              if (!resolvedWinnerId || !contenderIds.includes(resolvedWinnerId)) {
+                return null;
+              }
+
+              return {
+                mode: 'classic',
+                contenderIds,
+                winnerId: resolvedWinnerId,
+              };
+            }
+          }
+        }
+
+        // 团队模式无平局则不需要决胜，直接返回
+        return null;
+      }
+
       const contenders = Object.entries(comparison)
         .filter(([, value]) => value === computedWinnerValue)
         .map(([id]) => id);
 
       if (contenders.length > 1) {
-        const winnerId =
-          declaredWinnerId ?? determineClassicWinnerParticipantId(comparison);
-        if (!winnerId) return null;
+        // 经典模式下，团队模式和单人模式的判断逻辑相同（都是看个人金额）
+        // 区别只是团队模式会根据获胜者所在的队伍来分享奖励
+        // 所以这里不需要区分团队模式和单人模式，直接使用参与者ID
+        const resolveCandidate = (candidate?: string | null) => {
+          if (!candidate) return null;
+          // 如果候选ID直接在竞争者列表中，直接返回
+          if (contenders.includes(candidate)) {
+            return candidate;
+          }
+          // 如果是团队模式，尝试通过团队ID找到对应的参与者
+          if (isTeamMode) {
+            const member = allParticipants.find(
+              (participant) => participant?.teamId && participant.teamId === candidate,
+            );
+            if (member && contenders.includes(member.id)) {
+              return member.id;
+            }
+          }
+          return null;
+        };
+
+        const resolvedWinnerId =
+          resolveCandidate(declaredWinnerId) ??
+          resolveCandidate(primaryDeclaredWinnerId) ??
+          resolveCandidate(primaryRawWinnerId) ??
+          determineClassicWinnerParticipantId(comparison) ??
+          contenders[0];
+
+        // 确保 resolvedWinnerId 在 contenders 中
+        if (!resolvedWinnerId || !contenders.includes(resolvedWinnerId)) {
+          return null;
+        }
+
         return {
           mode: 'classic',
           contenderIds: contenders,
-          winnerId,
+          winnerId: resolvedWinnerId,
         };
       }
     }
@@ -2262,6 +2497,8 @@ useEffect(() => {
   const lastRoundLogRef = useRef<string>('');
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [tieBreakerPlan, setTieBreakerPlan] = useState<TieBreakerPlan | null>(null);
+  const tieBreakerPlanRef = useRef<TieBreakerPlan | null>(null);
+  tieBreakerPlanRef.current = tieBreakerPlan;
   const [tieBreakerGateOpen, setTieBreakerGateOpen] = useState(false);
   const tieBreakerSymbols = useMemo<HorizontalSlotSymbol[]>(() => {
     if (!tieBreakerPlan) return [];
@@ -2829,6 +3066,7 @@ useEffect(() => {
       hasGeneratedResultsRef.current = false;
       timelineHydratedRef.current = false;
       colorsAssignedRef.current = false;
+      initializationEntryRoundRef.current = null; // 🔥 重置初始化记录
       dispatchProgressState({ type: 'RESET_ALL_ROUND_FLAGS' });
       dispatchProgressState({ type: 'RESET_ROUND_EVENT_LOG' });
     }
@@ -2891,6 +3129,10 @@ useEffect(() => {
       const totalRounds = rounds.length;
       const entryRoundSetting = activeSource.entryRound;
       const shouldSkipPrepare = forceFullReplayRef.current;
+      
+      // 🔥 记录初始化时的 entryRound，避免后续变化导致重复初始化
+      initializationEntryRoundRef.current = entryRoundSetting;
+      
       if (typeof window !== 'undefined') {
         console.log('[battle-entry-prepare]', {
           entryRoundSetting,
@@ -2905,6 +3147,7 @@ useEffect(() => {
         } else {
           shouldSkipPrepare ? startCountdownDirect() : startCountdownWithPrepare();
         }
+        timelineHydratedRef.current = true; // 标记已初始化
         return;
       }
 
@@ -2939,6 +3182,7 @@ useEffect(() => {
         setMainState('ROUND_LOOP');
       } else {
         startCountdownWithPrepare();
+        timelineHydratedRef.current = true; // 标记已初始化
       }
     };
 
@@ -2950,11 +3194,13 @@ useEffect(() => {
     dispatchProgressState,
     setMainState,
     setRoundState,
-    activeSource.entryRound,
+    // 🔥 移除 activeSource.entryRound 依赖，避免数据更新导致的重复初始化
+    // 使用 initializationEntryRoundRef 来跟踪初始化状态
     hydrateRoundsProgress,
     hasWinBoxData,
     startCountdownWithPrepare,
     startCountdownDirect,
+    allParticipants, // 保留 allParticipants 依赖，因为需要锁定快照
   ]);
 
   useEffect(() => {
@@ -2972,11 +3218,31 @@ useEffect(() => {
       return;
     }
 
+    // 🔥 关键修复：如果游戏已经进入 COUNTDOWN 或 ROUND_LOOP 状态，不应该再执行初始化
+    // 这可以避免在游戏进行中因为依赖项变化导致的重置
+    // 使用 mainStateRef 来避免在依赖项中直接使用 mainState，防止依赖项数组大小变化
+    const currentMainState = mainStateRef.current;
+    if (currentMainState === 'COUNTDOWN' || currentMainState === 'ROUND_LOOP' || currentMainState === 'COMPLETED') {
+      // 游戏已经开始了，不应该再执行初始化逻辑
+      timelineHydratedRef.current = true; // 标记为已初始化，避免后续再次执行
+      return;
+    }
+
     const runtime = battleRuntimeRef.current;
-    const currentStatus = Number(rawDetail?.status ?? 0);
+    const currentStatus = rawDetailStatus; // 🔥 使用稳定的 status 值，避免依赖项数组大小变化
     const totalRounds = runtime.config.roundsTotal;
     const entryRoundSetting = activeSource.entryRound;
     const shouldSkipPrepare = forceFullReplayRef.current;
+    
+    // 🔥 防止重复初始化：如果 entryRound 变化但已经初始化过，且不是重放场景，则不执行
+    // 这可以避免因为 activeSource 变化导致的重复初始化
+    if (initializationEntryRoundRef.current !== null && 
+        initializationEntryRoundRef.current !== entryRoundSetting &&
+        !forceFullReplayRef.current) {
+      // entryRound 变化了，但已经初始化过，且不是重放场景，说明是数据更新导致的
+      // 不应该重新初始化，直接返回
+      return;
+    }
     if (typeof window !== 'undefined') {
       console.log('[battle-entry-runtime]', {
         entryRoundSetting,
@@ -2985,12 +3251,18 @@ useEffect(() => {
         forceFullReplay: forceFullReplayRef.current,
       });
     }
+    // 🔥 记录初始化时的 entryRound（作为备用初始化路径）
+    if (initializationEntryRoundRef.current === null) {
+      initializationEntryRoundRef.current = entryRoundSetting;
+    }
+    
     if (currentStatus === 1) {
       if (entryRoundSetting > 0) {
         startCountdownDirect();
       } else {
         shouldSkipPrepare ? startCountdownDirect() : startCountdownWithPrepare();
       }
+      timelineHydratedRef.current = true; // 标记已初始化
       return;
     }
 
@@ -3030,6 +3302,7 @@ useEffect(() => {
     if (entryRoundSetting <= 0) {
       logCurrentRound(0);
       startCountdownWithPrepare();
+      timelineHydratedRef.current = true; // 标记已初始化
       return;
     }
 
@@ -3040,6 +3313,7 @@ useEffect(() => {
       const remainSeconds = Math.max(0, Math.ceil(cursor.roundElapsedMs / 1000));
       setCountdownValue(remainSeconds);
       setMainState('COUNTDOWN');
+      timelineHydratedRef.current = true; // 标记已初始化
       return;
     }
 
@@ -3061,7 +3335,18 @@ useEffect(() => {
       setMainState('COMPLETED');
       timelineHydratedRef.current = true;
     }
-  }, [hydrateRoundsProgress, setCountdownValue, setMainState, setRoundState, activeSource.entryRound, runtimeReadyVersion, startCountdownWithPrepare, startCountdownDirect]);
+  }, [
+    hydrateRoundsProgress, 
+    setCountdownValue, 
+    setMainState, 
+    setRoundState, 
+    // 🔥 移除 activeSource.entryRound 依赖，使用 initializationEntryRoundRef 来防止重复初始化
+    // 只在 runtimeReadyVersion 变化时执行（表示 runtime 已准备好）
+    runtimeReadyVersion, 
+    startCountdownWithPrepare, 
+    startCountdownDirect,
+    rawDetailStatus, // 🔥 使用稳定的 status 值，避免依赖项数组大小变化
+  ]);
 
   // 🎯 STATE TRANSITION: COUNTDOWN → ROUND_LOOP
   useEffect(() => {
@@ -3112,9 +3397,33 @@ useEffect(() => {
       recordRoundEvent(currentRound, 'ROUND_RENDER_START');
       
       // 状态守卫：检查轮次有效性
+      // 🔥 修复：不要立即设置为COMPLETED，而是检查是否所有轮次都已经完成滚动
+      // 这样可以避免在倒计时刚结束时，轮次滚动还没开始就显示决胜老虎机
       if (currentRound >= gameData.totalRounds) {
-        setMainState('COMPLETED');
-        setRoundState(null);
+        // 检查是否所有轮次都已经完成滚动
+        const allRoundsCompleted = completedRounds.size >= gameData.totalRounds;
+        
+        // 🔥 关键检查：确保所有轮次都真正完成了滚动动画（通过 ROUND_SETTLE 阶段）
+        // 而不是仅仅通过 hydrateRoundsProgress 填充的数据
+        let allRoundsReallyCompleted = true;
+        for (let i = 0; i < gameData.totalRounds; i++) {
+          const settleExecuted = roundExecutionFlags[i]?.settleExecuted;
+          if (!settleExecuted) {
+            allRoundsReallyCompleted = false;
+            break;
+          }
+        }
+        
+        if (allRoundsCompleted && allRoundsReallyCompleted) {
+          // 所有轮次都已经完成滚动，可以安全地设置为COMPLETED
+          setMainState('COMPLETED');
+          setRoundState(null);
+        } else {
+          // 轮次还没有完成滚动，不应该设置为COMPLETED
+          // 这种情况理论上不应该发生，但为了安全起见，我们直接返回
+          // 让轮次正常进行，等待所有轮次完成后再通过ROUND_NEXT阶段设置为COMPLETED
+          return;
+        }
         return;
       }
       
@@ -3146,7 +3455,7 @@ useEffect(() => {
         setRoundState('ROUND_SPIN_FIRST');
       }, 100);
     }
-  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, dispatchProgressState, roundExecutionFlags, recordRoundEvent]);
+  }, [mainState, roundState, gameData.currentRound, gameData.totalRounds, dispatchProgressState, roundExecutionFlags, recordRoundEvent, completedRounds.size]);
 
   // 🎯 ROUND_LOOP 子状态机: ROUND_SPIN_FIRST（第一段转动）
   useEffect(() => {
@@ -3867,6 +4176,28 @@ useEffect(() => {
     }
   }, [gameData, roundState, dispatchProgressState]);
 
+  // 在已完成态回放/直达完成时，补齐缺失的 settleExecuted 标记，避免决胜老虎机被守卫拦截
+  useEffect(() => {
+    if (mainState !== 'COMPLETED') return;
+    if (!gameData?.totalRounds) return;
+
+    for (let i = 0; i < gameData.totalRounds; i++) {
+      const alreadySettled = roundExecutionFlags[i]?.settleExecuted;
+      if (alreadySettled) continue;
+
+      if (!completedRounds.has(i)) continue;
+      const roundData = roundResults?.[i];
+      if (!roundData || !Object.keys(roundData).length) continue;
+
+      dispatchProgressState({
+        type: 'SET_ROUND_FLAG',
+        roundIndex: i,
+        flag: 'settleExecuted',
+        value: true,
+      });
+    }
+  }, [mainState, gameData?.totalRounds, completedRounds, roundResults, roundExecutionFlags, dispatchProgressState]);
+
   useEffect(() => {
     if (skipDirectlyToCompletedRef.current) {
       if (tieBreakerPlan !== null) {
@@ -3879,6 +4210,33 @@ useEffect(() => {
     }
 
     if (mainState !== 'COMPLETED') {
+      if (tieBreakerPlan !== null) {
+        setTieBreakerPlan(null);
+      }
+      if (tieBreakerGateOpen) {
+        setTieBreakerGateOpen(false);
+      }
+      return;
+    }
+
+    // 🔥 修复：确保所有轮次都已经完成滚动后再显示决胜老虎机
+    // 避免在倒计时刚结束时，轮次滚动还没开始就显示决胜老虎机
+    // 不仅要检查 completedRounds.size，还要检查所有轮次是否真正完成了 ROUND_SETTLE 阶段
+    const allRoundsCompleted = completedRounds.size >= gameData.totalRounds;
+    
+    // 🔥 关键检查：确保所有轮次都真正完成了滚动动画（通过 ROUND_SETTLE 阶段）
+    // 而不是仅仅通过 hydrateRoundsProgress 填充的数据
+    let allRoundsReallyCompleted = true;
+    for (let i = 0; i < gameData.totalRounds; i++) {
+      const settleExecuted = roundExecutionFlags[i]?.settleExecuted;
+      if (!settleExecuted) {
+        allRoundsReallyCompleted = false;
+        break;
+      }
+    }
+    
+    if (!allRoundsCompleted || !allRoundsReallyCompleted) {
+      // 还有轮次没有完成滚动，不显示决胜老虎机
       if (tieBreakerPlan !== null) {
         setTieBreakerPlan(null);
       }
@@ -3901,7 +4259,7 @@ useEffect(() => {
       }
       setTieBreakerGateOpen(true);
     }
-  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, evaluateTieBreakerPlan, gameMode, jackpotPhase]);
+  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, evaluateTieBreakerPlan, gameMode, jackpotPhase, completedRounds.size, gameData.totalRounds, roundExecutionFlags]);
 
   // 旧的完成检查和轮次切换逻辑已被状态机接管
   
@@ -3981,15 +4339,39 @@ useEffect(() => {
   }, [mainState, gameMode]);
 
   useEffect(() => {
-    if (mainState !== 'COMPLETED' || !tieBreakerGateOpen) return;
+    if (mainState !== 'COMPLETED') return;
     if (completedWinnerSetRef.current) return;
+
+    // 🔥 修复：不仅在有决胜老虎机时需要 tieBreakerGateOpen，没有决胜老虎机时也应该触发
+    // 如果没有决胜老虎机，tieBreakerPlan 为 null，此时应该直接触发
+    // 如果有决胜老虎机，需要等待 tieBreakerGateOpen 为 true（决胜老虎机完成）
+    const shouldTrigger = tieBreakerPlan === null ? true : tieBreakerGateOpen;
+    if (!shouldTrigger) return;
 
     const resolved = resolveWinnersByMode();
     if (resolved) {
       completedWinnerSetRef.current = true;
-      triggerWinnerCelebration();
     }
-  }, [mainState, tieBreakerGateOpen, resolveWinnersByMode, triggerWinnerCelebration]);
+  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, resolveWinnersByMode, triggerWinnerCelebration]);
+
+  // 在获胜者视图可见时再触发烟花，避免早于展示
+  useEffect(() => {
+    if (mainState !== 'COMPLETED') {
+      winnerCelebrationFiredRef.current = false;
+      return;
+    }
+    // 需要决胜老虎机完成（gate open）且不在决胜过程中
+    if (tieBreakerPlanRef.current) return;
+    if (!tieBreakerGateOpen) return;
+    if (!completedWinnerSetRef.current) return;
+    if (winnerCelebrationFiredRef.current) return;
+
+    // 确认 FireworkArea 已挂载
+    if (!winnerFireworkRef.current) return;
+
+    winnerCelebrationFiredRef.current = true;
+    triggerWinnerCelebration();
+  }, [mainState, tieBreakerGateOpen, triggerWinnerCelebration]);
 
   
   // Symbols are now managed by state and only updated when round starts
@@ -4200,6 +4582,7 @@ useEffect(() => {
                           isWinner: false
                         })));
                         timelineHydratedRef.current = false;
+                        initializationEntryRoundRef.current = null; // 🔥 重置初始化记录，允许重新初始化
                         
                         // 重置 gameData 的当前轮次到第一轮
                         dispatchProgressState({
@@ -4232,6 +4615,10 @@ useEffect(() => {
                         
                         // 🎯 重置COMPLETED状态的防重复标记
                         completedWinnerSetRef.current = false;
+                        
+                        // 🔥 重置决胜老虎机相关状态
+                        setTieBreakerPlan(null);
+                        setTieBreakerGateOpen(false);
                         
                         startCountdownDirect();
                         dispatchProgressState({ type: 'RESET_PLAYER_SYMBOLS' });

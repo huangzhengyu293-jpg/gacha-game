@@ -1072,8 +1072,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
           display: flex;
           flex-direction: column;
           align-items: center;
-          background: #1D2125;
-          border: 1px solid #2A2F33;
+          background: #22272b66;
           padding: 4px 8px;
           border-radius: 6px;
           top: 50%;

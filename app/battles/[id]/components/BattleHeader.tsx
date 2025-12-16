@@ -95,13 +95,34 @@ export default function BattleHeader({
     }
     lastUpdateTimeRef.current = now;
     
-    // 检查桌面端或移动端的滚动容器
-    const el = packScrollRefDesktop.current || packScrollRefMobile.current;
-    if (!el || packImages.length <= VIRTUAL_THRESHOLD) return;
+    if (packImages.length <= VIRTUAL_THRESHOLD) return;
+    
+    // 🔥 修复：分别处理桌面端和移动端，确保使用正确的容器和宽度
+    const elDesktop = packScrollRefDesktop.current;
+    const elMobile = packScrollRefMobile.current;
+    
+    // 检查哪个容器实际可见（通过检查 offsetWidth 和 offsetHeight）
+    // 隐藏的容器 offsetWidth 或 offsetHeight 为 0
+    let el: HTMLDivElement | null = null;
+    let containerWidth = 252; // 默认桌面端宽度
+    
+    // 优先检查桌面端（桌面端在 sm 及以上可见）
+    if (elDesktop && elDesktop.offsetWidth > 0 && elDesktop.offsetHeight > 0) {
+      el = elDesktop;
+      containerWidth = 252; // 桌面端固定宽度
+    } 
+    // 如果桌面端不可见，使用移动端（移动端在 sm 以下可见）
+    else if (elMobile && elMobile.offsetWidth > 0 && elMobile.offsetHeight > 0) {
+      el = elMobile;
+      // 移动端使用实际容器宽度
+      containerWidth = el.clientWidth || el.offsetWidth || 252;
+    }
+    
+    if (!el) return;
     
     const scrollLeft = el.scrollLeft;
-    // 顶部可视区域固定宽度约 252px (15.75rem)，减去 padding
-    const visibleWidth = 252 - 42; // 252px 减去右侧 padding 38px + 4px
+    // 减去右侧 padding (38px + 4px = 42px)
+    const visibleWidth = containerWidth - 42;
     
     // 计算视口内可见的卡包数量
     const visibleCount = Math.ceil(visibleWidth / (PACK_WIDTH + GAP));
@@ -481,6 +502,7 @@ export default function BattleHeader({
                   }}
                 >
                   {packImages.map((pack, index) => {
+                    // 虚拟滚动：只渲染可见范围内的卡包（与桌面端保持一致）
                     const isVisible = packImages.length <= VIRTUAL_THRESHOLD || (index >= visibleRange.start && index < visibleRange.end);
                     
                     if (!isVisible) {
@@ -497,6 +519,9 @@ export default function BattleHeader({
                     return (
                       <img
                         key={`pack-header-mobile-${index}-${pack.id}`}
+                        ref={(el) => {
+                          packRefs.current[index] = el;
+                        }}
                         alt={pack.alt}
                         loading="eager"
                         width="42"
@@ -508,6 +533,7 @@ export default function BattleHeader({
                           color: "transparent",
                           opacity: isHighlighted(index) ? 1 : 0.32,
                         }}
+                        onClick={() => setPackModal({ open: true, packId: pack.id })}
                       />
                     );
                   })}
