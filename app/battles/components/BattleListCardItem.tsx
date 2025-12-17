@@ -209,9 +209,10 @@ export default function BattleListCardItem({
   const renderParticipants = () => {
     // 如果有 teams 数据，直接使用 card.teams（由 buildTeamStructure 根据 team_size 正确构建）
     if (hasTeams && card.teams && card.teams.length > 0) {
+      const teams = card.teams; // 提取出来，让 TypeScript 知道它不为 undefined
       return (
         <div className="flex flex-wrap items-center justify-center gap-3">
-          {card.teams.map((team, teamIdx) => (
+          {teams.map((team, teamIdx) => (
             <Fragment key={team.id || `team-${teamIdx}`}>
               <div className="flex items-center gap-1">
                 {team.members.map((member, memberIdx) =>
@@ -222,7 +223,7 @@ export default function BattleListCardItem({
                   ),
                 )}
               </div>
-              {teamIdx < card.teams.length - 1 && <BattleConnectorIcon />}
+              {teamIdx < teams.length - 1 && <BattleConnectorIcon />}
             </Fragment>
           ))}
         </div>
