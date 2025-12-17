@@ -251,6 +251,8 @@ export default function DrawExtraComponent() {
     },
     onSuccess: async (_data: ApiResponse, variables: CollectMutationVariables) => {
       await queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+      // 每次领取后同步刷新购物车/仓库（Navbar 数量、CartModal 等依赖 useCart 的地方）
+      await queryClient.invalidateQueries({ queryKey: ['userStorage'] });
       await queryClient.invalidateQueries({ queryKey: ['draw-info'] });
       if (variables.mode === 'all' && variables.overlayItems && variables.overlayItems.length) {
         openCollectOverlay(variables.overlayItems);

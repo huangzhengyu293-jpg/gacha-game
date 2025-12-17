@@ -95,10 +95,12 @@ export default function BattlesPage() {
                 <div className="flex flex-col gap-4">
                   {cards.map((card) => {
                     const isWaiting = Number(card.status) === 0;
+                    const displayCard = Number(card.status) === 2 ? { ...card, status: 3 } : card;
                     return (
                       <BattleListCardItem
                         key={card.id}
-                        card={card}
+                        // 对战历史只展示已完成：status=2 直接按“已开启”展示
+                        card={displayCard}
                         labels={{
                           cost: t("cost"),
                             opened: t("opened"),

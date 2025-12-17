@@ -72,7 +72,8 @@ export default function BattleModes({ sortValue = "latest", useBestRecord = fals
       {sortedCards.map((card) => (
         <BattleListCardItem
           key={card.id}
-          card={card}
+          // 对战亮点（best record）不会存在“进行中”语义：status=2 直接按“已开启”展示
+          card={useBestRecord && Number(card.status) === 2 ? { ...card, status: 3 } : card}
           labels={{
             cost: t("cost"),
             opened: t("opened"),
