@@ -165,7 +165,7 @@ const dict: Dict = {
   dailyCard1: { zh: "开启每日礼包以获得获胜机会！", en: "Open daily packs for a chance to win!", ko: "일일 팩을 열어 당첨 기회를 잡으세요!", ja: "デイリーパックを開けて当選チャンス！" },
   dailyCard2: { zh: "时间正在流逝 -- 不要错过您的机会！", en: "Time is ticking—don’t miss your chance!", ko: "시간이 흐르고 있습니다. 기회를 놓치지 마세요!", ja: "時間は刻一刻と過ぎます。チャンスを逃さないで！" },
   raffleWinners: { zh: "抽奖获奖者", en: "Raffle winners", ko: "래플 당첨자", ja: "ラッフル当選者" },
-  raceWinners: { zh: "获奖者", en: "Winners", ko: "우승자", ja: "受賞者" },
+  raceWinners: { zh: "排行榜", en: "Leaderboard", ko: "리더보드", ja: "リーダーボード" },
   // Rewards
   calculating: { zh: "计算中...", en: "Calculating...", ko: "계산 중...", ja: "計算中..." },
   loginToClaim: { zh: "登录以领取", en: "Log in to claim", ko: "로그인 후 수령", ja: "ログインして受け取る" },
