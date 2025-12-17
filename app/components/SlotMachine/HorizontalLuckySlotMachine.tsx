@@ -371,10 +371,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
           
           // <div class="overflow-hidden border rounded-full border-gray-700" style="border-width: 1px;">
           const borderWrapper = document.createElement('div');
-          borderWrapper.className = 'overflow-hidden border rounded-full border-gray-700';
-          borderWrapper.style.borderWidth = '1px';
-          borderWrapper.style.width = '100%';
-          borderWrapper.style.height = '100%';
+        
           
           // <div class="relative rounded-full overflow-hidden" style="width: 96px; height: 96px;">
           const avatarContainer = document.createElement('div');

@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useState, useRef, useCallback, useMemo, useReducer } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { gsap } from "gsap";
 import dayjs from 'dayjs';
@@ -127,20 +126,6 @@ function computeEntryRoundSetting(rawDetail: FightDetailRaw | null | undefined, 
   const roundDuration = specialOptions.fast ? FAST_ROUND_DURATION_MS : NORMAL_ROUND_DURATION_MS;
   const computed = roundDuration > 0 ? Math.floor(adjustedMs / roundDuration) : 0;
 
-  // 调试：打印时间与轮次计算
-  if (typeof window !== 'undefined') {
-    console.log('[battle-entry-debug]', {
-      now_at: rawDetail.now_at,
-      updated_at: rawDetail.updated_at,
-      startAt: startAt.toISOString(),
-      nowAt: nowAt.toISOString(),
-      diffSeconds: Number((diffMs / 1000).toFixed(2)),
-      adjustedSeconds: Number((adjustedMs / 1000).toFixed(2)),
-      roundDurationMs: roundDuration,
-      computedRound: computed,
-    });
-  }
-
   if (!Number.isFinite(computed) || computed <= 0) {
     return 0;
   }
@@ -151,8 +136,8 @@ const SlotEdgePointer = ({ side }: { side: 'left' | 'right' | 'top' | 'bottom' }
   const rotationMap: Record<'left' | 'right' | 'top' | 'bottom', number> = {
     left: 0,
     right: 180,
-    top: -90, // arrow points downward toward center
-    bottom: 90, // arrow points upward toward center
+    top: 90, // arrow points downward toward center
+    bottom: -90, // arrow points upward toward center
   };
   const positionStyle =
     side === 'left'
@@ -160,8 +145,8 @@ const SlotEdgePointer = ({ side }: { side: 'left' | 'right' | 'top' | 'bottom' }
       : side === 'right'
         ? { top: '50%', right: '12px', transform: 'translateY(-50%)' }
         : side === 'top'
-          ? { left: '50%', top: '4px', transform: 'translateX(-50%)' }
-          : { left: '50%', bottom: '4px', transform: 'translateX(-50%)' };
+          ? { left: '50%', top: '0px', transform: 'translateX(-50%)' }
+          : { left: '50%', bottom: '0px', transform: 'translateX(-50%)' };
 
   return (
     <div
@@ -4664,12 +4649,10 @@ useEffect(() => {
                 );
               } else {
                 return (
-                  <Image
+                  <img
                     alt={participant.name}
                     src={participant.avatar}
-                    fill
-                    sizes="(min-width: 0px) 100px"
-                    className="pointer-events-none object-cover"
+                    className="absolute inset-0 w-full h-full pointer-events-none object-cover"
                   />
                 );
               }
@@ -5696,15 +5679,20 @@ useEffect(() => {
               transform: 'translateX(-50%)',
             }}
           >
-            <HorizontalLuckySlotMachine
-              key={`tie-breaker-${tieBreakerPlan.mode}`}
-              symbols={tieBreakerSymbols}
-              selectedPrizeId={tieBreakerPlan.winnerId}
-              onSpinComplete={handleTieBreakerComplete}
-              width={9999}
-              spinDuration={isFastMode ? 1000 : 6000}
-              isEliminationMode={true}
-            />
+            {/* 箭头基于“横向转轮(reel)”容器，而不是整块覆盖层（避免离老虎机太远） */}
+            <div className="relative w-full" style={{ height: '195px' }}>
+              <SlotEdgePointer side="top" />
+              <SlotEdgePointer side="bottom" />
+              <HorizontalLuckySlotMachine
+                key={`tie-breaker-${tieBreakerPlan.mode}`}
+                symbols={tieBreakerSymbols}
+                selectedPrizeId={tieBreakerPlan.winnerId}
+                onSpinComplete={handleTieBreakerComplete}
+                width={9999}
+                spinDuration={isFastMode ? 1000 : 6000}
+                isEliminationMode={true}
+              />
+            </div>
           </div>
         )}
         
@@ -5723,14 +5711,19 @@ useEffect(() => {
             left: '50%',
             transform: 'translateX(-50%)'
           }}>
-            <EliminationSlotMachine
-              ref={eliminationSlotMachineRef}
-              players={eliminationPlayers}
-              selectedPlayerId={currentEliminationData.eliminatedPlayerId}
-              onSpinComplete={handleEliminationSlotComplete}
-              onSpinSettled={handleEliminationSlotSettled}
-              isFastMode={isFastMode}
-            />
+            {/* 箭头基于“淘汰老虎机本体容器”，而不是整块覆盖层（避免离老虎机太远） */}
+            <div className="relative w-full" style={{ height: '250px' }}>
+              <SlotEdgePointer side="top" />
+              <SlotEdgePointer side="bottom" />
+              <EliminationSlotMachine
+                ref={eliminationSlotMachineRef}
+                players={eliminationPlayers}
+                selectedPlayerId={currentEliminationData.eliminatedPlayerId}
+                onSpinComplete={handleEliminationSlotComplete}
+                onSpinSettled={handleEliminationSlotSettled}
+                isFastMode={isFastMode}
+              />
+            </div>
           </div>
         )}
         </div>
