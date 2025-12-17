@@ -207,20 +207,11 @@ export default function BattleListCardItem({
       : Math.max(card.participants.length, Number(card.raw?.num) || 0);
 
   const renderParticipants = () => {
-    if (hasTeams && card.participants.length) {
-      const membersPerTeam = card.teamStructure === "3v3" ? 3 : 2;
-      const teamCount =
-        card.teamStructure === "2v2v2"
-          ? 3
-          : Math.max(1, Math.floor(card.participants.length / membersPerTeam));
-      const teams = Array.from({ length: teamCount }, (_, idx) => {
-        const start = idx * membersPerTeam;
-        const members = Array.from({ length: membersPerTeam }, (_, i) => card.participants[start + i] ?? null);
-        return { id: `team-${idx}`, members };
-      });
+    // 如果有 teams 数据，直接使用 card.teams（由 buildTeamStructure 根据 team_size 正确构建）
+    if (hasTeams && card.teams && card.teams.length > 0) {
       return (
         <div className="flex flex-wrap items-center justify-center gap-3">
-          {teams.map((team, teamIdx) => (
+          {card.teams.map((team, teamIdx) => (
             <Fragment key={team.id || `team-${teamIdx}`}>
               <div className="flex items-center gap-1">
                 {team.members.map((member, memberIdx) =>
@@ -231,7 +222,7 @@ export default function BattleListCardItem({
                   ),
                 )}
               </div>
-              {teamIdx < teams.length - 1 && <BattleConnectorIcon />}
+              {teamIdx < card.teams.length - 1 && <BattleConnectorIcon />}
             </Fragment>
           ))}
         </div>

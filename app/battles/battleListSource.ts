@@ -18,7 +18,7 @@ export type BattleListCard = {
   teamStructure?: string | null;
   participants: ParticipantPreview[];
   participantSlots: Array<ParticipantPreview | null>;
-  teams?: Array<{ id: string; members: ParticipantPreview[] }>;
+  teams?: Array<{ id: string; members: Array<ParticipantPreview | null> }>;
   connectorStyle: 'share' | 'default';
   entryCost: number;
   totalOpenedValue: number;
@@ -82,19 +82,72 @@ function resolveConnectorStyle(mode: BattleGameMode): 'share' | 'default' {
 }
 
 function buildTeamStructure(entry: RawBattleListItem, participants: ParticipantPreview[]) {
-  const teamFlag = entry.person_team ?? entry.fight_user_type;
-  const isTeamBattle = Number(teamFlag) === 1 || entry.fight_user_type === 2;
+  // 只根据 person_team 判断：0=单人模式，1=团队模式
+  const personTeam = Number(entry.person_team);
+  const isTeamBattle = Number.isFinite(personTeam) && personTeam === 1;
   if (!isTeamBattle) {
     return { isTeamBattle: false as const, teams: undefined, teamStructure: null };
   }
-  const teamSize = Math.max(1, Math.floor((entry.num || participants.length) / 2));
-  const teams = [
-    { id: `${entry.id}-team-a`, members: participants.slice(0, teamSize) },
-    { id: `${entry.id}-team-b`, members: participants.slice(teamSize) },
-  ].filter((team) => team.members.length > 0);
-  const normalizedStructure =
-    resolveTeamStructureLabel(entry) ??
-    (teams.length === 2 ? `${teams[0].members.length}v${teams[1].members.length}` : null);
+  
+  // 根据 team_size 确定团队结构
+  const teamSizeRaw = entry.team_size;
+  const teamSizeNum = teamSizeRaw !== undefined && teamSizeRaw !== null ? Number(teamSizeRaw) : NaN;
+  const normalizedStructure = resolveTeamStructureLabel(entry);
+  
+  let teams: Array<{ id: string; members: Array<ParticipantPreview | null> }> = [];
+  let membersPerTeam = 2; // 默认每队2人
+  let teamCount = 2; // 默认2队
+  
+  if (Number.isFinite(teamSizeNum)) {
+    if (teamSizeNum === 0) {
+      // 2v2: 2队，每队2人
+      membersPerTeam = 2;
+      teamCount = 2;
+    } else if (teamSizeNum === 1) {
+      // 3v3: 2队，每队3人
+      membersPerTeam = 3;
+      teamCount = 2;
+    } else if (teamSizeNum === 2) {
+      // 2v2v2: 3队，每队2人
+      membersPerTeam = 2;
+      teamCount = 3;
+    }
+  }
+  
+  // 如果 team_size 无效，使用默认逻辑（向后兼容）
+  if (!Number.isFinite(teamSizeNum)) {
+    const totalSlots = resolveSlotCount(entry, participants.length);
+    membersPerTeam = Math.max(1, Math.floor(totalSlots / 2));
+    teamCount = 2;
+  }
+  
+  // 为每个队伍创建固定数量的槽位
+  const totalSlots = membersPerTeam * teamCount;
+  const teamSlots: Array<Array<ParticipantPreview | null>> = Array.from({ length: teamCount }, () => 
+    Array.from({ length: membersPerTeam }, () => null)
+  );
+  
+  // 根据参与者的 slotIndex 分配到对应的队伍和槽位
+  participants.forEach((participant) => {
+    const slotIndex = typeof participant.slotIndex === 'number' && Number.isFinite(participant.slotIndex)
+      ? participant.slotIndex
+      : null;
+    
+    if (slotIndex !== null && slotIndex >= 0 && slotIndex < totalSlots) {
+      const teamIdx = Math.floor(slotIndex / membersPerTeam);
+      const memberIdx = slotIndex % membersPerTeam;
+      if (teamIdx >= 0 && teamIdx < teamCount && memberIdx >= 0 && memberIdx < membersPerTeam) {
+        teamSlots[teamIdx][memberIdx] = participant;
+      }
+    }
+  });
+  
+  // 构建 teams 数组
+  teams = teamSlots.map((slots, teamIdx) => ({
+    id: `${entry.id}-team-${String.fromCharCode(97 + teamIdx)}`, // team-a, team-b, team-c
+    members: slots,
+  }));
+  
   return { isTeamBattle: true as const, teams, teamStructure: normalizedStructure };
 }
 
