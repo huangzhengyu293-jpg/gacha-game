@@ -138,7 +138,14 @@ function requestInterceptor(url: string, config: RequestInit): { url: string; co
         const isUserAction = normalizedMethod !== 'GET';
         
         if (isUserAction) {
-          // 仅在用户触发的操作时弹出登录
+          const now = Date.now();
+          // 防抖：如果距离上次提示时间太短，则忽略
+          if (now - lastAuthPromptAt < AUTH_PROMPT_COOLDOWN_MS) {
+            throw new Error('未登录');
+          }
+          lastAuthPromptAt = now;
+          
+          // 仅在用户触发的操作时弹出登录（Navbar 中也有防抖保护）
           window.dispatchEvent(new CustomEvent('auth:show-login'));
           
           import('../components/ToastProvider').then(({ showGlobalToast }) => {
@@ -159,6 +166,11 @@ function requestInterceptor(url: string, config: RequestInit): { url: string; co
   return { url, config };
 }
 
+// 全局防抖变量（与 axios.ts 保持一致）
+let lastTokenExpiredHandledAt = 0;
+let lastAuthPromptAt = 0;
+const AUTH_PROMPT_COOLDOWN_MS = 3000;
+
 function responseInterceptor<T>(data: T): T {
   // 检查业务状态码
   if (typeof window !== 'undefined' && data && typeof data === 'object' && 'code' in data) {
@@ -166,13 +178,20 @@ function responseInterceptor<T>(data: T): T {
     
     // code === 300000: token 过期
     if (response.code === 300000) {
+      const now = Date.now();
+      // 防抖：如果距离上次处理时间太短，则忽略
+      if (now - lastTokenExpiredHandledAt < AUTH_PROMPT_COOLDOWN_MS) {
+        return data;
+      }
+      lastTokenExpiredHandledAt = now;
+      
       // 删除用户信息
       localStorage.removeItem('user');
       
       // 触发全局事件通知 AuthProvider
       window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'token_expired' } }));
       
-      // 触发显示登录弹窗
+      // 触发显示登录弹窗（Navbar 中也有防抖保护）
       window.dispatchEvent(new CustomEvent('auth:show-login'));
       
       // 显示错误提示

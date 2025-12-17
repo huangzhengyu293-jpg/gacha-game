@@ -2,9 +2,11 @@
 
 import React, { Fragment, useEffect, useRef } from "react";
 import type { BattleListCard } from "@/app/battles/battleListSource";
-import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
+import { getModeVisual, getSpecialOptionLabels } from "@/app/battles/modeVisuals";
 import BattleConnectorIcon from "./BattleConnectorIcon";
 import SlotSpinnerIcon from "./SlotSpinnerIcon";
+import InfoTooltip from "@/app/components/InfoTooltip";
+import { useI18n } from "@/app/components/I18nProvider";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -21,6 +23,8 @@ type BattleListCardItemProps = {
     opened: string;
     preparing: string;
     waiting: string;
+    inProgress: string;
+    waitingBlocks: string;
     button: string;
     join: string;
     modeClassic: string;
@@ -174,8 +178,9 @@ export default function BattleListCardItem({
   isPendingBattle = false,
   onPendingAction,
 }: BattleListCardItemProps) {
+  const { t } = useI18n();
   const modeVisual = getModeVisual(card.mode, card.title);
-  const optionIcons = getSpecialOptionIcons(card.specialOptions);
+  const optionLabels = getSpecialOptionLabels(card.specialOptions);
   const Connector = card.connectorStyle === "share" ? ShareConnectorIcon : BattleConnectorIcon;
   const entryCost = formatCurrency(card.entryCost);
   const openedValue = formatCurrency(card.totalOpenedValue);
@@ -264,7 +269,22 @@ export default function BattleListCardItem({
 
   const buttonLabel = isPendingBattle ? labels.join : labels.button;
   const isWaitingState = card.status === 0;
-  const openedLabel = card.status === 1 ? labels.preparing : isPendingBattle ? labels.waiting : labels.opened;
+  const isTimeBasedInProgress =
+    card.status === 2 &&
+    typeof card.currentRound === "number" &&
+    typeof card.totalRounds === "number" &&
+    card.currentRound <= card.totalRounds;
+  const statusText = (() => {
+    if (isWaitingState) return labels.waiting; // 等待玩家
+    if (card.status === 1) return labels.waitingBlocks; // 等待区块中
+    if (card.status === 2) {
+      if (typeof card.currentRound !== "number" || typeof card.totalRounds !== "number") {
+        return labels.inProgress;
+      }
+      return isTimeBasedInProgress ? labels.inProgress : `${labels.opened}：${openedValue}`;
+    }
+    return `${labels.opened}：${openedValue}`;
+  })();
   const buttonColor = isPendingBattle
     ? {
         default: "#4299e1",
@@ -305,9 +325,14 @@ export default function BattleListCardItem({
             <p className="text-base font-extrabold" style={{ color: "#7A8084" }}>
               {modeLabel}
             </p>
-            {optionIcons.map((icon, idx) => (
+            {optionLabels.map((option, idx) => (
               <span key={`option-${card.id}-${idx}`} className="flex items-center justify-center">
-                {icon}
+                <InfoTooltip
+                  content={t(option.key)}
+                  trigger={option.icon}
+                  buttonClassName="inline-flex items-center justify-center cursor-pointer p-0 border-0 bg-transparent hover:bg-transparent"
+                  usePortal={true}
+                />
               </span>
             ))}
           </div>
@@ -344,7 +369,7 @@ export default function BattleListCardItem({
         <div className="flex flex-col items-center gap-2 w-full md:w-[12rem] overflow-hidden min-w-0">
           <div className="overflow-hidden max-w-full px-4">
             <p className="text-base font-bold text-center truncate" style={{ color: "#7A8084" }}>
-              {isWaitingState ? "等待玩家" : `${openedLabel}：${openedValue}`}
+              {statusText}
             </p>
           </div>
           <button

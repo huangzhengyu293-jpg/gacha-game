@@ -108,7 +108,7 @@ export default function SlotMachine({
       nameP.className = "item-name";
       nameP.textContent = symbol.name;
       const priceP = document.createElement("p");
-      priceP.textContent = symbol.price ? `¥${symbol.price}` : "";
+      priceP.textContent = symbol.price ? `$${symbol.price}` : "";
       info.appendChild(nameP);
       info.appendChild(priceP);
 
@@ -287,7 +287,7 @@ export default function SlotMachine({
 
     setTimeout(() => {
       const selected = getSelectedSymbol();
-      setResult(selected ? `${selected.name}${selected.price ? ` - ¥${selected.price}` : ""}` : "");
+      setResult(selected ? `${selected.name}${selected.price ? ` - $${selected.price}` : ""}` : "");
       onSpinComplete?.(selected);
       if (selected) {
         reelContainerRef.current?.querySelectorAll(".slot-item.selected").forEach((item) => item.classList.add("show-info"));

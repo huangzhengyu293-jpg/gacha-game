@@ -61,3 +61,17 @@ export function getSpecialOptionIcons(options: SpecialOptionFlags): ReactNode[] 
   return icons;
 }
 
+export function getSpecialOptionLabels(options: SpecialOptionFlags): Array<{ key: 'fastBattle' | 'lastChance' | 'inverted'; icon: ReactNode }> {
+  const labels: Array<{ key: 'fastBattle' | 'lastChance' | 'inverted'; icon: ReactNode }> = [];
+  if (options.isFastMode) {
+    labels.push({ key: 'fastBattle', icon: <FastModeIcon key="fast" /> });
+  }
+  if (options.isLastChance) {
+    labels.push({ key: 'lastChance', icon: <LastChanceIcon key="lastchance" /> });
+  }
+  if (options.isInverted) {
+    labels.push({ key: 'inverted', icon: <InvertedIcon key="inverted" /> });
+  }
+  return labels;
+}
+

@@ -72,7 +72,7 @@ export default function InfoTooltip({
       <button
         className={
           buttonClassName ??
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] hover:bg-gray-700 md:opacity-0 group-hover:opacity-100 transition-opacity"
+          "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] hover:bg-gray-700 transition-opacity"
         }
         aria-label="info"
         onMouseEnter={() => setIsVisible(true)}
@@ -81,45 +81,52 @@ export default function InfoTooltip({
         ref={btnRef}
       >
         {trigger ?? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="lucide lucide-info size-4"
-            style={{ color: "#7A8084" }}
-          >
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 16v-4"></path>
-            <path d="M12 8h.01"></path>
-          </svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-info size-4"
+          style={{ color: "#7A8084" }}
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 16v-4"></path>
+          <path d="M12 8h.01"></path>
+        </svg>
         )}
       </button>
       {isVisible && !usePortal ? (
         <div
           className={
             tooltipClassName ??
-            "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-sm rounded-md shadow-md z-50 whitespace-nowrap"
+            "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-sm rounded-md shadow-md z-50 whitespace-nowrap font-bold"
           }
-          style={{ pointerEvents: 'auto' }}
+          style={{ 
+            pointerEvents: 'auto',
+            backgroundColor: tooltipClassName ? undefined : '#22272b',
+            borderColor: tooltipClassName ? undefined : '#34383C',
+            borderWidth: tooltipClassName ? undefined : '1px',
+            borderStyle: tooltipClassName ? undefined : 'solid',
+            color: tooltipClassName ? undefined : '#FFFFFF'
+          }}
         >
           {safeContent}
           {showArrow ? (
-            <div
-              className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1"
-              style={{
-                width: 0,
-                height: 0,
-                borderLeft: "6px solid transparent",
-                borderRight: "6px solid transparent",
-                borderTop: "6px solid #0a0a0a",
-              }}
-            />
+          <div
+            className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1"
+            style={{
+              width: 0,
+              height: 0,
+              borderLeft: "6px solid transparent",
+              borderRight: "6px solid transparent",
+              borderTop: tooltipClassName ? "6px solid #0a0a0a" : "6px solid #22272b",
+            }}
+          />
           ) : null}
         </div>
       ) : null}
@@ -130,7 +137,7 @@ export default function InfoTooltip({
               ref={tooltipRef}
               className={
                 tooltipClassName ??
-                "z-50 overflow-hidden rounded-md border px-3 py-1.5 text-sm shadow-md whitespace-nowrap"
+                "z-50 overflow-hidden rounded-md border px-3 py-1.5 text-sm shadow-md whitespace-nowrap font-bold"
               }
               style={{
                 position: 'fixed',
@@ -139,6 +146,11 @@ export default function InfoTooltip({
                 transform: 'translate(-50%, -100%)',
                 pointerEvents: 'auto',
                 zIndex: 200,
+                backgroundColor: tooltipClassName ? undefined : '#22272b',
+                borderColor: tooltipClassName ? undefined : '#34383C',
+                borderWidth: tooltipClassName ? undefined : '1px',
+                borderStyle: tooltipClassName ? undefined : 'solid',
+                color: tooltipClassName ? undefined : '#FFFFFF'
               }}
               role="tooltip"
             >

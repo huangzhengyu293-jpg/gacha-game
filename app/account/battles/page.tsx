@@ -101,9 +101,11 @@ export default function BattlesPage() {
                         card={card}
                         labels={{
                           cost: t("cost"),
-                          opened: isWaiting ? t('waitingPlayers') : t("opened"),
+                            opened: t("opened"),
                           preparing: t('preparing'),
                           waiting: t('waitingPlayers'),
+                            inProgress: t('battleInProgress'),
+                            waitingBlocks: t('waitingBlocks'),
                           button: isWaiting ? t('joinBattle') : t("viewResults"),
                           join: t('joinBattle'),
                           modeClassic: t('battleModeClassic'),

@@ -78,6 +78,8 @@ export default function BattleModes({ sortValue = "latest", useBestRecord = fals
             opened: t("opened"),
             preparing: t("preparing"),
             waiting: t("waitingPlayers"),
+            inProgress: t("battleInProgress"),
+            waitingBlocks: t("waitingBlocks"),
             button: t("viewResults"),
             join: t("joinBattle"),
             modeClassic: t("battleModeClassic"),

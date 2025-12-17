@@ -2729,7 +2729,7 @@ useEffect(() => {
         roundResult[playerId] = {
           道具: drop.itemName,
           品质: drop.rarity === 'legendary' ? 'legendary' : 'normal',
-          价格: `¥${drop.value}`,
+          价格: `$${drop.value}`,
           需要二段: drop.needsSecondStage ? '是 💛' : '否',
         };
       });
@@ -2958,7 +2958,7 @@ useEffect(() => {
               return {
                 id: playerId,
                 name: allParticipants.find((p) => p.id === playerId)?.name || 'Unknown',
-                price: parseFloat(item.价格.replace('¥', '')),
+                price: parseFloat(item.价格.replace('$', '')),
               };
             })
             .filter(Boolean) as Array<{ id: string; name: string; price: number }>;
@@ -4168,7 +4168,7 @@ useEffect(() => {
           return {
             玩家: participant.name,
             道具: prize?.name ?? t('notRevealed'),
-            金额: prize ? `¥${Number(prize.price ?? 0).toFixed(2)}` : '—',
+            金额: prize ? `$${Number(prize.price ?? 0).toFixed(2)}` : '—',
           };
         });
       });

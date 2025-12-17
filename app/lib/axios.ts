@@ -27,7 +27,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/draw/receive',
 ];
 
-const AUTH_PROMPT_COOLDOWN_MS = 2500;
+const AUTH_PROMPT_COOLDOWN_MS = 3000;
 let lastAuthPromptAt = 0;
 let lastTokenExpiredHandledAt = 0;
 
@@ -118,9 +118,9 @@ axiosInstance.interceptors.response.use(
           
           // 触发显示登录弹窗
           requestLoginOnce({
-            title: '登录已过期',
-            description: data.message || '请重新登录',
-            durationMs: 3000,
+              title: '登录已过期',
+              description: data.message || '请重新登录',
+              durationMs: 3000,
           });
         }
         return Promise.reject(new Error('Token expired'));

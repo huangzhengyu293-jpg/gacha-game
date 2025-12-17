@@ -954,7 +954,13 @@ function CreateBattleContent() {
                             >
                               {t("fastBattle")}
                             </span>
-                            <InfoTooltip content={t("fastBattleTip")} />
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <InfoTooltip 
+                                content={t("fastBattleTip")} 
+                                buttonClassName="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] hover:bg-gray-700"
+                                usePortal={true}
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1032,7 +1038,13 @@ function CreateBattleContent() {
                             >
                               {t("lastChance")}
                             </span>
-                            <InfoTooltip content={t("lastChanceTip")} />
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <InfoTooltip 
+                                content={t("lastChanceTip")} 
+                                buttonClassName="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] hover:bg-gray-700"
+                                usePortal={true}
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1110,7 +1122,13 @@ function CreateBattleContent() {
                             >
                               {t("inverted")}
                             </span>
-                            <InfoTooltip content={t("invertedTip")} />
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <InfoTooltip 
+                                content={t("invertedTip")} 
+                                buttonClassName="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px] hover:bg-gray-700"
+                                usePortal={true}
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

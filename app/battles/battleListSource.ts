@@ -24,6 +24,8 @@ export type BattleListCard = {
   totalOpenedValue: number;
   packImages: Array<{ src: string; alt: string }>;
   packCount: number;
+  totalRounds?: number;
+  currentRound?: number; // 1-based, derived from time
   createdAt: number;
   updatedAt: number;
   status: number;
@@ -293,19 +295,19 @@ export function buildBattleListCards(
     const roundsTotal = packImages.length > 0 ? packImages.length : entry.boxs_num || entry.boxs?.length || 0;
     const isFast = Number(entry.fast) === 1;
     const roundDuration = isFast ? 1 : 6;
-    const countdownSec = 3;
+    const countdownSec = 5;
     let currentPackIndex: number | undefined;
+    let currentRound: number | undefined;
+    let totalRounds: number | undefined;
     const currentStatus = Number(entry.status);
     const updatedAtTime = Number(entry.updated_at_time);
     if (currentStatus === 2 && Number.isFinite(updatedAtTime) && roundsTotal > 0) {
       const diffSecRaw = Math.max(0, nowSec - updatedAtTime);
-      if (diffSecRaw <= countdownSec) {
-        currentPackIndex = 0;
-      } else {
-        const diffAfterCountdown = Math.max(0, diffSecRaw - countdownSec);
-        const roundIdx = Math.floor(diffAfterCountdown / roundDuration);
-        currentPackIndex = Math.min(roundsTotal - 1, roundIdx);
-      }
+      const diffAfterCountdown = Math.max(0, diffSecRaw - countdownSec);
+      const roundIdxRaw = Math.floor(diffAfterCountdown / roundDuration); // 0-based
+      currentRound = roundIdxRaw + 1; // 1-based
+      totalRounds = roundsTotal;
+      currentPackIndex = Math.min(roundsTotal - 1, Math.max(0, roundIdxRaw));
     }
 
     return {
@@ -323,6 +325,8 @@ export function buildBattleListCards(
       totalOpenedValue: formatNumber(entry.win_bean),
       packImages,
       packCount: Array.isArray(entry.boxs) ? entry.boxs.length : 0,
+      totalRounds,
+      currentRound,
       createdAt,
       updatedAt,
       status: entry.status ?? 0,

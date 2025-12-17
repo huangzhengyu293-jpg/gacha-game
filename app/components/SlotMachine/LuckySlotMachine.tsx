@@ -352,7 +352,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     if (symbol.price > 0) {
       const itemPrice = document.createElement('p');
       itemPrice.className = 'item-price';
-      itemPrice.textContent = `¥${symbol.price}`;
+      itemPrice.textContent = `$${symbol.price}`;
       itemInfo.appendChild(itemPrice);
     }
 
@@ -916,7 +916,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
               pricePara.className = 'item-price';
               info.appendChild(pricePara);
             }
-            pricePara.textContent = `¥${symbol.price}`;
+            pricePara.textContent = `$${symbol.price}`;
           } else if (pricePara) {
             pricePara.remove();
           }

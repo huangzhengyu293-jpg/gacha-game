@@ -368,8 +368,23 @@ export default function Navbar() {
   }, [showUserMenu]);
 
   // 监听全局登录弹窗事件（当 token 过期时）
+  const lastLoginPromptRef = useRef<number>(0);
+  const LOGIN_PROMPT_COOLDOWN_MS = 3000;
+  
   useEffect(() => {
     const handleShowLogin = () => {
+      const now = Date.now();
+      // 防抖：如果距离上次触发时间太短，则忽略
+      if (now - lastLoginPromptRef.current < LOGIN_PROMPT_COOLDOWN_MS) {
+        return;
+      }
+      lastLoginPromptRef.current = now;
+      
+      // 如果登录弹窗已经打开，则不再重复打开
+      if (showLogin) {
+        return;
+      }
+      
       // 关闭其他弹窗
       setShowRegister(false);
       setShowForgot(false);
@@ -383,7 +398,7 @@ export default function Navbar() {
 
     window.addEventListener('auth:show-login', handleShowLogin);
     return () => window.removeEventListener('auth:show-login', handleShowLogin);
-  }, []);
+  }, [showLogin]);
 
   // 重新发送验证码倒计时
   useEffect(() => {
