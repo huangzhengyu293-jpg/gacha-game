@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import React, { useMemo } from 'react';
 
 export type PackRecordData = {
@@ -70,13 +69,10 @@ export default function PackRecordBanner({ record }: PackRecordBannerProps) {
     >
       <div className="h-14 w-full relative mb-0.5">
         {cover ? (
-          <Image
+          <img
             src={cover}
             alt={name}
-            fill
-            sizes="(min-width: 0px) 100px"
-            className="pointer-events-none object-contain"
-            priority={false}
+            className="pointer-events-none object-contain absolute inset-0 w-full h-full"
           />
         ) : (
           <div className="w-full h-full bg-gray-600 rounded-md" />

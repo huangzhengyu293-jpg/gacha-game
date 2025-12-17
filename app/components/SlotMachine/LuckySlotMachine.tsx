@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
-import Image from 'next/image';
 import { getQualityFromLv } from '@/app/lib/catalogV2';
 
 export interface SlotSymbol {

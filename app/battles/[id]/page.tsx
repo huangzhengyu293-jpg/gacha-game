@@ -67,7 +67,7 @@ dayjs.extend(customParseFormat);
 const KNOWN_TIME_FORMATS = ['YYYY-MM-DD HH:mm:ss', 'YYYY/MM/DD HH:mm:ss'];
 const NORMAL_ROUND_DURATION_MS = 6000;
 const FAST_ROUND_DURATION_MS = 1000;
-const ENTRY_DELAY_MS = 3000;
+const ENTRY_DELAY_MS = 5000;
 const SECOND_STAGE_RESULT_PAUSE_MS = 500;
 type DayjsInstance = ReturnType<typeof dayjs>;
 
@@ -968,6 +968,8 @@ export default function BattleDetailPage() {
   const previousStatusRef = useRef<number | null>(null);
   const postStartSyncStatusRef = useRef<number | null>(null);
   const pendingPollIntervalRef = useRef<ReturnType<typeof setInterval> | ReturnType<typeof setTimeout> | null>(null);
+  const previousRouteBattleIdRef = useRef<string | null>(null);
+  const [isDetailUiReady, setIsDetailUiReady] = useState(false);
 
   useEffect(() => {
     if (!routeBattleId) {
@@ -979,11 +981,22 @@ export default function BattleDetailPage() {
 
   // 🔥 强制刷新：每次 routeBattleId 变化时（从列表页点击进入时），清除缓存并强制刷新
   useEffect(() => {
-    if (routeBattleId) {
-      // 清除该查询的缓存
-      queryClient.removeQueries({ queryKey: ['fightDetail', routeBattleId], exact: false });
+    const prevId = previousRouteBattleIdRef.current;
+    // 切换详情时，优先清掉“上一个 id”的查询，避免遗留 observer/轮询引用
+    if (prevId && prevId !== routeBattleId) {
+      queryClient.removeQueries({ queryKey: ['fightDetail', prevId], exact: true });
     }
+    // 进入详情时，清掉当前 id 的旧缓存（强制重新拉取）
+    if (routeBattleId) {
+      queryClient.removeQueries({ queryKey: ['fightDetail', routeBattleId], exact: true });
+    }
+    previousRouteBattleIdRef.current = routeBattleId;
   }, [routeBattleId, queryClient]);
+
+  // 切换详情时，重置“内容初始化完成”标记，确保首屏 loading 覆盖整段初始化期
+  useEffect(() => {
+    setIsDetailUiReady(false);
+  }, [routeBattleId]);
 
   const { data: fightDetailResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['fightDetail', routeBattleId],
@@ -1041,6 +1054,9 @@ export default function BattleDetailPage() {
   }, [routeBattleId]);
 
   useEffect(() => {
+    // 关键：路由切换/组件卸载时，用 cancelled 阻止“未完成的 pollOnce”在 await 结束后继续 setTimeout
+    let cancelled = false;
+
     // 🔥 清除之前的轮询（无论是 interval 还是 timeout）
     if (pendingPollIntervalRef.current) {
       if (typeof pendingPollIntervalRef.current === 'number') {
@@ -1058,21 +1074,13 @@ export default function BattleDetailPage() {
       (rawStatus < 2 || !hasWinBoxData);
     
     if (!shouldPoll) {
-      // 🔥 确保停止轮询：如果 status >= 2，清除可能存在的轮询
-      if (rawStatus >= 2 && pendingPollIntervalRef.current) {
-        if (typeof pendingPollIntervalRef.current === 'number') {
-          clearTimeout(pendingPollIntervalRef.current);
-        } else {
-          clearInterval(pendingPollIntervalRef.current);
-        }
-        pendingPollIntervalRef.current = null;
-      }
       return undefined;
     }
 
     // 🔥 优化：改为串行轮询，只有在上一次请求成功返回后才发起下一次请求
     // 这样可以避免请求堆积，确保读取到最新的数据
     const pollOnce = async () => {
+      if (cancelled) return;
       // 🔥 修复：检查 routeBattleId 是否变化，如果变化了则停止轮询
       const currentId = currentRouteBattleIdRef.current;
       if (!currentId || currentId !== routeBattleId) {
@@ -1083,6 +1091,7 @@ export default function BattleDetailPage() {
 
       try {
         const result = await refetchRef.current?.();
+        if (cancelled) return;
         
         // 🔥 再次检查 routeBattleId 是否变化（可能在请求过程中变化了）
         if (currentRouteBattleIdRef.current !== routeBattleId) {
@@ -1112,6 +1121,7 @@ export default function BattleDetailPage() {
           
           if (shouldContinuePoll) {
             // 🔥 如果返回结果没达到要求，1秒后发起下一次查询
+            if (cancelled) return;
             pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
           } else {
             // 停止轮询
@@ -1124,15 +1134,18 @@ export default function BattleDetailPage() {
             return;
           }
           // 如果没有返回数据，1秒后继续轮询（可能是网络问题或数据未准备好）
+          if (cancelled) return;
           pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
         }
       } catch (err) {
+        if (cancelled) return;
         // 🔥 再次检查 routeBattleId 是否变化
         if (currentRouteBattleIdRef.current !== routeBattleId) {
           pendingPollIntervalRef.current = null;
           return;
         }
         // 请求失败也1秒后继续轮询，避免网络问题导致停止
+        if (cancelled) return;
         pendingPollIntervalRef.current = setTimeout(pollOnce, 1000);
       }
     };
@@ -1146,6 +1159,7 @@ export default function BattleDetailPage() {
     
     // 延迟启动，确保 useQuery 的初始查询完成
     const initialTimeout = setTimeout(() => {
+      if (cancelled) return;
       // 🔥 再次检查 routeBattleId 是否变化（可能在延迟期间变化了）
       if (currentRouteBattleIdRef.current === routeBattleId && !pendingPollIntervalRef.current) {
         pollOnce();
@@ -1153,6 +1167,7 @@ export default function BattleDetailPage() {
     }, 100);
 
     return () => {
+      cancelled = true;
       // 清除初始轮询的 timeout
       clearTimeout(initialTimeout);
       
@@ -1166,7 +1181,7 @@ export default function BattleDetailPage() {
         pendingPollIntervalRef.current = null;
       }
     };
-  }, [routeBattleId, rawStatus, hasWinBoxData, fightDetailResponse?.data]);
+  }, [routeBattleId, rawStatus, hasWinBoxData]);
 
   const normalizedBattleId = String(rawDetail?.id ?? routeBattleId ?? '');
   const battleOwnerId = rawDetail?.user_id !== undefined && rawDetail?.user_id !== null ? String(rawDetail.user_id) : null;
@@ -1249,22 +1264,36 @@ export default function BattleDetailPage() {
 
   if ((isLoading && !fightDetailResponse) || !rawDetail || !activeSource || !battleData) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>{t('loading')}</span>
+      <div className="fixed inset-0 z-[100000] grid place-items-center" style={{ backgroundColor: '#191d21' }}>
+        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>
+          {t('loading')}
+        </span>
       </div>
     );
   }
 
   return (
-    <BattleDetailContent
-      routeBattleId={normalizedBattleId}
-      activeSource={activeSource}
-      battleData={battleData}
-      rawDetail={rawDetail}
-      isPendingBattle={isPendingBattle}
-      onPendingSlotAction={pendingSlotActionHandler}
-      pendingSlotActionLabel={pendingSlotActionLabel}
-    />
+    <>
+      {!isDetailUiReady ? (
+        <div className="fixed inset-0 z-[100000] grid place-items-center" style={{ backgroundColor: '#191d21' }}>
+          <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>
+            {t('loading')}
+          </span>
+        </div>
+      ) : null}
+      <div className={isDetailUiReady ? '' : 'invisible pointer-events-none'}>
+        <BattleDetailContent
+          routeBattleId={normalizedBattleId}
+          activeSource={activeSource}
+          battleData={battleData}
+          rawDetail={rawDetail}
+          isPendingBattle={isPendingBattle}
+          onPendingSlotAction={pendingSlotActionHandler}
+          pendingSlotActionLabel={pendingSlotActionLabel}
+          onInitialUiReadyChange={setIsDetailUiReady}
+        />
+      </div>
+    </>
   );
 }
 
@@ -1276,6 +1305,7 @@ function BattleDetailContent({
   isPendingBattle,
   onPendingSlotAction,
   pendingSlotActionLabel,
+  onInitialUiReadyChange,
 }: {
   routeBattleId: string;
   activeSource: BattleDataSourceConfig;
@@ -1284,6 +1314,7 @@ function BattleDetailContent({
   isPendingBattle: boolean;
   onPendingSlotAction?: (order: number) => void;
   pendingSlotActionLabel?: string;
+  onInitialUiReadyChange?: (ready: boolean) => void;
 }) {
   const router = useRouter();
   const { t } = useI18n();
@@ -1302,6 +1333,10 @@ function BattleDetailContent({
   const [allParticipants, setAllParticipants] = useState<any[]>([]);
   const hasGeneratedResultsRef = useRef(false); // Track if results have been generated
   const timelineHydratedRef = useRef(false);
+  // 记录首次进入页面时是否处于 pending（等待加入）阶段：
+  // - 如果是从 pending 走到开局(status!=0)的“页面内状态变化”，不应该再触发首屏初始化遮罩
+  // - 只有首次进入页面就已经是非 pending 的情况，才需要用遮罩屏蔽中间闪屏
+  const initiallyPendingRef = useRef<boolean>(isPendingBattle);
   const skipDirectlyToCompletedRef = useRef(false);
   const forceFullReplayRef = useRef(false);
   const [runtimeReadyVersion, setRuntimeReadyVersion] = useState(0);
@@ -1639,11 +1674,10 @@ useEffect(() => {
   const totalRoundsRef = useRef<number>(0);
   const isFastModeRef = useRef<boolean>(false);
   
-  // 🔥 淘汰模式：淘汰老虎机完成回调
-  const handleEliminationSlotComplete = useCallback(() => {
-    
-    // 🔥 立即添加淘汰玩家到已淘汰集合（在老虎机组件内已经渲染了淘汰 UI）
+  // 🔥 淘汰模式：回正音效触发时立即渲染淘汰UI（与音效同步）
+  const handleEliminationSlotSettled = useCallback(() => {
     if (currentEliminationData) {
+      // 🔥 立即添加淘汰玩家到已淘汰集合（在回正音效触发时同步渲染）
       setEliminatedPlayerIds(prev => {
         const newSet = new Set(prev);
         if (!newSet.has(currentEliminationData.eliminatedPlayerId)) {
@@ -1661,9 +1695,13 @@ useEffect(() => {
         return newRounds;
       });
     }
-    
-    setRoundState('ROUND_ELIMINATION_RESULT');
   }, [currentEliminationData]);
+  
+  // 🔥 淘汰模式：淘汰老虎机完成回调（用于状态转换）
+  const handleEliminationSlotComplete = useCallback(() => {
+    // 淘汰UI已经在 handleEliminationSlotSettled 中渲染了，这里只需要转换状态
+    setRoundState('ROUND_ELIMINATION_RESULT');
+  }, []);
   
   // 按teamId分组玩家（用于老虎机布局）
   const teamGroups = useMemo(() => {
@@ -1791,6 +1829,58 @@ useEffect(() => {
   );
   const currentRound = gameData.currentRound;
   const totalRounds = gameData.totalRounds;
+
+  // ✅ 淘汰模式：中途进入/跳轮次时补齐“已淘汰”UI状态
+  // hydrateRoundsProgress 只会补齐 roundResults/participantValues/currentRound/completedRounds，
+  // 不会自动把 eliminatedPlayerIds/eliminationRounds 推导出来，导致中途进入看不到淘汰遮罩。
+  useEffect(() => {
+    if (gameMode !== 'elimination') return;
+    const eliminationData = eliminationDataRef.current;
+    const eliminations = eliminationData?.eliminations;
+    if (!eliminations || typeof eliminations !== 'object') return;
+
+    const safeCurrentRound = Number.isFinite(Number(currentRound)) ? Number(currentRound) : 0;
+
+    const computedEliminatedIds = new Set<string>();
+    const computedEliminationRounds: Record<string, number> = {};
+
+    Object.entries(eliminations).forEach(([roundKey, info]) => {
+      const roundIdx = Number(roundKey);
+      if (!Number.isFinite(roundIdx)) return;
+      if (!info || typeof info !== 'object') return;
+      const eliminatedPlayerIdRaw = (info as any).eliminatedPlayerId;
+      if (eliminatedPlayerIdRaw === null || eliminatedPlayerIdRaw === undefined) return;
+      // ✅ 关键：补齐逻辑只用于“中途进入/跳轮次”
+      // 正常播放淘汰老虎机时，绝不能在本轮（roundIdx === currentRound）提前标记淘汰，
+      // 否则会在老虎机揭晓前就把淘汰遮罩打到玩家信息区（提前暴露结果）。
+      // 所以这里不使用 completedRounds，而是严格要求 roundIdx < currentRound，或已进入 COMPLETED。
+      const eliminationHasHappened = roundIdx < safeCurrentRound || mainState === 'COMPLETED';
+      if (!eliminationHasHappened) return;
+
+      const eliminatedPlayerId = String(eliminatedPlayerIdRaw);
+      if (!eliminatedPlayerId) return;
+      computedEliminatedIds.add(eliminatedPlayerId);
+      computedEliminationRounds[eliminatedPlayerId] = roundIdx;
+    });
+
+    if (computedEliminatedIds.size === 0) return;
+
+    setEliminatedPlayerIds((prev) => {
+      const next = new Set(prev);
+      computedEliminatedIds.forEach((id) => next.add(id));
+      return next;
+    });
+
+    setEliminationRounds((prev) => {
+      const next = { ...(prev || {}) };
+      Object.entries(computedEliminationRounds).forEach(([playerId, roundIdx]) => {
+        if (next[playerId] === undefined) {
+          next[playerId] = roundIdx;
+        }
+      });
+      return next;
+    });
+  }, [gameMode, currentRound, completedRounds, mainState]);
   
   const gameRoundsRef = useRef<Array<ReturnType<typeof convertRuntimeRoundToLegacy>>>([]);
   
@@ -2036,23 +2126,9 @@ useEffect(() => {
         });
 
         if (Object.keys(teamTotals).length) {
-          const resolveTeamIdByPlayer = (playerId?: string | null) => {
-            if (!playerId) return null;
-            const member = allParticipants.find((p) => p?.id === playerId);
-            return member?.teamId ?? null;
-          };
-
-          const declaredWinnerTeamId = resolveTeamIdByPlayer(primaryDeclaredWinnerId);
-          const rawWinnerTeamId = resolveTeamIdByPlayer(primaryRawWinnerId);
-
-          const leaderValue =
-            (declaredWinnerTeamId && teamTotals[declaredWinnerTeamId] !== undefined
-              ? teamTotals[declaredWinnerTeamId]
-              : null) ??
-            (rawWinnerTeamId && teamTotals[rawWinnerTeamId] !== undefined
-              ? teamTotals[rawWinnerTeamId]
-              : null) ??
-            Math.max(...Object.values(teamTotals));
+          // ✅ 关键：Sprint 团队模式是否需要决胜，只取“实际最高分队伍”来判断
+          // 后端返回的 winner（可能落在非最高分队伍）绝不能影响 leaderValue，否则会错误触发决胜（例如 2/4/2 被判成 2/2 并列）。
+          const leaderValue = Math.max(...Object.values(teamTotals));
 
           const contenderTeamIds = Object.entries(teamTotals)
             .filter(([, value]) => value === leaderValue)
@@ -2079,10 +2155,12 @@ useEffect(() => {
                 resolveCandidate(sprintData?.finalWinnerId ?? null) ??
                 contenderIds[0];
 
+              const safeWinnerId = contenderIds.includes(resolvedWinnerId) ? resolvedWinnerId : contenderIds[0];
+
               return {
                 mode: 'sprint',
                 contenderIds,
-                winnerId: resolvedWinnerId,
+                winnerId: safeWinnerId,
               };
             }
           }
@@ -2817,36 +2895,34 @@ useEffect(() => {
         const roundIdx = roundPlan.roundIndex;
         
         if (isTeam) {
-          // 新规则（团队）：本轮“金额最高/倒置最低”的玩家所属队伍各记 1 分；
-          // 若最高/最低玩家来自不同队伍，则这些队伍各 +1（同队多名玩家并列只记 1 分）
-          const playerEntries = allParticipants
-            .map((participant) => {
-              if (!participant?.id || !participant.teamId) return null;
-              const drop = roundPlan.drops[participant.id];
-              if (!drop) return null;
-              return {
-                playerId: participant.id,
-                teamId: participant.teamId,
-                value: Number(drop.value ?? 0),
-              };
-            })
-            .filter(Boolean) as Array<{ playerId: string; teamId: string; value: number }>;
+          // 新规则（团队）：按“本轮每个队伍总金额”比较来给团队积分
+          // - 非倒置：总金额最高的队伍/队伍们各 +1
+          // - 倒置：总金额最低的队伍/队伍们各 +1
+          // - 平局：并列的队伍都 +1；若全部相同则全部 +1
+          const teamTotals: Record<string, number> = {};
+          const teamHasEntry: Record<string, boolean> = {};
 
-          if (!playerEntries.length) {
+          allParticipants.forEach((participant) => {
+            if (!participant?.id || !participant.teamId) return;
+            const drop = (roundPlan.drops as any)?.[participant.id];
+            if (!drop) return;
+            const value = Number(drop.value ?? 0);
+            teamTotals[participant.teamId] = (teamTotals[participant.teamId] ?? 0) + (Number.isFinite(value) ? value : 0);
+            teamHasEntry[participant.teamId] = true;
+          });
+
+          const eligibleTeamEntries = Object.entries(teamTotals).filter(([teamId]) => Boolean(teamHasEntry[teamId]));
+          if (!eligibleTeamEntries.length) {
             roundWinners[roundIdx] = [];
             return;
           }
 
           const comparator = runtime.config.specialRules.inverted ? Math.min : Math.max;
-          const targetValue = comparator(...playerEntries.map((entry) => entry.value));
-          const winningTeamIds = Array.from(
-            new Set(
-              playerEntries
-                .filter((entry) => entry.value === targetValue)
-                .map((entry) => entry.teamId)
-                .filter(Boolean),
-            ),
-          );
+          const targetTotal = comparator(...eligibleTeamEntries.map(([, total]) => total));
+          const winningTeamIds = eligibleTeamEntries
+            .filter(([, total]) => total === targetTotal)
+            .map(([teamId]) => teamId)
+            .filter(Boolean);
 
           winningTeamIds.forEach((teamId) => {
             scores[teamId] = (scores[teamId] || 0) + 1;
@@ -3362,7 +3438,10 @@ useEffect(() => {
       return;
     }
 
-    const cursor = runtime.timeline.getRoundByTimestamp(Date.now());
+    // 对战详情轮次推进：优先使用后端提供的 now_at（服务端时间），避免客户端时间漂移导致轮次误判
+    const serverNowAt = parseTimestampToDayjs(rawDetail?.now_at);
+    const cursorNowMs = serverNowAt?.valueOf() ?? Date.now();
+    const cursor = runtime.timeline.getRoundByTimestamp(cursorNowMs);
 
     if (cursor.phase === 'COUNTDOWN') {
       logCurrentRound(0);
@@ -4142,9 +4221,19 @@ useEffect(() => {
   useEffect(() => {
     // 只在正式进入 ROUND_LOOP 时隐藏卡包，准备/倒计时阶段继续展示卡包
     setHidePacks(mainState === 'ROUND_LOOP');
-    setShowSlotMachines(mainState === 'ROUND_LOOP' && roundState !== 'ROUND_JACKPOT_ROLL');
+    // 🎰 Jackpot：一旦进入色条/揭晓流程，就必须完全阻断老虎机 UI（避免色条结束到赢家出现的闪屏回退）
+    const shouldBlockSlotMachinesForJackpot =
+      gameMode === 'jackpot' &&
+      Boolean(jackpotRollTriggeredRef.current) &&
+      (mainState === 'ROUND_LOOP' || mainState === 'COMPLETED');
+
+    setShowSlotMachines(
+      mainState === 'ROUND_LOOP' &&
+        roundState !== 'ROUND_JACKPOT_ROLL' &&
+        !shouldBlockSlotMachinesForJackpot,
+    );
     setAllRoundsCompleted(mainState === 'COMPLETED');
-  }, [mainState, roundState]);
+  }, [mainState, roundState, gameMode]);
   
   useEffect(() => {
     const participantList = battleData.participants || [];
@@ -4444,19 +4533,47 @@ useEffect(() => {
   
   // Symbols are now managed by state and only updated when round starts
 
-  const headerStatusText =
-    prepareDelay
+  // ✅ 整页 loading 覆盖层：承接“时间轴/轮次初始化”的计算期（不 return，不改变原本状态机/时间轴推进逻辑）
+  // 关键：不能用 return 提前返回，否则回放/初始化可能依赖子组件挂载而产生死锁。
+  // 这里必须覆盖到 LOADING/COUNTDOWN 等中间态，否则会闪出 PacksGallery。
+  // 回放会主动把 timelineHydratedRef 置为 false 用于重新执行动画，但这不应该触发“首屏初始化遮罩”
+  // 否则回放流程不会再把它置回 true，会导致遮罩永远不消失。
+  const shouldMaskInitialWaitingUi =
+    !isPendingBattle &&
+    !timelineHydratedRef.current &&
+    !forceFullReplayRef.current &&
+    !initiallyPendingRef.current;
+
+  // 把“首屏初始化是否完成”的状态上报给父组件，用统一的首屏 loading 覆盖这一段计算期
+  useEffect(() => {
+    onInitialUiReadyChange?.(!shouldMaskInitialWaitingUi);
+  }, [onInitialUiReadyChange, shouldMaskInitialWaitingUi]);
+
+  const isJackpotRevealActive =
+    gameMode === 'jackpot' &&
+    Boolean(jackpotRollTriggeredRef.current) &&
+    (mainState === 'ROUND_LOOP' || mainState === 'COMPLETED');
+
+  const headerStatusText = isJackpotRevealActive
+    ? jackpotPhase === 'rolling'
+      ? t('jackpotRolling')
+      : t('jackpotRevealing')
+    : tieBreakerPlan
+      ? t('tieBreakerInProgress')
+    : prepareDelay
       ? t('preparingBlocks')
-      : Number(rawDetail?.status ?? 0) === 1
-        ? t('preparing')
-        : t('waitingPlayers');
+      : isPendingBattle
+        ? t('waitingPlayers')
+        : Number(rawDetail?.status ?? 0) === 1
+          ? t('waitingBlocks')
+          : t('waitingBlocks');
   const shouldShowGallery =
+    !shouldMaskInitialWaitingUi &&
     !showSlotMachines &&
     (mainState === 'IDLE' || mainState === 'LOADING' || mainState === 'COUNTDOWN');
 
   return (
     <div className="flex flex-col flex-1 items-stretch relative">
-    
       <div className="flex flex-col items-center gap-0 pb-20 w-full" style={{ marginTop: "-32px" }}>
           <BattleHeader
             packImages={packImages}
@@ -4466,7 +4583,13 @@ useEffect(() => {
           modeLabel={gameModeLabel}
             totalCost={battleData.cost}
           isCountingDown={countdownValue !== null && countdownValue > 0}
-          isPlaying={showSlotMachines && !allRoundsCompleted}
+          // 避免 showSlotMachines（useEffect 更新）导致的“一帧滞后”闪烁：直接由状态机推导
+          isPlaying={
+            mainState === 'ROUND_LOOP' &&
+            roundState !== 'ROUND_JACKPOT_ROLL' &&
+            !(gameMode === 'jackpot' && Boolean(jackpotRollTriggeredRef.current)) &&
+            !allRoundsCompleted
+          }
           isCompleted={allRoundsCompleted}
           currentRound={currentRound}
           totalRounds={battleData.packs.length}
@@ -4740,8 +4863,12 @@ useEffect(() => {
                         params.set('gameMode', gameMode);
                         
                         // 选项
-                        if (isFastMode) {
+                        // 注意：这里应使用“对战创建时的 fast 配置”，不要被详情页内部播放快慢状态影响
+                        const isFastBattleEnabled = normalizeNumericValue(rawDetail?.fast, 0) === 1;
+                        if (isFastBattleEnabled) {
                           params.set('fastBattle', 'true');
+                        } else {
+                          params.set('fastBattle', 'false');
                         }
                         if (isLastChance) {
                           params.set('lastChance', 'true');
@@ -4790,19 +4917,34 @@ useEffect(() => {
               </div>
             );
           })()
-        ) : gameMode === 'jackpot' && mainState === 'ROUND_LOOP' && roundState === 'ROUND_JACKPOT_ROLL' ? (
-          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-[1280px]" style={{ minHeight: '450px' }}>
-            {jackpotPlayerSegments.length > 0 && jackpotWinnerId ? (
-              <JackpotProgressBarInline
-                key={`jackpot-animation-${jackpotAnimationKey}`}
-                players={jackpotPlayerSegments}
-                winnerId={jackpotWinnerId}
-                onComplete={handleJackpotAnimationComplete}
-              />
+        ) : gameMode === 'jackpot' && mainState === 'ROUND_LOOP' && Boolean(jackpotRollTriggeredRef.current) ? (
+          // 🎰 Jackpot：色条滚动 + 揭晓过渡期间，统一由这里接管渲染，避免回退到老虎机分支闪屏
+          <div
+            className="flex flex-col items-center justify-center gap-6 w-full max-w-[1280px]"
+            style={{ minHeight: '450px' }}
+          >
+            {jackpotPhase === 'rolling' ? (
+              jackpotPlayerSegments.length > 0 && jackpotWinnerId ? (
+                <JackpotProgressBarInline
+                  key={`jackpot-animation-${jackpotAnimationKey}`}
+                  players={jackpotPlayerSegments}
+                  winnerId={jackpotWinnerId}
+                  onComplete={handleJackpotAnimationComplete}
+                />
+              ) : (
+                <div />
+              )
             ) : (
-              <div ></div>
+              <div className="flex flex-col items-center justify-center gap-3 w-full">
+                <div className="h-6 w-full max-w-[900px] rounded-md bg-white/5" />
+                <p className="text-xs tracking-[0.3em] uppercase text-white/60">
+                  {t('jackpotRevealing')}
+                </p>
+              </div>
             )}
-            <p className="text-xs tracking-[0.3em] uppercase text-white/60">Jackpot roll</p>
+            {jackpotPhase === 'rolling' ? (
+              <p className="text-xs tracking-[0.3em] uppercase text-white/60">{t('jackpotRolling')}</p>
+            ) : null}
           </div>
         ) : shouldShowGallery ? (
           <div ref={galleryRef} className="w-full h-full flex">
@@ -5586,6 +5728,7 @@ useEffect(() => {
               players={eliminationPlayers}
               selectedPlayerId={currentEliminationData.eliminatedPlayerId}
               onSpinComplete={handleEliminationSlotComplete}
+              onSpinSettled={handleEliminationSlotSettled}
               isFastMode={isFastMode}
             />
           </div>

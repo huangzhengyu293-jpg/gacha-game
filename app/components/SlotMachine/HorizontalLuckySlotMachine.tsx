@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
-import Image from 'next/image';
 
 export interface SlotSymbol {
   id: string;
@@ -18,6 +17,7 @@ interface HorizontalLuckySlotMachineProps {
   selectedPrizeId?: string | null;
   onSpinStart?: () => void;
   onSpinComplete?: (result: SlotSymbol) => void;
+  onSpinSettled?: () => void; // 🔥 回正音效触发时调用（用于淘汰模式同步渲染淘汰UI）
   width?: number; // 转轮宽度，默认540
   spinDuration?: number; // 固定的旋转时长
   isEliminationMode?: boolean; // 是否是淘汰模式（用于区分礼包/淘汰老虎机）
@@ -57,6 +57,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
   selectedPrizeId,
   onSpinStart,
   onSpinComplete,
+  onSpinSettled,
   width = 540,
   spinDuration,
   isEliminationMode = false
@@ -754,6 +755,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
               }
             }
             
+            // 🔥 回正音效触发时立即调用 onSpinSettled（用于淘汰模式同步渲染淘汰UI）
+            onSpinSettled?.();
+            
             setTimeout(() => { resolve(); }, 100);
           }
           return;
@@ -794,6 +798,9 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
               source.start(0);
             }
           }
+          
+          // 🔥 回正音效触发时立即调用 onSpinSettled（用于淘汰模式同步渲染淘汰UI）
+          onSpinSettled?.();
           
           setTimeout(() => {
             resolve();

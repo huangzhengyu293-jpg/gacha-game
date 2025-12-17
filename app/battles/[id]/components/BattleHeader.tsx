@@ -3,8 +3,9 @@
 import Link from "next/link";
 import React, { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import PackContentsModal from "@/app/components/PackContentsModal";
-import { getModeVisual, getSpecialOptionIcons } from "@/app/battles/modeVisuals";
+import { getModeVisual, getSpecialOptionLabels } from "@/app/battles/modeVisuals";
 import { useI18n } from "@/app/components/I18nProvider";
+import InfoTooltip from "@/app/components/InfoTooltip";
 
 export interface PackImage {
   src: string;
@@ -82,7 +83,7 @@ export default function BattleHeader({
   
   const modeVisual = getModeVisual(gameMode, displayAwardName);
   const displayModeLabel = modeLabel || modeVisual.label;
-  const optionIcons = getSpecialOptionIcons({ isFastMode, isLastChance, isInverted });
+  const optionLabels = getSpecialOptionLabels({ isFastMode, isLastChance, isInverted });
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
 
   // 虚拟滚动：更新可见范围（节流优化）
@@ -259,7 +260,16 @@ export default function BattleHeader({
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
                     {displayModeLabel}
                   </p>
-                  {optionIcons.map(icon => icon)}
+                  {optionLabels.map((option, idx) => (
+                    <span key={`option-${String(option.key)}-${idx}`} className="flex items-center justify-center">
+                      <InfoTooltip
+                        content={t(option.key)}
+                        trigger={option.icon}
+                        buttonClassName="inline-flex items-center justify-center cursor-pointer p-0 border-0 bg-transparent hover:bg-transparent"
+                        usePortal={true}
+                      />
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -456,7 +466,16 @@ export default function BattleHeader({
                   <p className="text-sm font-bold" style={{ color: "#CBD5E0" }}>
                     {displayModeLabel}
                   </p>
-                  {optionIcons.map(icon => icon)}
+                  {optionLabels.map((option, idx) => (
+                    <span key={`option-mobile-${String(option.key)}-${idx}`} className="flex items-center justify-center">
+                      <InfoTooltip
+                        content={t(option.key)}
+                        trigger={option.icon}
+                        buttonClassName="inline-flex items-center justify-center cursor-pointer p-0 border-0 bg-transparent hover:bg-transparent"
+                        usePortal={true}
+                      />
+                    </span>
+                  ))}
                 </div>
               </div>
               <div className="flex gap-2">

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { PackItem } from '../types';
-import Image from 'next/image';
 
 interface PacksGalleryProps {
   packs: PackItem[];
@@ -178,17 +177,15 @@ export default function PacksGallery({
                 className="min-w-[160px] max-w-[160px] flex-shrink-0"
           >
                 <div className="relative">
-                  <Image
+                  <img
                     alt={pack.name || 'pack'}
                     src={pack.image}
                     width={200}
                     height={304}
-                loading="lazy"
-                decoding="async"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-auto"
                     style={{ color: 'transparent' }}
-                    sizes="(max-width: 640px) 160px, 160px"
-                    unoptimized
                   />
                   <div className="flex justify-center pt-3 pb-4">
                     <div className="font-bold text-base text-white">{pack.value}</div>

@@ -136,6 +136,26 @@ function parseNumber(value: string | number | null | undefined): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+function parseEpochMs(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return value > 1e12 ? value : value * 1000;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    return numeric > 1e12 ? numeric : numeric * 1000;
+  }
+  const parsed = Date.parse(trimmed);
+  if (!Number.isNaN(parsed)) return parsed;
+  const normalized = trimmed.replace('T', ' ');
+  const parsedNormalized = Date.parse(normalized);
+  return Number.isNaN(parsedNormalized) ? null : parsedNormalized;
+}
+
 function mapModeToGameplay(mode?: number | string | null): GameplayMode {
   const numeric = parseNumber(mode);
   return MODE_GAMEPLAY_MAP[numeric] ?? 'classic';
@@ -383,6 +403,14 @@ export function buildBattlePayloadFromRaw(raw: RawBattleDetail, options?: BuildO
 
   const battleId = options?.battleId ?? String(raw.id);
   const specialOptions = options?.specialOptions ?? {};
+  // 对战详情轮次推进：以服务端对战更新时间(updated_at)作为起算点（与页面内 computeEntryRoundSetting 的逻辑一致）
+  // 注意：open_at 在部分对战里可能为空/0，会导致时间轴直接判定 COMPLETED
+  const startAtMs =
+    parseEpochMs(raw.updated_at) ??
+    parseEpochMs(raw.open_at) ??
+    parseEpochMs(raw.created_at) ??
+    Date.now();
+  const roundDurationMs = specialOptions.fast ? 1000 : 6000;
   const gameplayModeRaw = mapModeToGameplay(raw.mode);
   const gameplayMode = isTeamBattle && gameplayModeRaw === 'share' ? 'classic' : gameplayModeRaw;
   const declaredPlayersCount = resolveDeclaredPlayerCount(raw);
@@ -400,9 +428,9 @@ export function buildBattlePayloadFromRaw(raw: RawBattleDetail, options?: BuildO
       lastChance: Boolean(specialOptions.lastChance),
       inverted: Boolean(specialOptions.inverted),
     },
-    startAt: parseNumber(raw.open_at) * 1000,
+    startAt: startAtMs,
     countdownMs: 3000,
-    roundDurationMs: 5000,
+    roundDurationMs,
     roundsTotal: (raw.data?.box || []).length,
     packs: (raw.data?.box || []).map((boxId) => String(boxId)),
   };

@@ -15,6 +15,7 @@ interface EliminationSlotMachineProps {
   players: PlayerSymbol[];
   selectedPlayerId?: string | null;
   onSpinComplete?: () => void;
+  onSpinSettled?: () => void; // 🔥 回正音效触发时调用（用于同步渲染淘汰UI）
   isFastMode?: boolean;
 }
 
@@ -26,6 +27,7 @@ const EliminationSlotMachine = forwardRef<EliminationSlotMachineHandle, Eliminat
   players,
   selectedPlayerId,
   onSpinComplete,
+  onSpinSettled,
   isFastMode = false
 }, ref) => {
   
@@ -94,7 +96,7 @@ const EliminationSlotMachine = forwardRef<EliminationSlotMachineHandle, Eliminat
     // 给一点时间让名字完全显示
     setTimeout(() => {
       onSpinComplete?.();
-    }, 200); // 先等200ms确保名字显示
+    }, 500); // 先等200ms确保名字显示
   };
   
   // 计算滚动时长：与礼包页保持一致 - 普通4.5s，快速1s
@@ -106,6 +108,7 @@ const EliminationSlotMachine = forwardRef<EliminationSlotMachineHandle, Eliminat
         symbols={playerSymbols}
         selectedPrizeId={selectedPlayerId}
         onSpinComplete={handleSpinComplete}
+        onSpinSettled={onSpinSettled}
         width={9999}  // 与礼包页保持一致
         spinDuration={spinDuration}
         isEliminationMode={true}

@@ -1,7 +1,6 @@
 "use client";
 
 import type { BattleData, Participant } from "../types";
-import Image from "next/image";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
@@ -460,7 +459,7 @@ export default function ParticipantsWithPrizes({
                           {isBot || !participant.avatar ? (
                             renderBotAvatar(maskId)
                           ) : (
-                            <Image
+                            <img
                               alt={participant.name}
                               src={participant.avatar}
                               width={32}
@@ -594,7 +593,7 @@ export default function ParticipantsWithPrizes({
                   {isBot || !member.avatar ? (
                     renderBotAvatar(maskId)
                   ) : (
-                    <Image
+                    <img
                       alt={member.name}
                       src={member.avatar}
                       width={32}
@@ -866,12 +865,12 @@ export default function ParticipantsWithPrizes({
                                 {isBot || !participant.avatar ? (
                                   renderBotAvatar(maskId)
                                 ) : (
-                              <Image
+                              <img
                                 src={participant.avatar}
                                 alt={participant.name}
                                 width={32}
                                 height={32}
-                                    className="object-cover w-full h-full pointer-events-none"
+                                className="object-cover w-full h-full pointer-events-none"
                                 style={{ color: "transparent" }}
                               />
                                 )}
@@ -1088,7 +1087,7 @@ function LazyRoundCard({
               
               {playerResult.image && (
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                  <Image alt={playerResult.name} src={playerResult.image} fill sizes="(min-width: 0px) 100px" className="object-contain" />
+                  <img alt={playerResult.name} src={playerResult.image} className="object-contain absolute inset-0 w-full h-full" />
                 </div>
               )}
               
@@ -1107,7 +1106,7 @@ function LazyRoundCard({
             </div>
             
             <div data-component="PackCard" className="absolute inset-0 opacity-0 translate-y-6 group-hover:opacity-100 group-hover:translate-y-0 transition duration-300 flex w-full h-full justify-center p-2 md:p-5">
-              <Image alt={pack.name} src={pack.image} width={150} height={300} className="object-contain h-full w-auto pointer-events-none" />
+              <img alt={pack.name} src={pack.image} width={150} height={300} className="object-contain h-full w-auto pointer-events-none" />
             </div>
           </>
         )}

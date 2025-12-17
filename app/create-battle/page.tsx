@@ -12,7 +12,6 @@ import {
   type CreateBattleResult,
 } from '../lib/api';
 import SelectPackModal from '../packs/[id]/SelectPackModal';
-import Image from 'next/image';
 import InfoTooltip from '../components/InfoTooltip';
 import { showGlobalToast } from '../components/ToastProvider';
 import { useAuth } from '../hooks/useAuth';
@@ -106,15 +105,13 @@ function SortablePackItem({ pack, onRemove, uniqueId, highlightLastChance }: Sor
         className="flex relative cursor-move"
         style={{ touchAction: 'none' }}
       >
-        <Image
+        <img
           alt={pack.title}
           src={pack.image}
           width={200}
           height={304}
           className="w-full h-auto"
           style={{ color: 'transparent', pointerEvents: 'none' }}
-          sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
-          unoptimized
         />
         {highlightLastChance && (
           <div className="flex justify-start items-start absolute inset-0 border-2 border-red-400 rounded-lg pointer-events-none">
@@ -537,7 +534,12 @@ function CreateBattleContent() {
             </div>
 
             <div className="text-center w-full">
-            
+              <h2
+                className="text-xl font-semibold mb-4 text-center"
+                style={{ color: "#7A8084" }}
+              >
+                {t("summaryPlayers")}
+              </h2>
               <div className="flex justify-center gap-3 flex-wrap w-full">
                 {typeState === "solo" ? (
                   // Solo模式：显示2, 3, 4, 6玩家数量
@@ -645,12 +647,10 @@ function CreateBattleContent() {
                     className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
                     style={{ backgroundColor: "#1D2125" }}
                   >
-                    <Image
+                    <img
                       src={MODE_ILLUSTRATIONS.classic}
                       alt={t("battleModeClassic")}
-                      fill
-                      className="object-contain w-full h-full"
-                      sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                      className="object-contain absolute inset-0 w-full h-full"
                     />
                   </div>
                   
@@ -705,12 +705,10 @@ function CreateBattleContent() {
                       className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
                       style={{ backgroundColor: "#1D2125" }}
                     >
-                    <Image
+                    <img
                       src={MODE_ILLUSTRATIONS.share}
                       alt={t("battleModeShare")}
-                      fill
-                      className="object-contain w-full h-full"
-                      sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                      className="object-contain absolute inset-0 w-full h-full"
                     />
                     </div>
                     
@@ -764,12 +762,10 @@ function CreateBattleContent() {
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
                         style={{ backgroundColor: "#1D2125" }}
                       >
-                        <Image
+                        <img
                           src={MODE_ILLUSTRATIONS.sprint}
                           alt={t("battleModeSprint")}
-                          fill
-                          className="object-contain w-full h-full"
-                          sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                          className="object-contain absolute inset-0 w-full h-full"
                         />
                       </div>
                       
@@ -821,12 +817,10 @@ function CreateBattleContent() {
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
                         style={{ backgroundColor: "#1D2125" }}
                       >
-                        <Image
+                        <img
                           src={MODE_ILLUSTRATIONS.jackpot}
                           alt={t("battleModeJackpot")}
-                          fill
-                          className="object-contain"
-                          sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                          className="object-contain absolute inset-0 w-full h-full"
                         />
                       </div>
                     
@@ -880,12 +874,10 @@ function CreateBattleContent() {
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
                         style={{ backgroundColor: "#1D2125" }}
                       >
-                      <Image
+                      <img
                         src={MODE_ILLUSTRATIONS.elimination}
                         alt={t("battleModeElimination")}
-                        fill
-                        className="object-contain w-full h-full"
-                        sizes="(min-width: 1200px) 15vw, (min-width: 768px) 35vw, 0px"
+                        className="object-contain absolute inset-0 w-full h-full"
                       />
                       </div>
                     
@@ -903,12 +895,12 @@ function CreateBattleContent() {
                 className="text-gray-400 font-semibold max-w-2xl text-center mx-auto mt-4"
                 style={{ color: "#7A8084" }}
               >
-                {selectedMode === "classic" && t("modeClassicDesc")}
+                {selectedMode === "classic" && t(optInverted ? "modeClassicDescInverted" : "modeClassicDesc")}
                 {selectedMode === "share" && t("modeShareDesc")}
-                {selectedMode === "sprint" && t("modeSprintDesc")}
+                {selectedMode === "sprint" && t(optInverted ? "modeSprintDescInverted" : "modeSprintDesc")}
                 {selectedMode === "jackpot" && t("modeJackpotDesc")}
                 {selectedMode === "elimination" &&
-                  t("modeEliminationDesc")}
+                  t(optInverted ? "modeEliminationDescInverted" : "modeEliminationDesc")}
               </p>
             </div>
 

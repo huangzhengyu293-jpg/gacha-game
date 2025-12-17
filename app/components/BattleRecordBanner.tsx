@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import React, { useMemo } from 'react';
 import { useAuthContext } from '../providers/AuthProvider';
 
@@ -91,7 +90,7 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
       <div className="flex items-start mb-1 gap-0">
         <div className="overflow-hidden border rounded-full border-[#E3C34A] border-[1px]">
           {avatarSrc ? (
-            <Image
+            <img
               src={avatarSrc}
               alt={name}
               width={32}
