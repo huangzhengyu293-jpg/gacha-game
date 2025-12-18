@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/app/lib/api';
+import { useAuthContext } from '@/app/providers/AuthProvider';
 import type { BattleData } from '../types';
 import type { CatalogPack } from '@/app/lib/api';
 
 export function useBattleData(): BattleData {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { user } = useAuthContext();
 
   const packIdsParam = searchParams?.get('packIds') || '';
   const packIds = packIdsParam ? packIdsParam.split(',').filter(Boolean) : [];
@@ -68,27 +70,24 @@ export function useBattleData(): BattleData {
     return [];
   }, [boxListData]);
 
-  // 🔍 从 localStorage 读取用户信息（因为接口已更新，使用本地缓存）
-  const currentUser = typeof window !== 'undefined' 
-    ? (() => {
-        try {
-          const userData = localStorage.getItem('user');
-          if (userData) {
-          const user = JSON.parse(userData);
-          return {
-            id: String(user.userInfo?.id || user.id || 'local-user'),  // 🔧 确保是字符串
-            username: user.userInfo?.name || user.username || '我的账号',
-            name: user.userInfo?.name || user.name || '我的账号',
-            avatar: user.userInfo?.avatar || user.avatar || '',
-          };
-          }
-        } catch {}
-        return null;
-      })()
-    : null;
-  
-  // 🔍 调试：检查用户数据
-  console.log('🔍 [useBattleData] currentUser:', currentUser);
+  const currentUser = useMemo(() => {
+    const rawId = user?.userInfo?.id ?? (user as any)?.id ?? null;
+    const name =
+      (typeof user?.userInfo?.name === 'string' && user.userInfo.name) ||
+      (typeof (user as any)?.name === 'string' && (user as any).name) ||
+      '我的账号';
+    const avatar =
+      (typeof user?.userInfo?.avatar === 'string' && user.userInfo.avatar) ||
+      (typeof (user as any)?.avatar === 'string' && (user as any).avatar) ||
+      '';
+
+    return {
+      id: rawId === null || rawId === undefined ? 'local-user' : String(rawId),
+      username: name,
+      name,
+      avatar,
+    };
+  }, [user]);
 
   const selectedPacks = packIds
     .map((id) => allPacks.find((pack: CatalogPack) => pack.id === id))
@@ -117,7 +116,10 @@ export function useBattleData(): BattleData {
   const currentUserName = currentUser?.username ?? '我的账号';
   const currentUserId = currentUser?.id ?? 'local-user';
   const avatarSeed = encodeURIComponent(currentUserName);
-  const currentUserAvatar = `https://avatar.vercel.sh/${avatarSeed}.svg`;
+  const currentUserAvatar =
+    typeof currentUser?.avatar === 'string' && currentUser.avatar
+      ? currentUser.avatar
+      : `https://avatar.vercel.sh/${avatarSeed}.svg`;
 
   // 生成参与者列表 - 只有当前用户，其他位置留空等待加入
   const participants = [{

@@ -85,9 +85,8 @@ export function useAuth() {
           
           // 更新完整的用户数据
           setUser(userData);
-        } catch (error) {
+        } catch {
           // 即使获取详细信息失败，也返回成功（token 已保存）
-          console.error('获取用户详细信息失败:', error);
         }
         
         return { success: true, data: userData };

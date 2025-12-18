@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../lib/axios';
 import { api } from '../lib/api';
 
@@ -53,6 +54,23 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = useState(true);
   const [favoriteIds, setFavoriteIdsState] = useState<string[]>([]);
   const refreshingRef = useRef(false);
+  const queryClient = useQueryClient();
+
+  const clearUserScopedQueries = useCallback(() => {
+    // 用户相关数据：登出/登录切换时必须清掉，避免 staleTime 内复用旧缓存导致 UI 不刷新
+    queryClient.removeQueries({ queryKey: ['userStorage'] }); // 购物车/仓库
+    queryClient.removeQueries({ queryKey: ['fightMyBestRecord'] });
+    queryClient.removeQueries({ queryKey: ['luckyMyBestRecord'] });
+    queryClient.removeQueries({ queryKey: ['boxMyRecent'] });
+  }, [queryClient]);
+
+  const clearAuthState = useCallback(() => {
+    setUserState(null);
+    setFavoriteIdsState([]);
+    localStorage.removeItem('user');
+    localStorage.removeItem('favoriteIds');
+    clearUserScopedQueries();
+  }, [clearUserScopedQueries]);
 
   // 初始化：从 localStorage 读取用户信息
   useEffect(() => {
@@ -75,7 +93,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     const handleLogout = (event: Event) => {
       const customEvent = event as CustomEvent;
-      setUserState(null);
+      clearAuthState();
       
       // 如果是 token 过期，可以跳转到登录页
       if (customEvent.detail?.reason === 'token_expired') {
@@ -86,7 +104,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     window.addEventListener('auth:logout', handleLogout);
     return () => window.removeEventListener('auth:logout', handleLogout);
-  }, []);
+  }, [clearAuthState]);
 
   // 设置用户
   const setUser = useCallback((newUser: User | null) => {
@@ -94,10 +112,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     if (newUser) {
       // 保存到 localStorage
       localStorage.setItem('user', JSON.stringify({ data: newUser }));
+      // 登录成功后强制刷新用户相关数据（尤其是刚刚 token 过期被动登出后立即重登的场景）
+      clearUserScopedQueries();
     } else {
-      localStorage.removeItem('user');
+      clearAuthState();
     }
-  }, []);
+  }, [clearAuthState, clearUserScopedQueries]);
 
   // 更新用户信息
   const updateUser = useCallback((updates: Partial<User>) => {
@@ -136,11 +156,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   // 登出
   const logout = useCallback(() => {
-    setUserState(null);
-    setFavoriteIdsState([]);
-    localStorage.removeItem('user');
-    localStorage.removeItem('favoriteIds');
-  }, []);
+    clearAuthState();
+  }, [clearAuthState]);
 
   // 页面刷新后自动拉取最新的用户信息 / 余额 / 收藏
   useEffect(() => {

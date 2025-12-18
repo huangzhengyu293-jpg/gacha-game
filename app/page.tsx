@@ -19,7 +19,8 @@ import { useAuthContext } from './providers/AuthProvider';
 export default function Home() {
   const { t } = useI18n();
   const router = useRouter();
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, user } = useAuthContext();
+  const loginKey = typeof user?.loginTime === 'string' && user.loginTime ? user.loginTime : 'guest';
 
   // ✅ 获取最新礼包列表（sort_type: '2' = 最新）
   const { data: boxNewListData } = useQuery({
@@ -29,21 +30,21 @@ export default function Home() {
   });
 
   const { data: fightMyBestRecord } = useQuery({
-    queryKey: ['fightMyBestRecord'],
+    queryKey: ['fightMyBestRecord', loginKey],
     queryFn: () => api.getFightMyBestRecord(),
     enabled: isAuthenticated,
     staleTime: 30_000,
   });
 
   const { data: luckyMyBestRecord } = useQuery({
-    queryKey: ['luckyMyBestRecord'],
+    queryKey: ['luckyMyBestRecord', loginKey],
     queryFn: () => api.getLuckyMyBestRecord(),
     enabled: isAuthenticated,
     staleTime: 30_000,
   });
 
   const { data: boxMyRecentData } = useQuery({
-    queryKey: ['boxMyRecent'],
+    queryKey: ['boxMyRecent', loginKey],
     queryFn: () => api.getBoxMyRecent(),
     enabled: isAuthenticated,
     staleTime: 30_000,

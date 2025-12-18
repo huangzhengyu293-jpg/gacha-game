@@ -27,10 +27,11 @@ export interface StorageItem {
 }
 
 export function useCart(priceSort?: 'asc' | 'desc') {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const loginKey = typeof user?.loginTime === 'string' && user.loginTime ? user.loginTime : 'guest';
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['userStorage', priceSort ?? 'none'],
+    queryKey: ['userStorage', loginKey, priceSort ?? 'none'],
     queryFn: async () => {
       const response = await api.getUserStorage(0, priceSort);
       return response;
