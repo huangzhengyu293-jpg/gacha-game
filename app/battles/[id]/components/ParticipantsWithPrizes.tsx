@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
 import { useI18n } from "@/app/components/I18nProvider";
+import { allocateJackpotPercentageBps } from "../utils";
 
 function clampSlotIndex(value: number, totalSlots: number) {
   if (!Number.isFinite(value)) return 0;
@@ -156,20 +157,17 @@ export default function ParticipantsWithPrizes({
           return acc;
         }, []);
 
-    const totalValue = entries.reduce((sum, entry) => sum + entry.rawValue, 0);
-    const totalInverseWeight = entries.reduce((sum, entry) => sum + entry.inverseWeight, 0);
-    const fallbackCount = entries.length;
-    const fallbackPercentage = fallbackCount ? 100 / fallbackCount : 0;
+    // 展示层：用 0.01% 单位分配，避免出现 0.00%（除非条目数量大到无法分配）
+    const weightEntries = entries.map((entry) => ({
+      id: entry.participantId,
+      weight: isInvertedJackpot ? entry.inverseWeight : entry.rawValue,
+    }));
+    const bpsById = allocateJackpotPercentageBps(weightEntries);
+
     const result: Record<string, string> = {};
     entries.forEach((entry) => {
-      let percentage: number;
-      if (isInvertedJackpot) {
-        percentage =
-          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : fallbackPercentage;
-      } else {
-        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : fallbackPercentage;
-      }
-      result[entry.participantId] = percentage.toFixed(2);
+      const bps = bpsById?.[entry.participantId] ?? 0;
+      result[entry.participantId] = (bps / 100).toFixed(2);
     });
     return result;
   }, [gameMode, participantValues, battleData.isInverted, battleData.isLastChance, packs, participants, roundResults, completedRounds, currentRound]);

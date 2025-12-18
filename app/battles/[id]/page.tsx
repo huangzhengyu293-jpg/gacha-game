@@ -18,6 +18,7 @@ import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } f
 import { api, type CreateBattlePayload } from '@/app/lib/api';
 import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
+import { allocateJackpotPercentageBps } from './utils';
 import { useI18n } from '../../components/I18nProvider';
 import type { FightDetailRaw } from '@/types/fight';
 import type {
@@ -1595,22 +1596,18 @@ useEffect(() => {
       };
     });
 
-    const totalValue = contributions.reduce((sum, entry) => sum + entry.rawValue, 0);
-    const totalInverseWeight = contributions.reduce((sum, entry) => sum + entry.inverseWeight, 0);
-    const fallbackPercentage = validParticipants.length ? 100 / validParticipants.length : 0;
+    const weightEntries = contributions.map((entry) => ({
+      id: entry.id,
+      weight: isJackpotInverted ? entry.inverseWeight : entry.rawValue,
+    }));
+    const bpsById = allocateJackpotPercentageBps(weightEntries);
 
     const segments = contributions.map((entry) => {
-      let percentage: number;
-      if (isJackpotInverted) {
-        percentage =
-          totalInverseWeight > 0 ? (entry.inverseWeight / totalInverseWeight) * 100 : fallbackPercentage;
-      } else {
-        percentage = totalValue > 0 ? (entry.rawValue / totalValue) * 100 : fallbackPercentage;
-      }
+      const bps = bpsById?.[entry.id] ?? 0;
       return {
         id: entry.id,
         name: entry.name,
-        percentage,
+        percentage: bps / 100,
         color: playerColors[entry.id] || 'rgb(128, 128, 128)',
       };
     });
@@ -5092,7 +5089,7 @@ useEffect(() => {
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                spinDuration={spinDuration}
+                                spinDuration={NORMAL_ROUND_DURATION_MS}
                                 onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                               />
                             </div>
@@ -5161,7 +5158,7 @@ useEffect(() => {
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                spinDuration={spinDuration}
+                                spinDuration={NORMAL_ROUND_DURATION_MS}
                                 onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                               />
                             </div>
@@ -5238,7 +5235,7 @@ useEffect(() => {
                                       symbols={roundData.pools.legendary}
                                       selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                       height={450}
-                                      spinDuration={spinDuration}
+                                      spinDuration={NORMAL_ROUND_DURATION_MS}
                                       onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                     />
                                   </div>
@@ -5414,7 +5411,7 @@ useEffect(() => {
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
-                                    spinDuration={spinDuration}
+                                    spinDuration={NORMAL_ROUND_DURATION_MS}
                                     onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                   />
                                 </div>
@@ -5502,7 +5499,7 @@ useEffect(() => {
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
-                                    spinDuration={spinDuration}
+                                    spinDuration={NORMAL_ROUND_DURATION_MS}
                                     onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                                   />
                                 </div>
@@ -5579,7 +5576,7 @@ useEffect(() => {
                                 symbols={roundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
-                                spinDuration={spinDuration}
+                                spinDuration={NORMAL_ROUND_DURATION_MS}
                                 onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
                               />
                             </div>
