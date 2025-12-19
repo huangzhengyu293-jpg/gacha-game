@@ -18,14 +18,14 @@ export async function postWithdrawalStorage(payload: WithdrawalStoragePayload): 
     formData.append(`storage_ids[${idx}]`, v);
   });
 
-  const resp = await axiosInstance.post<ApiResponse<any>>('/api/user/withdrawalStorage', formData, {
+  const resp = await axiosInstance.post<ApiResponse<any>>('/api/common/withdrawalStorage', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return resp.data;
 }
 
 export async function getRechargeLog(): Promise<ApiResponse<any>> {
-  const resp = await axiosInstance.get<ApiResponse<any>>('/api/user/rechargeLog');
+  const resp = await axiosInstance.get<ApiResponse<any>>('/api/common/rechargeLog');
   return resp.data;
 }
 

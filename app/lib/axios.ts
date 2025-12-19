@@ -18,7 +18,7 @@ const AUTH_REQUIRED_PATHS = [
   '/api/box/userrecord',
   '/api/user/cash',
   '/api/user/bean',
-  '/api/user/rechargeLog',
+  '/api/common/rechargeLog',
   '/api/user/storage',
   '/api/auth/userinfo',
   '/api/auth/logout',

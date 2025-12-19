@@ -332,7 +332,7 @@ export const api = {
   register: (payload: { name: string; email: string; password: string }) =>
     post<{ ok: true; user?: { id: string; name: string; email: string } }>('/api/auth/register', payload),
   sendVerificationEmail: (payload: { to: string; type: string; debug?: string | number }) =>
-    post<ApiResponse>('/api/index/sendemail', { ...payload, debug: payload.debug ?? 1 }),
+    post<ApiResponse>('/api/common/sendemail', { ...payload, debug: payload.debug ?? 1 }),
   activateAccount: (payload: { email: string; code: string }) =>
     post<ApiResponse>('/api/auth/activation', payload),
   login: (payload: { email: string; password: string }) =>
@@ -468,7 +468,7 @@ export const api = {
   activityCdk2: async (payload: { card: string }) => {
     const formData = new URLSearchParams();
     formData.append('card', payload.card);
-    const result = await request<ApiResponse>('/api/activity/cdk2', {
+    const result = await request<ApiResponse>('/api/common/cdkRecharge', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

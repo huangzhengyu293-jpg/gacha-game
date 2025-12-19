@@ -182,7 +182,7 @@ export function useAuth() {
   const sendVerificationEmail = useCallback(async (email: string, type: string = 'register') => {
     setIsSubmitting(true);
     try {
-      const response = await axiosInstance.post<ApiResponse>('/api/index/sendemail', {
+      const response = await axiosInstance.post<ApiResponse>('/api/common/sendemail', {
         to: email,
         type: type,
         debug: 1,

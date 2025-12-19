@@ -34,7 +34,7 @@ export type BattleListCard = {
 };
 
 const BOX_PLACEHOLDER_IMAGE =
-  'https://oss.66images.com/storage/nn/admin/images/20250814/02e3cdee3bb9bc6f46bc679c863a7757.webp';
+  'https://oss.66images.com/storage/flamedraw/images/20251217/c068146d2ee1892fd5273a3f3e3c6688.webp';
 const BOX_COVER_KEYS = ['cover', 'image', 'img', 'url', 'src', 'value'];
 
 const MODE_MAP: Record<number, BattleGameMode> = {
