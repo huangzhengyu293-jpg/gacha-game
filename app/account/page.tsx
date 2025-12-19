@@ -1,6 +1,5 @@
 'use client';
 
-import CopyableId from "../components/CopyableId";
 import Link from "next/link";
 import DatePickerField from "../components/DatePickerField";
 import AccountMobileMenu from "./components/AccountMobileMenu";
@@ -165,15 +164,6 @@ const userName =
               <span className="font-bold">{t('referrals')}</span>
             </Link>
           </div>
-          <div className="flex flex-col gap-3 items-stretch w-full">
-            <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
-            <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">{t('fairness')}</span>
-            </Link>
-            <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">{t('security')}</span>
-            </Link>
-          </div>
         </div>
 
         {/* 右侧内容 */}
@@ -181,7 +171,6 @@ const userName =
           <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
             <AccountMobileMenu />
             <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('profileTitle')}</h1>
-            <CopyableId id="cmhb4suqa00agjy0fd3eqxb4n" />
           </div>
           <div className="flex flex-col w-full gap-4">
             <div className="flex flex-col items-stretch w-full p-6 rounded-lg" style={{ backgroundColor: '#22272B' }}>

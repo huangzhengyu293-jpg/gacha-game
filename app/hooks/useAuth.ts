@@ -148,7 +148,7 @@ export function useAuth() {
 
       if (response.data.code === 100000 && response.data.data) {
         const userData = response.data.data;
-        updateUser(userData);
+        updateUser({ userInfo: userData });
         return { success: true, data: userData };
       } else {
         return { success: false, message: response.data.message || '获取用户信息失败' };

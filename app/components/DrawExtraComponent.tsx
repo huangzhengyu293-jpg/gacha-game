@@ -1749,14 +1749,6 @@ export default function DrawExtraComponent() {
             onMouseLeave={() => setHoverGuide(false)}
             onClick={() => { setShowGuide(true); }}
           >{t('howTo')}</button>
-          <div className="flex" style={{ width: 1, height: 18, backgroundColor: '#4B5563' }} />
-          <button
-            className="h-11 px-6 text-base font-bold rounded-md"
-            style={{ backgroundColor: 'transparent', color: hoverFair ? '#FFFFFF' : '#7A8084', cursor: 'pointer' }}
-            onMouseEnter={() => setHoverFair(true)}
-            onMouseLeave={() => setHoverFair(false)}
-            onClick={() => { setShowFair(true); }}
-          >{t('fairness')}</button>
         </div>
 
         {/* 小屏：倍数/生存率/价格 表格 */}

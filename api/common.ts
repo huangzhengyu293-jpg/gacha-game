@@ -59,4 +59,13 @@ export async function getWithdrawalTypes(): Promise<WithdrawalType[]> {
   return mapped;
 }
 
+export async function getWithdrawalLog(): Promise<ApiResponse<any>> {
+  const formData = new FormData();
+  formData.append('type', '0');
+  const resp = await axiosInstance.post<ApiResponse<any>>('/api/common/withdrawalLog', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return resp.data;
+}
+
 

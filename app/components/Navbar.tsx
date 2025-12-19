@@ -235,7 +235,7 @@ export default function Navbar() {
     if (!code) return;
     try {
       setPromoLoading(true);
-      const res = await api.setUserProfile({ invite: code });
+      const res = await api.setUserProfile({ invite_code: code });
       
     } catch (err) {
       toast.show({ variant: 'error', title: t("redeemFailTitle"), description: err instanceof Error ? err.message : t("retryLater") });

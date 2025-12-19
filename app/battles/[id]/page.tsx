@@ -20,6 +20,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
 import { allocateJackpotPercentageBps } from './utils';
 import { useI18n } from '../../components/I18nProvider';
+import { showGlobalToast } from '../../components/ToastProvider';
 import type { FightDetailRaw } from '@/types/fight';
 import type {
   BackendBattlePayload,
@@ -4584,9 +4585,25 @@ useEffect(() => {
             onFairnessClick={() => {
               // Handle fairness click
             }}
-            onShareClick={() => {
-              // Handle share click
-          }}
+            onShareClick={async () => {
+              try {
+                const url = window.location.href;
+                await navigator.clipboard.writeText(url);
+                showGlobalToast({
+                  title: t('battleLinkCopied'),
+                  description: t('battleLinkCopiedToClipboard'),
+                  variant: 'success',
+                  durationMs: 2000,
+                });
+              } catch (e) {
+                showGlobalToast({
+                  title: t('copyFailed'),
+                  description: t('pleaseCopyBattleLinkManually'),
+                  variant: 'error',
+                  durationMs: 2000,
+                });
+              }
+            }}
         />
         <div 
           className="flex self-stretch relative justify-center items-center flex-col w-full" 

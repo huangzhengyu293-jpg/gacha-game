@@ -99,7 +99,6 @@ const AUTH_REQUIRED_PATHS = [
   '/api/lucky/go',
   '/api/fight/save',
   '/api/fight/inviterobots',
-  '/api/fight/detail',
   '/api/fight/myBestRecord',
   '/api/lucky/myBestRecord',
   '/api/shop/buy',
@@ -609,17 +608,38 @@ export const api = {
     return result;
   },
   // ✅ 设置用户资料（头像 + 用户名）
-  setUserProfile: async (payload: { avatar?: string; name?: string; invite?: string }) => {
+  setUserProfile: async (payload: { avatar?: string; name?: string; invite_code?: string }) => {
     const formData = new FormData();
     if (payload.avatar !== undefined) formData.append('avatar', payload.avatar || '');
     if (payload.name !== undefined) formData.append('name', payload.name || '');
-    if (payload.invite !== undefined) formData.append('invite', payload.invite || '');
+    if (payload.invite_code !== undefined) formData.append('invite_code', payload.invite_code || '');
     const result = await request<ApiResponse>('/api/user/set', {
       method: 'POST',
       data: formData,
       headers: {
         // multipart 由浏览器处理
       },
+    });
+    return result;
+  },
+  // ✅ 创建CDK
+  createCdk: async (payload: { bean: string }) => {
+    const formData = new FormData();
+    formData.append('nums', '1');
+    formData.append('bean', payload.bean);
+    const result = await request<ApiResponse>('/api/common/createCdk', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        // multipart 由浏览器处理
+      },
+    });
+    return result;
+  },
+  // ✅ 获取我的CDK列表
+  getMyCdk: async () => {
+    const result = await request<ApiResponse>('/api/common/myCdk', {
+      method: 'GET',
     });
     return result;
   },

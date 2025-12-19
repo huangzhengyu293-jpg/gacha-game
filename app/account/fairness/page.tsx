@@ -50,7 +50,8 @@ export default function FairnessPage() {
               <span className="font-bold">{t('referrals')}</span>
             </Link>
           </div>
-          <div className="flex flex-col gap-3 items-stretch w-full">
+          //设置设置
+          {/* <div className="flex flex-col gap-3 items-stretch w-full">
             <span className="text-sm font-bold text-white/40">{t('settingsSection')}</span>
             <Link href="/account/fairness" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active">
               <span className="font-bold">{t('accountFairnessTitle')}</span>
@@ -58,7 +59,7 @@ export default function FairnessPage() {
             <Link href="/account/security" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
               <span className="font-bold">{t('accountSecurityTitle')}</span>
             </Link>
-          </div>
+          </div> */}
         </div>
 
         {/* 中间内容 */}
