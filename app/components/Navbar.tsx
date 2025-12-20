@@ -259,6 +259,7 @@ export default function Navbar() {
   const [forgotCountdown, setForgotCountdown] = useState(0);
   const forgotTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [cdkValue, setCdkValue] = useState('');
+  const [rechargeAmount, setRechargeAmount] = useState('');
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
@@ -289,8 +290,46 @@ export default function Navbar() {
   useEffect(() => {
     if (!showWalletModal) {
       setSelectedChannel(null);
+      setCdkValue('');
+      setRechargeAmount('');
     }
   }, [showWalletModal]);
+
+  // 金额输入验证：只能输入数字、整数、>=100、是100的倍数
+  const handleRechargeAmountChange = (value: string) => {
+    // 只允许数字
+    const numericValue = value.replace(/[^\d]/g, '');
+    if (numericValue === '') {
+      setRechargeAmount('');
+      return;
+    }
+    // 转换为整数
+    const num = parseInt(numericValue, 10);
+    if (isNaN(num)) {
+      setRechargeAmount('');
+      return;
+    }
+    // 必须 >= 100
+    if (num < 100) {
+      setRechargeAmount(numericValue);
+      return;
+    }
+    // 必须是100的倍数
+    if (num % 100 === 0) {
+      setRechargeAmount(String(num));
+    } else {
+      // 如果不是100的倍数，向下取整到最近的100的倍数
+      const rounded = Math.floor(num / 100) * 100;
+      setRechargeAmount(String(rounded));
+    }
+  };
+
+  // 验证金额是否有效
+  const isRechargeAmountValid = () => {
+    if (!rechargeAmount.trim()) return false;
+    const num = parseInt(rechargeAmount, 10);
+    return !isNaN(num) && num >= 100 && num % 100 === 0;
+  };
 
   const rechargeMutation = useMutation({
     mutationFn: async ({ id, money }: { id: string | number; money: string | number }) => {
@@ -301,6 +340,8 @@ export default function Navbar() {
         const url = String(res.data.url);
         // 仅尝试新标签页打开，不跳转当前页
         window.open(url, '_blank', 'noopener,noreferrer');
+        // 清空金额输入
+        setRechargeAmount('');
       }
     },
   });
@@ -582,7 +623,7 @@ export default function Navbar() {
   // 重新发送验证邮件
   const handleResendCode = async () => {
     if (!verifyEmail || resendCountdown > 0) return;
-    const result = await sendVerificationEmail(verifyEmail, '1');
+    const result = await sendVerificationEmail(verifyEmail, '0');
     if (result.success) {
       // 启动60秒倒计时
       setResendCountdown(60);
@@ -1514,7 +1555,11 @@ export default function Navbar() {
                       <button
                         key={`${item?.id ?? idx}`}
                         className={`inline-flex items-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative border rounded-lg justify-start h-16 px-4 text-left ${active ? 'border-[#4299E1] bg-blue-400/10' : 'border-gray-600 hover:bg-blue-400/10 hover:border-blue-400'}`}
-                        onClick={() => setSelectedChannel(item)}
+                        onClick={() => {
+                          setSelectedChannel(item);
+                          setCdkValue('');
+                          setRechargeAmount('');
+                        }}
                         style={{ cursor: 'pointer' }}
                       >
                         {/* 图片暂时隐藏 */}
@@ -1559,29 +1604,37 @@ export default function Navbar() {
                         </div>
                       </div>
                     ) : (
-                      <>
-                        {Array.isArray(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist) &&
-                          (selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).length > 0 ? (
-                          <div className="flex flex-wrap gap-3">
-                            {(selectedChannel?.money_list ?? selectedChannel?.moneyList ?? selectedChannel?.moneylist).map((m: any, i: number) => (
-                              <button
-                                key={`money-${i}`}
-                                className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                                style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
-                                disabled={rechargeMutation.isPending}
-                                onClick={() => {
-                                  if (!selectedChannel?.id) return;
-                                  rechargeMutation.mutate({ id: selectedChannel.id, money: m });
-                                }}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-400">{t("noAmountOptions")}</div>
+                      <div className="flex flex-col gap-3">
+                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={rechargeAmount}
+                          onChange={(e) => handleRechargeAmountChange(e.target.value)}
+                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
+                          placeholder={t("enterAmount")}
+                        />
+                        {rechargeAmount && !isRechargeAmountValid() && (
+                          <p className="text-sm" style={{ color: '#EF4444' }}>
+                            {t("amountValidationError")}
+                          </p>
                         )}
-                      </>
+                        <div className="flex w-full justify-end">
+                          <button
+                            type="button"
+                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
+                            style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
+                            disabled={!isRechargeAmountValid() || rechargeMutation.isPending}
+                            onClick={() => {
+                              if (!isRechargeAmountValid() || !selectedChannel?.id || rechargeMutation.isPending) return;
+                              rechargeMutation.mutate({ id: selectedChannel.id, money: rechargeAmount });
+                            }}
+                          >
+                            {rechargeMutation.isPending ? t("submitting") : t("topUp")}
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

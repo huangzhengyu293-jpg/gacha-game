@@ -185,7 +185,6 @@ export function useAuth() {
       const response = await axiosInstance.post<ApiResponse>('/api/common/sendemail', {
         to: email,
         type: type,
-        debug: 1,
       });
 
       if (response.data.code === 100000) {

@@ -618,6 +618,9 @@ const dict: Dict = {
   topUp: { zh: "充值", en: "Top up", ko: "충전", ja: "チャージ" },
   noAmountOptions: { zh: "暂无可选金额", en: "No selectable amounts", ko: "선택 가능한 금액이 없습니다", ja: "選択できる金額がありません" },
   selectPaymentAndAmount: { zh: "请选择支付方式以及金额", en: "Please select payment method and amount", ko: "결제 수단과 금액을 선택하세요", ja: "支払い方法と金額を選択してください" },
+  amountLabel: { zh: "金额", en: "Amount", ko: "금액", ja: "金額" },
+  enterAmount: { zh: "请输入金额", en: "Enter amount", ko: "금액을 입력하세요", ja: "金額を入力してください" },
+  amountValidationError: { zh: "金额必须是大于等于100的整数，且是100的倍数", en: "Amount must be an integer greater than or equal to 100 and a multiple of 100", ko: "금액은 100 이상의 정수여야 하며 100의 배수여야 합니다", ja: "金額は100以上の整数で、100の倍数である必要があります" },
   invitePlaceholder: { zh: "输入邀请码（可选）", en: "Enter invite code (optional)", ko: "초대 코드 입력(선택)", ja: "招待コードを入力（任意）" },
    backToPacks: { zh: "返回包裹", en: "Back to Packs", ko: "팩 목록으로", ja: "パック一覧に戻る" },
   // Packs toolbar

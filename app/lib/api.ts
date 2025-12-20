@@ -331,7 +331,7 @@ export const api = {
   register: (payload: { name: string; email: string; password: string }) =>
     post<{ ok: true; user?: { id: string; name: string; email: string } }>('/api/auth/register', payload),
   sendVerificationEmail: (payload: { to: string; type: string; debug?: string | number }) =>
-    post<ApiResponse>('/api/common/sendemail', { ...payload, debug: payload.debug ?? 1 }),
+    post<ApiResponse>('/api/common/sendemail', { ...payload }),
   activateAccount: (payload: { email: string; code: string }) =>
     post<ApiResponse>('/api/auth/activation', payload),
   login: (payload: { email: string; password: string }) =>
