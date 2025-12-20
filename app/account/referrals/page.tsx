@@ -19,7 +19,7 @@ export default function ReferralsPage() {
   
   // 从用户信息获取推荐码
   const referralCode = useMemo(() => {
-    return (user?.userInfo as any)?.invite || '';
+    return (user?.userInfo as any)?.invite_code || '';
   }, [user?.userInfo]);
 
   // 获取用户类型
@@ -188,7 +188,7 @@ export default function ReferralsPage() {
     }
     setIsUpdating(true);
     try {
-      const result = await api.setUserProfile({ invite: editingCode.trim() });
+      const result = await api.setUserProfile({ invite_code: editingCode.trim() });
       if (result?.code === 100000) {
         await fetchUserInfo();
         setIsEditingCode(false);

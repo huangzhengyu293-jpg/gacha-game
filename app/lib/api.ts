@@ -612,6 +612,7 @@ export const api = {
     avatar?: string;
     name?: string;
     invite?: string;
+    invite_code?: string;
     address_info?: {
       name?: string;
       phone?: string;
@@ -629,6 +630,7 @@ export const api = {
     if (payload.name !== undefined) formData.append('name', payload.name || '');
 
     if (payload.invite !== undefined) formData.append('invite', payload.invite || '');
+    if (payload.invite_code !== undefined) formData.append('invite_code', payload.invite_code || '');
 
     if (payload.address_info && typeof payload.address_info === 'object') {
       // 直接传递 address_info 对象（作为 JSON 字符串）
