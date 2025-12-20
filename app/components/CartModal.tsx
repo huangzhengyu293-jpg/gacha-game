@@ -37,10 +37,11 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   // 初始不带 price_sort，用户点击价格按钮后再传
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc' | undefined>(undefined);
+  const [claimableActive, setClaimableActive] = useState(false);
 
-  // 使用购物车 hook 获取数据
-  const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart(sortByPrice);
-  const { fetchUserBean } = useAuth();
+  // 使用购物车 hook 获取数据，当可领取物品按钮激活时传递 from=exchange 参数
+  const { cartItems, isLoading: warehouseLoading, refetch: refetchCart } = useCart(sortByPrice, claimableActive ? 'exchange' : undefined);
+  const { fetchUserBean, user } = useAuth();
   const [viewMode, setViewMode] = useState<'cart' | 'shop'>('cart');
   const isShopMode = viewMode === 'shop';
   const [shopItems, setShopItems] = useState<CartItem[]>([]);
@@ -54,12 +55,12 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [withdrawCryptoOpen, setWithdrawCryptoOpen] = useState(false);
   const withdrawalStorageMutation = useWithdrawalStorageMutation();
 
-  // 排序方向变化时强制刷新购物车数据（重新调用接口带 price_sort）
+  // 排序方向或可领取物品筛选变化时强制刷新购物车数据（重新调用接口带 price_sort 或 from）
   useEffect(() => {
-    if (!isShopMode && sortByPrice) {
+    if (!isShopMode && (sortByPrice || claimableActive !== undefined)) {
       refetchCart();
     }
-  }, [sortByPrice, isShopMode, refetchCart]);
+  }, [sortByPrice, claimableActive, isShopMode, refetchCart]);
 
   // 将购物车数据转换为 CartItem 格式（如果外部未传入 items 则使用购物车数据）
   const expandedWarehouseItems: CartItem[] = cartItems.map((item, index) => ({
@@ -186,7 +187,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   }, [isOpen, refetchCart]);
 
   const [selectionOrder, setSelectionOrder] = useState([] as string[]);
-  const [claimableActive, setClaimableActive] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
   const goExchange = useCallback(() => {
@@ -280,6 +280,89 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     });
     return map;
   }, [defaultItems]);
+
+  // ✅ 领取实体物品
+  const claimPhysicalMutation = useMutation({
+    mutationFn: async (item: CartItem) => {
+      if (!item.warehouseId && !item.id) {
+        throw new Error(t('invalidProduct'));
+      }
+      // 获取用户信息的 address_info
+      const info = (user as any)?.userInfo ?? user;
+      const addrRaw = (info as any)?.address_info ?? (info as any)?.addressInfo;
+      let addressInfo: Record<string, any> = {};
+      
+      // 解析 address_info（JSON 字符串转对象）
+      if (addrRaw != null) {
+        if (typeof addrRaw === 'string') {
+          try {
+            const parsed = JSON.parse(addrRaw);
+            if (parsed && typeof parsed === 'object') {
+              addressInfo = parsed;
+            }
+          } catch {
+            addressInfo = {};
+          }
+        } else if (typeof addrRaw === 'object') {
+          addressInfo = addrRaw;
+        }
+      }
+      
+      // 检查地址信息是否完整
+      const requiredFields = ['name', 'phone', 'address_1', 'address_2', 'countries', 'state', 'city', 'postal_code'];
+      const missingFields = requiredFields.filter(field => !addressInfo?.[field] || (typeof addressInfo[field] === 'string' && !addressInfo[field].trim()));
+      
+      if (missingFields.length > 0) {
+        // 使用特殊的错误标记，让 onError 能够识别这是个人信息不完整的情况
+        const error: any = new Error(t('pleaseFillPersonalInfo'));
+        error.isPersonalInfoIncomplete = true;
+        throw error;
+      }
+      
+      return api.receivePhysical({
+        storage_id: item.warehouseId || item.id,
+        name: addressInfo.name || '',
+        phone: addressInfo.phone || '',
+        address_1: addressInfo.address_1 || '',
+        address_2: addressInfo.address_2 || '',
+        countries: addressInfo.countries || '',
+        state: addressInfo.state || '',
+        city: addressInfo.city || '',
+        postal_code: addressInfo.postal_code || '',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userStorage'] });
+      showGlobalToast({
+        title: t('claimSuccess') || t('success'),
+        description: t('claimSuccessDesc') || t('actionSuccess'),
+        variant: 'success',
+      });
+      refetchCart();
+    },
+    onError: (error: any) => {
+      // 如果是个人信息不完整，跳转到个人信息页面
+      if (error?.isPersonalInfoIncomplete) {
+        showGlobalToast({
+          title: t('error'),
+          description: error.message || t('pleaseFillPersonalInfo'),
+          variant: 'error',
+          durationMs: 3000,
+        });
+        // 延迟关闭购物车并跳转，让用户看到提示
+        setTimeout(() => {
+          onClose();
+          router.push('/account');
+        }, 1000);
+      } else {
+        showGlobalToast({
+          title: t('error'),
+          description: error?.message || t('retryLater'),
+          variant: 'error',
+        });
+      }
+    },
+  });
 
   // ✅ 暂时禁用出售功能，等待后续实现仓库接口
   const confirmSellMutation = useMutation({
@@ -462,20 +545,11 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             style={{ display: activeTab === 'all' ? 'flex' : 'none' }}
           >
             <div className="flex justify-between my-3 gap-2 w-full flex-nowrap flex-shrink-0">
-              <div className="gap-2 shrink-0 hidden sm:flex">
-                {!isShopMode && (
-                  <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
-                    style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: '1px solid #45484A' }}
-                    type="button"
-                  >
-                    {t('claimableItems')}
-                  </button>
-                )}
-              </div>
+            
               <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-between">
+                <div>
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 mr-2 font-semibold text-sm sm:h-10"
                   style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
                   onClick={() => setSortByPrice(sortByPrice === 'asc' ? 'desc' : 'asc')}
                   type="button"
@@ -497,6 +571,20 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     <path d="m19 12-7 7-7-7"></path>
                   </svg>
                 </button>
+                {!isShopMode && (
+                  <button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                    style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
+                    onClick={() => setClaimableActive(!claimableActive)}
+                    type="button"
+                  >
+                    {t('claimableItems')}
+                  </button>
+                )}
+                </div>
+               
                 {!isShopMode && (
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
@@ -537,6 +625,9 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       onToggleSelect={() => toggleSelect(item.id)}
                       onSplit={splitMutation.mutate}
                       onSell={(it) => openConfirmForSingle(it)}
+                      isClaimable={claimableActive}
+                      onClaim={claimPhysicalMutation.mutate}
+                      isClaiming={claimPhysicalMutation.isPending}
                     />
                   ))}
                 </div>
@@ -859,9 +950,9 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 </button>
               )}
             </div>
-            <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-between p-2">
+            <div className="flex gap-2 shrink-0 flex-1 sm:flex-initial sm:w-auto items-center p-2">
               <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10 shrink-0"
                 style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
                 onClick={() => setSortByPrice(sortByPrice === 'asc' ? 'desc' : 'asc')}
                 type="button"
@@ -885,7 +976,19 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               </button>
               {!isShopMode && (
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:hidden shrink-0"
+                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
+                  onClick={() => setClaimableActive(!claimableActive)}
+                  type="button"
+                >
+                  {t('claimableItems')}
+                </button>
+              )}
+              {!isShopMode && (
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10 shrink-0 ml-auto"
                   style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
                   onClick={selectAll}
                   type="button"
@@ -924,6 +1027,9 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     onSell={(it) => openConfirmForSingle(it)}
                     onBuy={handleBuyShopItem}
                     isBuying={buyingProductId === item.productId && buyShopItemMutation.isPending}
+                    isClaimable={claimableActive}
+                    onClaim={claimPhysicalMutation.mutate}
+                    isClaiming={claimPhysicalMutation.isPending}
                   />
                 ))}
               </div>
@@ -1117,6 +1223,9 @@ function CartItemCard({
   isShopMode,
   onBuy,
   isBuying,
+  isClaimable,
+  onClaim,
+  isClaiming,
 }: {
   item: CartItem;
   isSelected: boolean;
@@ -1126,6 +1235,9 @@ function CartItemCard({
   isShopMode?: boolean;
   onBuy?: (item: CartItem) => void;
   isBuying?: boolean;
+  isClaimable?: boolean;
+  onClaim?: (item: CartItem) => void;
+  isClaiming?: boolean;
 }) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
@@ -1155,7 +1267,10 @@ function CartItemCard({
   }, [menuOpen]);
 
   const isBuyingState = Boolean(isBuying);
-  const actionLabel = isShopMode ? (isBuyingState ? t('purchasing') : t('purchase')) : t('sell');
+  const isClaimingState = Boolean(isClaiming);
+  const actionLabel = isShopMode 
+    ? (isBuyingState ? t('purchasing') : t('purchase')) 
+    : (isClaimable ? (isClaimingState ? t('claiming') || t('claim') : t('claim')) : t('sell'));
 
   const handleCardClick = () => {
     if (isShopMode) return;
@@ -1167,6 +1282,11 @@ function CartItemCard({
     if (isShopMode) {
       if (isBuyingState) return;
       onBuy?.(item);
+      return;
+    }
+    if (isClaimable) {
+      if (isClaimingState) return;
+      onClaim?.(item);
       return;
     }
     onSell?.(item);
@@ -1269,14 +1389,14 @@ function CartItemCard({
       <div className="w-full px-2 pb-2 gap-2">
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-white font-bold select-none h-9 px-6 w-full rounded-lg text-sm"
-          disabled={isShopMode ? isBuyingState : false}
+          disabled={isShopMode ? isBuyingState : (isClaimable ? isClaimingState : false)}
           style={{
             backgroundColor: '#34383C',
-            cursor: isShopMode ? (isBuyingState ? 'not-allowed' : 'pointer') : 'pointer',
-            opacity: isShopMode && isBuyingState ? 0.6 : 1,
+            cursor: isShopMode ? (isBuyingState ? 'not-allowed' : 'pointer') : (isClaimable && isClaimingState ? 'not-allowed' : 'pointer'),
+            opacity: (isShopMode && isBuyingState) || (isClaimable && isClaimingState) ? 0.6 : 1,
           }}
           onMouseEnter={(e) => {
-            if (isShopMode && isBuyingState) return;
+            if ((isShopMode && isBuyingState) || (isClaimable && isClaimingState)) return;
             (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62';
           }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}

@@ -26,8 +26,6 @@ export default function AccountMobileMenu() {
       { labelKey: 'accountTransactionsTitle', href: '/account/transactions' },
       { labelKey: 'accountDrawsTitle', href: '/account/draws' },
       { labelKey: 'referrals', href: '/account/referrals' },
-      { labelKey: 'accountFairnessTitle', href: '/account/fairness' },
-      { labelKey: 'accountSecurityTitle', href: '/account/security' },
     ],
     [t],
   );

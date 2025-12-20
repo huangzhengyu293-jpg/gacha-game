@@ -109,7 +109,6 @@ export default function Footer() {
 
           <MobileAccordionMemo title={t("legal")} defaultOpen={legalDefaultOpen}>
             <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
-              <a href="/fairness" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("fairness")}</a>
               <Link href="/privacy-policy" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
                 {t("privacy")}
               </Link>
@@ -170,7 +169,6 @@ export default function Footer() {
           </div>
           <div className="flex flex-col min-w-44 gap-1">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("legal")}</p>
-            <a href="/fairness" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("fairness")}</a>
             <Link href="/privacy-policy" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
               {t("privacy")}
             </Link>

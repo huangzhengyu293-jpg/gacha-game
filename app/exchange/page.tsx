@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ExchangeItemCard, { type ExchangeItem } from '../components/ExchangeItemCard';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
@@ -461,6 +461,7 @@ const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
   const [selectedReceive, setSelectedReceive] = useState<Set<string>>(new Set());
 
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const { cartItems, isLoading: cartLoading } = useCart(yourSortApplied ? yourSort : undefined);
 
   const { data: shopResponse, isLoading: shopLoading } = useQuery({
@@ -591,6 +592,9 @@ const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
         });
         setSelectedYour(new Set());
         setSelectedReceive(new Set());
+        // 更新左右两边列表的数据
+        queryClient.invalidateQueries({ queryKey: ['userStorage'] });
+        queryClient.invalidateQueries({ queryKey: ['shop-list'] });
       } else {
         throw new Error(res?.message || t('exchangeFailed'));
       }

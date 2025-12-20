@@ -607,13 +607,67 @@ export const api = {
     });
     return result;
   },
-  // ✅ 设置用户资料（头像 + 用户名）
-  setUserProfile: async (payload: { avatar?: string; name?: string; invite_code?: string }) => {
+  // ✅ 设置用户资料（头像 + 用户名 + 地址信息）
+  setUserProfile: async (payload: {
+    avatar?: string;
+    name?: string;
+    invite_code?: string;
+    address_info?: {
+      name?: string;
+      phone?: string;
+      address_1?: string;
+      address_2?: string;
+      countries?: string;
+      state?: string;
+      city?: string;
+      postal_code?: string;
+      [key: string]: any;
+    };
+  }) => {
     const formData = new FormData();
     if (payload.avatar !== undefined) formData.append('avatar', payload.avatar || '');
     if (payload.name !== undefined) formData.append('name', payload.name || '');
     if (payload.invite_code !== undefined) formData.append('invite_code', payload.invite_code || '');
+    if (payload.address_info && typeof payload.address_info === 'object') {
+      // 直接传递 address_info 对象（作为 JSON 字符串）
+      try {
+        formData.append('address_info', JSON.stringify(payload.address_info));
+      } catch {
+        // ignore stringify errors
+      }
+    }
     const result = await request<ApiResponse>('/api/user/set', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        // multipart 由浏览器处理
+      },
+    });
+    return result;
+  },
+  // ✅ 领取实体物品
+  receivePhysical: async (payload: {
+    storage_id: string | number;
+    name: string;
+    phone: string;
+    address_1: string;
+    address_2: string;
+    countries: string;
+    state: string;
+    city: string;
+    postal_code: string;
+  }) => {
+    const formData = new FormData();
+    formData.append('storage_id', String(payload.storage_id));
+    formData.append('name', payload.name || '');
+    formData.append('phone', payload.phone || '');
+    formData.append('address_1', payload.address_1 || '');
+    formData.append('address_2', payload.address_2 || '');
+    formData.append('countries', payload.countries || '');
+    formData.append('state', payload.state || '');
+    formData.append('city', payload.city || '');
+    formData.append('postal_code', payload.postal_code || '');
+    const result = await request<ApiResponse>('/api/user/receivePhysical', {
       method: 'POST',
       data: formData,
       headers: {
@@ -780,7 +834,8 @@ export const api = {
   
   // ✅ 获取用户仓库 / 出售记录（status: 0=当前背包，2=出售记录）
   // price_sort: 1=价格高->低，2=价格低->高
-  getUserStorage: async (status: string | number = 0, priceSort?: 'asc' | 'desc') => {
+  // from: 筛选来源，如 'exchange' 表示可领取物品
+  getUserStorage: async (status: string | number = 0, priceSort?: 'asc' | 'desc', from?: string) => {
     const price_sort = priceSort
       ? priceSort === 'asc'
         ? '2'
@@ -791,6 +846,7 @@ export const api = {
       params: {
         status: String(status),
         ...(price_sort ? { price_sort } : {}),
+        ...(from ? { from } : {}),
       },
     });
     return result;

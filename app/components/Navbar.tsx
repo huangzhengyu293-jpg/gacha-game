@@ -857,7 +857,7 @@ export default function Navbar() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
-                  <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  <p className="text-sm text-white font-bold">${beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">{integralDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
@@ -994,11 +994,11 @@ export default function Navbar() {
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 xs:h-9 min-w-20"
                   onClick={() => setShowWalletModal(true)}
                 >
-                  <p className="text-sm text-white font-bold">{beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  <p className="text-sm text-white font-bold">${beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 {/* ✅ 暂时隐藏余额按钮 */}
                 {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-3 h-8 xs:h-9 min-w-24">
-                  <p className="text-sm text-white font-bold">{user?.bean?.bean?.toFixed(2) || '0.00'}</p>
+                  <p className="text-sm text-white font-bold">${user?.bean?.bean?.toFixed(2) || '0.00'}</p>
                 </button> */}
                 <div className="flex relative">
                   <div className="flex justify-center items-center">

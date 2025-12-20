@@ -8,6 +8,9 @@ import { useI18n } from "@/app/components/I18nProvider";
 import { useAuth } from "@/app/hooks/useAuth";
 import { api } from "@/app/lib/api";
 import { showGlobalToast } from "@/app/components/ToastProvider";
+import InlineSelect from "@/app/components/InlineSelect";
+import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
+import { getReferralDownlines, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
 
 export default function ReferralsPage() {
   const { t } = useI18n();
@@ -43,6 +46,7 @@ export default function ReferralsPage() {
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [editingCode, setEditingCode] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [downlineRange, setDownlineRange] = useState<ReferralDownlineRange>(5);
   
   // CDK相关状态
   const [isAddingCdk, setIsAddingCdk] = useState(false);
@@ -50,6 +54,31 @@ export default function ReferralsPage() {
   const [isCreatingCdk, setIsCreatingCdk] = useState(false);
   
   const queryClient = useQueryClient();
+
+  const [downlineKeyword] = useState<string>('');
+  const { data: downlineResp, isLoading: downlineLoading } = useQuery({
+    queryKey: ['referralDownlines', user?.token, downlineRange, downlineKeyword],
+    queryFn: () => getReferralDownlines({ type: downlineRange, keyword: downlineKeyword }),
+    enabled: Boolean(user?.token),
+    staleTime: 30_000,
+  });
+
+  const downlineRows: ReferralDownlineRow[] = useMemo(() => {
+    const root = downlineResp?.data;
+    const rows =
+      Array.isArray(root?.data) ? root.data :
+      Array.isArray(root?.list) ? root.list :
+      Array.isArray(root?.rows) ? root.rows :
+      Array.isArray(root) ? root :
+      [];
+    return Array.isArray(rows) ? rows.filter(Boolean) : [];
+  }, [downlineResp]);
+
+  const formatMoney = (v: any) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '0.00';
+    return n.toFixed(2);
+  };
   
   // 使用useQuery获取CDK列表
   const { data: cdkData } = useQuery({
@@ -334,6 +363,84 @@ export default function ReferralsPage() {
                 <div className="h-[44px] flex items-center"><dd className="font-extrabold text-white text-2xl leading-9">${subordinateFlow.toFixed(2)}</dd></div>
               </div>
             </div>
+
+            {/* 推荐人下级 */}
+            <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
+              <div className="flex items-center justify-between gap-3">
+                <label className="font-bold text-base" style={{ color: '#FFFFFF' }}>
+                  {t('referralDownlinesTitle')}
+                </label>
+                <div className="shrink-0">
+                  <InlineSelect
+                    value={String(downlineRange)}
+                    onChange={(v) => {
+                      const n = Number(v);
+                      const safe = (Number.isFinite(n) ? n : 5) as ReferralDownlineRange;
+                      const next = (safe >= 1 && safe <= 5 ? safe : 5) as ReferralDownlineRange;
+                      setDownlineRange(next);
+                    }}
+                    options={[
+                      { label: t('referralFilterToday'), value: '1' },
+                      { label: t('referralFilterYesterday'), value: '2' },
+                      { label: t('referralFilterThisMonth'), value: '3' },
+                      { label: t('referralFilterLastWeek'), value: '4' },
+                      { label: t('referralFilterAll'), value: '5' },
+                    ]}
+                    wrapperClassName="w-[140px] sm:w-[208px]"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg overflow-hidden" style={{ backgroundColor: '#1D2125', border: '1px solid #2E3134' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ backgroundColor: '#161A1D' }}>
+                      <th className="text-left px-4 py-3 font-bold" style={{ color: '#FFFFFF' }}>{t('referralTableUserIndex')}</th>
+                      <th className="text-left px-4 py-3 font-bold" style={{ color: '#FFFFFF' }}>{t('referralTableUsername')}</th>
+                      <th className="text-right px-4 py-3 font-bold" style={{ color: '#FFFFFF' }}>{t('referralTableRecharge')}</th>
+                      <th className="text-right px-4 py-3 font-bold" style={{ color: '#FFFFFF' }}>{t('referralTableConsume')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {downlineLoading ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10">
+                          <div className="flex items-center justify-center gap-2 font-semibold" style={{ color: '#7A8084' }}>
+                            <LoadingSpinnerIcon size={18} indicatorColor="#7A8084" trackColor="rgba(122,128,132,0.25)" />
+                            <span>{t('loadingText')}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : downlineRows.length > 0 ? (
+                      downlineRows.map((row, idx) => {
+                        const name = String(row?.name ?? row?.username ?? row?.user_name ?? row?.email ?? '—');
+                        const recharge = formatMoney(row?.recharge ?? row?.deposit ?? row?.subordinate_rechange ?? 0);
+                        const consume = formatMoney(row?.consume ?? row?.flow ?? row?.subordinate_flow ?? 0);
+                        return (
+                          <tr key={String(row?.id ?? `${idx}`)} style={{ borderTop: '1px solid #2E3134' }}>
+                            <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>{idx + 1}</td>
+                            <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
+                              <span className="block truncate max-w-[180px] sm:max-w-none">{name}</span>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-right" style={{ color: '#7A8084' }}>${recharge}</td>
+                            <td className="px-4 py-3 font-semibold text-right" style={{ color: '#7A8084' }}>${consume}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10">
+                          <div className="flex items-center justify-center font-semibold" style={{ color: '#7A8084' }}>
+                            {t('noData')}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B', height: 112 }}>
               <form className="flex h-full flex-col">
                 <div className="flex h-full gap-2">

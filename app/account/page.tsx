@@ -1,10 +1,9 @@
 'use client';
 
 import Link from "next/link";
-import DatePickerField from "../components/DatePickerField";
 import AccountMobileMenu from "./components/AccountMobileMenu";
 import { useAuth } from "../hooks/useAuth";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useI18n } from "../components/I18nProvider";
@@ -12,6 +11,20 @@ import { useI18n } from "../components/I18nProvider";
 export default function AccountPage() {
   const { t } = useI18n();
   const { user, updateUser } = useAuth() as any;
+
+  // 10个热门国家（排除中国），不包含默认值选项
+  const COUNTRY_OPTIONS: { label: string; value: string }[] = [
+    { label: t('countryUnitedStates'), value: 'United States' },
+    { label: t('countryJapan'), value: 'Japan' },
+    { label: t('countrySouthKorea'), value: 'South Korea' },
+    { label: t('countrySingapore'), value: 'Singapore' },
+    { label: t('countryMalaysia'), value: 'Malaysia' },
+    { label: t('countryThailand'), value: 'Thailand' },
+    { label: t('countryIndia'), value: 'India' },
+    { label: t('countryAustralia'), value: 'Australia' },
+    { label: t('countryUnitedKingdom'), value: 'United Kingdom' },
+    { label: t('countryCanada'), value: 'Canada' },
+  ];
 
 const userName =
     (user as any)?.userInfo?.name ||
@@ -21,6 +34,29 @@ const userName =
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.userInfo?.avatar || "");
   const [userNameInput, setUserNameInput] = useState<string>(userName || "");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [legalName, setLegalName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [address1, setAddress1] = useState<string>('');
+  const [address2, setAddress2] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [stateName, setStateName] = useState<string>('');
+  const [postalCode, setPostalCode] = useState<string>('');
+  const [country, setCountry] = useState<string>('');
+  const [countrySelectOpen, setCountrySelectOpen] = useState(false);
+  const countrySelectRef = useRef<HTMLDivElement | null>(null);
+
+  // 点击外部关闭国家选择器
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (countrySelectRef.current && !countrySelectRef.current.contains(e.target as Node)) {
+        setCountrySelectOpen(false);
+      }
+    }
+    if (countrySelectOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [countrySelectOpen]);
 
   // 当全局用户数据异步就绪时同步头像预览（避免刷新后为空）
   useEffect(() => {
@@ -30,6 +66,37 @@ const userName =
     if (userName) {
       setUserNameInput(userName);
     }
+
+    const info = (user as any)?.userInfo ?? user;
+    const addrRaw = (info as any)?.address_info ?? (info as any)?.addressInfo;
+    let safeAddr: Record<string, any> = {};
+    
+    // 处理 address_info：如果是 JSON 字符串则解析，如果是对象则直接使用
+    if (addrRaw != null) {
+      if (typeof addrRaw === 'string') {
+        try {
+          const parsed = JSON.parse(addrRaw);
+          if (parsed && typeof parsed === 'object') {
+            safeAddr = parsed;
+          }
+        } catch {
+          // JSON 解析失败，使用空对象
+          safeAddr = {};
+        }
+      } else if (typeof addrRaw === 'object') {
+        safeAddr = addrRaw;
+      }
+    }
+    
+    // 安全地提取字段值，确保为字符串类型
+    setLegalName(typeof safeAddr?.name === 'string' ? safeAddr.name : '');
+    setPhone(typeof safeAddr?.phone === 'string' ? safeAddr.phone : '');
+    setAddress1(typeof safeAddr?.address_1 === 'string' ? safeAddr.address_1 : '');
+    setAddress2(typeof safeAddr?.address_2 === 'string' ? safeAddr.address_2 : '');
+    setCity(typeof safeAddr?.city === 'string' ? safeAddr.city : '');
+    setStateName(typeof safeAddr?.state === 'string' ? safeAddr.state : '');
+    setPostalCode(typeof safeAddr?.postal_code === 'string' ? safeAddr.postal_code : '');
+    setCountry(typeof safeAddr?.countries === 'string' ? safeAddr.countries : '');
   }, [user, userName]);
   const photoPool = [
     '/photo/photo_6163277584888696109_y.jpg',
@@ -102,8 +169,88 @@ const userName =
     },
   });
 
+  const setAddressInfoMutation = useMutation({
+    mutationFn: async () => {
+      return api.setUserProfile({
+        address_info: {
+          name: legalName || '',
+          phone: phone || '',
+          address_1: address1 || '',
+          address_2: address2 || '',
+          countries: country || '',
+          state: stateName || '',
+          city: city || '',
+          postal_code: postalCode || '',
+        },
+      });
+    },
+    onSuccess: async (res: any) => {
+      if (res?.code === 100000) {
+        // 显示成功提示
+        import('../components/ToastProvider').then(({ showGlobalToast }) => {
+          showGlobalToast({
+            title: t('success'),
+            description: t('saveSuccess'),
+            variant: 'success',
+            durationMs: 3000,
+          });
+        });
+        const token = (user as any)?.token || '';
+        try {
+          const info = await api.getUserInfo(token);
+          if (info?.code === 100000) {
+            const newInfo = info.data;
+            // 更新全局用户信息，保留原有字段（如 bean, refreshToken 等）
+            updateUser({
+              userInfo: newInfo,
+              token: (user as any)?.token,
+              tokenType: (user as any)?.tokenType,
+              refreshToken: (user as any)?.refreshToken,
+              expiresIn: (user as any)?.expiresIn,
+              loginTime: (user as any)?.loginTime,
+              bean: (user as any)?.bean,
+            });
+          }
+        } catch {
+          // ignore refresh errors
+        }
+      }
+    },
+  });
+
   const handleSaveProfile = () => {
     setProfileMutation.mutate();
+  };
+
+  // 检查所有个人信息字段是否都已填写
+  const isAddressInfoComplete = useMemo(() => {
+    return !!(
+      legalName?.trim() &&
+      phone?.trim() &&
+      address1?.trim() &&
+      address2?.trim() &&
+      city?.trim() &&
+      stateName?.trim() &&
+      postalCode?.trim() &&
+      country?.trim()
+    );
+  }, [legalName, phone, address1, address2, city, stateName, postalCode, country]);
+
+  const handleSaveAddressInfo = () => {
+    // 校验所有字段是否都已填写
+    if (!isAddressInfoComplete) {
+      // 动态导入 showGlobalToast 避免 SSR 问题
+      import('../components/ToastProvider').then(({ showGlobalToast }) => {
+        showGlobalToast({
+          title: t('error'),
+          description: t('pleaseFillAllFields'),
+          variant: 'error',
+          durationMs: 3000,
+        });
+      });
+      return;
+    }
+    setAddressInfoMutation.mutate();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,28 +405,146 @@ const userName =
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
                 <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="legalName">{t('fullName')}</label>
-                <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="legalName" maxLength={50} placeholder={t('fullNamePlaceholder')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
+                <input
+                  className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                  id="legalName"
+                  maxLength={50}
+                  placeholder={t('fullNamePlaceholder')}
+                  type="text"
+                  value={legalName}
+                  onChange={(e) => setLegalName(e.target.value)}
+                  style={{ backgroundColor: '#292F34' }}
+                />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start py-6">
-                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="dOb">{t('dobLabel')}</label>
-                <DatePickerField id="dOb" defaultValue="2025-11-02" />
+                <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="phoneTop">{t('phoneLabel')}</label>
+                <input
+                  className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                  id="phoneTop"
+                  maxLength={50}
+                  placeholder={t('phonePlaceholder')}
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  style={{ backgroundColor: '#292F34' }}
+                />
               </div>
               <div className="flex w-full h-[1px]" style={{ backgroundColor: '#292F34' }}></div>
               <div className="flex flex-col gap-2 xs:flex-row xs:gap-0 items-start pt-6">
                 <label className="font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base text-white min-w-40 mt-0 xs:mt-2" htmlFor="address">{t('residenceAddress')}</label>
                 <div className="flex w-full max-w-[540px] flex-col gap-4">
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address1" maxLength={50} placeholder={t('address1')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="address2" maxLength={50} placeholder={t('address2')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="city" maxLength={50} placeholder={t('city')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="state" maxLength={50} placeholder={t('state')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="zip" maxLength={15} placeholder={t('zip')} type="text" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <button type="button" role="combobox" aria-expanded="false" aria-autocomplete="none" data-state="closed" className="flex h-10 w-full items-center justify-between rounded-md px-3 py-2 text-base max-w-[540px]" style={{ backgroundColor: '#292F34', color: '#7A8084' }}>
-                    <span style={{ pointerEvents: 'none' }}>{t('country')}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                  <input
+                    className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                    id="address1"
+                    maxLength={50}
+                    placeholder={t('address1')}
+                    type="text"
+                    value={address1}
+                    onChange={(e) => setAddress1(e.target.value)}
+                    style={{ backgroundColor: '#292F34' }}
+                  />
+                  <input
+                    className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                    id="address2"
+                    maxLength={50}
+                    placeholder={t('address2')}
+                    type="text"
+                    value={address2}
+                    onChange={(e) => setAddress2(e.target.value)}
+                    style={{ backgroundColor: '#292F34' }}
+                  />
+                  <input
+                    className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                    id="city"
+                    maxLength={50}
+                    placeholder={t('city')}
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    style={{ backgroundColor: '#292F34' }}
+                  />
+                  <input
+                    className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                    id="state"
+                    maxLength={50}
+                    placeholder={t('state')}
+                    type="text"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    style={{ backgroundColor: '#292F34' }}
+                  />
+                  <input
+                    className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]"
+                    id="zip"
+                    maxLength={15}
+                    placeholder={t('zip')}
+                    type="text"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    style={{ backgroundColor: '#292F34' }}
+                  />
+                  <div className="relative w-full max-w-[540px]" ref={countrySelectRef}>
+                    <button
+                      type="button"
+                      className="flex h-10 w-full items-center justify-between rounded-md px-3 py-2 text-base font-bold cursor-pointer"
+                      style={{ backgroundColor: '#292F34', color: '#7A8084' }}
+                      onClick={() => setCountrySelectOpen(!countrySelectOpen)}
+                    >
+                      <span>{country ? COUNTRY_OPTIONS.find(opt => opt.value === country)?.label || t('country') : t('country')}</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-chevron-down h-4 w-4 opacity-50"
+                        aria-hidden="true"
+                      >
+                        <path d="m6 9 6 6 6-6"></path>
+                      </svg>
+                    </button>
+                    {countrySelectOpen && (
+                      <div className="absolute left-0 top-full mt-2 z-50 rounded-lg overflow-hidden shadow-lg w-full" style={{ backgroundColor: '#22272B' }}>
+                        <div className="flex flex-col p-1">
+                          {COUNTRY_OPTIONS.map(opt => (
+                            <button
+                              key={opt.value}
+                              className="flex items-center justify-between h-10 px-3 rounded-md text-base font-bold cursor-pointer transition-colors"
+                              style={{
+                                backgroundColor: '#22272B',
+                                color: '#FFFFFF',
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C';
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#22272B';
+                              }}
+                              onClick={() => {
+                                setCountry(opt.value);
+                                setCountrySelectOpen(false);
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36 mt-2 cursor-pointer"
+                    onClick={handleSaveAddressInfo}
+                    disabled={setAddressInfoMutation.isPending}
+                    type="button"
+                  >
+                    {t('saveChanges')}
                   </button>
-                  <input className="acct-input acct-input-muted flex h-10 w-full rounded-md border-0 px-3 py-2 text-base max-w-[540px]" id="phone" maxLength={50} placeholder={t('phonePlaceholder')} type="tel" defaultValue="" style={{ backgroundColor: '#292F34' }} />
-                  <button className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 self-end min-w-36 mt-2">{t('saveChanges')}</button>
                 </div>
               </div>
             </div>
