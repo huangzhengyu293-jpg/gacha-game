@@ -126,7 +126,7 @@ export default function RewardPackDetailPage() {
     const animTime = isFastMode ? 1000 : 6000;
     try {
       const result = await api.openBox({
-        ids,
+        ids: [ids],
         multiple: 1,
         anim: animTime,
       });

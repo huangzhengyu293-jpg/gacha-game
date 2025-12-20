@@ -268,3 +268,28 @@ html { overflow-x: hidden; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #6B7280;
 }
+
+/* exchange-scroll：与「选择礼包」一致的滚动条样式（适用于 x/y 滚动容器） */
+.exchange-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.exchange-scroll::-webkit-scrollbar-track {
+  background: #2c2c2c;
+}
+.exchange-scroll::-webkit-scrollbar-thumb {
+  background: #9f9f9f;
+  border-radius: 9999px;
+}
+.exchange-scroll::-webkit-scrollbar-button {
+  background: #9f9f9f;
+  height: 8px;
+  width: 8px;
+}
+.exchange-scroll::-webkit-scrollbar-corner {
+  background: #2c2c2c;
+}
+.exchange-scroll {
+  scrollbar-color: #9f9f9f #2c2c2c;
+  scrollbar-width: thin;
+}

@@ -124,11 +124,10 @@ export default function ActionBarClient({
             
             const isFastMode = (window as any).__slotMachineFastMode || false;
             const animTime = isFastMode ? 1000 : 6000;
-            const ids = slotPackIds.join('|');
             
             try {
               const result = await api.openBox({
-                ids: ids,
+                ids: slotPackIds,
                 multiple: quantity,
                 anim: animTime,
               });

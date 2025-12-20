@@ -29,4 +29,9 @@ export async function getRechargeLog(): Promise<ApiResponse<any>> {
   return resp.data;
 }
 
+export async function getReceivePhysicalLogs(): Promise<ApiResponse<any>> {
+  const resp = await axiosInstance.get<ApiResponse<any>>('/api/user/receivePhysicalLogs');
+  return resp.data;
+}
+
 

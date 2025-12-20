@@ -60,9 +60,27 @@ export async function getWithdrawalTypes(): Promise<WithdrawalType[]> {
 }
 
 export async function getWithdrawalLog(): Promise<ApiResponse<any>> {
+  // 文档：GET /api/common/withdrawalLog；当前不需要传参
+  const resp = await axiosInstance.get<ApiResponse<any>>('/api/common/withdrawalLog');
+  return resp.data;
+}
+
+export type CommonWithdrawalPayload = {
+  /** 固定传 1 */
+  id?: string;
+  /** 提现金额（字符串） */
+  money: string;
+  /** 钱包地址 */
+  walletAddress: string;
+};
+
+export async function postCommonWithdrawal(payload: CommonWithdrawalPayload): Promise<ApiResponse<any>> {
   const formData = new FormData();
-  formData.append('type', '0');
-  const resp = await axiosInstance.post<ApiResponse<any>>('/api/common/withdrawalLog', formData, {
+  formData.append('id', payload?.id ? String(payload.id) : '1');
+  formData.append('money', String(payload.money ?? ''));
+  formData.append('wallet_address', String(payload.walletAddress ?? ''));
+
+  const resp = await axiosInstance.post<ApiResponse<any>>('/api/common/withdrawal', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return resp.data;

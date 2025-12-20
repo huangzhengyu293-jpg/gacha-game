@@ -611,7 +611,7 @@ export const api = {
   setUserProfile: async (payload: {
     avatar?: string;
     name?: string;
-    invite_code?: string;
+    invite?: string;
     address_info?: {
       name?: string;
       phone?: string;
@@ -627,7 +627,9 @@ export const api = {
     const formData = new FormData();
     if (payload.avatar !== undefined) formData.append('avatar', payload.avatar || '');
     if (payload.name !== undefined) formData.append('name', payload.name || '');
-    if (payload.invite_code !== undefined) formData.append('invite_code', payload.invite_code || '');
+
+    if (payload.invite !== undefined) formData.append('invite', payload.invite || '');
+
     if (payload.address_info && typeof payload.address_info === 'object') {
       // 直接传递 address_info 对象（作为 JSON 字符串）
       try {
@@ -711,23 +713,35 @@ export const api = {
     return result;
   },
   openBox: async (params: {
-    ids: string;
+    /**
+     * 兼容旧调用（"1|2|3"）与新调用（[1,2,3]）。
+     * 接口侧已改为 form-data：ids[0], ids[1]...
+     */
+    ids: string | Array<string | number>;
     multiple: number;
     anim: number;
     authorization?: string;
   }) => {
-    const formData = new URLSearchParams();
-    formData.append('ids', params.ids);
+    const normalizedIds: Array<string | number> = Array.isArray(params.ids)
+      ? params.ids
+      : String(params.ids)
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+    const formData = new FormData();
     formData.append('multiple', String(params.multiple));
     formData.append('anim', String(params.anim));
-    
+    normalizedIds.forEach((id, index) => {
+      formData.append(`ids[${index}]`, String(id));
+    });
+
     const result = await request<ApiResponse>('/api/box/open', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
         ...(params.authorization ? { 'authorization': params.authorization } : {}),
       },
-      data: formData.toString(),
+      data: formData,
     });
     return result;
   },

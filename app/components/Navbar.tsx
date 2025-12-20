@@ -188,7 +188,7 @@ export default function Navbar() {
   const invitePlaceholder = inviterId === 0 ? t("inviteBindPlaceholder") : t("inviteUpdatePlaceholder");
 
   useEffect(() => {
-    const invite = typeof user?.userInfo?.invite_code === 'string' ? user.userInfo.invite_code : '';
+    const invite = typeof (user as any)?.userInfo?.invite === 'string' ? (user as any).userInfo.invite : '';
     if (!promoCode && invite) {
       setPromoCode(invite);
     }
@@ -196,15 +196,15 @@ export default function Navbar() {
       setPromoCode('');
     }
     // 仅在后端邀请码变动时尝试预填，不干扰用户手动清空
-  }, [user?.userInfo?.invite_code]);
+  }, [user?.userInfo?.invite]);
 
   useEffect(() => {
     if (!showUserMenu) return;
-    const invite = typeof user?.userInfo?.invite_code === 'string' ? user.userInfo.invite_code : '';
+    const invite = typeof (user as any)?.userInfo?.invite === 'string' ? (user as any).userInfo.invite : '';
     if (invite) {
       setPromoCode(invite);
     }
-  }, [showUserMenu, user?.userInfo?.invite_code]);
+  }, [showUserMenu, user?.userInfo?.invite]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -235,7 +235,7 @@ export default function Navbar() {
     if (!code) return;
     try {
       setPromoLoading(true);
-      const res = await api.setUserProfile({ invite_code: code });
+      const res = await api.setUserProfile({ invite: code });
       
     } catch (err) {
       toast.show({ variant: 'error', title: t("redeemFailTitle"), description: err instanceof Error ? err.message : t("retryLater") });
@@ -295,7 +295,7 @@ export default function Navbar() {
     }
   }, [showWalletModal]);
 
-  // 金额输入验证：只能输入数字、整数、>=100、是100的倍数
+  // 金额输入验证：只能输入数字、整数、>=100
   const handleRechargeAmountChange = (value: string) => {
     // 只允许数字
     const numericValue = value.replace(/[^\d]/g, '');
@@ -309,26 +309,15 @@ export default function Navbar() {
       setRechargeAmount('');
       return;
     }
-    // 必须 >= 100
-    if (num < 100) {
-      setRechargeAmount(numericValue);
-      return;
-    }
-    // 必须是100的倍数
-    if (num % 100 === 0) {
-      setRechargeAmount(String(num));
-    } else {
-      // 如果不是100的倍数，向下取整到最近的100的倍数
-      const rounded = Math.floor(num / 100) * 100;
-      setRechargeAmount(String(rounded));
-    }
+    // 直接设置数值（允许任何 >= 100 的整数）
+    setRechargeAmount(String(num));
   };
 
   // 验证金额是否有效
   const isRechargeAmountValid = () => {
     if (!rechargeAmount.trim()) return false;
     const num = parseInt(rechargeAmount, 10);
-    return !isNaN(num) && num >= 100 && num % 100 === 0;
+    return !isNaN(num) && num >= 100;
   };
 
   const rechargeMutation = useMutation({
@@ -539,9 +528,6 @@ export default function Navbar() {
           return prev - 1;
         });
       }, 1000);
-      if (result.codeValue) {
-        setForgotCode(String(result.codeValue));
-      }
       toast.show({
         variant: 'success',
         title: t("sendSuccessTitle"),
@@ -891,9 +877,11 @@ export default function Navbar() {
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 sm:h-9" onClick={() => setShowCart(true)}>
                   <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
                     <p className="text-sm text-white font-bold">{t("cart")}</p>
-                    <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
-                      <span className="font-bold text-xs">{warehouseCount}</span>
-                    </div>
+                    {Number(warehouseCount) > 0 ? (
+                      <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
+                        <span className="font-bold text-xs">{warehouseCount}</span>
+                      </div>
+                    ) : null}
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
@@ -1024,9 +1012,11 @@ export default function Navbar() {
                   <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-[#34383C] hover:bg-[#3C4044] text-base text-white font-bold select-none px-3 h-8 xs:h-9" onClick={() => setShowCart(true)}>
                     <div className="hidden xs:flex md:hidden lg:flex items-center gap-2">
                       <p className="text-sm text-white font-bold">{t("cart")}</p>
-                      <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
-                        <span className="font-bold text-xs">{warehouseCount}</span>
-                      </div>
+                      {Number(warehouseCount) > 0 ? (
+                        <div className="flex items-center justify-center rounded-full p-1 min-w-5 h-5" style={{ backgroundColor: '#FFFFFF', color: '#000000' }}>
+                          <span className="font-bold text-xs">{warehouseCount}</span>
+                        </div>
+                      ) : null}
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                   </button>

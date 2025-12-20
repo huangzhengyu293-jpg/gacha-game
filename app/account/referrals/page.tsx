@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { useI18n } from "@/app/components/I18nProvider";
@@ -11,14 +11,15 @@ import { showGlobalToast } from "@/app/components/ToastProvider";
 import InlineSelect from "@/app/components/InlineSelect";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
 import { getReferralDownlines, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
+import { sanitizeMoneyInput, useCommonWithdrawalMutation } from "@/app/hooks/useCommonWithdrawalMutation";
 
 export default function ReferralsPage() {
   const { t } = useI18n();
-  const { user, updateUser, fetchUserInfo } = useAuth();
+  const { user, fetchUserInfo, fetchUserBean } = useAuth();
   
   // 从用户信息获取推荐码
   const referralCode = useMemo(() => {
-    return (user?.userInfo as any)?.invite_code || '';
+    return (user?.userInfo as any)?.invite || '';
   }, [user?.userInfo]);
 
   // 获取用户类型
@@ -41,8 +42,9 @@ export default function ReferralsPage() {
     return Number((user?.userInfo as any)?.subordinate_flow ?? 0);
   }, [user?.userInfo]);
 
-  const [claimAmount] = useState<number>(0);
-  const isZero = claimAmount <= 0;
+  const [withdrawMoney, setWithdrawMoney] = useState('');
+  const [withdrawWalletAddress, setWithdrawWalletAddress] = useState('');
+  const withdrawalMutation = useCommonWithdrawalMutation();
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [editingCode, setEditingCode] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -55,10 +57,50 @@ export default function ReferralsPage() {
   
   const queryClient = useQueryClient();
 
-  const [downlineKeyword] = useState<string>('');
+  const walletBeanNumber = useMemo(() => {
+    const n = Number((user?.bean as any)?.bean ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }, [user?.bean]);
+
+  // 避免 useAuth 内部 callback 因 user 更新而变更引用导致 useEffect 死循环
+  const fetchUserBeanRef = useRef(fetchUserBean);
+  useEffect(() => {
+    fetchUserBeanRef.current = fetchUserBean;
+  }, [fetchUserBean]);
+
+  const refreshedForTokenRef = useRef<string | null>(null);
+
+  const fillDefaultMoneyFromWallet = useCallback((beanLike: any) => {
+    const raw = Number(beanLike?.bean ?? beanLike ?? 0);
+    if (!Number.isFinite(raw) || raw <= 0) return;
+    // 默认值与钱包余额显示保持一致（两位小数）
+    const next = sanitizeMoneyInput(raw.toFixed(2));
+    if (!next) return;
+    setWithdrawMoney((prev) => (prev ? prev : next));
+  }, []);
+
+  // 进入页面时刷新一次最新钱包余额
+  useEffect(() => {
+    if (!user?.token) return;
+    if (refreshedForTokenRef.current === user.token) return;
+    refreshedForTokenRef.current = user.token;
+
+    fetchUserBeanRef.current()
+      .then((res: any) => {
+        if (res?.success) fillDefaultMoneyFromWallet(res?.data);
+      })
+      .catch(() => {});
+  }, [user?.token, fillDefaultMoneyFromWallet]);
+
+  // 若用户还没输入，钱包余额变化时自动填入默认值
+  useEffect(() => {
+    if (withdrawMoney) return;
+    fillDefaultMoneyFromWallet({ bean: walletBeanNumber });
+  }, [walletBeanNumber, withdrawMoney, fillDefaultMoneyFromWallet]);
+
   const { data: downlineResp, isLoading: downlineLoading } = useQuery({
-    queryKey: ['referralDownlines', user?.token, downlineRange, downlineKeyword],
-    queryFn: () => getReferralDownlines({ type: downlineRange, keyword: downlineKeyword }),
+    queryKey: ['referralDownlines', user?.token, downlineRange],
+    queryFn: () => getReferralDownlines({ type: downlineRange }),
     enabled: Boolean(user?.token),
     staleTime: 30_000,
   });
@@ -146,7 +188,7 @@ export default function ReferralsPage() {
     }
     setIsUpdating(true);
     try {
-      const result = await api.setUserProfile({ invite_code: editingCode.trim() });
+      const result = await api.setUserProfile({ invite: editingCode.trim() });
       if (result?.code === 100000) {
         await fetchUserInfo();
         setIsEditingCode(false);
@@ -158,6 +200,44 @@ export default function ReferralsPage() {
       setIsUpdating(false);
     }
   }, [editingCode, referralCode, fetchUserInfo]);
+
+  const canSubmitWithdrawal = useMemo(() => {
+    const money = sanitizeMoneyInput(withdrawMoney).trim();
+    const wallet = withdrawWalletAddress.trim();
+    const n = Number(money);
+    return Boolean(wallet) && Boolean(money) && Number.isFinite(n) && n > 0 && !withdrawalMutation.isPending;
+  }, [withdrawMoney, withdrawWalletAddress, withdrawalMutation.isPending]);
+
+  const handleWithdrawal = useCallback(async () => {
+    try {
+      const resp = await withdrawalMutation.mutateAsync({
+        money: sanitizeMoneyInput(withdrawMoney),
+        walletAddress: withdrawWalletAddress.trim(),
+      });
+
+      if (resp?.code === 100000) {
+        // 成功后更新钱包数据
+        await fetchUserBean();
+        await fetchUserInfo();
+        showGlobalToast({
+          title: t('success'),
+          description: t('claimSuccess'),
+          variant: 'success',
+          durationMs: 2000,
+        });
+      }
+    } catch (e: any) {
+      // mutationFn 内部的校验错误/未登录等会走到这里
+      const keyOrMsg = typeof e?.message === 'string' ? e.message : '';
+      const translated = keyOrMsg ? t(keyOrMsg as any) : '';
+      showGlobalToast({
+        title: t('error'),
+        description: translated || keyOrMsg || t('pleaseTryAgainLater'),
+        variant: 'error',
+        durationMs: 2500,
+      });
+    }
+  }, [withdrawMoney, withdrawWalletAddress, withdrawalMutation, fetchUserBean, fetchUserInfo, t]);
 
   const handleAddCdk = useCallback(() => {
     setNewCdkAmount('');
@@ -414,8 +494,8 @@ export default function ReferralsPage() {
                     ) : downlineRows.length > 0 ? (
                       downlineRows.map((row, idx) => {
                         const name = String(row?.name ?? row?.username ?? row?.user_name ?? row?.email ?? '—');
-                        const recharge = formatMoney(row?.recharge ?? row?.deposit ?? row?.subordinate_rechange ?? 0);
-                        const consume = formatMoney(row?.consume ?? row?.flow ?? row?.subordinate_flow ?? 0);
+                        const recharge = formatMoney(row?.inviter_recharge ?? row?.recharge ?? row?.deposit ?? row?.subordinate_rechange ?? 0);
+                        const consume = formatMoney(row?.inviter_consume ?? row?.consume ?? row?.flow ?? row?.subordinate_flow ?? 0);
                         return (
                           <tr key={String(row?.id ?? `${idx}`)} style={{ borderTop: '1px solid #2E3134' }}>
                             <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>{idx + 1}</td>
@@ -441,81 +521,98 @@ export default function ReferralsPage() {
               </div>
             </div>
 
-            <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B', height: 112 }}>
-              <form className="flex h-full flex-col">
-                <div className="flex h-full gap-2">
-                  <div className="flex h-full flex-1 flex-col justify-between">
-                    <label className="font-bold text-base" htmlFor="claim-amount" style={{ color: '#FFFFFF' }}>{t('claimableAmount')}</label>
-                    <div className="flex gap-3" id="claim-amount-group">
+            {canShowCdk && (
+              <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label className="font-bold text-base" htmlFor="withdraw-money" style={{ color: '#FFFFFF' }}>
+                      {t('claimableAmount')}
+                    </label>
+                    <div className="flex gap-3">
                       <input
-                        id="claim-amount"
-                        className="flex h-10 w-full rounded-md px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-extrabold border-0"
+                        id="withdraw-money"
+                        inputMode="decimal"
+                        className="flex h-10 flex-1 rounded-md px-3 py-2 text-base font-extrabold border-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="0.00"
-                        step={0.01}
-                        min={0}
-                        max={999999}
-                        disabled
-                        type="number"
-                        value={claimAmount}
-                        name="amount"
-                        readOnly
-                        style={{ backgroundColor: '#262B2F', color: isZero ? '#7A8084' : '#FFFFFF' }}
+                        value={withdrawMoney}
+                        onChange={(e) => setWithdrawMoney(sanitizeMoneyInput(e.target.value))}
+                        style={{ backgroundColor: '#262B2F', color: '#FFFFFF' }}
+                        autoComplete="off"
                       />
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="submit" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>{t('claim')}</button>
-                      <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6" type="button" disabled={isZero} style={{ backgroundColor: '#34383C', color: isZero ? '#7A8084' : '#FFFFFF' }}>{t('claimAll')}</button>
+                      {/* 占位：保持与下方“领取”按钮相同宽度 */}
+                      <div
+                        aria-hidden="true"
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md select-none h-10 px-6"
+                        style={{ backgroundColor: 'transparent' }}
+                      >
+                        <span className="invisible">{t('claim')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="font-bold text-base" htmlFor="withdraw-wallet" style={{ color: '#FFFFFF' }}>
+                      {t('walletAddress')}
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        id="withdraw-wallet"
+                        className="flex h-10 flex-1 rounded-md px-3 py-2 text-base font-semibold border-0"
+                        placeholder={t('enterWalletAddress')}
+                        value={withdrawWalletAddress}
+                        onChange={(e) => setWithdrawWalletAddress(e.target.value)}
+                        style={{ backgroundColor: '#262B2F', color: '#FFFFFF' }}
+                        autoComplete="off"
+                      />
+                      <button
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-60 interactive-focus relative text-base font-bold select-none h-10 px-6"
+                        type="button"
+                        onClick={handleWithdrawal}
+                        disabled={!canSubmitWithdrawal}
+                        style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
+                      >
+                        {withdrawalMutation.isPending ? t('loading') : t('claim')}
+                      </button>
                     </div>
                   </div>
                 </div>
-              </form>
-            </div>
+              </div>
+            )}
             {canShowCdk && (
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
                 <div className="flex flex-col">
-                  <div className="flex gap-2">
-                    <div className="flex flex-1 flex-col justify-between">
-                      <label className="font-bold text-base" style={{ color: '#FFFFFF' }}>{t('myCreatedCdk')}</label>
-                    <div className="flex flex-col gap-2">
-                      {cdkList.map((cdk: any, index: number) => (
-                        <div key={index} className="h-[44px] flex items-center justify-between max-w-full">
-                          <div className="overflow-hidden max-w-full">
-                            <span className="block truncate font-extrabold text-white text-xl leading-9">
-                              {(cdk as any)?.password || '—'}
-                            </span>
-                          </div>
-                          <div className="overflow-hidden max-w-full">
-                            <span className="block truncate font-extrabold text-white text-xl leading-9">
-                              {cdk?.bean ?? '—'}
-                            </span>
-                          </div>
+                  <div className="flex gap-2 min-w-0">
+                    <div className="flex flex-1 flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between gap-3 min-w-0 w-full">
+                        <div className="w-[30%] min-w-0">
+                          <label className="font-bold text-base block truncate" style={{ color: '#FFFFFF' }}>{t('myCreatedCdk')}</label>
                         </div>
-                      ))}
-                      {isAddingCdk ? (
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between max-w-full">
-                            <input
-                              type="number"
-                              value={newCdkAmount}
-                              onChange={(e) => setNewCdkAmount(e.target.value)}
-                              className="flex h-10 w-full rounded-md border px-3 py-2 mr-2 text-base text-center disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              style={{ 
-                                backgroundColor: '#1D2125', 
-                                color: '#FFFFFF', 
-                                borderColor: cdkAmountError ? '#EB4B4B' : '#4B5563',
-                                borderWidth: '1px'
-                              }}
-                              disabled={isCreatingCdk}
-                              placeholder={t('pleaseEnterAmount')}
-                              min="100"
-                              step="100"
-                            />
-                            <div className="flex items-center gap-2">
+                        <div className="w-[70%] min-w-0 flex justify-end">
+                          {isAddingCdk ? (
+                            <div className="flex items-center gap-2 w-full justify-end">
+                              <input
+                                type="number"
+                                value={newCdkAmount}
+                                onChange={(e) => setNewCdkAmount(e.target.value)}
+                                className="flex h-10 w-full max-w-[260px] rounded-md border px-3 py-2 text-base text-center disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                style={{
+                                  backgroundColor: '#1D2125',
+                                  color: '#FFFFFF',
+                                  borderColor: cdkAmountError ? '#EB4B4B' : '#4B5563',
+                                  borderWidth: '1px',
+                                }}
+                                disabled={isCreatingCdk}
+                                placeholder={t('pleaseEnterAmount')}
+                                min="100"
+                                step="100"
+                              />
                               <button
                                 onClick={handleConfirmAddCdk}
                                 disabled={isCreatingCdk || !cdkAmountValid}
-                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50 select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
-                                style={{ 
+                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50 select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
+                                style={{
                                   backgroundColor: '#47BB78',
-                                  cursor: cdkAmountValid ? 'pointer' : 'not-allowed'
+                                  cursor: cdkAmountValid ? 'pointer' : 'not-allowed',
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isCreatingCdk && cdkAmountValid) {
@@ -527,6 +624,7 @@ export default function ReferralsPage() {
                                     e.currentTarget.style.backgroundColor = '#47BB78';
                                   }
                                 }}
+                                type="button"
                               >
                                 <div className="size-4">
                                   <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -537,10 +635,10 @@ export default function ReferralsPage() {
                               <button
                                 onClick={handleCancelAddCdk}
                                 disabled={isCreatingCdk}
-                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50 select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
-                                style={{ 
+                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50 select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
+                                style={{
                                   backgroundColor: '#34383C',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isCreatingCdk) {
@@ -552,6 +650,7 @@ export default function ReferralsPage() {
                                     e.currentTarget.style.backgroundColor = '#34383C';
                                   }
                                 }}
+                                type="button"
                               >
                                 <div className="size-4">
                                   <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -560,31 +659,97 @@ export default function ReferralsPage() {
                                 </div>
                               </button>
                             </div>
-                          </div>
-                          {cdkAmountError && (
-                            <div className="text-sm" style={{ color: '#EB4B4B' }}>
-                              {cdkAmountError}
-                            </div>
+                          ) : (
+                            <button 
+                              onClick={handleAddCdk} 
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 w-10" 
+                              style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
+                              type="button"
+                            >
+                              <div className="size-4">
+                                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path fillRule="evenodd" clipRule="evenodd" d="M8 1C8.41421 1 8.75 1.33579 8.75 1.75V7.25H14.25C14.6642 7.25 15 7.58579 15 8C15 8.41421 14.6642 8.75 14.25 8.75H8.75V14.25C8.75 14.6642 8.41421 15 8 15C7.58579 15 7.25 14.6642 7.25 14.25V8.75H1.75C1.33579 8.75 1 8.41421 1 8C1 7.58579 1.33579 7.25 1.75 7.25H7.25V1.75C7.25 1.33579 7.58579 1 8 1Z" fill="currentColor"></path>
+                                </svg>
+                              </div>
+                            </button>
                           )}
                         </div>
-                      ) : (
-                        <button 
-                          onClick={handleAddCdk} 
-                          className="w-full inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10" 
-                          style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: 'pointer' }}
-                        >
-                          <div className="size-4">
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path fillRule="evenodd" clipRule="evenodd" d="M8 1C8.41421 1 8.75 1.33579 8.75 1.75V7.25H14.25C14.6642 7.25 15 7.58579 15 8C15 8.41421 14.6642 8.75 14.25 8.75H8.75V14.25C8.75 14.6642 8.41421 15 8 15C7.58579 15 7.25 14.6642 7.25 14.25V8.75H1.75C1.33579 8.75 1 8.41421 1 8C1 7.58579 1.33579 7.25 1.75 7.25H7.25V1.75C7.25 1.33579 7.58579 1 8 1Z" fill="currentColor"></path>
-                            </svg>
-                          </div>
-                        </button>
-                      )}
+                      </div>
+
+                      {cdkAmountError && isAddingCdk ? (
+                        <div className="text-sm mt-2" style={{ color: '#EB4B4B' }}>
+                          {cdkAmountError}
+                        </div>
+                      ) : null}
+                    <div className="mt-3 rounded-lg overflow-hidden" style={{ backgroundColor: '#1D2125', border: '1px solid #2E3134' }}>
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto exchange-scroll" style={{ overscrollBehaviorX: 'contain' }}>
+                        <table className="w-full text-base" style={{ minWidth: 1120 }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#161A1D' }}>
+                              <th className="text-left px-4 py-3 font-bold min-w-[120px]" style={{ color: '#FFFFFF' }}>{t('cdkFaceValue')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[240px]" style={{ color: '#FFFFFF' }}>{t('cdkCode')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[120px]" style={{ color: '#FFFFFF' }}>{t('cdkStatus')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[160px]" style={{ color: '#FFFFFF' }}>{t('cdkUser')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[160px]" style={{ color: '#FFFFFF' }}>{t('cdkFromUser')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[180px]" style={{ color: '#FFFFFF' }}>{t('cdkUsedAt')}</th>
+                              <th className="text-left px-4 py-3 font-bold min-w-[180px]" style={{ color: '#FFFFFF' }}>{t('cdkCreatedAt')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cdkList.length > 0 ? (
+                              cdkList.map((cdk: any, index: number) => {
+                                const statusNum = Number((cdk as any)?.status ?? 0);
+                                const statusText = statusNum === 1 ? t('cdkStatusUsed') : t('cdkStatusUnused');
+                                const userCell = (() => {
+                                  const u = (cdk as any)?.user;
+                                  if (u && typeof u === 'object') return String((u as any)?.name ?? (u as any)?.username ?? (u as any)?.email ?? '—');
+                                  return String(u ?? '—');
+                                })();
+                                const fromUserCell = (() => {
+                                  const u = (cdk as any)?.fromuser;
+                                  if (u && typeof u === 'object') return String((u as any)?.name ?? (u as any)?.username ?? (u as any)?.email ?? '—');
+                                  return String(u ?? '—');
+                                })();
+                                const useAt = String((cdk as any)?.use_at ?? '—');
+                                const createdAt = String((cdk as any)?.created_at ?? '—');
+                                const bean = (cdk as any)?.bean ?? '—';
+                                const password = (cdk as any)?.password ?? '—';
+
+                                return (
+                                  <tr key={(cdk as any)?.id ?? index} style={{ borderTop: '1px solid #2E3134' }}>
+                                    <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: '#7A8084' }}>{bean}</td>
+                                    <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
+                                      <span className="block truncate max-w-[360px]">{password}</span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: '#7A8084' }}>{statusText}</td>
+                                    <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
+                                      <span className="block truncate max-w-[220px]">{userCell || '—'}</span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
+                                      <span className="block truncate max-w-[220px]">{fromUserCell || '—'}</span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: '#7A8084' }}>{useAt}</td>
+                                    <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: '#7A8084' }}>{createdAt}</td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td colSpan={7} className="px-4 py-10">
+                                  <div className="flex items-center justify-center font-semibold" style={{ color: '#7A8084' }}>
+                                    {t('noData')}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
             )}
           </div>
         </div>

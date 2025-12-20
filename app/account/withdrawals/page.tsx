@@ -34,6 +34,18 @@ const getStatusColor = (status: number) => {
   return '#FFFFFF';
 };
 
+const formatAmount = (value?: string | number): string => {
+  if (!value) return '0';
+  const num = Number(value);
+  if (isNaN(num)) return String(value);
+  // 如果是整数，返回整数形式；否则保留小数但去掉末尾的0
+  if (num % 1 === 0) {
+    return num.toString();
+  }
+  // 使用 parseFloat 去掉末尾的0，然后转回字符串
+  return parseFloat(num.toString()).toString();
+};
+
 export default function WithdrawalsPage() {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
@@ -87,12 +99,23 @@ export default function WithdrawalsPage() {
           ) : (
             <div className="self-stretch space-y-6 z-10">
               {records.map((item: any, index: number) => {
-                const channel = item?.channel || '—';
+                const currencyName = String(item?.currency_name ?? '').trim();
+                const currencyChain = String(item?.currency_chain ?? '').trim();
+                const methodText =
+                  currencyName && currencyChain
+                    ? `${currencyName}-${currencyChain}`
+                    : currencyName
+                      ? currencyName
+                      : currencyChain
+                        ? currencyChain
+                        : (item?.channel || '—');
                 const bean = item?.bean ? `$${Number(item.bean).toFixed(2)}` : '—';
                 const createdAt = formatDate(item?.created_at);
                 const status = item?.status ?? -1;
                 const statusText = getStatusText(status, t);
                 const statusColor = getStatusColor(status);
+                const formattedAmount = formatAmount(item?.bean);
+                const titleLeft = `${formattedAmount} ${methodText}`;
 
                 return (
                   <div
@@ -103,7 +126,7 @@ export default function WithdrawalsPage() {
                     <div className="flex justify-between items-center pb-4" style={{ color: '#FFFFFF' }}>
                       <div className="flex gap-3 items-center">
                         <h2 className="whitespace-nowrap" style={{ color: '#FFFFFF' }}>
-                          {channel}
+                          {titleLeft}
                         </h2>
                       </div>
                       <span style={{ color: '#FFFFFF' }}>{createdAt}</span>
@@ -117,7 +140,7 @@ export default function WithdrawalsPage() {
                       </div>
                       <div className="flex flex-col items-start gap-2 col-span-3 overflow-hidden">
                         <span>{bean}</span>
-                        <span className="font-semibold">{channel}</span>
+                        <span className="font-semibold">{methodText}</span>
                         <span className="font-extrabold text-sm" style={{ color: statusColor }}>
                           {statusText}
                         </span>

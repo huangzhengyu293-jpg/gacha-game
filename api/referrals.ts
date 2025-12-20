@@ -18,8 +18,6 @@ export type ReferralDownlineRow = {
 export type GetReferralDownlinesParams = {
   /** 1=当天 2=昨天 3=本月 4=上周 5=全部 */
   type: ReferralDownlineRange;
-  /** 用户ID/用户名 */
-  keyword?: string;
 };
 
 /**
@@ -28,16 +26,14 @@ export type GetReferralDownlinesParams = {
  */
 export async function getReferralDownlines(params: GetReferralDownlinesParams): Promise<ApiResponse<any>> {
   const safeType = (typeof params?.type === 'number' ? params.type : 5) as ReferralDownlineRange;
-  const keyword = typeof params?.keyword === 'string' ? params.keyword : '';
-  // 文档标注 GET + form-data，这里同时兼容 params 与 body（不同后端实现都能吃到）
+  // 最新文档：GET /api/user/userInviter 只需要 type，keyword 不用传
   const formData = new FormData();
   formData.append('type', String(safeType));
-  formData.append('keyword', keyword);
 
   const resp = await axiosInstance.request<ApiResponse<any>>({
     url: '/api/user/userInviter',
     method: 'GET',
-    params: { type: String(safeType), keyword },
+    params: { type: String(safeType) },
     data: formData,
   });
   return resp.data;

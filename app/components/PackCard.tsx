@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PackContentsModal from './PackContentsModal';
 import LoadingSpinner from './icons/LoadingSpinner';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { showGlobalToast } from './ToastProvider';
 import { useI18n } from './I18nProvider';
@@ -45,6 +43,8 @@ export default function PackCard({
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
+  const [isTouchPrimary, setIsTouchPrimary] = useState(false);
+  const [touchActionsOpen, setTouchActionsOpen] = useState(false);
   
   const { favoriteIds, toggleFavorite } = useAuth();
   const isFavorited = packId ? favoriteIds.includes(String(packId)) : false;
@@ -98,6 +98,39 @@ export default function PackCard({
       card.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [hoverTilt]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const update = () => setIsTouchPrimary(!mql.matches);
+    update();
+
+    // Safari 舊版可能只有 addListener/removeListener
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', update);
+      return () => mql.removeEventListener('change', update);
+    }
+    (mql as unknown as { addListener?: (cb: () => void) => void }).addListener?.(update);
+    return () => {
+      (mql as unknown as { removeListener?: (cb: () => void) => void }).removeListener?.(update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!touchActionsOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = cardRef.current;
+      if (!el) return;
+      if (!el.contains(e.target as Node)) setTouchActionsOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [touchActionsOpen]);
+
+  const forceActionsVisible = showActions && isTouchPrimary && touchActionsOpen;
+  const actionVisibilityClass = forceActionsVisible
+    ? 'opacity-100 pointer-events-auto'
+    : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto';
 
   const content = (
     <div
@@ -154,7 +187,7 @@ export default function PackCard({
       {showActions ? (
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           <button
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-all duration-200 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
+            className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-all duration-200 ease-in-out z-10 cursor-pointer ${actionVisibilityClass}`}
             aria-label={t("favorite")}
             style={{ backgroundColor: '#34383C' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
@@ -181,7 +214,7 @@ export default function PackCard({
             </div>
           </button>
           <button
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-opacity duration-100 ease-in-out z-10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto cursor-pointer"
+            className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 transition-opacity duration-100 ease-in-out z-10 cursor-pointer ${actionVisibilityClass}`}
             aria-label={t("viewDetails")}
             style={{ backgroundColor: '#34383C' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
@@ -206,6 +239,13 @@ export default function PackCard({
     <div
       ref={cardRef}
       className={`relative w-full group ${className}`}
+      onClick={(e) => {
+        if (!showActions || !isTouchPrimary) return;
+        if (touchActionsOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setTouchActionsOpen(true);
+      }}
       style={
         hoverTilt
           ? {
@@ -223,7 +263,16 @@ export default function PackCard({
   if (href) {
     return (
       <>
-        <a href={href} className="block">
+        <a
+          href={href}
+          className="block"
+          onClick={(e) => {
+            if (!showActions || !isTouchPrimary) return;
+            if (touchActionsOpen) return;
+            e.preventDefault();
+            setTouchActionsOpen(true);
+          }}
+        >
           {body}
         </a>
         {showActions && packId ? (

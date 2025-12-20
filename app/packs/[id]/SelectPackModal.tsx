@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { api } from '../../lib/api';
 import type { CatalogPack } from '../../lib/api';
 import PacksToolbar from '../../components/PacksToolbar';
 import PackCard from '../../components/PackCard';
 import { usePacksFilters } from '../../hooks/usePacksFilters';
 import { useI18n } from '../../components/I18nProvider';
+import { useResponsiveGridColumns } from '../../hooks/useResponsiveGridColumns';
 
 export default function SelectPackModal({
   open,
@@ -67,6 +69,7 @@ export default function SelectPackModal({
   
   const isInitializingRef = useRef(false);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
@@ -105,6 +108,24 @@ export default function SelectPackModal({
 
   // PacksToolbar 内部管理搜索，这里不需要过滤
   const filtered: CatalogPack[] = packs;
+  const columns = useResponsiveGridColumns(scrollRef);
+  const rowCount = Math.ceil(filtered.length / Math.max(1, columns));
+
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 420,
+    overscan: 6,
+  });
+
+  const measureRow = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el) return;
+      // 避免 react-virtual 內部 flushSync 在 React 正在 render/commit 時觸發的警告
+      Promise.resolve().then(() => rowVirtualizer.measureElement(el));
+    },
+    [rowVirtualizer],
+  );
 
   const selectedCount = useMemo(() => {
     return Object.values(qtyMap).reduce((a, b) => a + (b || 0), 0);
@@ -222,73 +243,94 @@ export default function SelectPackModal({
               <p className="text-gray-400">{t('noPacks')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-5 h-[555px] overflow-y-auto exchange-scroll">
-              {filtered.map((p) => (
-              <div key={p.id} className="flex flex-col gap-2 relative items-stretch cursor-pointer w-full">
-                <PackCard
-                  imageUrl={p.image}
-                  alt={p.title}
-                  width={200}
-                  height={304}
-                  hoverTilt={false}
-                  showActions
-                  packId={p.id}
-                  packTitle={p.title}
-                  packPrice={p.price}
-                />
-                {getQty(p.id) === 0 ? (
-                  <div className="flex items-center justify-between rounded-md w-full">
-                    <button
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md flex-1 h-9 p-0 rounded-md cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); inc(p.id); }}
-                      type="button"
-                      onMouseEnter={() => setHoverAddButtonId(p.id)}
-                      onMouseLeave={() => setHoverAddButtonId((v) => (v === p.id ? null : v))}
-                      style={{ backgroundColor: hoverAddButtonId === p.id ? '#5A5E62' : '#34383C' }}
+            <div ref={scrollRef} className="mt-5 h-[555px] overflow-y-auto exchange-scroll">
+              <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const start = virtualRow.index * columns;
+                  const rowItems = filtered.slice(start, start + columns);
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      ref={measureRow}
+                      data-index={virtualRow.index}
+                      className="absolute left-0 top-0 w-full pb-4"
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
                     >
-                      <span className="font-bold text-sm">
-                        {hoverAddButtonId === p.id ? t('addPack') : `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between rounded-md w-full">
-                    <button
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md size-9 p-0 cursor-pointer"
-                      aria-label="remove pack"
-                      onClick={(e) => { e.stopPropagation(); dec(p.id); }}
-                      type="button"
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                      style={{ backgroundColor: '#34383C' }}
-                    >
-                      <div className="size-4">
-                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.66667 8.00452C1.66667 7.45223 2.11439 7.00452 2.66667 7.00452L13.3333 7.00452C13.8856 7.00452 14.3333 7.45223 14.3333 8.00452C14.3333 8.5568 13.8856 9.00452 13.3333 9.00452L2.66667 9.00452C2.11439 9.00452 1.66667 8.5568 1.66667 8.00452Z" fill="currentColor"></path></svg>
+                      <div
+                        className="grid gap-4"
+                        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+                      >
+                        {rowItems.map((p) => (
+                          <div key={p.id} className="flex flex-col gap-2 relative items-stretch cursor-pointer w-full">
+                            <PackCard
+                              imageUrl={p.image}
+                              alt={p.title}
+                              width={200}
+                              height={304}
+                              hoverTilt={false}
+                              showActions
+                              packId={p.id}
+                              packTitle={p.title}
+                              packPrice={p.price}
+                            />
+                            {getQty(p.id) === 0 ? (
+                              <div className="flex items-center justify-between rounded-md w-full">
+                                <button
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md flex-1 h-9 p-0 rounded-md cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); inc(p.id); }}
+                                  type="button"
+                                  onMouseEnter={() => setHoverAddButtonId(p.id)}
+                                  onMouseLeave={() => setHoverAddButtonId((v) => (v === p.id ? null : v))}
+                                  style={{ backgroundColor: hoverAddButtonId === p.id ? '#5A5E62' : '#34383C' }}
+                                >
+                                  <span className="font-bold text-sm">
+                                    {hoverAddButtonId === p.id ? t('addPack') : `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                  </span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between rounded-md w-full">
+                                <button
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md size-9 p-0 cursor-pointer"
+                                  aria-label="remove pack"
+                                  onClick={(e) => { e.stopPropagation(); dec(p.id); }}
+                                  type="button"
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                                  style={{ backgroundColor: '#34383C' }}
+                                >
+                                  <div className="size-4">
+                                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.66667 8.00452C1.66667 7.45223 2.11439 7.00452 2.66667 7.00452L13.3333 7.00452C13.8856 7.00452 14.3333 7.45223 14.3333 8.00452C14.3333 8.5568 13.8856 9.00452 13.3333 9.00452L2.66667 9.00452C2.11439 9.00452 1.66667 8.5568 1.66667 8.00452Z" fill="currentColor"></path></svg>
+                                  </div>
+                                </button>
+                                <div className="flex flex-col items-center h-8 justify-center">
+                                  <span className="text-sm font-extrabold leading-none" style={{ color: '#FFFFFF' }}>{getQty(p.id)}</span>
+                                  <span className="text-xs font-extrabold leading-none" style={{ color: '#5A5E62' }}>
+                                    {`$${(p.price * getQty(p.id)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                  </span>
+                                </div>
+                                <button
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md size-9 p-0 cursor-pointer"
+                                  aria-label="add pack"
+                                  onClick={(e) => { e.stopPropagation(); inc(p.id); }}
+                                  type="button"
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
+                                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                                  style={{ backgroundColor: '#34383C' }}
+                                >
+                                  <div className="size-4">
+                                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.00001 2.66675C9.00001 2.11446 8.55229 1.66675 8.00001 1.66675C7.44772 1.66675 7.00001 2.11446 7.00001 2.66675V7.00008L2.66667 7.00008C2.11439 7.00008 1.66667 7.4478 1.66667 8.00008C1.66667 8.55237 2.11439 9.00008 2.66667 9.00008H7.00001V13.3334C7.00001 13.8857 7.44772 14.3334 8.00001 14.3334C8.55229 14.3334 9.00001 13.8857 9.00001 13.3334V9.00008H13.3333C13.8856 9.00008 14.3333 8.55237 14.3333 8.00008C14.3333 7.4478 13.8856 7.00008 13.3333 7.00008H9.00001V2.66675Z" fill="currentColor"></path></svg>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    </button>
-                    <div className="flex flex-col items-center h-8 justify-center">
-                      <span className="text-sm font-extrabold leading-none" style={{ color: '#FFFFFF' }}>{getQty(p.id)}</span>
-                      <span className="text-xs font-extrabold leading-none" style={{ color: '#5A5E62' }}>
-                        {`$${(p.price * getQty(p.id)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </span>
                     </div>
-                    <button
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md disabled:pointer-events-none interactive-focus relative text-white font-bold select-none text-sm !rounded-md size-9 p-0 cursor-pointer"
-                      aria-label="add pack"
-                      onClick={(e) => { e.stopPropagation(); inc(p.id); }}
-                      type="button"
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                      style={{ backgroundColor: '#34383C' }}
-                    >
-                      <div className="size-4">
-                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.00001 2.66675C9.00001 2.11446 8.55229 1.66675 8.00001 1.66675C7.44772 1.66675 7.00001 2.11446 7.00001 2.66675V7.00008L2.66667 7.00008C2.11439 7.00008 1.66667 7.4478 1.66667 8.00008C1.66667 8.55237 2.11439 9.00008 2.66667 9.00008H7.00001V13.3334C7.00001 13.8857 7.44772 14.3334 8.00001 14.3334C8.55229 14.3334 9.00001 13.8857 9.00001 13.3334V9.00008H13.3333C13.8856 9.00008 14.3333 8.55237 14.3333 8.00008C14.3333 7.4478 13.8856 7.00008 13.3333 7.00008H9.00001V2.66675Z" fill="currentColor"></path></svg>
-                      </div>
-                    </button>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            ))}
             </div>
           )}
         </div>

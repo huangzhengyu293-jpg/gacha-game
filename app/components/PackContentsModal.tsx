@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { type CatalogItem, type DisplayProduct, toDisplayProductFromCatalog, getQualityFromLv } from '../lib/catalogV2';
@@ -59,9 +60,10 @@ export default function PackContentsModal({ open, onClose, packId }: PackContent
 
 
   if (!open) return null;
+  if (typeof document === 'undefined') return null;
   const normalized: DisplayProduct[] = modalData ? modalData.items.map((it) => toDisplayProductFromCatalog(it)) : [];
 
-  return (
+  return createPortal(
     <div data-state="open" className="fixed px-4 inset-0 z-50 bg-black/[0.48] overflow-y-auto flex justify-center items-start py-16" style={{ pointerEvents: 'auto', animation: 'modalFadeIn 180ms ease' }} onClick={onClose}>
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
@@ -93,7 +95,7 @@ export default function PackContentsModal({ open, onClose, packId }: PackContent
         </button>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 

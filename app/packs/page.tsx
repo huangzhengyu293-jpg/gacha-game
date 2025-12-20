@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useMemo, useRef, Suspense } from 'react';
 import { useI18n } from '../components/I18nProvider';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -12,6 +12,7 @@ import BestLiveSidebar from '../components/BestLiveSidebar';
 
 export default function PacksPage() {
   const { t } = useI18n();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   
   // 使用筛选 hook
   const { filters, updateFilters, reset } = usePacksFilters({ type: '1,2' });
@@ -46,6 +47,7 @@ export default function PacksPage() {
             <PacksToolbar filters={filters} onFilterChange={updateFilters} onReset={reset} />
           </div>
           <div 
+            ref={scrollRef}
             className="mt-6 overflow-y-auto custom-scrollbar" 
             style={{ 
               maxHeight: '2600px',
@@ -53,7 +55,7 @@ export default function PacksPage() {
               scrollbarColor: '#4B5563 #1F2937'
             }}
           >
-            <PacksGrid items={displayPacks} />
+            <PacksGrid items={displayPacks} scrollRef={scrollRef} />
           </div>
         </div>
         <BestLiveSidebar bestOpensTitle={t('bestOpens')} liveTitle={t('liveStart')} />
