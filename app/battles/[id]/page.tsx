@@ -185,20 +185,73 @@ function JackpotProgressBarInline({
   const segmentsRef = useRef<HTMLDivElement>(null);
   const executed = useRef(false);
   const loggedOnce = useRef(false);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   
   // 只在组件首次渲染时打印一次
   if (!loggedOnce.current) {
     loggedOnce.current = true;
   }
+
+  // 让“渲染用宽度”和“动画用宽度”完全一致（尤其是移动端小宽度时）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    let rafId = 0;
+    const measure = () => {
+      const currentEl = containerRef.current;
+      if (!currentEl) return;
+      const nextWidth = currentEl.getBoundingClientRect().width;
+      if (!Number.isFinite(nextWidth) || nextWidth <= 0) return;
+
+      // 避免过于频繁的 setState（移动端地址栏伸缩时可能触发很多次）
+      setContainerWidth((prev) => (Math.abs(prev - nextWidth) < 0.5 ? prev : nextWidth));
+    };
+
+    const scheduleMeasure = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    // ResizeObserver 不可用时回退到 window resize
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleMeasure);
+      return () => {
+        window.removeEventListener('resize', scheduleMeasure);
+        if (rafId) cancelAnimationFrame(rafId);
+      };
+    }
+
+    const ro = new ResizeObserver(scheduleMeasure);
+    ro.observe(el);
+    window.addEventListener('resize', scheduleMeasure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', scheduleMeasure);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
   
   useEffect(() => {
-    if (executed.current || !containerRef.current || !segmentsRef.current || players.length === 0 || !winnerId) {
+    if (
+      executed.current ||
+      !containerRef.current ||
+      !segmentsRef.current ||
+      !Array.isArray(players) ||
+      players.length === 0 ||
+      !winnerId ||
+      !Number.isFinite(containerWidth) ||
+      containerWidth <= 0
+    ) {
       return;
     }
     
     executed.current = true;
     
-    const containerWidth = containerRef.current.offsetWidth;
     const screenCenter = containerWidth / 2;
     
     // 🎯 找到获胜者色块的位置区间
@@ -222,15 +275,19 @@ function JackpotProgressBarInline({
     // 🎲 在获胜者色块区间内随机选择一个停止位置
     const randomPercent = winnerStartPercent + (Math.random() * (winnerEndPercent - winnerStartPercent));
     
-    // 计算这个随机位置在第6份色条中的绝对像素位置
+    // 计算这个随机位置在第 N 份色条中的绝对像素位置
+    // 注意：这里必须和渲染时每份色条的宽度保持一致（用同一个 containerWidth）
+    const TOTAL_COPIES = 10;
+    const TARGET_COPY_INDEX = 6; // 0-based：越大滚动越长
+    const safeCopyIndex = Math.min(Math.max(0, TARGET_COPY_INDEX), Math.max(0, TOTAL_COPIES - 1));
     const randomPixels = (randomPercent / 100) * containerWidth;
-    const randomAbsolutePos = (6 * containerWidth) + randomPixels;
+    const randomAbsolutePos = (safeCopyIndex * containerWidth) + randomPixels;
     
     // 需要移动的距离 = 随机位置 - 屏幕中心
     const moveDistance = randomAbsolutePos - screenCenter;
     
     gsap.set(segmentsRef.current, { x: 0 });
-    setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       if (segmentsRef.current) {
         gsap.to(segmentsRef.current, {
           x: -moveDistance,
@@ -242,16 +299,22 @@ function JackpotProgressBarInline({
         });
       }
     }, 500);
-  }, [players, winnerId, onComplete]);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (segmentsRef.current) {
+        gsap.killTweensOf(segmentsRef.current);
+      }
+    };
+  }, [players, winnerId, onComplete, containerWidth]);
   
   // 渲染色块（使用 flex 布局形成连续的色条）
-  const renderSegments = () => {
-    const containerWidth = containerRef.current?.offsetWidth || 1248;
+  const renderSegments = (width: number) => {
     const segments = [];
     
     for (let copy = 0; copy < 10; copy++) {
       for (const player of players) {
-        const widthPx = (player.percentage / 100) * containerWidth;
+        const widthPx = (player.percentage / 100) * width;
         const lighter = adjustColor(player.color, 20);
         
         segments.push(
@@ -284,7 +347,7 @@ function JackpotProgressBarInline({
       <div className="flex flex-col items-center relative w-full max-w-[1248px]">
         <div ref={containerRef} className="relative w-full max-w-[1248px] overflow-hidden h-28 min-h-28 rounded-lg" style={{ backgroundColor: '#1a1a1a' }}>
           <div ref={segmentsRef} className="flex h-full" style={{ width: 'max-content' }}>
-            {renderSegments()}
+            {containerWidth > 0 ? renderSegments(containerWidth) : null}
           </div>
         </div>
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 size-5 min-w-5 min-h-5 text-white z-10">
@@ -1647,6 +1710,17 @@ useEffect(() => {
   
   // 🔥 淘汰模式：淘汰老虎机ref
   const eliminationSlotMachineRef = useRef<EliminationSlotMachineHandle>(null);
+
+  // ✅ 最终回合桥接：淘汰老虎机结束后不应短暂回退到纵向老虎机（Y 轴），而应直接衔接获胜者 UI
+  // 这里用一个“覆盖层保持”锁，直到获胜者已确定/可渲染再释放（对齐 Jackpot 的丝滑体验）
+  const [eliminationFinalOverlayHold, setEliminationFinalOverlayHold] = useState(false);
+  const eliminationFinalOverlayDataRef = useRef<{
+    eliminatedPlayerId: string;
+    eliminatedPlayerName: string;
+    needsSlotMachine: boolean;
+    tiedPlayerIds?: string[];
+    roundIndex: number;
+  } | null>(null);
   
   // 🏃 积分冲刺模式：玩家/团队积分
   const [sprintScores, setSprintScores] = useState<Record<string, number>>({});
@@ -1682,9 +1756,25 @@ useEffect(() => {
   
   // 🔥 淘汰模式：淘汰老虎机完成回调（用于状态转换）
   const handleEliminationSlotComplete = useCallback(() => {
-    // 淘汰UI已经在 handleEliminationSlotSettled 中渲染了，这里只需要转换状态
+    // 淘汰UI已经在 handleEliminationSlotSettled 中渲染了
+    // 关键：如果这是最后一轮，需要把“淘汰老虎机”作为获胜者 UI 的衔接桥梁，避免回退到纵向老虎机闪一下
+    const totalRounds = totalRoundsRef.current;
+    const eliminatedRoundIndex = currentEliminationData?.roundIndex;
+    const isFinalRound =
+      Number.isFinite(totalRounds) &&
+      totalRounds > 0 &&
+      typeof eliminatedRoundIndex === 'number' &&
+      eliminatedRoundIndex >= totalRounds - 1;
+
+    if (isFinalRound) {
+      // 立即进入 COMPLETED，让获胜者 UI 准备渲染；覆盖层会由 eliminationFinalOverlayHold 保持到 winners ready
+      setMainState('COMPLETED');
+      setRoundState(null);
+      return;
+    }
+
     setRoundState('ROUND_ELIMINATION_RESULT');
-  }, []);
+  }, [currentEliminationData]);
   
   // 按teamId分组玩家（用于老虎机布局）
   const teamGroups = useMemo(() => {
@@ -4075,6 +4165,14 @@ useEffect(() => {
       
       if (enhancedEliminationInfo.needsSlotMachine) {
         // 🔥 需要老虎机动画 - 不在这里添加淘汰玩家，等老虎机完成后再添加
+        // ✅ 若为最终回合，开启覆盖层保持锁：淘汰老虎机结束后直接衔接获胜者 UI
+        if (currentRound >= gameData.totalRounds - 1) {
+          setEliminationFinalOverlayHold(true);
+          eliminationFinalOverlayDataRef.current = {
+            ...enhancedEliminationInfo,
+            roundIndex: currentRound,
+          };
+        }
         setRoundState('ROUND_ELIMINATION_SLOT');
       } else {
         // 🔥 直接进入淘汰结果阶段，让统一的结果处理逻辑负责标记淘汰玩家
@@ -4092,6 +4190,40 @@ useEffect(() => {
     eliminatedPlayerIds,
     isInverted,
   ]);
+
+  // ✅ 最终回合桥接：等“获胜者已确定/可渲染”后再释放淘汰老虎机覆盖层，避免闪出纵向老虎机
+  useEffect(() => {
+    if (!eliminationFinalOverlayHold) return;
+
+    // 若流程被重置/离开最终态，直接释放
+    if (mainState !== 'COMPLETED') {
+      setEliminationFinalOverlayHold(false);
+      eliminationFinalOverlayDataRef.current = null;
+      return;
+    }
+
+    let rafId = 0;
+    const startAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const maxWaitMs = isFastMode ? 300 : 800;
+
+    const tick = () => {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const elapsed = now - startAt;
+
+      // completedWinnerSetRef 会在 resolveWinnersByMode 成功后置 true
+      if (completedWinnerSetRef.current || elapsed > maxWaitMs) {
+        setEliminationFinalOverlayHold(false);
+        eliminationFinalOverlayDataRef.current = null;
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [eliminationFinalOverlayHold, isFastMode, mainState]);
   
   // 🔥 ROUND_LOOP 子状态机: ROUND_ELIMINATION_SLOT（播放淘汰老虎机动画）
   useEffect(() => {
@@ -4272,9 +4404,26 @@ useEffect(() => {
 
   const handleTieBreakerComplete = useCallback(() => {
     const delay = isFastMode ? 120 : 400;
-    setTimeout(() => {
-      setTieBreakerPlan(null);
+    window.setTimeout(() => {
+      // 先打开 gate，让获胜者结算逻辑在本轮 effect 中完成（确保 winners 已标记）
       setTieBreakerGateOpen(true);
+
+      // 再等 winners ready 后卸载决胜老虎机覆盖层，避免“覆盖层消失 -> 露出其它UI -> 再出现获胜者”的闪屏
+      const startAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const maxWaitMs = isFastMode ? 300 : 900;
+      let rafId = 0;
+
+      const tick = () => {
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const elapsed = now - startAt;
+        if (completedWinnerSetRef.current || elapsed > maxWaitMs) {
+          setTieBreakerPlan(null);
+          return;
+        }
+        rafId = requestAnimationFrame(tick);
+      };
+
+      rafId = requestAnimationFrame(tick);
     }, delay);
   }, [isFastMode, setTieBreakerGateOpen, setTieBreakerPlan]);
 
@@ -4511,7 +4660,7 @@ useEffect(() => {
 
     winnerCelebrationFiredRef.current = true;
     triggerWinnerCelebration();
-  }, [mainState, tieBreakerGateOpen, triggerWinnerCelebration]);
+  }, [mainState, tieBreakerGateOpen, tieBreakerPlan, triggerWinnerCelebration]);
 
   
   // Symbols are now managed by state and only updated when round starts
@@ -4696,7 +4845,10 @@ useEffect(() => {
             };
             
             return (
-              <div className="flex flex-col items-center justify-center gap-6 w-[1280px] relative" style={{ minHeight: '450px' }}>
+              <div
+                className="flex flex-col items-center justify-center gap-6 w-full max-w-[1280px] mx-auto px-4 md:px-0 relative"
+                style={{ minHeight: '450px' }}
+              >
                 {/* 🎉 烟花动画层 */}
                 <FireworkArea ref={winnerFireworkRef} />
                 
@@ -4800,6 +4952,8 @@ useEffect(() => {
                         setEliminatedPlayerIds(new Set());
                         setEliminationRounds({});
                         setCurrentEliminationData(null);
+                        setEliminationFinalOverlayHold(false);
+                        eliminationFinalOverlayDataRef.current = null;
                         
                         // 🎯 重置COMPLETED状态的防重复标记
                         completedWinnerSetRef.current = false;
@@ -4887,7 +5041,7 @@ useEffect(() => {
                 
                 {/* 大奖模式：显示获胜者颜色条 */}
                 {gameMode === 'jackpot' && winners.length > 0 && (
-                  <div className="flex flex-col items-center relative w-full max-w-[1280px] p-4">
+                  <div className="flex flex-col items-center relative w-full py-4">
                     <div className="flex relative justify-center w-full overflow-hidden transition-transform duration-100 ease-in h-6 min-h-6 rounded-md">
                       <div className="flex relative w-full">
                         <div 
@@ -5694,28 +5848,37 @@ useEffect(() => {
             }}
           >
             {/* 箭头基于“横向转轮(reel)”容器，而不是整块覆盖层（避免离老虎机太远） */}
-            <div className="relative w-full" style={{ height: '195px' }}>
+            <div className="relative w-full flex items-center justify-center" style={{ height: '250px' }}>
               <SlotEdgePointer side="top" />
               <SlotEdgePointer side="bottom" />
-              <HorizontalLuckySlotMachine
-                key={`tie-breaker-${tieBreakerPlan.mode}`}
-                symbols={tieBreakerSymbols}
-                selectedPrizeId={tieBreakerPlan.winnerId}
-                onSpinComplete={handleTieBreakerComplete}
-                width={9999}
-                spinDuration={isFastMode ? 1000 : 6000}
-                isEliminationMode={true}
-              />
+              <div className="relative w-full" style={{ height: '195px' }}>
+                <HorizontalLuckySlotMachine
+                  key={`tie-breaker-${tieBreakerPlan.mode}`}
+                  symbols={tieBreakerSymbols}
+                  selectedPrizeId={tieBreakerPlan.winnerId}
+                  onSpinComplete={handleTieBreakerComplete}
+                  width={9999}
+                  spinDuration={isFastMode ? 1000 : 6000}
+                  isEliminationMode={true}
+                />
+              </div>
             </div>
           </div>
         )}
         
-        {/* 🔥 淘汰老虎机覆盖层 - 统一覆盖所有模式 */}
-        {gameMode === 'elimination' && 
-         roundState === 'ROUND_ELIMINATION_SLOT' && 
-         currentEliminationData && 
-         currentEliminationData.needsSlotMachine && 
-         currentEliminationData.tiedPlayerIds && (
+        {/* 🔥 淘汰老虎机覆盖层 - 最终回合用作“获胜者 UI 桥接”，避免结束后闪回纵向老虎机 */}
+        {(() => {
+          const eliminationOverlayData = currentEliminationData ?? eliminationFinalOverlayDataRef.current;
+          const shouldShowEliminationOverlay =
+            gameMode === 'elimination' &&
+            (roundState === 'ROUND_ELIMINATION_SLOT' || eliminationFinalOverlayHold) &&
+            Boolean(eliminationOverlayData?.needsSlotMachine) &&
+            Boolean(eliminationOverlayData?.tiedPlayerIds && eliminationOverlayData.tiedPlayerIds.length);
+
+          if (!shouldShowEliminationOverlay || !eliminationOverlayData) {
+            return null;
+          }
+          return (
           <div className="flex absolute justify-center items-center flex-col" style={{ 
             height: '450px',
             width: '100vw',
@@ -5732,14 +5895,15 @@ useEffect(() => {
               <EliminationSlotMachine
                 ref={eliminationSlotMachineRef}
                 players={eliminationPlayers}
-                selectedPlayerId={currentEliminationData.eliminatedPlayerId}
+                selectedPlayerId={eliminationOverlayData.eliminatedPlayerId}
                 onSpinComplete={handleEliminationSlotComplete}
                 onSpinSettled={handleEliminationSlotSettled}
                 isFastMode={isFastMode}
               />
             </div>
           </div>
-        )}
+          );
+        })()}
         </div>
         <div className="w-full ">
           <div className="flex w-full max-w-[1280px] mx-auto flex-col gap-6">

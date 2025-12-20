@@ -101,33 +101,67 @@ function Gallery({
   const [tailSpacer, setTailSpacer] = React.useState(0);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
     const resize = () => {
-      if (!containerRef.current) return;
+      const current = containerRef.current;
+      if (!current) return;
       // 给尾部留下整屏宽的空间，保证最后一项在小屏也能居中
-      setTailSpacer(containerRef.current.clientWidth);
+      const w = current.clientWidth;
+      if (!Number.isFinite(w) || w <= 0) return;
+      setTailSpacer(w);
     };
+
     resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => resize());
+      ro.observe(el);
+    } else {
+      window.addEventListener("resize", resize);
+    }
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   useEffect(() => {
     if (!canScroll) return;
+    if (!Array.isArray(items) || items.length === 0) return;
     if (highlightedIndex === undefined || highlightedIndex === null) return;
     const container = containerRef.current;
-    const target = imgRefs.current[highlightedIndex];
+    const safeIndex = Math.max(0, Math.min(items.length - 1, highlightedIndex));
+    const target = imgRefs.current[safeIndex];
     if (!container || !target) return;
 
-    const containerWidth = container.clientWidth;
-    const maxScroll = container.scrollWidth - containerWidth;
-    const targetCenter = target.offsetLeft + target.clientWidth / 2;
-    const desiredLeft = Math.max(0, Math.min(maxScroll, targetCenter - containerWidth / 2));
+    // 用 RAF 等待布局稳定（移动端更容易在首帧出现 scrollWidth/clientWidth 不准）
+    const rafId = requestAnimationFrame(() => {
+      const containerWidth = container.clientWidth;
+      const maxScroll = container.scrollWidth - containerWidth;
+      const targetCenter = target.offsetLeft + target.clientWidth / 2;
+      const desiredLeft = Math.max(0, Math.min(maxScroll, targetCenter - containerWidth / 2));
 
-    container.scrollTo({ left: desiredLeft, behavior: "smooth" });
-  }, [highlightedIndex, items.length, canScroll]);
+      // iOS/部分环境对 smooth 支持不稳定，兜底为直接设置 scrollLeft
+      try {
+        container.scrollTo({ left: desiredLeft, behavior: "smooth" });
+      } catch {
+        container.scrollLeft = desiredLeft;
+      }
+    });
+
+    return () => cancelAnimationFrame(rafId);
+  }, [highlightedIndex, items, canScroll]);
 
   return (
-    <div className="flex w-full overflow-hidden" ref={containerRef}>
+    <div
+      className="flex w-full overflow-x-auto overflow-y-hidden no-scrollbar"
+      ref={containerRef}
+      style={{ WebkitOverflowScrolling: "touch" }}
+    >
       <div className="rounded-lg m-[1px] flex gap-3 pr-2 md:pr-[282px] py-1.5" style={{ height: 108 }}>
         {items.map((g, i) => {
           const isActive = highlightedIndex === i;
@@ -160,8 +194,17 @@ function Gallery({
 }
 
 const ShareConnectorIcon = () => (
-  <div className="h-[14px] w-[14px] text-gray-400 flex items-center justify-center">
-    <svg viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div
+    className="h-[14px] w-[14px] shrink-0 text-gray-400 flex items-center justify-center"
+    aria-hidden="true"
+  >
+    <svg
+      viewBox="0 0 21 21"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-full w-full"
+      focusable="false"
+    >
       <path
         d="M9.1806 0.652964C9.50276 -0.217654 10.7342 -0.217655 11.0563 0.652963L13.2 6.44613C13.3013 6.71985 13.5171 6.93566 13.7908 7.03694L19.584 9.1806C20.4546 9.50276 20.4546 10.7342 19.584 11.0563L13.7908 13.2C13.5171 13.3013 13.3013 13.5171 13.2 13.7908L11.0563 19.584C10.7342 20.4546 9.50276 20.4546 9.1806 19.584L7.03694 13.7908C6.93566 13.5171 6.71985 13.3013 6.44613 13.2L0.652964 11.0563C-0.217654 10.7342 -0.217655 9.50276 0.652963 9.1806L6.44613 7.03694C6.71985 6.93566 6.93566 6.71985 7.03694 6.44613L9.1806 0.652964Z"
         fill="currentColor"

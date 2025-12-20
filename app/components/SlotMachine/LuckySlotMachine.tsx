@@ -1,6 +1,15 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { getQualityFromLv } from '@/app/lib/catalogV2';
 
 export interface SlotSymbol {
@@ -72,6 +81,7 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   spinDuration,
   itemSizeOverride
 }, ref) => {
+  const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
   const [isSpinning, setIsSpinning] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedPrize, setSelectedPrize] = useState<SlotSymbol | null>(null);
@@ -117,7 +127,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const lastUpdateTimeRef = useRef<number>(0);
   
   // Dynamically update item height and count based on parent container width
-  useEffect(() => {
+  // 关键：用 layoutEffect，避免移动端每轮挂载时先用默认 180px 渲染一帧再缩小导致闪烁
+  useIsomorphicLayoutEffect(() => {
     if (!containerRef.current) return;
     
     const updateItemConfig = () => {
@@ -185,12 +196,17 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     window.addEventListener('resize', handleResize);
     
-    const resizeObserver = new ResizeObserver(updateItemConfig);
-    resizeObserver.observe(containerRef.current);
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateItemConfig);
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+    }
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
     };
   }, [REEL_HEIGHT, itemSizeOverride]);
 

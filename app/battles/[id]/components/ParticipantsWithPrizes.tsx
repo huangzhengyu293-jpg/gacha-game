@@ -41,6 +41,46 @@ function allocateParticipantsToSlots(participants: Participant[], totalSlots: nu
 
 const formatSlotNumber = (slotIndex: number) => slotIndex + 1;
 
+function normalizeSlotArray(value: unknown, totalSlots: number): Array<Participant | null> {
+  const safeTotal = Number.isFinite(totalSlots) && totalSlots > 0 ? Math.floor(totalSlots) : 0;
+  const base: Array<Participant | null> = Array.isArray(value) ? (value as Array<Participant | null>) : [];
+  const next = base.slice(0, safeTotal);
+  while (next.length < safeTotal) next.push(null);
+  return next;
+}
+
+// ✅ pending 阶段（召唤机器人/加入玩家）只“填充空槽”，不清空已有槽位，避免其他槽位按钮闪烁
+function mergeSlotsForPending(prevSlots: Array<Participant | null>, nextSlots: Array<Participant | null>) {
+  const result = [...prevSlots];
+  const placedIds = new Set<string>();
+
+  result.forEach((p) => {
+    if (p?.id) placedIds.add(p.id);
+  });
+
+  // 先按 index 对齐填充，尽量贴合后端 slotIndex/顺序
+  for (let i = 0; i < result.length; i++) {
+    if (result[i]) continue;
+    const candidate = nextSlots[i];
+    if (!candidate?.id) continue;
+    if (placedIds.has(candidate.id)) continue;
+    result[i] = candidate;
+    placedIds.add(candidate.id);
+  }
+
+  // 再把剩余未放入的参与者依序填到空位
+  const remaining = nextSlots.filter((p) => p?.id && !placedIds.has(p.id)) as Participant[];
+  let cursor = 0;
+  for (let i = 0; i < result.length && cursor < remaining.length; i++) {
+    if (result[i]) continue;
+    result[i] = remaining[cursor];
+    placedIds.add(remaining[cursor].id);
+    cursor += 1;
+  }
+
+  return result;
+}
+
 const QUALITY_COLOR_FALLBACK: Record<string, string> = {
   legendary: '#E4AE33',
   mythic: '#EB4B4B',
@@ -258,8 +298,18 @@ export default function ParticipantsWithPrizes({
   const [pendingActionSlots, setPendingActionSlots] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    if (onPendingSlotAction) return;
-    setSlotParticipantsState(computedSlots);
+    // 非 pending：保持原行为，直接同步计算结果
+    if (!onPendingSlotAction) {
+      setSlotParticipantsState(computedSlots);
+      return;
+    }
+
+    // pending：只填充空槽，避免 computedSlots 的短暂重排把已占槽位清空（按钮闪烁）
+    setSlotParticipantsState((prev) => {
+      const prevNormalized = normalizeSlotArray(prev, totalSlots);
+      const nextNormalized = normalizeSlotArray(computedSlots, totalSlots);
+      return mergeSlotsForPending(prevNormalized, nextNormalized);
+    });
   }, [computedSlots, onPendingSlotAction]);
 
   const markSlotPending = useCallback((slotIndex: number) => {
@@ -282,7 +332,7 @@ export default function ParticipantsWithPrizes({
     });
   }, []);
 
-  const slots: Array<Participant | null> = onPendingSlotAction ? computedSlots : slotParticipantsState;
+  const slots: Array<Participant | null> = slotParticipantsState;
 
   useEffect(() => {
     setPendingActionSlots((prev) => {
@@ -1112,9 +1162,36 @@ function LazyRoundCard({
             <>
               <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-lg z-[4]" />
               <div className="flex absolute inset-0 text-[#FF9C49] z-[5] p-6 md:p-8 items-center justify-center pointer-events-none rounded-lg">
-                <div className="flex w-full max-w-16 max-h-16">
-                  <svg viewBox="0 0 50 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21.0985 2.3155C22.7065 -0.771551 27.2943 -0.771588 28.9022 2.3155L49.5341 41.9385C50.9837 44.7238 48.8759 47.9998 45.6327 48.0001H4.36804C1.12569 48 -0.983697 44.7238 0.465694 41.9385L21.0985 2.3155ZM24.9999 2.86921C24.7442 2.86927 24.1149 2.94132 23.7723 3.5987L3.13952 43.2218C2.84192 43.7935 3.04991 44.2713 3.20007 44.505C3.35032 44.7387 3.70289 45.1299 4.36804 45.13H45.6327C46.2982 45.1298 46.6493 44.7379 46.7997 44.505C46.9499 44.2721 47.158 43.7936 46.8602 43.2218L26.2284 3.5987C25.8857 2.94083 25.2553 2.86921 24.9999 2.86921ZM24.9999 4.50007C25.1984 4.50009 25.4684 4.56501 25.6298 4.8741L45.6327 43.0001C45.7491 43.2237 75.7386 43.4454 45.6014 43.6583C45.4642 43.8711 45.2624 43.9786 45.0018 43.9786H4.99792C4.73747 43.9786 4.53649 43.871 4.39929 43.6583C4.26208 43.4453 4.25159 43.2238 4.36804 43.0001L24.37 4.8741C24.5314 4.56503 24.8014 4.5001 24.9999 4.50007ZM24.9989 27.3477L20.3993 23.0274L17.203 26.0303L21.8026 30.3507L17.202 34.6729L20.3983 37.6759L24.9989 33.3536L29.6005 37.6768L32.7977 34.6739L28.1952 30.3507L32.7967 26.0294L29.6005 23.0264L24.9989 27.3477Z" fill="currentColor"></path>
+                <div className="flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 shrink-0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-full w-full"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M12 3 2 21h20L12 3z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 9v4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 17h.01"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
               </div>
