@@ -648,6 +648,18 @@ const dict: Dict = {
   },
   amountLabel: { zh: "金额", en: "Amount", ko: "금액", ja: "金額" },
   enterAmount: { zh: "请输入金额", en: "Enter amount", ko: "금액을 입력하세요", ja: "金額を入力してください" },
+  amountValidationPositiveInteger: {
+    zh: "金额必须为正整数",
+    en: "Amount must be a positive integer",
+    ko: "금액은 양의 정수여야 합니다",
+    ja: "金額は正の整数である必要があります",
+  },
+  amountValidationPresetOnly: {
+    zh: "此支付方式仅支持 50/100/150/200/250/300 金额",
+    en: "This payment method only supports 50/100/150/200/250/300 amounts",
+    ko: "이 결제 수단은 50/100/150/200/250/300 금액만 지원합니다",
+    ja: "この支払い方法は 50/100/150/200/250/300 の金額のみ対応しています",
+  },
   amountValidationError: { zh: "金额必须是大于等于100的整数", en: "Amount must be an integer greater than or equal to 100", ko: "금액은 100 이상의 정수여야 합니다", ja: "金額は100以上の整数である必要があります" },
   invitePlaceholder: { zh: "输入邀请码（可选）", en: "Enter invite code (optional)", ko: "초대 코드 입력(선택)", ja: "招待コードを入力（任意）" },
    backToPacks: { zh: "返回包裹", en: "Back to Packs", ko: "팩 목록으로", ja: "パック一覧に戻る" },

@@ -309,16 +309,45 @@ export default function Navbar() {
       setRechargeAmount('');
       return;
     }
-    // 直接设置数值（允许任何 >= 100 的整数）
+    // 按支付方式分流校验：输入框只做“格式”处理，具体合法性由 isRechargeAmountValid 控制
+    // - id=16：必须正整数（>0）
+    // - id=19：只允许特定面额（50,100,150,200,250,300）
+    // - 其他：保持原逻辑（>=100）
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 16) {
+      setRechargeAmount(num > 0 ? String(num) : '');
+      return;
+    }
     setRechargeAmount(String(num));
   };
 
   // 验证金额是否有效
-  const isRechargeAmountValid = () => {
-    if (!rechargeAmount.trim()) return false;
-    const num = parseInt(rechargeAmount, 10);
-    return !isNaN(num) && num >= 100;
-  };
+  const ALLOWED_AMOUNTS_FOR_19 = useMemo(() => new Set([50, 100, 150, 200, 250, 300]), []);
+
+  const isRechargeAmountValid = useCallback(() => {
+    const raw = rechargeAmount.trim();
+    if (!raw) return false;
+    const num = parseInt(raw, 10);
+    if (Number.isNaN(num)) return false;
+
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 16) {
+      return num > 0;
+    }
+    if (channelId === 19) {
+      return ALLOWED_AMOUNTS_FOR_19.has(num);
+    }
+    return num >= 100;
+  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19]);
+
+  const rechargeAmountErrorText = useMemo(() => {
+    if (!rechargeAmount) return '';
+    if (isRechargeAmountValid()) return '';
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 16) return t('amountValidationPositiveInteger');
+    if (channelId === 19) return t('amountValidationPresetOnly');
+    return t('amountValidationError');
+  }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
 
   const rechargeMutation = useMutation({
     mutationFn: async ({ id, money }: { id: string | number; money: string | number }) => {
@@ -335,16 +364,37 @@ export default function Navbar() {
     },
   });
 
-  const handleQuickRecharge = useCallback((amount: string | number) => {
-    if (!selectedChannel?.id) return;
-    if (rechargeMutation.isPending) return;
+  // 面额按钮：仅填充输入框，不直接发起充值
+  const handleSelectPresetAmount = useCallback((amount: string | number) => {
     const raw = typeof amount === 'string' ? amount : String(amount);
     const trimmed = raw.trim();
     if (!trimmed) return;
-    // 同步到输入框，保持 UI 一致
     setRechargeAmount(trimmed);
-    rechargeMutation.mutate({ id: selectedChannel.id, money: trimmed });
-  }, [selectedChannel?.id, rechargeMutation]);
+  }, []);
+
+  // 充值按钮节流：防止短时间内重复点击
+  const lastRechargeClickAtRef = useRef<number>(0);
+  const RECHARGE_CLICK_THROTTLE_MS = 1200;
+  const handleRechargeSubmit = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRechargeClickAtRef.current < RECHARGE_CLICK_THROTTLE_MS) return;
+    lastRechargeClickAtRef.current = now;
+
+    if (rechargeMutation.isPending) return;
+
+    // 空值校验：如果没输入值，提示用户
+    if (!rechargeAmount.trim()) {
+      toast.show({
+        variant: 'error',
+        title: t('error'),
+        description: t('pleaseEnterAmount'),
+      });
+      return;
+    }
+
+    if (!isRechargeAmountValid() || !selectedChannel?.id) return;
+    rechargeMutation.mutate({ id: selectedChannel.id, money: rechargeAmount });
+  }, [isRechargeAmountValid, selectedChannel?.id, rechargeMutation, rechargeAmount, toast, t]);
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
@@ -1647,7 +1697,7 @@ export default function Navbar() {
                                     opacity: rechargeMutation.isPending ? 0.7 : 1,
                                   }}
                                   disabled={rechargeMutation.isPending}
-                                  onClick={() => handleQuickRecharge(val)}
+                                  onClick={() => handleSelectPresetAmount(val)}
                                 >
                                   {val}
                                 </button>
@@ -1666,7 +1716,7 @@ export default function Navbar() {
                         />
                         {rechargeAmount && !isRechargeAmountValid() && (
                           <p className="text-sm" style={{ color: '#EF4444' }}>
-                            {t("amountValidationError")}
+                            {rechargeAmountErrorText}
                           </p>
                         )}
                         <div className="flex w-full items-center justify-between gap-3">
@@ -1674,12 +1724,9 @@ export default function Navbar() {
                           <button
                             type="button"
                             className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                            style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
-                            disabled={!isRechargeAmountValid() || rechargeMutation.isPending}
-                            onClick={() => {
-                              if (!isRechargeAmountValid() || !selectedChannel?.id || rechargeMutation.isPending) return;
-                              rechargeMutation.mutate({ id: selectedChannel.id, money: rechargeAmount });
-                            }}
+                            style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
+                            disabled={rechargeMutation.isPending}
+                            onClick={handleRechargeSubmit}
                           >
                             {rechargeMutation.isPending ? t("submitting") : t("topUp")}
                           </button>
