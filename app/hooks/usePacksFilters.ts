@@ -14,7 +14,6 @@ export function usePacksFilters(defaults?: Partial<PacksFilters>) {
   const baseType = defaults?.type ?? '2';
   const initial: PacksFilters = {
     sort_type: '1', // 默认：最受欢迎
-    volatility: '1', // 默认：1
     type: baseType,
     ...defaults,
   };

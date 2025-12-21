@@ -13,12 +13,6 @@ export default function EventsPage() {
     queryFn: () => api.getConsume(),
     staleTime: 30_000,
   });
-
-  useEffect(() => {
-    if (consumeData) {
-      console.log('[getConsume]', consumeData);
-    }
-  }, [consumeData]);
   
   const formatMoney = (val: any) => {
     const num = Number(val);
@@ -26,29 +20,58 @@ export default function EventsPage() {
     return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const mapRanking = (raw: any): { topThree: TopThreePlayer[]; tableData: TablePlayer[] } => {
+  const DAILY_PRIZES = useMemo(
+    () => [500, 300, 100, 80, 60, 30, 30, 30, 30, 30, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+    [],
+  );
+  const WEEKLY_PRIZES = useMemo(
+    () => [3000, 1500, 800, 600, 400, 200, 100, 80, 80, 80, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30],
+    [],
+  );
+  const MONTHLY_PRIZES = useMemo(
+    () => [20000, 10000, 5000, 4000, 3000, 2000, 1500, 1000, 800, 600, 300, 300, 300, 300, 300, 200, 200, 200, 200, 200],
+    [],
+  );
+
+  const formatPrize = (amount: number | undefined) => {
+    if (!Number.isFinite(Number(amount))) return '--';
+    return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getPrizeByRank = (raceType: 'daily' | 'weekly' | 'monthly', rank: number) => {
+    const idx = rank - 1;
+    const list = raceType === 'weekly' ? WEEKLY_PRIZES : raceType === 'monthly' ? MONTHLY_PRIZES : DAILY_PRIZES;
+    return formatPrize(list[idx]);
+  };
+
+  const mapRanking = (
+    raw: any,
+    raceType: 'daily' | 'weekly' | 'monthly',
+  ): { topThree: TopThreePlayer[]; tableData: TablePlayer[] } => {
     const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
     const topThree = list.slice(0, 3).map((item, idx) => {
       const user = item?.user || {};
       const vip = user?.vip;
+      const rank = idx + 1;
       return {
-        rank: idx + 1,
+        rank,
         name: user?.name || '--',
         avatar: `r-top-${idx + 1}`,
         avatarImage: typeof user?.avatar === 'string' ? user.avatar : undefined,
         packCount: vip === 0 || vip ? String(vip) : '--',
-        prize: '--',
+        prize: getPrizeByRank(raceType, rank),
         opened: formatMoney(item?.bean),
       };
     });
     const tableData = list.slice(3).map((item, idx) => {
       const user = item?.user || {};
       const opened = formatMoney(item?.bean);
+      const rank = idx + 4;
       return {
-        rank: idx + 4,
+        rank,
         name: user?.name || '--',
         tickets: opened,
-        prize: '--',
+        prize: getPrizeByRank(raceType, rank),
         avatar: `r-row-${idx + 4}`,
         avatarImage: typeof user?.avatar === 'string' ? user.avatar : undefined,
       };
@@ -56,15 +79,15 @@ export default function EventsPage() {
     return { topThree, tableData };
   };
 
-  const rankingMonth = mapRanking(consumeData?.data?.ranking_month);
-  const rankingWeek = mapRanking(consumeData?.data?.ranking_week);
+  const rankingMonth = mapRanking(consumeData?.data?.ranking_month, 'monthly');
+  const rankingWeek = mapRanking(consumeData?.data?.ranking_week, 'weekly');
   const rankingYesterday =
     Array.isArray(consumeData?.data?.ranking_yesterday?.data)
       ? consumeData?.data?.ranking_yesterday?.data
       : Array.isArray(consumeData?.data?.ranking_yesterday)
         ? consumeData?.data?.ranking_yesterday
         : [];
-  const rankingDaily = mapRanking(rankingYesterday);
+  const rankingDaily = mapRanking(rankingYesterday, 'daily');
 
   // 比赛排行榜组件（周赛/月赛共用）
   type TopThreePlayer = {

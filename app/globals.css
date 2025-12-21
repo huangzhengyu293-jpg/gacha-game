@@ -3,6 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 用于在移动端替代 100vh 抖动/不准确问题（地址栏/底部工具栏动态变化） */
+  --app-vh: 1vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-vh: 1dvh;
+  }
 }
 
 @theme inline {

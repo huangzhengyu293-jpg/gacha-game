@@ -397,7 +397,6 @@ function CreateBattleContent() {
     queryFn: () =>
       api.getBoxList({
         sort_type: '1',
-        volatility: '1',
         type: '1,2',
       }),
     staleTime: 30_000,

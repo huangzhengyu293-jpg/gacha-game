@@ -26,6 +26,37 @@ export interface StorageItem {
   [key: string]: any;
 }
 
+function toStringSafe(value: unknown): string {
+  return typeof value === 'string' ? value : value == null ? '' : String(value);
+}
+
+function pickWarehouseId(raw: StorageItem, index: number): string {
+  // 不同接口/不同 from 参数可能会返回不同字段名，这里尽量挑真正的“仓库条目 id”
+  // 常见：storage_id / storageId / id；兜底再用 awards_id 等
+  const candidate =
+    raw?.storage_id ??
+    raw?.storageId ??
+    raw?.storageID ??
+    raw?.user_storage_id ??
+    raw?.userStorageId ??
+    raw?.id ??
+    raw?.sid ??
+    raw?.awards_id ??
+    raw?.awardsId ??
+    raw?.box_id ??
+    raw?.boxId ??
+    raw?.data_id ??
+    raw?.dataId ??
+    raw?.awards?.storage_id ??
+    raw?.awards?.id;
+
+  const str = toStringSafe(candidate).trim();
+  if (str) return str;
+
+  // 最终兜底：保证至少有稳定的字符串，避免 undefined 导致 key 抖动
+  return `cart_${index}`;
+}
+
 export function useCart(priceSort?: 'asc' | 'desc', from?: string) {
   const { isAuthenticated, user } = useAuth();
   const loginKey = typeof user?.loginTime === 'string' && user.loginTime ? user.loginTime : 'guest';
@@ -47,8 +78,8 @@ export function useCart(priceSort?: 'asc' | 'desc', from?: string) {
       data.data.data.forEach((item: StorageItem, index: number) => {
         if (!item.awards) return;
 
-        const warehouseId = String(item.id ?? item.awards_id ?? item.awards?.id ?? `cart_${index}`);
-        const productId = String(item.awards?.id ?? item.product_id ?? warehouseId);
+        const warehouseId = pickWarehouseId(item, index);
+        const productId = toStringSafe(item.awards?.id ?? item.product_id ?? item.productId ?? warehouseId);
         const name = item.awards.name || '';
         const price = Number(item.bean ?? item.awards.bean) || 0;
         const image = item.awards.cover || '';

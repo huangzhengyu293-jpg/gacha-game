@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -54,13 +54,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [confirmPayload, setConfirmPayload] = useState<string[]>([]);
   const [withdrawCryptoOpen, setWithdrawCryptoOpen] = useState(false);
   const withdrawalStorageMutation = useWithdrawalStorageMutation();
-
-  // 排序方向或可领取物品筛选变化时强制刷新购物车数据（重新调用接口带 price_sort 或 from）
-  useEffect(() => {
-    if (!isShopMode && (sortByPrice || claimableActive !== undefined)) {
-      refetchCart();
-    }
-  }, [sortByPrice, claimableActive, isShopMode, refetchCart]);
 
   // 将购物车数据转换为 CartItem 格式（如果外部未传入 items 则使用购物车数据）
   const expandedWarehouseItems: CartItem[] = cartItems.map((item, index) => ({
@@ -187,6 +180,42 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   }, [isOpen, refetchCart]);
 
   const [selectionOrder, setSelectionOrder] = useState([] as string[]);
+
+  const handleToggleClaimable = useCallback(() => {
+    if (isShopMode) return;
+    // ✅ 用户要求：只要切换（可认领 <-> 非可认领）就全部清空
+    setSelectedItems(new Set());
+    setSelectionOrder([]);
+    setActiveTab('all');
+    setClaimableActive((prev) => !prev);
+  }, [isShopMode]);
+
+  // 同一数据源刷新（例如领取/出售后 refetch）时，移除已经不存在的选中项；
+  // 注意：加载中/列表为空时不做 prune，避免切换 queryKey 时把选择误清空。
+  useEffect(() => {
+    if (isShopMode) return;
+    if (shouldShowWarehouseLoading) return;
+    if (defaultItems.length === 0) return;
+
+    const existingIds = new Set(defaultItems.map((it) => it.id));
+
+    setSelectedItems((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (existingIds.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+
+    setSelectionOrder((prev) => {
+      if (!prev.length) return prev;
+      const next = prev.filter((id) => existingIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [defaultItems, isShopMode, shouldShowWarehouseLoading]);
   const queryClient = useQueryClient();
   const router = useRouter();
   const goExchange = useCallback(() => {
@@ -466,7 +495,13 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     <div
       data-state={isOpen ? 'open' : 'closed'}
       className="fixed inset-0 z-50 bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 flex justify-center items-start sm:items-start sm:py-16 sm:px-4 p-4"
-      style={{ pointerEvents: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+      style={{
+        pointerEvents: 'auto',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        // iOS 刘海/底部手势条安全区，避免底部按钮/内容被盖住
+        paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+      }}
       onClick={onClose}
     >
       <div
@@ -544,17 +579,15 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             className="flex-1 flex flex-col min-h-0"
             style={{ display: activeTab === 'all' ? 'flex' : 'none' }}
           >
-            <div className="flex justify-between my-3 gap-2 w-full flex-nowrap flex-shrink-0">
-            
-              <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-between">
-                <div>
+            <div className="my-3 w-full flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 mr-2 font-semibold text-sm sm:h-10"
+                  className="inline-flex flex-1 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-2 font-semibold text-xs sm:h-10 sm:px-3 sm:text-sm"
                   style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
                   onClick={() => setSortByPrice(sortByPrice === 'asc' ? 'desc' : 'asc')}
                   type="button"
                 >
-                  {t('priceLabel')}
+                  <span className="truncate">{t('priceLabel')}</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -565,7 +598,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={`lucide lucide-arrow-down transition-transform ${sortByPrice === 'desc' ? 'rotate-180' : ''}`}
+                    className={`lucide lucide-arrow-down transition-transform shrink-0 ${sortByPrice === 'desc' ? 'rotate-180' : ''}`}
                   >
                     <path d="M12 5v14"></path>
                     <path d="m19 12-7 7-7-7"></path>
@@ -573,25 +606,25 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 </button>
                 {!isShopMode && (
                   <button
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
+                    className="inline-flex flex-1 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-2 font-semibold text-xs sm:h-10 sm:px-3 sm:text-sm"
                     style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
-                    onClick={() => setClaimableActive(!claimableActive)}
+                    onClick={handleToggleClaimable}
                     type="button"
                   >
-                    {t('claimableItems')}
+                    <span className="truncate">{t('claimableItems')}</span>
                   </button>
                 )}
-                </div>
-               
-                {!isShopMode && (
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm group sm:h-10"
-                style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
-                onClick={selectAll}
-                type="button"
-              >
+              </div>
+
+              {!isShopMode && (
+                <button
+                  className="inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-2 font-semibold text-xs group sm:h-10 sm:px-3 sm:text-sm ml-auto"
+                  style={{ backgroundColor: '#22272B', color: '#FFFFFF' }}
+                  onClick={selectAll}
+                  type="button"
+                >
                     <div
                       className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
                       style={{
@@ -607,11 +640,10 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       )}
                     </div>
                     {selectAllLabel}
-                  </button>
-                )}
-              </div>
+                </button>
+              )}
             </div>
-            <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+            <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 'calc(var(--app-vh, 1vh) * 100 - 320px)' }}>
               {listLoading ? (
                 <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{listLoadingText}</div>
               ) : displayedItems.length > 0 ? (
@@ -736,9 +768,20 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             </div>
             
             {/* 物品区域 */}
-            <div className="flex-1 overflow-y-auto min-h-0 rounded-lg" style={{ backgroundColor: '#1D2125', maxHeight: 'calc(100vh - 320px)' }}>
+            <div
+              className="flex-1 overflow-y-auto min-h-0 rounded-lg"
+              style={{
+                backgroundColor: '#1D2125',
+                // ✅ 空态也要“撑起来”：给父容器一个自适应高度
+                // - 下限：避免被压扁
+                // - 中值：跟随视口高度（dvh 优先，vh 兜底）
+                // - 上限：避免过高影响底部按钮区
+                
+              }}
+            >
               {selectedCount === 0 ? (
-                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{t('manageHint')}</div>
+                <div className="flex h-full items-center justify-center font-semibold" style={{ color: '#7A8084',height: 'clamp(180px, calc(var(--app-vh, 1vh) * 100 - 320px), 520px)',
+                  maxHeight: 'calc(var(--app-vh, 1vh) * 100 - 320px)', }}>{t('manageHint')}</div>
               ) : (
                 <div className="grid grid-cols-2 xs:grid-cols-3 gap-4 p-4">
                   {selectionOrder.filter((id) => selectedItems.has(id)).map((id) => {
@@ -943,7 +986,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
-                  onClick={() => setClaimableActive(!claimableActive)}
+                    onClick={handleToggleClaimable}
                   type="button"
                 >
                   {t('claimableItems')}
@@ -980,7 +1023,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
-                  onClick={() => setClaimableActive(!claimableActive)}
+                  onClick={handleToggleClaimable}
                   type="button"
                 >
                   {t('claimableItems')}
@@ -1007,7 +1050,10 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                       </svg>
                     )}
                   </div>
-                  {selectAllLabel}
+                  <span className="truncate">
+                    <span className="xs:hidden">{selectAllChecked ? t('unselectAll') : t('selectAll')}</span>
+                    <span className="hidden xs:inline">{selectAllLabel}</span>
+                  </span>
                 </button>
               )}
             </div>
@@ -1241,9 +1287,6 @@ function CartItemCard({
 }) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const depthForMenu = (item.productId?.startsWith('voucher:') ? Number(item.productId.split(':').pop()) || 1 : 0);
   const sellPriceLabel = `${t('sellPricePrefix')} $${item.price.toFixed(2)}`;
   const claimLabel = t('claimItem');
@@ -1253,18 +1296,6 @@ function CartItemCard({
     : depthForMenu === 1
     ? [sellPriceLabel,  detailsLabel]
     : [sellPriceLabel,  claimLabel, detailsLabel];
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (menuRef.current && menuRef.current.contains(target)) return;
-      if (triggerRef.current && triggerRef.current.contains(target)) return;
-      setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [menuOpen]);
 
   const isBuyingState = Boolean(isBuying);
   const isClaimingState = Boolean(isClaiming);
@@ -1298,46 +1329,6 @@ function CartItemCard({
       onMouseLeave={() => { setHovered(false); }}
       onClick={handleCardClick}
     >
-      {isShopMode ? null : (
-        <div className="absolute top-0.5 left-2 flex gap-2 z-10">
-          <button
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8"
-            aria-label="Options"
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-            ref={triggerRef}
-            style={{ color: '#7A8084', cursor: 'pointer' }}
-          >
-            <div className="size-5 flex justify-center">
-              <svg viewBox="0 0 18 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4.00002 2.00001C4.00002 3.10459 3.10459 4.00002 2.00001 4.00002C0.895433 4.00002 0 3.10459 0 2.00001C0 0.895433 0.895433 0 2.00001 0C3.10459 0 4.00002 0.895433 4.00002 2.00001Z" fill="currentColor"></path>
-                <path d="M11 2.00001C11 3.10459 10.1046 4.00002 9.00003 4.00002C7.89545 4.00002 7.00002 3.10459 7.00002 2.00001C7.00002 0.895433 7.89545 0 9.00003 0C10.1046 0 11 0.895433 11 2.00001Z" fill="currentColor"></path>
-                <path d="M18.0001 2.00001C18.0001 3.10459 17.1046 4.00002 16.0001 4.00002C14.8955 4.00002 14 3.10459 14 2.00001C14 0.895433 14.8955 0 16.0001 0C17.1046 0 18.0001 0.895433 18.0001 2.00001Z" fill="currentColor"></path>
-              </svg>
-            </div>
-          </button>
-          {menuOpen && (
-            <div ref={menuRef} style={{ position: 'absolute', left: 0, top: 28, zIndex: 50 }}>
-              <div role="menu" aria-orientation="vertical" className="z-50 w-40 rounded-lg p-1 shadow-md" style={{ backgroundColor: '#1D2125', color: '#7A8084', fontFamily: 'Urbanist, sans-serif', fontWeight: 600 }}>
-                {menuItems.map((label: string) => (
-                  <div key={label}
-                    role="menuitem"
-                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#3C4044'; (e.currentTarget as HTMLDivElement).style.color = '#FFFFFF'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLDivElement).style.color = '#7A8084'; }}
-                  >
-                    {label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       {isShopMode ? null : (
         <div className="absolute right-2 top-2 shrink-0 transition-opacity duration-200" style={{ opacity: (hovered || isSelected) ? 1 : 0 }}>
           <button

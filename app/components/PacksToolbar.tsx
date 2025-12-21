@@ -52,8 +52,12 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
     return "mostPopular";
   }, [filters?.sort_type, filters?.price_sort]);
   
-  const volatility = useMemo((): "1" | "2" | "3" | "4" | "5" => {
-    return (filters?.volatility || "1") as "1" | "2" | "3" | "4" | "5";
+  const volatility = useMemo((): "all" | "1" | "2" | "3" | "4" | "5" => {
+    // ✅ 默认全选：filters.volatility 为空/undefined 时表示“全部”，请求时不传 volatility
+    const v = String(filters?.volatility ?? '').trim();
+    if (!v) return "all";
+    if (v === '1' || v === '2' || v === '3' || v === '4' || v === '5') return v;
+    return "all";
   }, [filters?.volatility]);
   
   const price = useMemo((): "allPrices" | "gte500" | "range250to500" | "range100to250" | "range50to100" | "range25to50" | "range5to25" | "lte5" => {
@@ -142,16 +146,21 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
     onFilterChange?.(newFilters);
   }, [filters, onFilterChange]);
 
-  // 设置波动性
-  const handleSetVolatility = useCallback((newVolatility: "1" | "2" | "3" | "4" | "5") => {
+  // 设置波动性（单选 + 全选）
+  const handleSetVolatility = useCallback((nextVolatility: "all" | "1" | "2" | "3" | "4" | "5") => {
     const newFilters: any = {};
-    
+
     // 保留其他筛选条件
-    Object.keys(filters || {}).forEach(key => {
+    Object.keys(filters || {}).forEach((key) => {
       newFilters[key] = (filters as any)[key];
     });
-    
-    newFilters.volatility = newVolatility;
+
+    if (nextVolatility === 'all') {
+      delete newFilters.volatility; // ✅ 全选：不传 volatility
+    } else {
+      newFilters.volatility = nextVolatility;
+    }
+
     onFilterChange?.(newFilters);
   }, [filters, onFilterChange]);
 
@@ -339,13 +348,14 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
           <button ref={volBtnRef} onClick={()=>{ setVolOpen(v=>!v); setCategoryOpen(false); setSortOpen(false); setPriceOpen(false); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border hover:text-accent-foreground py-2 h-10 px-4 bg-[#1D2125] border-[#22272B] text-white hover:bg-[#22272B] rounded-md w-full cursor-pointer" type="button" aria-haspopup="menu" aria-expanded={volOpen}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-flame h-4 w-4"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
             <span>{t("volatility")}</span>
-            <span className="ml-1" style={{ color: '#7A8084' }}>{volatility}</span>
+            <span className="ml-1 truncate" style={{ color: '#7A8084' }}>{volatility === 'all' ? t('all') : volatility}</span>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 ml-auto"><path d="m6 9 6 6 6-6"></path></svg>
           </button>
           {volOpen ? (
             <div className="absolute left-0 mt-1 z-20">
               <div ref={volMenuRef} className="bg-[#22272B] border-0 rounded-lg overflow-hidden shadow-lg p-0 w-56">
                 <div className="flex flex-col px-2 py-1.5 gap-1">
+                  <button onClick={()=>{ handleSetVolatility('all'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">{t('all')}</button>
                   <button onClick={()=>{ handleSetVolatility('1'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">1</button>
                   <button onClick={()=>{ handleSetVolatility('2'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">2</button>
                   <button onClick={()=>{ handleSetVolatility('3'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">3</button>

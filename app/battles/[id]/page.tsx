@@ -1012,7 +1012,7 @@ export default function BattleDetailPage() {
   const router = useRouter();
   const params = useParams<{ id?: string }>();
   const routeBattleId = params?.id ?? null;
-  const { user } = useAuth();
+  const { user, fetchUserBean } = useAuth();
   const { t } = useI18n();
   const currentUserId = user?.userInfo?.id ?? user?.id ?? null;
   const normalizedCurrentUserId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
@@ -1274,7 +1274,6 @@ export default function BattleDetailPage() {
         }
         // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
       } catch (err) {
-        console.error('inviteRobots failed', err);
         throw err;
       }
     },
@@ -1294,13 +1293,14 @@ export default function BattleDetailPage() {
         if (res?.code !== 100000) {
           throw new Error(res?.message || 'joinFight failed');
         }
+        // ✅ 玩家加入对战成功后需要刷新钱包余额（召唤机器人不需要）
+        fetchUserBean?.();
         // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
       } catch (err) {
-        console.error('joinFight failed', err);
         throw err;
       }
     },
-    [canJoinBattle, normalizedBattleId, normalizedCurrentUserId],
+    [canJoinBattle, normalizedBattleId, normalizedCurrentUserId, fetchUserBean],
   );
   const pendingSlotActionHandler = canSummonRobots ? handleSummonRobot : canJoinBattle ? handleJoinBattle : undefined;
   const pendingSlotActionLabel = canSummonRobots ? t('summonBot') : canJoinBattle ? t('joinBattle') : undefined;

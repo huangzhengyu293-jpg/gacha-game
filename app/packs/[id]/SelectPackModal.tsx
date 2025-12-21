@@ -47,8 +47,7 @@ export default function SelectPackModal({
     queryFn: () => {
       // 确保至少传递默认参数
       const params = {
-        sort_type: '1',
-        volatility: '1',
+        sort_type: filters?.sort_type ?? '1',
         type: boxType,
         ...filters,
       };
