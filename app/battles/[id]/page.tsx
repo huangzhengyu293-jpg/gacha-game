@@ -73,10 +73,7 @@ const ENTRY_DELAY_MS = 5000;
 const SECOND_STAGE_RESULT_PAUSE_MS = 500;
 type DayjsInstance = ReturnType<typeof dayjs>;
 
-function logCurrentRound(roundNumber: number) {
-  if (typeof console === 'undefined') return;
-  console.info('[BattleEntry] current-round', roundNumber);
-}
+
 
 function parseTimestampToDayjs(value: unknown): DayjsInstance | null {
   if (value === null || value === undefined) {
@@ -1266,13 +1263,14 @@ export default function BattleDetailPage() {
   const canJoinBattle = isPendingBattle && !isBattleOwner;
   const handleSummonRobot = useCallback(
     async (order: number) => {
-      if (!canSummonRobots) return;
+      if (!canSummonRobots) return false;
       try {
         const res = await api.inviteRobots({ id: normalizedBattleId, order });
         if (res?.code !== 100000) {
           throw new Error(res?.message || 'inviteRobots failed');
         }
         // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
+        return true;
       } catch (err) {
         throw err;
       }
@@ -1281,12 +1279,13 @@ export default function BattleDetailPage() {
   );
   const handleJoinBattle = useCallback(
     async (order: number) => {
-      if (!canJoinBattle) return;
+      if (!canJoinBattle) return false;
       if (!normalizedCurrentUserId) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth:show-login'));
         }
-        return;
+        // 未登录：仅弹登录，不应让 UI 进入“持续 loading”
+        return false;
       }
       try {
         const res = await api.joinFight({ id: normalizedBattleId, order, user_id: normalizedCurrentUserId, debug: 1 });
@@ -1296,6 +1295,7 @@ export default function BattleDetailPage() {
         // ✅ 玩家加入对战成功后需要刷新钱包余额（召唤机器人不需要）
         fetchUserBean?.();
         // 🔥 不需要手动调用 refetch，轮询逻辑会自动更新数据
+        return true;
       } catch (err) {
         throw err;
       }
@@ -1363,7 +1363,8 @@ function BattleDetailContent({
   battleData: BattleData;
   rawDetail: FightDetailRaw;
   isPendingBattle: boolean;
-  onPendingSlotAction?: (order: number) => void;
+  // 返回值表示“是否真正发起了动作”（例如：未登录仅弹登录则返回 false）
+  onPendingSlotAction?: (order: number) => boolean | Promise<boolean>;
   pendingSlotActionLabel?: string;
   onInitialUiReadyChange?: (ready: boolean) => void;
 }) {
@@ -2798,7 +2799,6 @@ useEffect(() => {
           const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
           (window as any).__winAudioBuffer = audioBuffer;
         } catch (error) {
-          console.error('加载 win.wav 失败:', error);
         }
       }
     };
@@ -3374,14 +3374,7 @@ useEffect(() => {
       // 🔥 记录初始化时的 entryRound，避免后续变化导致重复初始化
       initializationEntryRoundRef.current = entryRoundSetting;
       
-      if (typeof window !== 'undefined') {
-        console.log('[battle-entry-prepare]', {
-          entryRoundSetting,
-          totalRounds,
-          status: currentStatus,
-          forceFullReplay: forceFullReplayRef.current,
-        });
-      }
+      
       if (currentStatus === 1) {
         if (entryRoundSetting > 0) {
           startCountdownDirect();
@@ -3409,13 +3402,7 @@ useEffect(() => {
 
       const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
       if (entryRoundIndex !== null) {
-        if (typeof window !== 'undefined') {
-          console.log('[battle-entry-resolve]', {
-            entryRoundSetting,
-            entryRoundIndex,
-            totalRounds,
-          });
-        }
+       
         hydrateRoundsProgress(entryRoundIndex);
         timelineHydratedRef.current = true;
         setCountdownValue(null);
@@ -3484,14 +3471,7 @@ useEffect(() => {
       // 不应该重新初始化，直接返回
       return;
     }
-    if (typeof window !== 'undefined') {
-      console.log('[battle-entry-runtime]', {
-        entryRoundSetting,
-        totalRounds,
-        status: currentStatus,
-        forceFullReplay: forceFullReplayRef.current,
-      });
-    }
+  
     // 🔥 记录初始化时的 entryRound（作为备用初始化路径）
     if (initializationEntryRoundRef.current === null) {
       initializationEntryRoundRef.current = entryRoundSetting;
@@ -3524,14 +3504,7 @@ useEffect(() => {
 
     const entryRoundIndex = resolveEntryRoundIndex(totalRounds, entryRoundSetting);
     if (entryRoundIndex !== null) {
-      logCurrentRound(entryRoundIndex + 1);
-      if (typeof window !== 'undefined') {
-        console.log('[battle-entry-hydrate]', {
-          entryRoundSetting,
-          entryRoundIndex,
-          totalRounds,
-        });
-      }
+      
       hydrateRoundsProgress(entryRoundIndex);
       setCountdownValue(null);
       setMainState('ROUND_LOOP');
@@ -3541,7 +3514,6 @@ useEffect(() => {
     }
 
     if (entryRoundSetting <= 0) {
-      logCurrentRound(0);
       startCountdownWithPrepare();
       timelineHydratedRef.current = true; // 标记已初始化
       return;
@@ -3553,7 +3525,6 @@ useEffect(() => {
     const cursor = runtime.timeline.getRoundByTimestamp(cursorNowMs);
 
     if (cursor.phase === 'COUNTDOWN') {
-      logCurrentRound(0);
       const remainSeconds = Math.max(0, Math.ceil(cursor.roundElapsedMs / 1000));
       setCountdownValue(remainSeconds);
       setMainState('COUNTDOWN');
@@ -3563,7 +3534,6 @@ useEffect(() => {
 
     if (cursor.phase === 'ROUND') {
       const targetRound = Math.min(cursor.roundIndex, runtime.config.roundsTotal);
-      logCurrentRound(Math.min(targetRound + 1, runtime.config.roundsTotal));
       hydrateRoundsProgress(targetRound);
       setCountdownValue(null);
       setMainState('ROUND_LOOP');
@@ -3573,7 +3543,6 @@ useEffect(() => {
     }
 
     if (cursor.phase === 'COMPLETED') {
-      logCurrentRound(runtime.config.roundsTotal);
       hydrateRoundsProgress(runtime.config.roundsTotal);
       setCountdownValue(null);
       setMainState('COMPLETED');
@@ -4083,7 +4052,6 @@ useEffect(() => {
       const eliminationData = eliminationDataRef.current;
       
       if (!eliminationData || !eliminationData.eliminations) {
-        console.warn('⚠️ [淘汰检查] 未找到淘汰数据，跳过淘汰环节');
         setRoundState('ROUND_NEXT');
         return;
       }
@@ -5570,7 +5538,6 @@ useEffect(() => {
                           
                           // 🛡️ 守卫：如果奖品ID未设置，不渲染老虎机
                           if (!selectedPrizeId) {
-                            console.warn(`⚠️ selectedPrizeId 未设置，参与者: ${participant.name}, 轮次: ${roundIndex}`);
                             return null;
                           }
                           
@@ -5658,7 +5625,6 @@ useEffect(() => {
                           
                           // 🛡️ 守卫：如果奖品ID未设置，不渲染老虎机
                           if (!selectedPrizeId) {
-                            console.warn(`⚠️ selectedPrizeId 未设置，参与者: ${participant.name}, 轮次: ${roundIndex}`);
                             return null;
                           }
                           

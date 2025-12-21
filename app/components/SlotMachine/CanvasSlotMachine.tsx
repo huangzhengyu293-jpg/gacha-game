@@ -123,7 +123,6 @@ const CanvasSlotMachine = forwardRef<CanvasSlotMachineHandle, CanvasSlotMachineP
         };
         img.onerror = () => {
           // 图片加载失败时也resolve，避免阻塞
-          console.warn(`图片加载失败: ${symbol.image}`);
           resolve();
         };
         img.src = symbol.image;

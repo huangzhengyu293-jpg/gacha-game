@@ -507,8 +507,6 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     
     // CRITICAL: Prevent reinitialization during spinning
     if (isSpinning) {
-      console.error('❌ [initReels] 阻止：正在旋转中，不允许重新初始化！');
-      console.trace('调用栈:');
       return;
     }
     

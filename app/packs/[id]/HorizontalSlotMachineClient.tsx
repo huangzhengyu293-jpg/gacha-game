@@ -89,7 +89,6 @@ export default function HorizontalSlotMachineClient({
             tickAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             (window as any).__tickAudioBuffer = tickAudioBuffer;
           } catch (err) {
-            console.error('加载tick音效失败:', err);
           }
         }
         
@@ -102,7 +101,6 @@ export default function HorizontalSlotMachineClient({
             basicWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             (window as any).__basicWinAudioBuffer = basicWinAudioBuffer;
           } catch (err) {
-            console.error('加载basic_win音效失败:', err);
           }
         }
 
@@ -115,7 +113,6 @@ export default function HorizontalSlotMachineClient({
             specialWinAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             (window as any).__specialWinAudioBuffer = specialWinAudioBuffer;
           } catch (err) {
-            console.error('加载special_win音效失败:', err);
           }
         }
       })();
@@ -221,7 +218,6 @@ export default function HorizontalSlotMachineClient({
   const layoutModeRef = useRef(isMobileTwoRowMode);
   useEffect(() => {
     if (layoutModeRef.current !== isMobileTwoRowMode) {
-      console.log(`📐 [布局模式变化] ${layoutModeRef.current ? '两行' : '单行'} → ${isMobileTwoRowMode ? '两行' : '单行'}`);
       layoutModeRef.current = isMobileTwoRowMode;
     }
   }, [isMobileTwoRowMode]);
@@ -398,7 +394,6 @@ export default function HorizontalSlotMachineClient({
     
     // 只有在不是spinning状态下，且卡包数量真的变化了，才重置
     if (!isSpinning && slotCountRef.current !== currentCount && currentCount > 0) {
-      console.log(`🔄 [卡包数量变化] ${slotCountRef.current} → ${currentCount}`);
       slotCountRef.current = currentCount;
       
       // 重置所有slot的状态，但不改变spinKey（避免触发不必要的重新渲染）
@@ -455,7 +450,6 @@ export default function HorizontalSlotMachineClient({
     let triggeredSecondStage = false;
     let finalResult: SlotSymbol | null = null;
     
-    console.log(`🏁 [Slot${index}] 滚动完成:`, result.name, `stage: ${slotSnapshot?.stage}, pendingLegendaryId: ${slotSnapshot?.pendingLegendaryId}`);
     
     setPackSlots(prev => {
       if (index < 0 || index >= prev.length) return prev;
@@ -464,7 +458,6 @@ export default function HorizontalSlotMachineClient({
       
       const nextSlots = [...prev];
       const shouldEnterLegendary = slot.stage === 'normal' && !!slot.pendingLegendaryId;
-      console.log(`   检查是否进入第二阶段: ${shouldEnterLegendary}`);
       
       if (shouldEnterLegendary) {
         playSpecialWinSound();
@@ -578,7 +571,6 @@ export default function HorizontalSlotMachineClient({
         activeSymbols: getActiveSymbols(slot)
       })).filter(item => item.activeSymbols.length > 0);
       
-      console.log(`🎯 [双排模式] 有效slots数量: ${slotsWithIndex.length}`);
       
       const topRowItems = slotsWithIndex.slice(0, Math.min(3, slotsWithIndex.length));
       const bottomRowItems = slotsWithIndex.slice(topRowItems.length);

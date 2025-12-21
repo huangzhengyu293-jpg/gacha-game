@@ -113,7 +113,8 @@ interface ParticipantsWithPrizesProps {
   sprintScores?: Record<string, number>; // 🏃 积分冲刺模式：玩家/团队积分
   currentRound?: number; // 当前轮次（用于实时更新积分）
   completedRounds?: Set<number>; // 🚀 性能优化：已完成的轮次集合
-  onPendingSlotAction?: (order: number) => void;
+  // 返回值表示“是否真正发起了动作”（例如：未登录仅弹登录则返回 false）
+  onPendingSlotAction?: (order: number) => boolean | Promise<boolean>;
   pendingButtonLabel?: string;
 }
 
@@ -433,11 +434,20 @@ export default function ParticipantsWithPrizes({
     if (onPendingSlotAction) {
       markSlotPending(slotIndex);
       try {
-        const maybePromise = onPendingSlotAction(slotIndex + 1) as unknown;
-        if (maybePromise && typeof (maybePromise as Promise<unknown>).then === "function") {
-          (maybePromise as Promise<unknown>).catch(() => {
-            clearSlotPending(slotIndex);
-          });
+        const maybeResult = onPendingSlotAction(slotIndex + 1) as unknown;
+        if (maybeResult && typeof (maybeResult as Promise<unknown>).then === "function") {
+          (maybeResult as Promise<unknown>)
+            .then((started) => {
+              if (started === false) {
+                clearSlotPending(slotIndex);
+              }
+            })
+            .catch(() => {
+              clearSlotPending(slotIndex);
+            });
+        } else if (maybeResult === false) {
+          // 同步返回 false：表示没有真正执行（比如需要登录）
+          clearSlotPending(slotIndex);
         }
       } catch (error) {
         clearSlotPending(slotIndex);

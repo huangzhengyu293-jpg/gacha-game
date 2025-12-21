@@ -74,7 +74,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           const audioBuffer = await (window as any).__audioContext.decodeAudioData(arrayBuffer);
           (window as any).__spinAudioBuffer = audioBuffer;
         } catch (error) {
-          console.error('加载 spin.mp3 失败:', error);
         }
       }
       
@@ -86,7 +85,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           const audioBuffer = await (window as any).__audioContext.decodeAudioData(arrayBuffer);
           (window as any).__winAudioBuffer = audioBuffer;
         } catch (error) {
-          console.error('加载 win.wav 失败:', error);
         }
       }
     })();
@@ -175,7 +173,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       return await api.goLucky(params);
     },
     onSuccess: (result: any) => {
-      console.log('🎰 转动接口返回:', result);
       
       // 检查返回的 code，如果是 200000 表示有问题
       if (result.code === 200000) {
@@ -193,7 +190,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         // win === 0 表示没中奖，win === 1 表示中奖
         const winValue = (result.data as any)?.win ?? 0;
         const winResult = winValue === 1;
-        console.log('🎯 中奖结果:', winResult ? '中奖' : '未中奖', 'win值:', winValue);
         
         // 转动成功后刷新用户余额
         fetchUserBean();
@@ -214,7 +210,6 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       }
     },
     onError: (error: any) => {
-      console.error('❌ 转动接口失败:', error);
       const errorMessage = error instanceof Error ? error.message : t('spinFailedDesc');
       toast.show({
         variant: 'error',

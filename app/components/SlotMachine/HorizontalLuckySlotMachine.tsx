@@ -94,7 +94,6 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       // 只在宽度真正变化时才更新
       if (Math.abs(reelCenterRef.current - newCenter) > 1) {
-        console.log('🎰 [容器宽度变化] 从', REEL_WIDTH, '→', actualWidth, 'reelCenter从', reelCenterRef.current, '→', newCenter);
         setREEL_WIDTH(actualWidth);
         setReelCenter(newCenter);
       }
@@ -593,9 +592,6 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
     const initialLeft = actualReelCenter - (targetIndex * 195);
     container.style.left = `${initialLeft}px`;
     
-    console.log('🎰 [初始化] actualContainerWidth:', actualContainerWidth, 'actualReelCenter:', actualReelCenter);
-    console.log('🎰 [初始化] targetIndex:', targetIndex, 'initialLeft:', initialLeft);
-    console.log('🎰 [初始化] 验证: containerLeft(', initialLeft, ') + index(', targetIndex, ') * 195 =', initialLeft + targetIndex * 195, '应该等于', actualReelCenter);
     
     // 立即更新虚拟项和选中状态
     updateVirtualItems();
@@ -606,9 +602,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
         currentSelectedIndexRef.current = -1; // 重置以强制更新
         updateSelection();
         
-        setTimeout(() => {
-          console.log('✅ [初始化完成] 当前选中index:', currentSelectedIndexRef.current, '应该是:', targetIndex);
-        }, 100);
+      
       });
     });
   }, [isSpinning, itemsPerReel, repeatTimes, itemWidth, reelCenter, updateVirtualItems, updateSelection]);
@@ -880,7 +874,6 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       const itemInfo = currentSelectedElementRef.current.querySelector('.item-info') as HTMLElement;
       if (itemInfo) {
         itemInfo.style.opacity = '1';
-        console.log('✅ [横向老虎机] 显示物品信息');
       }
     }
     

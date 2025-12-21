@@ -54,9 +54,7 @@ export default function MyComponent() {
     });
     
     if (result.success) {
-      console.log('登录成功', result.data);
     } else {
-      console.error('登录失败', result.message);
     }
   };
 
@@ -74,7 +72,6 @@ export default function MyComponent() {
   const refreshUserInfo = async () => {
     const result = await fetchUserInfo();
     if (result.success) {
-      console.log('用户信息', result.data);
     }
   };
 
@@ -106,7 +103,6 @@ import axiosInstance from '@/lib/axios';
 const fetchData = async () => {
   const response = await axiosInstance.get('/api/some-endpoint');
   if (response.data.code === 100000) {
-    console.log('数据:', response.data.data);
   }
 };
 
@@ -116,7 +112,6 @@ const submitData = async () => {
     key: 'value'
   });
   if (response.data.code === 100000) {
-    console.log('成功');
   }
 };
 
@@ -179,7 +174,6 @@ const { register, sendVerificationEmail, activateAccount } = useAuth();
 const handleSendEmail = async () => {
   const result = await sendVerificationEmail('user@example.com', 'register');
   if (result.success) {
-    console.log('验证邮件已发送');
   }
 };
 
@@ -191,7 +185,6 @@ const handleRegister = async () => {
     password: '123456'
   });
   if (result.success) {
-    console.log('注册成功');
   }
 };
 
@@ -199,7 +192,6 @@ const handleRegister = async () => {
 const handleActivate = async (email: string, code: string) => {
   const result = await activateAccount({ email, code });
   if (result.success) {
-    console.log('激活成功');
   }
 };
 ```

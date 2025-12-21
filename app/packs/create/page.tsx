@@ -575,7 +575,6 @@ export default function CreatePackPage() {
                     show({ title: '创建成功', description: `“${title}” 已添加到礼包列表。`, variant: 'success' });
                     router.push(`/packs?toast=created&name=${encodeURIComponent(title)}`);
                   } catch (e) {
-                    console.error(e);
                     show({ title: '糟糕，出错了。', description: '创建失败', variant: 'error' });
                   }
                 }}

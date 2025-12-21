@@ -102,48 +102,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     });
   };
 
-  const handleOpenCart = () => {
-    setViewMode('cart');
-    setShopItems([]);
-    setActiveTab('all');
-    setSelectedItems(new Set());
-    setSelectionOrder([]);
-    refetchCart();
-  };
-
-  const handleOpenShop = async () => {
-    if (isShopLoading) return;
-    setViewMode('shop');
-    setActiveTab('all');
-    setSelectedItems(new Set());
-    setSelectionOrder([]);
-    setIsShopLoading(true);
-    try {
-      const response = await api.getShopList();
-      if (response.code === 100000) {
-        setShopItems(mapShopItems(response));
-      } else {
-        throw new Error(response.message || t('shopFetchFail'));
-      }
-    } catch (error: any) {
-      showGlobalToast({
-        title: t('error'),
-        description: error?.message || t('shopFetchFail'),
-        variant: 'error',
-      });
-      setShopItems([]);
-    } finally {
-      setIsShopLoading(false);
-    }
-  };
-
-  const handleToggleMode = () => {
-    if (isShopMode) {
-      handleOpenCart();
-    } else {
-      handleOpenShop();
-    }
-  };
+  // ✅ 按需求：购物车弹窗内“商城”入口在各端统一隐藏（暂时保留 shop 相关逻辑，后续如需再开放入口）
 
   useEffect(() => {
     if (isOpen) {
@@ -234,8 +193,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const listLoading = isShopMode ? isShopLoading : shouldShowWarehouseLoading;
   const listLoadingText = isShopMode ? t('shopLoading') : t('warehouseLoadingText');
   const emptyListText = isShopMode ? t('shopEmpty') : t('warehouseEmpty');
-  const actionButtonLabel = isShopMode ? t('cartTitle') : t('shop');
-  const actionButtonDisabled = isShopLoading;
   const headerTitle = isShopMode ? t('shop') : t('cartTitle');
   const allTabLabel = `${t('allItems')} (${defaultItems.length})`;
   const selectedTabLabel = `${t('selectedItems')} (${selectedCount})`;
@@ -719,16 +676,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 >
                   {t('exchange')}
                 </button>
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                  style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
-                  disabled={actionButtonDisabled}
-                  onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                  onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                  onClick={handleToggleMode}
-                >
-                  {actionButtonLabel}
-                </button>
+                {/* “商城”按钮：按需求在所有端统一隐藏 */}
               </div>
             </div>
           </div>
@@ -850,16 +798,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 >
                   {t('exchange')}
                 </button>
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                  style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
-                  disabled={actionButtonDisabled}
-                  onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                  onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                  onClick={handleToggleMode}
-                >
-                  {actionButtonLabel}
-                </button>
+                {/* “商城”按钮：按需求在所有端统一隐藏 */}
               </div>
             </div>
           </div>
@@ -918,16 +857,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               >
                 {t('exchange')}
               </button>
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
-                style={{ backgroundColor: '#34383C', color: actionButtonDisabled ? '#7A8084' : '#FFFFFF', cursor: actionButtonDisabled ? 'default' : 'pointer' }}
-                disabled={actionButtonDisabled}
-                onMouseEnter={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#5A5E62'; }}
-                onMouseLeave={(e) => { if (!actionButtonDisabled) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                onClick={handleToggleMode}
-              >
-                {actionButtonLabel}
-              </button>
+              {/* “商城”按钮：按需求在所有端统一隐藏 */}
             </div>
           </div>
           <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ backgroundColor: '#1D2125' }}>
