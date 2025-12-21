@@ -640,6 +640,12 @@ const dict: Dict = {
   topUp: { zh: "充值", en: "Top up", ko: "충전", ja: "チャージ" },
   noAmountOptions: { zh: "暂无可选金额", en: "No selectable amounts", ko: "선택 가능한 금액이 없습니다", ja: "選択できる金額がありません" },
   selectPaymentAndAmount: { zh: "请选择支付方式以及金额", en: "Please select payment method and amount", ko: "결제 수단과 금액을 선택하세요", ja: "支払い方法と金額を選択してください" },
+  depositFeeNotice: {
+    zh: "此支付方式到账金额会扣除7%的手续费",
+    en: "This payment method will deduct a 7% fee from the credited amount",
+    ko: "이 결제 수단은 입금 금액에서 7% 수수료가 차감됩니다",
+    ja: "この支払い方法では入金額から7%の手数料が差し引かれます",
+  },
   amountLabel: { zh: "金额", en: "Amount", ko: "금액", ja: "金額" },
   enterAmount: { zh: "请输入金额", en: "Enter amount", ko: "금액을 입력하세요", ja: "金額を入力してください" },
   amountValidationError: { zh: "金额必须是大于等于100的整数", en: "Amount must be an integer greater than or equal to 100", ko: "금액은 100 이상의 정수여야 합니다", ja: "金額は100以上の整数である必要があります" },

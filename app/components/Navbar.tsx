@@ -1692,7 +1692,7 @@ export default function Navbar() {
             </div>
             <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
               <p className="text-center" style={{ color: '#7a8084', fontSize: 14 }}>
-                {selectedChannel?.id === 19 ? '此支付方式到账金额会扣除7%的手续费' : t("selectPaymentAndAmount")}
+                {selectedChannel?.id === 19 ? t("depositFeeNotice") : t("selectPaymentAndAmount")}
               </p>
             </div>
             <button
