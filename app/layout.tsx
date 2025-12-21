@@ -9,6 +9,7 @@ import QueryProvider from "./components/QueryProvider";
 import ToastProvider from "./components/ToastProvider";
 import AuthProvider from "./providers/AuthProvider";
 import Providers from "./providers";
+import ChaportLiveChat from "./components/ChaportLiveChat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -81,6 +82,7 @@ export default function RootLayout({
             </QueryProvider>
           </Providers>
         </I18nProvider>
+        <ChaportLiveChat />
       </body>
     </html>
   );

@@ -30,7 +30,6 @@ function mapBoxDetailToPackData(rawPack: any) {
       const lv = item?.lv ?? award?.lv ?? 0;
       const quality = getQualityFromLv(lv);
       const id = award?.id || award?.award_id || item?.id;
-
       return {
         id: id ? String(id) : '',
         name: award?.name || award?.item_name || award?.award_name || '',
@@ -39,9 +38,9 @@ function mapBoxDetailToPackData(rawPack: any) {
         qualityId: quality.qualityId,
         description: award?.description || '',
         dropProbability: Number(
-          item?.percent_odds ??
-            award?.drop_probability ??
-            award?.dropProbability ??
+          item?.bili ??
+            award?.bili ??
+            award?.bili ??
             0
         ),
         backlightColor: quality.color,
