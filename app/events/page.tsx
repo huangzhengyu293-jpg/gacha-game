@@ -82,10 +82,10 @@ export default function EventsPage() {
   const rankingMonth = mapRanking(consumeData?.data?.ranking_month, 'monthly');
   const rankingWeek = mapRanking(consumeData?.data?.ranking_week, 'weekly');
   const rankingYesterday =
-    Array.isArray(consumeData?.data?.ranking_yesterday?.data)
-      ? consumeData?.data?.ranking_yesterday?.data
-      : Array.isArray(consumeData?.data?.ranking_yesterday)
-        ? consumeData?.data?.ranking_yesterday
+    Array.isArray(consumeData?.data?.ranking?.data)
+      ? consumeData?.data?.ranking?.data
+      : Array.isArray(consumeData?.data?.ranking)
+        ? consumeData?.data?.ranking
         : [];
   const rankingDaily = mapRanking(rankingYesterday, 'daily');
 

@@ -282,8 +282,8 @@ export default function Navbar() {
   useEffect(() => {
     if (channelList.length === 0) return;
     if (!selectedChannel) {
-      const firstWithMoney = channelList.find((c: any) => Array.isArray(c?.money_list) && c.money_list.length > 0);
-      setSelectedChannel(firstWithMoney ?? channelList[0]);
+      // ✅ 打开弹窗默认选中数组第一个支付方式
+      setSelectedChannel(channelList[0]);
     }
   }, [channelList, selectedChannel]);
 
@@ -334,6 +334,17 @@ export default function Navbar() {
       }
     },
   });
+
+  const handleQuickRecharge = useCallback((amount: string | number) => {
+    if (!selectedChannel?.id) return;
+    if (rechargeMutation.isPending) return;
+    const raw = typeof amount === 'string' ? amount : String(amount);
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    // 同步到输入框，保持 UI 一致
+    setRechargeAmount(trimmed);
+    rechargeMutation.mutate({ id: selectedChannel.id, money: trimmed });
+  }, [selectedChannel?.id, rechargeMutation]);
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
@@ -1616,6 +1627,34 @@ export default function Navbar() {
                     ) : (
                       <div className="flex flex-col gap-3">
                         <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
+                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示（无 money_list 则不展示） */}
+                        {selectedChannel?.id !== 2 && Array.isArray(selectedChannel?.money_list) && selectedChannel.money_list.length > 0 && (
+                          <div className="grid w-full grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
+                            {selectedChannel.money_list.map((m: any, i: number) => {
+                              const val = typeof m === 'number' || typeof m === 'string' ? String(m) : String(m?.money ?? m?.amount ?? '');
+                              if (!val || !val.trim()) return null;
+                              const isActive = rechargeAmount === val;
+                              return (
+                                <button
+                                  key={`${val}_${i}`}
+                                  type="button"
+                                  className="inline-flex w-full items-center justify-center rounded-md h-9 px-2 text-xs sm:text-sm font-bold transition-colors disabled:pointer-events-none interactive-focus"
+                                  style={{
+                                    backgroundColor: isActive ? '#4299E1' : '#22272B',
+                                    color: '#FFFFFF',
+                                    border: `1px solid ${isActive ? '#4299E1' : '#34383C'}`,
+                                    cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer',
+                                    opacity: rechargeMutation.isPending ? 0.7 : 1,
+                                  }}
+                                  disabled={rechargeMutation.isPending}
+                                  onClick={() => handleQuickRecharge(val)}
+                                >
+                                  {val}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1630,7 +1669,8 @@ export default function Navbar() {
                             {t("amountValidationError")}
                           </p>
                         )}
-                        <div className="flex w-full justify-end">
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <span />
                           <button
                             type="button"
                             className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
@@ -1652,7 +1692,7 @@ export default function Navbar() {
             </div>
             <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
               <p className="text-center" style={{ color: '#7a8084', fontSize: 14 }}>
-                {t("selectPaymentAndAmount")}
+                {selectedChannel?.id === 19 ? '此支付方式到账金额会扣除7%的手续费' : t("selectPaymentAndAmount")}
               </p>
             </div>
             <button
