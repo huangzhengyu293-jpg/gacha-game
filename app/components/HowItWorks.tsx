@@ -74,15 +74,15 @@ export default function HowItWorks() {
   const { t } = useI18n();
   const faqLeft: FaqItem[] = useMemo(() => ([
     { q: t("faqWhatIsQ"), a: t("faqWhatIsA") },
-    { q: t("faqIsSafeQ"), a: t("faqIsSafeA") },
+    // { q: t("faqIsSafeQ"), a: t("faqIsSafeA") }, // 已移除：FlameDraw 安全公平吗？
     { q: t("faqTrustQ"), a: t("faqTrustA") },
     { q: t("faqHowOpenQ"), a: t("faqHowOpenA") },
+    { q: t("faqGetSupportQ"), a: t("faqGetSupportA") },
   ]), [t]);
   const faqRight: FaqItem[] = useMemo(() => ([
     { q: t("faqHowDepositQ"), a: t("faqHowDepositA") },
     { q: t("faqCryptoPendingQ"), a: t("faqCryptoPendingA") },
     { q: t("faqWhatBattleQ"), a: t("faqWhatBattleA") },
-    { q: t("faqGetSupportQ"), a: t("faqGetSupportA") },
   ]), [t]);
 
   return (

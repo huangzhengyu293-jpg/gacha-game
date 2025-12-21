@@ -15,6 +15,7 @@ import EliminationSlotMachine, { type PlayerSymbol, type EliminationSlotMachineH
 import BattleSlotDivider from "../components/BattleSlotDivider";
 import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea';
 import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
+import LoadingSpinnerIcon from '@/app/components/icons/LoadingSpinner';
 import { api, type CreateBattlePayload } from '@/app/lib/api';
 import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
@@ -1394,6 +1395,7 @@ function BattleDetailContent({
   const previousPendingStatusRef = useRef(isPendingBattle);
   // 🔥 使用 useMemo 创建稳定的 status 值，避免依赖项数组大小变化
   const rawDetailStatus = useMemo(() => Number(rawDetail?.status ?? 0), [rawDetail?.status]);
+  const { fetchUserBean } = useAuth();
   const [isRecreatingBattle, setIsRecreatingBattle] = useState(false);
   const handleRecreateBattle = useCallback(async () => {
     if (isRecreatingBattle) return;
@@ -1437,18 +1439,52 @@ function BattleDetailContent({
       };
 
       const response = await api.createBattle(payload);
-      const createdId = response?.data ?? null;
-      if (createdId !== null && createdId !== undefined) {
-        router.replace(`/battles/${createdId}`);
+      if (response?.code === 100000) {
+        const rawCreated: any = response?.data ?? null;
+        const createdId =
+          rawCreated && typeof rawCreated === 'object'
+            ? (rawCreated.id ?? rawCreated.fight_id ?? rawCreated.fightId ?? null)
+            : rawCreated;
+
+        showGlobalToast({
+          title: t('createBattleSuccessTitle'),
+          description: t('createBattleRedirectingDesc'),
+          variant: 'success',
+          durationMs: 2000,
+        });
+
+        // ✅ 更新钱包余额
+        fetchUserBean?.();
+
+        if (createdId !== null && createdId !== undefined && createdId !== '') {
+          router.replace(`/battles/${createdId}`);
+        } else {
+          showGlobalToast({
+            title: t('error'),
+            description: response?.message || t('retryLater'),
+            variant: 'error',
+            durationMs: 2200,
+          });
+        }
       } else {
-        console.error('createBattle 未返回新的对战 ID', response);
+        showGlobalToast({
+          title: t('error'),
+          description: response?.message || t('retryLater'),
+          variant: 'error',
+          durationMs: 2200,
+        });
       }
     } catch (error) {
-      console.error('重新创建对战失敗', error);
+      showGlobalToast({
+        title: t('error'),
+        description: error instanceof Error ? error.message : t('retryLater'),
+        variant: 'error',
+        durationMs: 2200,
+      });
     } finally {
       setIsRecreatingBattle(false);
     }
-  }, [isRecreatingBattle, rawDetail, battleData, router]);
+  }, [isRecreatingBattle, rawDetail, battleData, router, t, fetchUserBean]);
 
 
 useEffect(() => {
@@ -4894,6 +4930,7 @@ useEffect(() => {
                     }}
                     onClick={handleRecreateBattle}
                   >
+                    {isRecreatingBattle ? <LoadingSpinnerIcon size={20} /> : null}
                     <p className="text-base font-bold" style={{ color: '#ffffff' }}>
                       {isRecreatingBattle
                         ? t('creatingBattle')

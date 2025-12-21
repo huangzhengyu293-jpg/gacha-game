@@ -30,8 +30,13 @@ export default function SelectPackModal({
 }) {
   const { t } = useI18n();
   const effectiveMaxPacks = maxPacks === undefined ? (minPacks === 0 ? undefined : 6) : maxPacks;
+  // 目前仅用于上层约束/展示（此弹窗不强制校验）
   const effectiveMinPacks = minPacks === undefined ? 1 : minPacks;
-  const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
+  /**
+   * 选择序列（允许重复，严格按用户点击顺序记录）
+   * 例如：A、B、A -> ["A","B","A"]
+   */
+  const [selectedList, setSelectedList] = useState<string[]>([]);
   const [hoverAddButtonId, setHoverAddButtonId] = useState<string | null>(null);
   
   // 使用筛选 hook
@@ -94,12 +99,9 @@ export default function SelectPackModal({
     refetch();
     isInitializingRef.current = true;
     
-    const next: Record<string, number> = {};
-    selectedPackIds.forEach((id) => {
-      next[id] = (next[id] || 0) + 1;
-    });
-    
-    setQtyMap(next);
+    const nextList =
+      effectiveMaxPacks === undefined ? [...selectedPackIds] : selectedPackIds.slice(0, effectiveMaxPacks);
+    setSelectedList(nextList);
     
     setTimeout(() => {
       isInitializingRef.current = false;
@@ -128,8 +130,16 @@ export default function SelectPackModal({
   );
 
   const selectedCount = useMemo(() => {
-    return Object.values(qtyMap).reduce((a, b) => a + (b || 0), 0);
-  }, [qtyMap]);
+    return selectedList.length;
+  }, [selectedList]);
+
+  const qtyMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    selectedList.forEach((id) => {
+      map[id] = (map[id] || 0) + 1;
+    });
+    return map;
+  }, [selectedList]);
   
   const selectedTotal = useMemo(() => {
     return Object.entries(qtyMap).reduce((sum: number, [id, q]: [string, number]) => {
@@ -140,48 +150,34 @@ export default function SelectPackModal({
   }, [qtyMap, packs]);
 
   const getQty = (id: string) => qtyMap[id] || 0;
-  
-  // 从 qtyMap 生成列表
-  const generateListFromMap = (map: Record<string, number>): string[] => {
-    const list: string[] = [];
-    Object.entries(map).forEach(([id, count]) => {
-      for (let i = 0; i < count; i++) {
-        if (effectiveMaxPacks === undefined || list.length < effectiveMaxPacks) {
-          list.push(id);
-        }
-      }
-    });
-    return list;
-  };
 
-  // qtyMap 变化时通知父组件
+  // 选择序列变化时通知父组件
   useEffect(() => {
     if (isInitializingRef.current) return;
-    const list = generateListFromMap(qtyMap);
-    onSelectionChangeRef.current(list);
-  }, [qtyMap]);
+    onSelectionChangeRef.current(selectedList);
+  }, [selectedList]);
 
   const inc = (id: string) => {
-    setQtyMap(prev => {
-      if (effectiveMaxPacks !== undefined) {
-        const total = Object.values(prev).reduce((a, b) => a + (b || 0), 0);
-        if (total >= effectiveMaxPacks) return prev;
-      }
-      return { ...prev, [id]: (prev[id] || 0) + 1 };
+    setSelectedList((prev) => {
+      if (effectiveMaxPacks !== undefined && prev.length >= effectiveMaxPacks) return prev;
+      return [...prev, id];
     });
   };
   
   const dec = (id: string) => {
-    setQtyMap(prev => {
-      const curr = prev[id] || 0;
+    setSelectedList((prev) => {
+      const curr = prev.reduce((acc, x) => (x === id ? acc + 1 : acc), 0);
       if (curr <= 0) return prev;
-      
+
       // 保护第一个卡包（使用打开弹窗时记录的第一个ID）
       if (id === firstPackIdRef.current && curr <= 1) {
         return prev;
       }
-      
-      return { ...prev, [id]: Math.max(0, curr - 1) };
+
+      // 删除“最后一次出现”的该 id，保留更早的顺序
+      const idx = prev.lastIndexOf(id);
+      if (idx < 0) return prev;
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
     });
   };
 

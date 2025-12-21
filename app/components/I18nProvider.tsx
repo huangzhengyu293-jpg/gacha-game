@@ -103,6 +103,8 @@ const dict: Dict = {
   summaryTotalCost: { zh: "总成本", en: "Total cost", ko: "총 비용", ja: "総コスト" },
   creatingBattle: { zh: "创建中...", en: "Creating...", ko: "생성 중...", ja: "作成中..." },
   createBattleFor: { zh: "创建对战，价格 {price}", en: "Create battle for {price}", ko: "{price}에 배틀 생성", ja: "{price} でバトル作成" },
+  createBattleSuccessTitle: { zh: "创建对战成功", en: "Battle created", ko: "배틀 생성 성공", ja: "バトル作成成功" },
+  createBattleRedirectingDesc: { zh: "正在跳转", en: "Redirecting...", ko: "이동 중...", ja: "移動中..." },
   start: { zh: "开始", en: "Start", ko: "시작", ja: "開始" },
   allBattles: { zh: "所有对战", en: "All battles", ko: "모든 배틀", ja: "すべてのバトル" },
   readyToStart: { zh: "准备开始", en: "Ready to start", ko: "시작 준비", ja: "開始準備" },

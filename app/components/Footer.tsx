@@ -118,7 +118,8 @@ export default function Footer() {
             </div>
           </MobileAccordionMemo>
 
-          <div className="flex flex-col gap-2">
+          {/* 社区部分已注释 */}
+          {/* <div className="flex flex-col gap-2">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
             <div className="flex gap-3">
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
@@ -133,7 +134,7 @@ export default function Footer() {
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-youtube size-5" style={{ color: '#FFFFFF' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"></path><path d="m10 15 5-3-5-3z"></path></svg>
               </button>
             </div>
-          </div>
+          </div> */}
 
           <div className="flex flex-col gap-2 mt-2">
             <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
@@ -175,7 +176,8 @@ export default function Footer() {
             <Link href="/terms" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
               {t("terms")}
             </Link>
-            <div className="flex flex-col gap-2 mt-3">
+            {/* 社区部分已注释 */}
+            {/* <div className="flex flex-col gap-2 mt-3">
               <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
               <div className="flex gap-3">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
@@ -190,7 +192,7 @@ export default function Footer() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-youtube size-5" style={{ color: '#FFFFFF' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"></path><path d="m10 15 5-3-5-3z"></path></svg>
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
           <div className="flex flex-col min-w-44 gap-6">
             <div className="flex flex-col">
