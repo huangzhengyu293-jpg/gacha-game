@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Fragment, useEffect, useRef } from "react";
+import React, { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BattleListCard } from "@/app/battles/battleListSource";
 import { getModeVisual, getSpecialOptionLabels } from "@/app/battles/modeVisuals";
 import BattleConnectorIcon from "./BattleConnectorIcon";
@@ -99,6 +99,7 @@ function Gallery({
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRefs = useRef<Array<HTMLImageElement | null>>([]);
   const [tailSpacer, setTailSpacer] = React.useState(0);
+  const [layoutTick, setLayoutTick] = useState(0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -129,7 +130,7 @@ function Gallery({
     };
   }, []);
 
-  useEffect(() => {
+  const scrollHighlightedToCenter = React.useCallback(() => {
     if (!canScroll) return;
     if (!Array.isArray(items) || items.length === 0) return;
     if (highlightedIndex === undefined || highlightedIndex === null) return;
@@ -138,23 +139,36 @@ function Gallery({
     const target = imgRefs.current[safeIndex];
     if (!container || !target) return;
 
-    // 用 RAF 等待布局稳定（移动端更容易在首帧出现 scrollWidth/clientWidth 不准）
-    const rafId = requestAnimationFrame(() => {
-      const containerWidth = container.clientWidth;
-      const maxScroll = container.scrollWidth - containerWidth;
-      const targetCenter = target.offsetLeft + target.clientWidth / 2;
-      const desiredLeft = Math.max(0, Math.min(maxScroll, targetCenter - containerWidth / 2));
+    const containerWidth = container.clientWidth;
+    const targetWidth = target.clientWidth;
+    const maxScroll = container.scrollWidth - containerWidth;
 
-      // iOS/部分环境对 smooth 支持不稳定，兜底为直接设置 scrollLeft
-      try {
-        container.scrollTo({ left: desiredLeft, behavior: "smooth" });
-      } catch {
-        container.scrollLeft = desiredLeft;
-      }
-    });
+    // 如果布局还没稳定（常见于首帧/图片未加载），下一帧再试一次
+    if (!Number.isFinite(containerWidth) || containerWidth <= 0 || !Number.isFinite(targetWidth) || targetWidth <= 0 || maxScroll <= 0) {
+      requestAnimationFrame(() => scrollHighlightedToCenter());
+      return;
+    }
 
-    return () => cancelAnimationFrame(rafId);
-  }, [highlightedIndex, items, canScroll]);
+    const targetCenter = target.offsetLeft + targetWidth / 2;
+    const desiredLeft = Math.max(0, Math.min(maxScroll, targetCenter - containerWidth / 2));
+
+    // iOS/部分环境对 smooth 支持不稳定，兜底为直接设置 scrollLeft
+    try {
+      container.scrollTo({ left: desiredLeft, behavior: "smooth" });
+    } catch {
+      container.scrollLeft = desiredLeft;
+    }
+  }, [canScroll, highlightedIndex, items]);
+
+  // 用 layoutEffect 尽可能早地触发“居中滚动”，避免依赖轮询带来的延迟
+  useLayoutEffect(() => {
+    if (!canScroll) return;
+    if (!Array.isArray(items) || items.length === 0) return;
+    if (highlightedIndex === undefined || highlightedIndex === null) return;
+    // 首次进来经常遇到“图片未加载导致宽度为 0”，用 layoutTick 触发二次居中
+    scrollHighlightedToCenter();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedIndex, canScroll, tailSpacer, layoutTick, scrollHighlightedToCenter, items]);
 
   return (
     <div
@@ -177,6 +191,13 @@ function Gallery({
               height={96}
               decoding="async"
               src={g.src}
+              onLoad={() => {
+                // 仅在高亮项加载完成时触发一次“重新居中”，提升已结束对战的首屏丝滑度
+                if (isActive) setLayoutTick((v) => v + 1);
+              }}
+              onError={() => {
+                if (isActive) setLayoutTick((v) => v + 1);
+              }}
               style={{
                 color: "transparent",
                 opacity: isActive ? 1 : 0.32,

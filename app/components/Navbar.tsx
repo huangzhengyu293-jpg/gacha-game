@@ -454,11 +454,31 @@ export default function Navbar() {
   // 注册处理函数
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canRegister) return;
+    if (isSubmitting) return;
+
+    const username = regUsername.trim();
+    const email = regEmail.trim();
+
+    if (username.length < 3) {
+      toast.show({ variant: 'error', title: t('inputError'), description: t('registerValidationUsername') });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.show({ variant: 'error', title: t('inputError'), description: t('registerValidationEmail') });
+      return;
+    }
+    if (regPass.length < 6) {
+      toast.show({ variant: 'error', title: t('inputError'), description: t('registerValidationPassword') });
+      return;
+    }
+    if (!agreed) {
+      toast.show({ variant: 'error', title: t('inputError'), description: t('registerValidationAgree') });
+      return;
+    }
 
     const result = await register({
-      name: regUsername.trim(),
-      email: regEmail.trim(),
+      name: username,
+      email,
       password: regPass,
       invite: regInvite.trim() || undefined,
     });
@@ -1324,8 +1344,8 @@ export default function Navbar() {
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (canRegister && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (canRegister && !isSubmitting) ? 1 : 0.8 }}
-                disabled={!canRegister || isSubmitting}
+                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.8 : 1 }}
+                disabled={isSubmitting}
               >
                 {isSubmitting ? t("registering") : t("registerBtn")}
               </button>
