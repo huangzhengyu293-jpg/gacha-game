@@ -53,7 +53,7 @@ export default function AccountMobileMenu() {
   }, [open]);
 
   return (
-    <div className="relative lg:hidden z-10">
+    <div className="relative lg:hidden">
       <button
         type="button"
         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-10 px-6"
@@ -66,14 +66,14 @@ export default function AccountMobileMenu() {
       {open && (
         <>
           {/* 遮罩 */}
-          <div className="fixed inset-0" style={{ zIndex: 50 }} />
+          <div className="fixed inset-0 z-50" />
           {/* 下拉 */}
           <div
             ref={menuRef}
             role="menu"
             aria-orientation="vertical"
-            className="absolute left-0 top-full mt-2 w-56 rounded-lg p-1 shadow-md overflow-y-auto"
-            style={{ backgroundColor: '#22272B', zIndex: 60 }}
+            className="absolute left-0 top-full z-[60] mt-2 w-56 rounded-lg p-1 shadow-md overflow-y-auto"
+            style={{ backgroundColor: '#22272B' }}
           >
             {MENU_ITEMS.map((item) => (
               <Link

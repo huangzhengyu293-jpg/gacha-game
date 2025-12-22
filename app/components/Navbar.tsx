@@ -1738,7 +1738,7 @@ export default function Navbar() {
               </div>
             </div>
             <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
-              <p className="text-center" style={{ color: '#7a8084', fontSize: 14 }}>
+              <p className="text-center" style={{ color: '#7a8084', fontSize: 18,fontWeight: 500 }}>
                 {selectedChannel?.id === 19 ? t("depositFeeNotice") : t("selectPaymentAndAmount")}
               </p>
             </div>
