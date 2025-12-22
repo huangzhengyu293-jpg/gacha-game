@@ -186,6 +186,8 @@ export default function Navbar() {
   // 根据用户信息预填邀请码（若无则为空）
   const inviterId = Number(user?.userInfo?.inviter_id ?? 0);
   const invitePlaceholder = inviterId === 0 ? t("inviteBindPlaceholder") : t("inviteUpdatePlaceholder");
+  const userType = useMemo(() => Number((user as any)?.userInfo?.user_type ?? 0), [user?.userInfo]);
+  const shouldShowInviteCode = userType !== 2;
 
   useEffect(() => {
     const invite = typeof (user as any)?.userInfo?.invite === 'string' ? (user as any).userInfo.invite : '';
@@ -1046,15 +1048,19 @@ export default function Navbar() {
                       </div>
                     
                     </div>
-                    <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
-                    <PromoCodeForm
-                      value={promoCode}
-                      loading={promoLoading}
-                      onChange={setPromoCode}
-                      onSubmit={handlePromoSubmit}
-                      className="mt-1"
-                      placeholder={invitePlaceholder}
-                    />
+                    {shouldShowInviteCode && (
+                      <>
+                        <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+                        <PromoCodeForm
+                          value={promoCode}
+                          loading={promoLoading}
+                          onChange={setPromoCode}
+                          onSubmit={handlePromoSubmit}
+                          className="mt-1"
+                          placeholder={invitePlaceholder}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1221,15 +1227,19 @@ export default function Navbar() {
                             <p className="text-base text-white">{t("logoutBtn")}</p>
                           </div>
                         </div>
-                        <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
-                        <PromoCodeForm
-                          value={promoCode}
-                          loading={promoLoading}
-                          onChange={setPromoCode}
-                          onSubmit={handlePromoSubmit}
-                          className="mt-2"
-                          placeholder={invitePlaceholder}
-                        />
+                        {shouldShowInviteCode && (
+                          <>
+                            <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
+                            <PromoCodeForm
+                              value={promoCode}
+                              loading={promoLoading}
+                              onChange={setPromoCode}
+                              onSubmit={handlePromoSubmit}
+                              className="mt-2"
+                              placeholder={invitePlaceholder}
+                            />
+                          </>
+                        )}
                       </>
                     ) : null}
                   </div>
@@ -1284,14 +1294,16 @@ export default function Navbar() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out size-5 text-white"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
                   <p className="text-lg text-white font-semibold">{t("logoutBtn")}</p>
                 </div>
-                <PromoCodeForm
-                  value={promoCode}
-                  loading={promoLoading}
-                  onChange={setPromoCode}
-                  onSubmit={handlePromoSubmit}
-                  className="mt-2"
-                  showTopDivider
-                />
+                {shouldShowInviteCode && (
+                  <PromoCodeForm
+                    value={promoCode}
+                    loading={promoLoading}
+                    onChange={setPromoCode}
+                    onSubmit={handlePromoSubmit}
+                    className="mt-2"
+                    showTopDivider
+                  />
+                )}
               </div>
             </div>
           ) : (

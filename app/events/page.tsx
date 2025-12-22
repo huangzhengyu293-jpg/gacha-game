@@ -1,9 +1,136 @@
 'use client';
 import { useI18n } from '../components/I18nProvider';
-import { useState, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import BestLiveSidebar from '../components/BestLiveSidebar';
+
+type RaceType = 'weekly' | 'monthly' | 'daily';
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+const getJstNow = () => {
+  const now = Date.now();
+  return new Date(now + JST_OFFSET_MS);
+};
+
+const computeDailyMsJst = () => {
+  const jst = getJstNow();
+  // 到东京时间次日 00:00
+  const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1, 0, 0, 0);
+  return target - jst.getTime();
+};
+
+const computeWeeklyMsJst = () => {
+  const jst = getJstNow();
+  // 到东京时间下周一 00:00（周一为 1；周日为 0）
+  const day = jst.getUTCDay(); // 0-6
+  const daysUntilMonday = (8 - day) % 7 || 7;
+  const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + daysUntilMonday, 0, 0, 0);
+  return target - jst.getTime();
+};
+
+const computeMonthlyMsJst = () => {
+  const jst = getJstNow();
+  // 月赛：固定倒计时到 2026 年 1 月结束（东京时间）=> 2026-02-01 00:00 JST
+  const target = Date.UTC(2026, 1, 1, 0, 0, 0);
+  return Math.max(0, target - jst.getTime());
+};
+
+const RaceCountdownCard = memo(function RaceCountdownCard({
+  title,
+  raceType,
+}: {
+  title: string;
+  raceType: RaceType;
+}) {
+  const { t } = useI18n();
+  const [countdownText, setCountdownText] = useState<string>(t('calculating'));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const formatHMS = (ms: number) => {
+      const unitHour = t('timeUnitHour');
+      const unitMinute = t('timeUnitMinute');
+      const unitSecond = t('timeUnitSecond');
+      if (ms <= 0) return `0${unitHour} 0${unitMinute} 0${unitSecond}`;
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${hours}${unitHour} ${minutes}${unitMinute} ${seconds}${unitSecond}`;
+    };
+
+    const formatDHMS = (ms: number) => {
+      const unitDay = t('timeUnitDay');
+      const unitHour = t('timeUnitHour');
+      const unitMinute = t('timeUnitMinute');
+      const unitSecond = t('timeUnitSecond');
+      if (ms <= 0) return `0${unitDay} 0${unitHour} 0${unitMinute} 0${unitSecond}`;
+      const totalSeconds = Math.floor(ms / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${days}${unitDay} ${hours}${unitHour} ${minutes}${unitMinute} ${seconds}${unitSecond}`;
+    };
+
+    const tick = () => {
+      if (raceType === 'daily') {
+        setCountdownText(formatHMS(computeDailyMsJst()));
+        return;
+      }
+      if (raceType === 'weekly') {
+        setCountdownText(formatDHMS(computeWeeklyMsJst()));
+        return;
+      }
+      setCountdownText(formatDHMS(computeMonthlyMsJst()));
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [raceType, t]);
+
+  return (
+    <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: '#22272B' }}>
+      <div className="relative rounded-lg overflow-hidden" style={{ backgroundColor: '#1d2125' }}>
+        <div
+          className="absolute -top-6 left-0 w-full overflow-hidden rounded-lg pointer-events-none"
+          style={{ height: 'calc(100% + 1.5rem)' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/theme/default/flag.png"
+            alt=""
+            className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]"
+            style={{ left: '-110px', zIndex: 0 }}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/theme/default/flag.png"
+            alt=""
+            className="absolute top-0 object-contain object-top w-[260px] h-[195px] xxs:w-[300px] xxs:h-[240px] sm:w-[426px] sm:h-[340px]"
+            style={{ right: '-110px', transform: 'scaleX(-1)', zIndex: 0 }}
+          />
+        </div>
+        <div className="relative flex flex-col items-center pt-9 pb-6 md:pb-12 px-3">
+          <p className="font-changa text-base sm:text-[25px] lg:text-[32px] text-white mb-3 md:mb-4 leading-none text-center">
+            {title}
+          </p>
+          <p
+            className="flex items-center justify-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg min-h-11 px-4 text-center"
+            style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}
+          >
+            {raceType === 'daily'
+              ? t('raffleStartsIn').replace('{time}', countdownText)
+              : t('raceEndsIn').replace('{time}', countdownText)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export default function EventsPage() {
   const { t } = useI18n();
@@ -116,7 +243,7 @@ export default function EventsPage() {
     tableData,
   }: { 
     title: string; 
-    raceType: 'weekly' | 'monthly' | 'daily';
+    raceType: RaceType;
     topThree: TopThreePlayer[];
     tableData: TablePlayer[];
   }) => {
@@ -125,6 +252,8 @@ export default function EventsPage() {
     
     return (
       <>
+        <RaceCountdownCard title={title} raceType={raceType} />
+
         {/* 排行榜 */}
         <div className="relative py-4 sm:py-6">
           <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-8">
@@ -440,7 +569,12 @@ export default function EventsPage() {
                     tabIndex={0}
                     className="mt-4 interactive-focus"
                   >
-                    <RaceLeaderboard title={t('eventsRaffleTab')} raceType="daily" topThree={topThree} tableData={tableData} />
+                    <RaceLeaderboard
+                      title={t('dailyRaceTitle')}
+                      raceType="daily"
+                      topThree={topThree}
+                      tableData={tableData}
+                    />
                   </div>
                 );
               })()}
@@ -458,7 +592,12 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title={t('weeklyRaceTitle')} raceType="weekly" topThree={topThree} tableData={tableData} />
+                <RaceLeaderboard
+                  title={t('weeklyRaceTitle')}
+                  raceType="weekly"
+                  topThree={topThree}
+                  tableData={tableData}
+                />
               </div>
                 );
               })()}
@@ -476,7 +615,12 @@ export default function EventsPage() {
                 tabIndex={0}
                 className="mt-4 interactive-focus"
               >
-                <RaceLeaderboard title={t('monthlyRaceTitle')} raceType="monthly" topThree={topThree} tableData={tableData} />
+                <RaceLeaderboard
+                  title={t('monthlyRaceTitle')}
+                  raceType="monthly"
+                  topThree={topThree}
+                  tableData={tableData}
+                />
               </div>
                 );
               })()}
