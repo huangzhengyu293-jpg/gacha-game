@@ -212,7 +212,7 @@ export default function ActionBarClient({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          {/* <button
             type="button"
             disabled={isSlotMachineSpinning}
             onMouseEnter={() => !isSlotMachineSpinning && setHoverDemo(true)}
@@ -239,7 +239,7 @@ export default function ActionBarClient({
               </svg>
             </div>
             <span className="hidden md:flex">{t('demoSpin')}</span>
-          </button>
+          </button> */}
           <button
             type="button"
             disabled={isSlotMachineSpinning}

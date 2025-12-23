@@ -9,6 +9,7 @@ import HorizontalSlotMachineClient from '@/app/packs/[id]/HorizontalSlotMachineC
 import { LogoIcon } from '@/app/components/icons/Logo';
 import { useAuth } from '@/app/hooks/useAuth';
 import ProductCard from '@/app/packs/[id]/ProductCard';
+import { useI18n } from '@/app/components/I18nProvider';
 
 const PLACEHOLDER_IMAGE = '/theme/default/hidden-gold.png';
 
@@ -61,6 +62,7 @@ export default function RewardPackDetailPage() {
   const params = useParams();
   const packId = params?.id as string;
   const { user } = useAuth();
+  const { t } = useI18n();
   const [isSpinning, setIsSpinning] = useState(false);
   const [quickActive, setQuickActive] = useState<boolean>(() => (typeof window !== 'undefined' ? !!(window as any).__slotMachineFastMode : false));
   const [hoverOpen, setHoverOpen] = useState(false);
@@ -161,7 +163,7 @@ export default function RewardPackDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white text-lg">
-        加载中...
+        {t('loading')}
       </div>
     );
   }
@@ -206,13 +208,13 @@ export default function RewardPackDetailPage() {
                   opacity: isSpinning ? 0.6 : 1,
                 }}
               >
-                {isLocked ? '已锁定' : '开启礼包'}
+                {isLocked ? t('rewardPackLocked') : t('rewardOpenPack')}
               </button>
             </div>
             <div className="flex w-full sm:w-auto sm:flex-1 justify-center sm:justify-end items-center gap-2">
               <div className="flex sm:hidden"></div>
               <div className="flex items-center gap-2">
-                <button
+                {/* <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-11 md:w-auto sm:h-11 px-0 md:px-6"
                   disabled={isSpinning}
                   onMouseEnter={() => !isSpinning && setHoverDemo(true)}
@@ -231,8 +233,8 @@ export default function RewardPackDetailPage() {
                       <path d="M17 3V6.75H13.25" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"></path>
                     </svg>
                   </div>
-                  <span className="hidden md:flex">演示转动</span>
-                </button>
+                  <span className="hidden md:flex">{t('demoSpin')}</span>
+                </button> */}
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-11 p-0"
                   onMouseEnter={() => !isSpinning && setHoverQuick(true)}
@@ -265,7 +267,9 @@ export default function RewardPackDetailPage() {
                     <path d="M8.08771 19.0127C7.98916 19.5993 8.54002 20.1807 9.3181 20.3115L16.3622 21.495C17.1403 21.6257 17.8509 21.2562 17.9495 20.6697L19.9123 8.98725C20.0109 8.4007 19.46 7.81924 18.6819 7.68851L15.1599 7.09675" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
                   </svg>
                 </div>
-                <span className="text-lg font-extrabold text-white">Level {requiredLevel || 0} Free Pack</span>
+                <span className="text-lg font-extrabold text-white">
+                  {t('rewardFreePackLevelTitle').replace('{level}', String(requiredLevel || 0))}
+                </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {displayItems.map((prod) => (

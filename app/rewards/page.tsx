@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../components/I18nProvider';
 import BestLiveSidebar from '../components/BestLiveSidebar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,10 +10,9 @@ export default function RewardsPage() {
   const { t } = useI18n();
   const { isAuthenticated, user, fetchUserBean } = useAuth();
   const queryClient = useQueryClient();
+  const [dayCountdown, setDayCountdown] = useState(t('calculating'));
   const [weekCountdown, setWeekCountdown] = useState(t('calculating'));
   const [monthCountdown, setMonthCountdown] = useState(t('calculating'));
-  const [isWeekRestDay, setIsWeekRestDay] = useState(false);
-  const [isMonthRestDay, setIsMonthRestDay] = useState(false);
   const disableTextColor = '#2b6cb0';
   const buttonBg = '#4299e1';
   const buttonDisabledBg = '#292f34';
@@ -26,7 +25,7 @@ export default function RewardsPage() {
     staleTime: 30_000,
   });
   // 进入页面即调用用户返利接口
-  const { data: rebateData } = useQuery({
+  const { data: rebateData, refetch: refetchRebate } = useQuery({
     queryKey: ['userRebate'],
     queryFn: () => api.getUserRebate(),
     staleTime: 30_000,
@@ -35,11 +34,26 @@ export default function RewardsPage() {
   const dayStatus = rebateData?.data?.day?.status;
   const weekStatus = rebateData?.data?.week?.status;
   const monthStatus = rebateData?.data?.month?.status;
+  const dayRebate = useMemo(() => {
+    const raw = (rebateData as any)?.data?.day?.rebate ?? (rebateData as any)?.data?.day?.amount ?? 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }, [rebateData]);
+  const weekRebate = useMemo(() => {
+    const raw = (rebateData as any)?.data?.week?.rebate ?? (rebateData as any)?.data?.week?.amount ?? 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }, [rebateData]);
+  const monthRebate = useMemo(() => {
+    const raw = (rebateData as any)?.data?.month?.rebate ?? (rebateData as any)?.data?.month?.amount ?? 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }, [rebateData]);
 
-  // 工具：东八区当前时间（通过 UTC+8 偏移计算）
-  const getGmt8Now = () => {
+  // 工具：东京时间（JST，UTC+9）
+  const getJstNow = () => {
     const now = Date.now();
-    const offsetMs = 8 * 60 * 60 * 1000;
+    const offsetMs = 9 * 60 * 60 * 1000;
     return new Date(now + offsetMs);
   };
 
@@ -50,48 +64,69 @@ export default function RewardsPage() {
     const hours = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    return `${days}${t('timeUnitDay')} ${hours}${t('timeUnitHour')} ${minutes}${t('timeUnitMinute')} ${seconds}${t('timeUnitSecond')}`;
+  };
+
+  const computeDayTargetMs = () => {
+    const jst = getJstNow();
+    const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1, 0, 0, 0);
+    return target - jst.getTime();
   };
 
   const computeWeekTargetMs = () => {
-    const gmt8 = getGmt8Now();
-    const day = gmt8.getUTCDay(); // 0-6 (基于偏移后的“本地”星期)
-    const isMonday = day === 1;
-    const isStartOfDay = gmt8.getUTCHours() === 0 && gmt8.getUTCMinutes() === 0 && gmt8.getUTCSeconds() === 0;
-    if (isMonday && isStartOfDay) return 0; // 周一不倒计时
+    const jst = getJstNow();
+    const day = jst.getUTCDay(); // 0-6 (基于偏移后的“本地”星期)
     const daysUntilMonday = (8 - day) % 7 || 7;
-    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + daysUntilMonday, 0, 0, 0);
-    return target - gmt8.getTime();
+    const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + daysUntilMonday, 0, 0, 0);
+    return target - jst.getTime();
   };
 
   const computeMonthTargetMs = () => {
-    const gmt8 = getGmt8Now();
-    const year = gmt8.getUTCFullYear();
-    const month = gmt8.getUTCMonth();
-    const isFirstDay = gmt8.getUTCDate() === 1;
-    const isStartOfDay = gmt8.getUTCHours() === 0 && gmt8.getUTCMinutes() === 0 && gmt8.getUTCSeconds() === 0;
-    if (isFirstDay && isStartOfDay) return 0; // 每月一号不倒计时
+    const jst = getJstNow();
+    const year = jst.getUTCFullYear();
+    const month = jst.getUTCMonth();
     const target = Date.UTC(year, month + 1, 1, 0, 0, 0);
-    return target - gmt8.getTime();
+    return target - jst.getTime();
   };
 
-  // 周、月倒计时
+  // 日、周、月倒计时（东京时间）
   useEffect(() => {
+    const dayWasActiveRef = { current: false } as React.MutableRefObject<boolean>;
+    const weekWasActiveRef = { current: false } as React.MutableRefObject<boolean>;
+    const monthWasActiveRef = { current: false } as React.MutableRefObject<boolean>;
+
     const tick = () => {
-      const gmt8 = getGmt8Now();
+      const dayMs = computeDayTargetMs();
       const weekMs = computeWeekTargetMs();
       const monthMs = computeMonthTargetMs();
-      const isWeekRest = gmt8.getUTCDay() === 1;
-      const isMonthRest = gmt8.getUTCDate() === 1;
-      setIsWeekRestDay(isWeekRest);
-      setIsMonthRestDay(isMonthRest);
-      setWeekCountdown(!isWeekRest && weekMs > 0 ? formatCountdown(weekMs) : '');
-      setMonthCountdown(!isMonthRest && monthMs > 0 ? formatCountdown(monthMs) : '');
+
+      const dayActive = dayMs > 0;
+      const weekActive = weekMs > 0;
+      const monthActive = monthMs > 0;
+
+      // ✅ 倒计时结束：只触发一次接口刷新，获取最新按钮状态
+      if (dayWasActiveRef.current && !dayActive) {
+        refetchRebate();
+      }
+      if (weekWasActiveRef.current && !weekActive) {
+        refetchRebate();
+      }
+      if (monthWasActiveRef.current && !monthActive) {
+        refetchRebate();
+      }
+
+      dayWasActiveRef.current = dayActive;
+      weekWasActiveRef.current = weekActive;
+      monthWasActiveRef.current = monthActive;
+
+      setDayCountdown(dayActive ? formatCountdown(dayMs) : '');
+      setWeekCountdown(weekActive ? formatCountdown(weekMs) : '');
+      setMonthCountdown(monthActive ? formatCountdown(monthMs) : '');
     };
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [t, refetchRebate]);
 
   const showLoginDialog = () => {
     window.dispatchEvent(new CustomEvent('auth:show-login'));
@@ -120,26 +155,34 @@ export default function RewardsPage() {
   const buildButtonState = (
     status: number | undefined,
     countdown: string | undefined,
-    needCountdown: boolean,
     type: 1 | 2 | 3,
-    isRestDay: boolean,
+    rebate: number,
   ) => {
     if (!isAuthenticated) {
       return { label: t('loginToClaim'), disabled: false, onClick: showLoginDialog };
     }
+    // status=1：显示倒计时（禁用）
+    if (status === 1) {
+      return { label: countdown || t('calculating'), disabled: true };
+    }
+    // status=0：根据 rebate 决定是否可领取
     if (status === 0) {
       const isClaiming = claimingType === type;
-      return { label: isClaiming ? t('claiming') : t('claimReward'), disabled: isClaiming, onClick: () => handleClaim(type) };
-    }
-    if (needCountdown && !isRestDay && countdown) {
-      return { label: countdown, disabled: true };
+      if (rebate !== 0) {
+        return {
+          label: isClaiming ? t('claiming') : t('claimReward'),
+          disabled: isClaiming,
+          onClick: () => handleClaim(type),
+        };
+      }
+      return { label: t('nothingToClaim'), disabled: true };
     }
     return { label: t('nothingToClaim'), disabled: true };
   };
 
-  const dayBtn = buildButtonState(dayStatus, '', false, 1, false);
-  const weekBtn = buildButtonState(weekStatus, weekCountdown, true, 2, isWeekRestDay);
-  const monthBtn = buildButtonState(monthStatus, monthCountdown, true, 3, isMonthRestDay);
+  const dayBtn = buildButtonState(dayStatus, dayCountdown, 1, dayRebate);
+  const weekBtn = buildButtonState(weekStatus, weekCountdown, 2, weekRebate);
+  const monthBtn = buildButtonState(monthStatus, monthCountdown, 3, monthRebate);
 
   const profileName = useMemo(() => {
     const info = (user as any)?.userInfo || user;
