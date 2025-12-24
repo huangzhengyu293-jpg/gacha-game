@@ -806,7 +806,6 @@ export default function Navbar() {
     { key: 'packs', labelKey: 'packs', icon: 'packs', href: '/packs' },
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
-    { key: 'draw', labelKey: 'draw', icon: 'draw', href: '/draw' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];

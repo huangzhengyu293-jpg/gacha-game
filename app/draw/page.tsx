@@ -1,16 +1,8 @@
-'use client';
-import { useI18n } from '../components/I18nProvider';
-import DrawExtraComponent from '@/app/components/DrawExtraComponent';
+import { redirect } from 'next/navigation';
 
 export default function DrawPage() {
-  const { t } = useI18n();
-  return (
-    <div className="w-full">
-      <div className="mx-auto w-full max-w-[1280px]" >
-          <DrawExtraComponent />
-      </div>
-    </div>
-  );
+  // 抽奖页面入口暂时关闭：直接重定向，避免任何方式进入 /draw
+  redirect('/');
 }
 
 
