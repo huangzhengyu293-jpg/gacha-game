@@ -495,7 +495,7 @@ export default function ParticipantsWithPrizes({
                     <div className="relative">
                       <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
                         <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
-                          {isBot || !participant.avatar ? (
+                          {!participant.avatar ? (
                             renderBotAvatar(maskId)
                           ) : (
                             <img
@@ -629,7 +629,7 @@ export default function ParticipantsWithPrizes({
             <div className="relative">
               <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
                 <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
-                  {isBot || !member.avatar ? (
+                  {!member.avatar ? (
                     renderBotAvatar(maskId)
                   ) : (
                     <img
@@ -901,7 +901,7 @@ export default function ParticipantsWithPrizes({
                               style={{ borderWidth: "1px" }}
                             >
                               <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
-                                {isBot || !participant.avatar ? (
+                                {!participant.avatar ? (
                                   renderBotAvatar(maskId)
                                 ) : (
                               <img
