@@ -1050,15 +1050,15 @@ export default function Navbar() {
                     </div>
                     {shouldShowInviteCode && (
                       <>
-                        <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
-                        <PromoCodeForm
-                          value={promoCode}
-                          loading={promoLoading}
-                          onChange={setPromoCode}
-                          onSubmit={handlePromoSubmit}
-                          className="mt-1"
-                          placeholder={invitePlaceholder}
-                        />
+                    <div className="flex h-[1px]" style={{ backgroundColor: '#34383C' }}></div>
+                    <PromoCodeForm
+                      value={promoCode}
+                      loading={promoLoading}
+                      onChange={setPromoCode}
+                      onSubmit={handlePromoSubmit}
+                      className="mt-1"
+                      placeholder={invitePlaceholder}
+                    />
                       </>
                     )}
                   </div>
@@ -1229,15 +1229,15 @@ export default function Navbar() {
                         </div>
                         {shouldShowInviteCode && (
                           <>
-                            <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
-                            <PromoCodeForm
-                              value={promoCode}
-                              loading={promoLoading}
-                              onChange={setPromoCode}
-                              onSubmit={handlePromoSubmit}
-                              className="mt-2"
-                              placeholder={invitePlaceholder}
-                            />
+                        <div className="flex h-[1px]" style={{ backgroundColor: '#34383c' }}></div>
+                        <PromoCodeForm
+                          value={promoCode}
+                          loading={promoLoading}
+                          onChange={setPromoCode}
+                          onSubmit={handlePromoSubmit}
+                          className="mt-2"
+                          placeholder={invitePlaceholder}
+                        />
                           </>
                         )}
                       </>
@@ -1295,14 +1295,14 @@ export default function Navbar() {
                   <p className="text-lg text-white font-semibold">{t("logoutBtn")}</p>
                 </div>
                 {shouldShowInviteCode && (
-                  <PromoCodeForm
-                    value={promoCode}
-                    loading={promoLoading}
-                    onChange={setPromoCode}
-                    onSubmit={handlePromoSubmit}
-                    className="mt-2"
-                    showTopDivider
-                  />
+                <PromoCodeForm
+                  value={promoCode}
+                  loading={promoLoading}
+                  onChange={setPromoCode}
+                  onSubmit={handlePromoSubmit}
+                  className="mt-2"
+                  showTopDivider
+                />
                 )}
               </div>
             </div>
@@ -1751,11 +1751,7 @@ export default function Navbar() {
             </div>
             <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
               <p className="text-center" style={{ color: '#7a8084', fontSize: 18,fontWeight: 500 }}>
-                {selectedChannel?.id === 19
-                  ? t("depositFeeNotice")
-                  : selectedChannel?.id === 16
-                    ? t("depositFeeNoticeFixed_2_5")
-                    : t("selectPaymentAndAmount")}
+                {selectedChannel?.id === 19 ? t("depositFeeNotice") : t("selectPaymentAndAmount")}
               </p>
             </div>
             <button
