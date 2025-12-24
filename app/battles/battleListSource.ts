@@ -375,7 +375,8 @@ export function buildBattleListCards(
       teams,
       connectorStyle: resolveConnectorStyle(mode),
       entryCost: formatNumber(entry.bean),
-      totalOpenedValue: formatNumber(entry.win_bean),
+      // 已开启金额：使用后端字段 sum_bean（兼容旧字段 win_bean）
+      totalOpenedValue: formatNumber((entry as any).sum_bean ?? entry.win_bean),
       packImages,
       packCount: Array.isArray(entry.boxs) ? entry.boxs.length : 0,
       totalRounds,

@@ -21,16 +21,16 @@ const formatDate = (value?: string) => {
 };
 
 const getStatusText = (status: number, t: (key: string) => string) => {
-  if (status === 0) return t('failed');
-  if (status === 1) return t('processing');
-  if (status === 2) return t('confirmed');
+  if (status === 0) return t('claimStatusPendingReview'); // 待审核
+  if (status === 1) return t('completedStatus'); // 已完成
+  if (status === 2) return t('withdrawalStatusReturned'); // 已退回
   return t('unknown');
 };
 
 const getStatusColor = (status: number) => {
-  if (status === 0) return '#EB4B4B'; // 失败 - 红色
-  if (status === 1) return '#F6AD55'; // 处理中 - 黄色
-  if (status === 2) return '#48BB78'; // 已确认 - 绿色
+  if (status === 0) return '#F6AD55'; // 待审核 - 黄色
+  if (status === 1) return '#48BB78'; // 已完成 - 绿色
+  if (status === 2) return '#EB4B4B'; // 已退回 - 红色
   return '#FFFFFF';
 };
 

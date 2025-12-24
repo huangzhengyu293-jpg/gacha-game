@@ -26,6 +26,8 @@ export type Participant = {
   teamId?: string;
   items?: PrizeItem[];
   vipLevel?: number;
+  // 后端字段：user.robot === 1 表示机器人，0 表示普通用户
+  robot?: number;
   slotIndex?: number;
 };
 

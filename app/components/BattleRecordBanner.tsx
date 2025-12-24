@@ -6,6 +6,9 @@ import { useAuthContext } from '../providers/AuthProvider';
 export type BattleRecordData = {
   id?: number | string;
   lv?: number | string;
+  // 后端：已开启金额（优先使用）
+  sum_bean?: number | string;
+  // 兼容旧字段
   win_bean?: number | string;
   user?: {
     name?: string;
@@ -28,20 +31,31 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
   }, [record]);
 
   const name = useMemo(() => {
-    const rawName = safeRecord?.user?.name;
-    if (typeof rawName === 'string' && rawName.trim().length > 0) {
-      return rawName.trim();
+    // 有“最佳对战”数据时，头像/名字直接取登录用户信息
+    const hasBest = Boolean(safeRecord && safeRecord.id !== undefined && safeRecord.id !== null);
+    if (hasBest) {
+      const rawUserName = user?.userInfo?.name ?? (user as any)?.userInfo?.email;
+      if (typeof rawUserName === 'string' && rawUserName.trim().length > 0) {
+        return rawUserName.trim();
+      }
     }
+    const rawName = safeRecord?.user?.name;
+    if (typeof rawName === 'string' && rawName.trim().length > 0) return rawName.trim();
     return '------';
-  }, [safeRecord]);
+  }, [safeRecord, user]);
 
   const avatarSrc = useMemo(() => {
-    const rawAvatar = safeRecord?.user?.avatar;
-    if (typeof rawAvatar === 'string' && rawAvatar.trim().length > 0) {
-      return rawAvatar.trim();
+    const hasBest = Boolean(safeRecord && safeRecord.id !== undefined && safeRecord.id !== null);
+    if (hasBest) {
+      const rawUserAvatar = user?.userInfo?.avatar ?? (user as any)?.avatar;
+      if (typeof rawUserAvatar === 'string' && rawUserAvatar.trim().length > 0) {
+        return rawUserAvatar.trim();
+      }
     }
+    const rawAvatar = safeRecord?.user?.avatar;
+    if (typeof rawAvatar === 'string' && rawAvatar.trim().length > 0) return rawAvatar.trim();
     return '';
-  }, [safeRecord]);
+  }, [safeRecord, user]);
 
   const level = useMemo(() => {
     const vipInfo = user?.userInfo?.vip_info || (user as any)?.userInfo?.vipInfo || {};
@@ -57,8 +71,8 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
     return 0;
   }, [safeRecord, user]);
 
-  const winBeanValue = useMemo(() => {
-    const rawValue = safeRecord?.win_bean;
+  const openedBeanValue = useMemo(() => {
+    const rawValue = safeRecord?.sum_bean ?? safeRecord?.win_bean;
     const parsed = rawValue !== undefined && rawValue !== null ? Number(rawValue) : 0;
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -66,13 +80,13 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
     return 0;
   }, [safeRecord]);
 
-  const formattedWinBean = useMemo(
+  const formattedOpenedBean = useMemo(
     () =>
-      `$${winBeanValue.toLocaleString('en-US', {
+      `$${openedBeanValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`,
-    [winBeanValue],
+    [openedBeanValue],
   );
 
   const nameInitial = useMemo(() => {
@@ -111,7 +125,7 @@ export default function BattleRecordBanner({ record }: BattleRecordBannerProps) 
       >
         {name}
       </p>
-      <p className="text-white text-sm font-extrabold">{formattedWinBean}</p>
+      <p className="text-white text-sm font-extrabold">{formattedOpenedBean}</p>
     </div>
   );
 }

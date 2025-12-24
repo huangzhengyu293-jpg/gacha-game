@@ -302,6 +302,7 @@ function buildBattleParticipants(
         teamId: inferredTeamId != null ? String(inferredTeamId) : undefined,
         vipLevel:
           parseNumber((wrapper as any)?.user?.vip ?? (wrapper as any)?.vip ?? (wrapper as any)?.user?.user_vip) || 0,
+        robot: parseNumber((user as any)?.robot ?? (wrapper as any)?.robot ?? (wrapper as any)?.user?.robot ?? 0),
         items: [],
         slotIndex,
       };

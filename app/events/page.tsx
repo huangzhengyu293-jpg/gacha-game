@@ -7,34 +7,35 @@ import BestLiveSidebar from '../components/BestLiveSidebar';
 
 type RaceType = 'weekly' | 'monthly' | 'daily';
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+// 北京时间（UTC+8）
+const BJT_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-const getJstNow = () => {
+const getBjtNow = () => {
   const now = Date.now();
-  return new Date(now + JST_OFFSET_MS);
+  return new Date(now + BJT_OFFSET_MS);
 };
 
-const computeDailyMsJst = () => {
-  const jst = getJstNow();
-  // 到东京时间次日 00:00
-  const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1, 0, 0, 0);
-  return target - jst.getTime();
+const computeDailyMsBjt = () => {
+  const bjt = getBjtNow();
+  // 到北京时间次日 00:00
+  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth(), bjt.getUTCDate() + 1, 0, 0, 0);
+  return target - bjt.getTime();
 };
 
-const computeWeeklyMsJst = () => {
-  const jst = getJstNow();
-  // 到东京时间下周一 00:00（周一为 1；周日为 0）
-  const day = jst.getUTCDay(); // 0-6
+const computeWeeklyMsBjt = () => {
+  const bjt = getBjtNow();
+  // 到北京时间下周一 00:00（周一为 1；周日为 0）
+  const day = bjt.getUTCDay(); // 0-6
   const daysUntilMonday = (8 - day) % 7 || 7;
-  const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + daysUntilMonday, 0, 0, 0);
-  return target - jst.getTime();
+  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth(), bjt.getUTCDate() + daysUntilMonday, 0, 0, 0);
+  return target - bjt.getTime();
 };
 
-const computeMonthlyMsJst = () => {
-  const jst = getJstNow();
-  // 月赛：固定倒计时到 2026 年 1 月结束（东京时间）=> 2026-02-01 00:00 JST
+const computeMonthlyMsBjt = () => {
+  const bjt = getBjtNow();
+  // 月赛：固定倒计时到 2026 年 1 月结束（北京时间）=> 2026-02-01 00:00 CST
   const target = Date.UTC(2026, 1, 1, 0, 0, 0);
-  return Math.max(0, target - jst.getTime());
+  return Math.max(0, target - bjt.getTime());
 };
 
 const RaceCountdownCard = memo(function RaceCountdownCard({
@@ -77,14 +78,14 @@ const RaceCountdownCard = memo(function RaceCountdownCard({
 
     const tick = () => {
       if (raceType === 'daily') {
-        setCountdownText(formatHMS(computeDailyMsJst()));
+        setCountdownText(formatHMS(computeDailyMsBjt()));
         return;
       }
       if (raceType === 'weekly') {
-        setCountdownText(formatDHMS(computeWeeklyMsJst()));
+        setCountdownText(formatDHMS(computeWeeklyMsBjt()));
         return;
       }
-      setCountdownText(formatDHMS(computeMonthlyMsJst()));
+      setCountdownText(formatDHMS(computeMonthlyMsBjt()));
     };
 
     tick();

@@ -31,6 +31,8 @@ export interface RawBattleListItem {
   type: number;
   updated_at: string;
   win_bean: string;
+  // 后端新增：已开启金额（用于列表/历史展示）
+  sum_bean?: string;
   win_bean_double: string;
   person_team?: number | string;
   team_size?: number | string;

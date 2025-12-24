@@ -525,8 +525,15 @@ export default function ReferralsPage() {
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-2">
-                    <label className="font-bold text-base" htmlFor="withdraw-money" style={{ color: '#FFFFFF' }}>
+                    <label
+                      className="font-bold text-base flex items-end"
+                      htmlFor="withdraw-money"
+                      style={{ color: '#FFFFFF' }}
+                    >
                       {t('claimableAmount')}
+                      <span className="ml-2 text-xs font-normal" style={{ color: '#7A8084' }}>
+                        {t('depositFeeNoticeFixed_2_5')}
+                      </span>
                     </label>
                     <div className="flex gap-3">
                       <input

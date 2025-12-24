@@ -50,10 +50,10 @@ export default function RewardsPage() {
     return Number.isFinite(n) ? n : 0;
   }, [rebateData]);
 
-  // 工具：东京时间（JST，UTC+9）
-  const getJstNow = () => {
+  // 工具：北京时间（UTC+8）
+  const getGmt8Now = () => {
     const now = Date.now();
-    const offsetMs = 9 * 60 * 60 * 1000;
+    const offsetMs = 8 * 60 * 60 * 1000;
     return new Date(now + offsetMs);
   };
 
@@ -68,28 +68,28 @@ export default function RewardsPage() {
   };
 
   const computeDayTargetMs = () => {
-    const jst = getJstNow();
-    const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1, 0, 0, 0);
-    return target - jst.getTime();
+    const gmt8 = getGmt8Now();
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + 1, 0, 0, 0);
+    return target - gmt8.getTime();
   };
 
   const computeWeekTargetMs = () => {
-    const jst = getJstNow();
-    const day = jst.getUTCDay(); // 0-6 (基于偏移后的“本地”星期)
+    const gmt8 = getGmt8Now();
+    const day = gmt8.getUTCDay(); // 0-6 (基于偏移后的“本地”星期)
     const daysUntilMonday = (8 - day) % 7 || 7;
-    const target = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + daysUntilMonday, 0, 0, 0);
-    return target - jst.getTime();
+    const target = Date.UTC(gmt8.getUTCFullYear(), gmt8.getUTCMonth(), gmt8.getUTCDate() + daysUntilMonday, 0, 0, 0);
+    return target - gmt8.getTime();
   };
 
   const computeMonthTargetMs = () => {
-    const jst = getJstNow();
-    const year = jst.getUTCFullYear();
-    const month = jst.getUTCMonth();
+    const gmt8 = getGmt8Now();
+    const year = gmt8.getUTCFullYear();
+    const month = gmt8.getUTCMonth();
     const target = Date.UTC(year, month + 1, 1, 0, 0, 0);
-    return target - jst.getTime();
+    return target - gmt8.getTime();
   };
 
-  // 日、周、月倒计时（东京时间）
+  // 日、周、月倒计时（北京时间）
   useEffect(() => {
     const dayWasActiveRef = { current: false } as React.MutableRefObject<boolean>;
     const weekWasActiveRef = { current: false } as React.MutableRefObject<boolean>;

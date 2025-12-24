@@ -454,30 +454,11 @@ export default function ParticipantsWithPrizes({
       }
       return;
     }
-    setSlotParticipantsState((prev) => {
-      // 确保数组长度足够
-      const ensuredArray = prev.length < totalSlots 
-        ? [...prev, ...Array(totalSlots - prev.length).fill(null)]
-        : prev;
-      
-      if (ensuredArray[slotIndex]) {
-        return ensuredArray;
-      }
-      const updated = [...ensuredArray];
-      updated[slotIndex] = {
-        id: `bot-${slotIndex}-${Date.now()}`,
-        name: `Bot ${slotIndex + 1}`,
-        avatar: "",
-        totalValue: "$0.00",
-        isWinner: false,
-        teamId: teamId, // 添加teamId支持
-      };
-      return updated;
-    });
+    // 现在不再在前端本地生成机器人/参与者数据
   };
 
-  const isBotParticipant = (participant?: Participant | null) =>
-    Boolean(participant?.id && String(participant.id).startsWith("bot-"));
+  // 后端字段：user.robot === 1 表示机器人
+  const isBotParticipant = (participant?: Participant | null) => participant?.robot === 1;
 
   const roundResultMap = roundResults.reduce<Record<string, Record<string, SlotSymbol | undefined>>>(
     (acc, result) => {
@@ -540,7 +521,7 @@ export default function ParticipantsWithPrizes({
                         </>
                       )}
                     </div>
-                    {!isBot && participant.vipLevel && participant.vipLevel > 0 && (
+                    {!isBot && (participant.vipLevel ?? 0) > 0 && (
                       <div
                         className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
                         style={{ backgroundColor: '#22272B', border: '1px solid #2B2F33', color: '#FFFFFF' }}
@@ -640,7 +621,7 @@ export default function ParticipantsWithPrizes({
       const isBot = isBotParticipant(member);
       const maskId = `${teamId}-member-${index}-mask`;
       const isEliminated = gameMode === 'elimination' && eliminatedPlayerIds.has(member.id);
-      const shouldShowVip = !isBot && member.vipLevel && member.vipLevel > 0;
+      const shouldShowVip = !isBot && (member.vipLevel ?? 0) > 0;
 
       return (
         <div key={member.id} className="flex gap-2 items-center justify-center flex-col sm:flex-row">
@@ -948,7 +929,7 @@ export default function ParticipantsWithPrizes({
                         </div>
                         
                         {/* 序号标记 - 机器人不显示 */}
-                        {!isBot && participant.vipLevel && participant.vipLevel > 0 && (
+                        {!isBot && (participant.vipLevel ?? 0) > 0 && (
                           <div
                             className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
                             style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
