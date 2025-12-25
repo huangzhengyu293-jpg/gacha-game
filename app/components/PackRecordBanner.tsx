@@ -45,7 +45,8 @@ export default function PackRecordBanner({ record }: PackRecordBannerProps) {
   }, [safeRecord]);
 
   const beanValue = useMemo(() => {
-    const raw = safeRecord?.awards?.bean ?? safeRecord?.bean;
+    // 最佳开启道具金额：只取外层 bean，不取 awards.bean
+    const raw = safeRecord?.bean;
     const parsed = raw !== undefined && raw !== null ? Number(raw) : 0;
     if (Number.isFinite(parsed)) {
       return parsed;

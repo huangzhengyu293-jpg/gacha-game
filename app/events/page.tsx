@@ -571,7 +571,7 @@ export default function EventsPage() {
                     className="mt-4 interactive-focus"
                   >
                     <RaceLeaderboard
-                      title={t('dailyRaceTitle')}
+                      title={t('eventsRaffleTab')}
                       raceType="daily"
                       topThree={topThree}
                       tableData={tableData}
@@ -594,7 +594,7 @@ export default function EventsPage() {
                 className="mt-4 interactive-focus"
               >
                 <RaceLeaderboard
-                  title={t('weeklyRaceTitle')}
+                  title={t('eventsWeeklyTab')}
                   raceType="weekly"
                   topThree={topThree}
                   tableData={tableData}
@@ -617,7 +617,7 @@ export default function EventsPage() {
                 className="mt-4 interactive-focus"
               >
                 <RaceLeaderboard
-                  title={t('monthlyRaceTitle')}
+                  title={t('eventsMonthlyTab')}
                   raceType="monthly"
                   topThree={topThree}
                   tableData={tableData}

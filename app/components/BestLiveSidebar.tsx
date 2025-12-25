@@ -105,7 +105,8 @@ export default function BestLiveSidebar({
   const remoteBestOpens = useMemo<BestOpenItem[]>(() => {
     const list = Array.isArray(bestRecordResp?.data) ? bestRecordResp?.data : [];
     return list.map((item: any, idx: number) => {
-      const priceNum = Number(item?.awards?.bean ?? item?.bean ?? item?.price ?? item?.box_price ?? 0);
+      // 最佳开启道具金额：只取外层 bean（不取 awards.bean）
+      const priceNum = Number(item?.bean ?? item?.price ?? item?.box_price ?? 0);
       const priceLabel = priceNum > 0
         ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '';
@@ -137,7 +138,8 @@ export default function BestLiveSidebar({
     if (!hydratedRef.current) {
       const initialItems = list.slice(0, 20).map((item: any, idx: number) => {
         const id = String(item?.id ?? item?.record_id ?? `record-${idx}-${Date.now()}`);
-        const priceNum = Number(item?.bean ?? item?.price ?? item?.awards?.bean ?? 0);
+        // 实时记录金额：优先外层 bean，不再兜底 awards.bean
+        const priceNum = Number(item?.bean ?? item?.price ?? 0);
         const priceLabel = priceNum > 0
           ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : '$0.00';
@@ -192,7 +194,8 @@ export default function BestLiveSidebar({
     if (!newItems.length) return;
 
     newItems.forEach(({ item }) => {
-      const priceNum = Number(item?.bean ?? item?.price ?? item?.awards?.bean ?? 0);
+      // 实时新增记录金额：优先外层 bean，不再兜底 awards.bean
+      const priceNum = Number(item?.bean ?? item?.price ?? 0);
       const priceLabel = priceNum > 0
         ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '$0.00';

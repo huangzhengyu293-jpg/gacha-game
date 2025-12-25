@@ -75,7 +75,8 @@ export default function Home() {
     const normalize = (item: any): PackRecordData => ({
       id: item?.box_id ?? item?.id ?? item?.pack_id ?? item?.packId,
       cover: item?.awards?.cover ?? item?.cover ?? item?.box_cover ?? item?.image,
-      bean: item?.awards?.bean ?? item?.bean ?? item?.price ?? item?.amount,
+      // 最佳开启道具金额：只取外层 bean（不取 awards.bean）
+      bean: item?.bean ?? item?.price ?? item?.amount,
       name: item?.awards?.name ?? item?.name ?? item?.title ?? item?.box_name,
       awards: item?.awards,
     });
