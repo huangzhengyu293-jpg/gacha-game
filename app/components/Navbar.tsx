@@ -265,6 +265,11 @@ export default function Navbar() {
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [showRealNameModal, setShowRealNameModal] = useState(false);
+  const [realID, setRealID] = useState('');
+  const [realname, setRealname] = useState('');
+  const [realPhone, setRealPhone] = useState('');
+  const REALNAME_SESSION_KEY = 'deposit_realname_info_v1';
   const { data: commonChannelData } = useQuery({
     queryKey: ['commonChannel'],
     queryFn: () => api.getCommonChannel(),
@@ -294,6 +299,10 @@ export default function Navbar() {
       setSelectedChannel(null);
       setCdkValue('');
       setRechargeAmount('');
+      setShowRealNameModal(false);
+      setRealID('');
+      setRealname('');
+      setRealPhone('');
     }
   }, [showWalletModal]);
 
@@ -352,16 +361,39 @@ export default function Navbar() {
   }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
 
   const rechargeMutation = useMutation({
-    mutationFn: async ({ id, money }: { id: string | number; money: string | number }) => {
-      return api.recharge({ id, money });
+    mutationFn: async (payload: { id: string | number; money: string | number; realID?: string; realname?: string; phone?: string }) => {
+      return api.recharge(payload);
     },
-    onSuccess: (res: any) => {
+    onSuccess: (
+      res: any,
+      variables: { id: string | number; money: string | number; realID?: string; realname?: string; phone?: string },
+    ) => {
       if (res?.code === 100000 && res?.data?.url) {
+        // 仅当支付方式 id=19 且充值成功时，临时存储实名信息（sessionStorage：关闭页面自动清除）
+        try {
+          if (typeof window !== 'undefined' && Number(variables?.id) === 19) {
+            const payload = {
+              realID: String(variables?.realID ?? ''),
+              realname: String(variables?.realname ?? ''),
+              phone: String(variables?.phone ?? ''),
+            };
+            if (payload.realID && payload.realname && payload.phone) {
+              window.sessionStorage.setItem(REALNAME_SESSION_KEY, JSON.stringify(payload));
+            }
+          }
+        } catch {
+          // 忽略存储失败（例如隐私模式/禁用存储）
+        }
+
         const url = String(res.data.url);
         // 仅尝试新标签页打开，不跳转当前页
         window.open(url, '_blank', 'noopener,noreferrer');
         // 清空金额输入
         setRechargeAmount('');
+        setShowRealNameModal(false);
+        setRealID('');
+        setRealname('');
+        setRealPhone('');
       }
     },
   });
@@ -395,8 +427,64 @@ export default function Navbar() {
     }
 
     if (!isRechargeAmountValid() || !selectedChannel?.id) return;
+
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 19) {
+      // 打开实名弹窗时尝试从 sessionStorage 回填（仅本次页面会话有效）
+      try {
+        if (typeof window !== 'undefined') {
+          const raw = window.sessionStorage.getItem(REALNAME_SESSION_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as { realID?: string; realname?: string; phone?: string };
+            if (parsed?.realID) setRealID(String(parsed.realID));
+            if (parsed?.realname) setRealname(String(parsed.realname));
+            if (parsed?.phone) setRealPhone(String(parsed.phone));
+          }
+        }
+      } catch {
+        // 忽略解析失败
+      }
+      setShowRealNameModal(true);
+      return;
+    }
+
     rechargeMutation.mutate({ id: selectedChannel.id, money: rechargeAmount });
   }, [isRechargeAmountValid, selectedChannel?.id, rechargeMutation, rechargeAmount, toast, t]);
+
+  const closeRealNameModal = useCallback(() => {
+    if (rechargeMutation.isPending) return;
+    setShowRealNameModal(false);
+    setRealID('');
+    setRealname('');
+    setRealPhone('');
+  }, [rechargeMutation.isPending]);
+
+  const handleRealNameConfirm = useCallback(() => {
+    if (rechargeMutation.isPending) return;
+    if (!selectedChannel?.id || !isRechargeAmountValid()) return;
+    const channelId = Number(selectedChannel?.id);
+    if (channelId !== 19) return;
+
+    const idValue = realID.trim();
+    const nameValue = realname.trim();
+    const phoneValue = realPhone.trim();
+    if (!idValue || !nameValue || !phoneValue) {
+      toast.show({
+        variant: 'error',
+        title: t('error'),
+        description: t('pleaseCompleteRealNameInfo'),
+      });
+      return;
+    }
+
+    rechargeMutation.mutate({
+      id: selectedChannel.id,
+      money: rechargeAmount,
+      realID: idValue,
+      realname: nameValue,
+      phone: phoneValue,
+    });
+  }, [isRechargeAmountValid, realID, realPhone, realname, rechargeAmount, rechargeMutation, selectedChannel?.id, t, toast]);
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
@@ -1759,6 +1847,117 @@ export default function Navbar() {
               onClick={() => setShowWalletModal(false)}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 支付方式 id=19：实名信息确认弹窗（确认后才会发起充值） */}
+      {showWalletModal && showRealNameModal && (
+        <div
+          className="fixed px-4 inset-0 z-[100] bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-y-auto flex justify-center items-start py-16"
+          style={{ pointerEvents: 'auto' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            closeRealNameModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-describedby="deposit-realname-desc"
+            aria-labelledby="deposit-realname-title"
+            data-state="open"
+            className="overflow-hidden z-[110] grid w-full gap-4 p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative max-w-2xl"
+            tabIndex={-1}
+            style={{ pointerEvents: 'auto', backgroundColor: '#161A1D', color: '#FFFFFF', fontFamily: 'Urbanist, sans-serif', fontWeight: 700 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1.5 text-center sm:text-left">
+              <h2 id="deposit-realname-title" className="text-xl font-bold leading-none tracking-tight text-left">
+                {t('depositRealNameTitle')}
+              </h2>
+              <p id="deposit-realname-desc" className="text-sm font-medium mt-2" style={{ color: '#7A8084' }}>
+                {t('depositRealNameNotice')}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>
+                  {t('realIDLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={realID}
+                  onChange={(e) => setRealID(e.target.value)}
+                  className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                  style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>
+                  {t('realNameLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={realname}
+                  onChange={(e) => setRealname(e.target.value)}
+                  className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                  style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
+                  autoComplete="name"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>
+                  {t('phoneLabel')}
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={realPhone}
+                  onChange={(e) => setRealPhone(e.target.value)}
+                  className="flex h-10 w-full rounded-md px-3 py-2 text-base"
+                  style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2 gap-2">
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none h-10 px-6"
+                onClick={closeRealNameModal}
+                disabled={rechargeMutation.isPending}
+                style={{ color: '#7A8084', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6"
+                onClick={handleRealNameConfirm}
+                disabled={rechargeMutation.isPending}
+                style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
+              >
+                {rechargeMutation.isPending ? t('submitting') : t('confirm')}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer"
+              onClick={closeRealNameModal}
+              style={{ color: '#7A8084' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
               <span className="sr-only">Close</span>
             </button>
           </div>

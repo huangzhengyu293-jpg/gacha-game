@@ -932,10 +932,19 @@ export const api = {
     });
     return result;
   },
-  recharge: async (payload: { id: string | number; money: string | number }) => {
+  recharge: async (payload: {
+    id: string | number;
+    money: string | number;
+    realID?: string;
+    realname?: string;
+    phone?: string;
+  }) => {
     const formData = new URLSearchParams();
     formData.append('id', String(payload.id));
     formData.append('money', String(payload.money));
+    if (payload.realID) formData.append('realID', String(payload.realID));
+    if (payload.realname) formData.append('realname', String(payload.realname));
+    if (payload.phone) formData.append('phone', String(payload.phone));
 
     const result = await request<ApiResponse>('/api/common/recharge', {
       method: 'POST',
