@@ -99,6 +99,8 @@ export default function Navbar() {
   const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
+  // 注册邮箱验证步骤开关：先隐藏（保留代码），以后需要时改回 true 即可恢复
+  const ENABLE_REGISTER_EMAIL_VERIFICATION = false;
 
   // 使用新的认证系统
   const {
@@ -637,35 +639,65 @@ export default function Navbar() {
     // code === 100000: 注册成功
     if (result.success) {
       setShowRegister(false);
-      setVerifyEmail(regEmail.trim());
       setRegUsername('');
       setRegEmail('');
       setRegPass('');
       setRegInvite('');
       setAgreed(false);
-      setShowVerifyCode(true);
-      setVerifyCode('');
+
+      if (ENABLE_REGISTER_EMAIL_VERIFICATION) {
+        setVerifyEmail(email);
+        setShowVerifyCode(true);
+        setVerifyCode('');
+        toast.show({
+          variant: 'success',
+          title: t("registerSuccessTitle"),
+          description: result.message || t("registerSuccessDesc"),
+        });
+        return;
+      }
+
+      // 不需要邮箱验证：仅提示注册成功，并打开登录弹窗（预填邮箱，密码由用户自行输入）
       toast.show({
         variant: 'success',
         title: t("registerSuccessTitle"),
         description: result.message || t("registerSuccessDesc"),
       });
+      setLoginEmail(email);
+      setLoginPass('');
+      setLoginShowPass(false);
+      setShowLogin(true);
     }
     // code === 200000: 邮箱已注册但未验证，弹出验证码弹窗
     else if ((result as any).code === 200000) {
       setShowRegister(false);
-      setVerifyEmail(regEmail.trim());
       setRegUsername('');
       setRegEmail('');
       setRegPass('');
       setAgreed(false);
-      setShowVerifyCode(true);
-      setVerifyCode('');
+
+      if (ENABLE_REGISTER_EMAIL_VERIFICATION) {
+        setVerifyEmail(email);
+        setShowVerifyCode(true);
+        setVerifyCode('');
+        toast.show({
+          variant: 'success',
+          title: t("emailRegisteredTitle"),
+          description: result.message || t("emailRegisteredDesc"),
+        });
+        return;
+      }
+
+      // 不需要邮箱验证：直接引导登录
       toast.show({
         variant: 'success',
         title: t("emailRegisteredTitle"),
         description: result.message || t("emailRegisteredDesc"),
       });
+      setLoginEmail(email);
+      setLoginPass('');
+      setLoginShowPass(false);
+      setShowLogin(true);
     }
   };
 
@@ -1623,8 +1655,8 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Email Verification Code Modal 内容 */}
-      {showVerifyCode && (
+      {/* Email Verification Code Modal 内容（当前隐藏，未来需要时将 ENABLE_REGISTER_EMAIL_VERIFICATION 改回 true） */}
+      {ENABLE_REGISTER_EMAIL_VERIFICATION && showVerifyCode && (
         <div
           role="dialog"
           aria-modal="true"
