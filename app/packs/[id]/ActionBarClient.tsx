@@ -54,6 +54,8 @@ export default function ActionBarClient({
 
   const canDec = quantity > 1;
   const canInc = quantity < 15;
+  const decDisabled = isSlotMachineSpinning || !canDec;
+  const incDisabled = isSlotMachineSpinning || !canInc;
   const totalLabel = useMemo(
     () => `$${(quantity * totalPacksPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     [quantity, totalPacksPrice]
@@ -71,15 +73,15 @@ export default function ActionBarClient({
           <div className="flex flex-1">
             <button
               type="button"
-              disabled={!canDec}
-              onMouseEnter={() => setHoverMinus(true)}
+              disabled={decDisabled}
+              onMouseEnter={() => !decDisabled && setHoverMinus(true)}
               onMouseLeave={() => setHoverMinus(false)}
-              onClick={() => canDec && setQuantity((q) => Math.max(1, q - 1))}
+              onClick={() => !decDisabled && setQuantity((q) => Math.max(1, q - 1))}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
               style={{
-                backgroundColor: canDec && hoverMinus ? btnHoverBg : btnBaseBg,
-                color: canDec ? '#FFFFFF' : '#7A8084',
-                cursor: canDec ? 'pointer' as const : 'default' as const,
+                backgroundColor: !decDisabled && hoverMinus ? btnHoverBg : btnBaseBg,
+                color: !decDisabled ? '#FFFFFF' : '#7A8084',
+                cursor: !decDisabled ? 'pointer' as const : 'default' as const,
               }}
               aria-label="decrease"
             >
@@ -92,15 +94,15 @@ export default function ActionBarClient({
             </div>
             <button
               type="button"
-              disabled={!canInc}
-              onMouseEnter={() => setHoverPlus(true)}
+              disabled={incDisabled}
+              onMouseEnter={() => !incDisabled && setHoverPlus(true)}
               onMouseLeave={() => setHoverPlus(false)}
-              onClick={() => canInc && setQuantity((q) => Math.min(15, q + 1))}
+              onClick={() => !incDisabled && setQuantity((q) => Math.min(15, q + 1))}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
               style={{
-                backgroundColor: canInc && hoverPlus ? btnHoverBg : btnBaseBg,
-                color: canInc ? '#FFFFFF' : '#7A8084',
-                cursor: canInc ? 'pointer' as const : 'default' as const,
+                backgroundColor: !incDisabled && hoverPlus ? btnHoverBg : btnBaseBg,
+                color: !incDisabled ? '#FFFFFF' : '#7A8084',
+                cursor: !incDisabled ? 'pointer' as const : 'default' as const,
               }}
               aria-label="increase"
             >
@@ -170,15 +172,15 @@ export default function ActionBarClient({
             <div className="flex flex-1">
               <button
                 type="button"
-                disabled={!canDec}
-                onMouseEnter={() => setHoverMinus(true)}
+                disabled={decDisabled}
+                onMouseEnter={() => !decDisabled && setHoverMinus(true)}
                 onMouseLeave={() => setHoverMinus(false)}
-              onClick={() => canDec && setQuantity((q) => Math.max(1, q - 1))}
+              onClick={() => !decDisabled && setQuantity((q) => Math.max(1, q - 1))}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                 style={{
-                  backgroundColor: canDec && hoverMinus ? btnHoverBg : btnBaseBg,
-                  color: canDec ? '#FFFFFF' : '#7A8084',
-                  cursor: canDec ? 'pointer' as const : 'default' as const,
+                  backgroundColor: !decDisabled && hoverMinus ? btnHoverBg : btnBaseBg,
+                  color: !decDisabled ? '#FFFFFF' : '#7A8084',
+                  cursor: !decDisabled ? 'pointer' as const : 'default' as const,
                 }}
                 aria-label="decrease"
               >
@@ -191,15 +193,15 @@ export default function ActionBarClient({
               </div>
               <button
                 type="button"
-                disabled={!canInc}
-                onMouseEnter={() => setHoverPlus(true)}
+                disabled={incDisabled}
+                onMouseEnter={() => !incDisabled && setHoverPlus(true)}
                 onMouseLeave={() => setHoverPlus(false)}
-              onClick={() => canInc && setQuantity((q) => Math.min(15, q + 1))}
+              onClick={() => !incDisabled && setQuantity((q) => Math.min(15, q + 1))}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-10 min-h-10 min-w-10 max-h-10 max-w-10"
                 style={{
-                  backgroundColor: canInc && hoverPlus ? btnHoverBg : btnBaseBg,
-                  color: canInc ? '#FFFFFF' : '#7A8084',
-                  cursor: canInc ? 'pointer' as const : 'default' as const,
+                  backgroundColor: !incDisabled && hoverPlus ? btnHoverBg : btnBaseBg,
+                  color: !incDisabled ? '#FFFFFF' : '#7A8084',
+                  cursor: !incDisabled ? 'pointer' as const : 'default' as const,
                 }}
                 aria-label="increase"
               >
