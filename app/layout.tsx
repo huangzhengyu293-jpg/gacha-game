@@ -62,6 +62,26 @@ export default function RootLayout({
   return (
     <html lang="zh" data-theme="dark">
       <body className={`${urbanist.className} ${urbanist.variable} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
+        <style>{`
+          /* 全站背景图（各端启用）：小屏优先流畅、桌面更沉浸 */
+          html,
+          body {
+            background-image: url("/theme/default/background.png");
+            background-position: center top;
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-attachment: scroll;
+            background-color: #1D2125;
+          }
+
+          /* 桌面端：固定背景更有质感 */
+          @media (min-width: 1024px) {
+            html,
+            body {
+              background-attachment: fixed;
+            }
+          }
+        `}</style>
         <I18nProvider>
           <Providers>
             <QueryProvider>
