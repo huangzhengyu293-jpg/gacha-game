@@ -139,15 +139,15 @@ export default function ReferralsPage() {
   const cdkAmountValid = useMemo(() => {
     const amount = Number(newCdkAmount);
     if (!newCdkAmount.trim() || isNaN(amount)) return false;
-    return amount >= 100 && amount % 100 === 0;
+    return amount >= 30 && amount % 10 === 0;
   }, [newCdkAmount]);
   
   const cdkAmountError = useMemo(() => {
     if (!newCdkAmount.trim()) return '';
     const amount = Number(newCdkAmount);
     if (isNaN(amount)) return t('pleaseEnterValidNumber');
-    if (amount < 100) return t('amountMustBeGreaterThanOrEqual100');
-    if (amount % 100 !== 0) return t('amountMustBeMultipleOf100');
+    if (amount < 30) return t('amountMustBeGreaterThanOrEqual30');
+    if (amount % 10 !== 0) return t('amountMustBeMultipleOf10');
     return '';
   }, [newCdkAmount, t]);
   
@@ -598,9 +598,11 @@ export default function ReferralsPage() {
                           {isAddingCdk ? (
                             <div className="flex items-center gap-2 w-full justify-end">
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={newCdkAmount}
-                                onChange={(e) => setNewCdkAmount(e.target.value)}
+                                onChange={(e) => setNewCdkAmount(e.target.value.replace(/[^\d]/g, ''))}
                                 className="flex h-10 w-full max-w-[260px] rounded-md border px-3 py-2 text-base text-center disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 style={{
                                   backgroundColor: '#1D2125',
@@ -610,8 +612,8 @@ export default function ReferralsPage() {
                                 }}
                                 disabled={isCreatingCdk}
                                 placeholder={t('pleaseEnterAmount')}
-                                min="100"
-                                step="100"
+                                min="30"
+                                step="10"
                               />
                               <button
                                 onClick={handleConfirmAddCdk}

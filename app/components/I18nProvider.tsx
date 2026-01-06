@@ -520,6 +520,8 @@ const dict: Dict = {
   pleaseEnterValidNumber: { zh: "请输入有效数字", en: "Please enter a valid number", ko: "유효한 숫자를 입력하세요", ja: "有効な数字を入力してください" },
   amountMustBeGreaterThanOrEqual100: { zh: "金额必须大于等于100", en: "Amount must be greater than or equal to 100", ko: "금액은 100 이상이어야 합니다", ja: "金額は100以上である必要があります" },
   amountMustBeMultipleOf100: { zh: "金额必须是100的倍数", en: "Amount must be a multiple of 100", ko: "금액은 100의 배수여야 합니다", ja: "金額は100の倍数である必要があります" },
+  amountMustBeGreaterThanOrEqual30: { zh: "金额必须大于等于30", en: "Amount must be greater than or equal to 30", ko: "금액은 30 이상이어야 합니다", ja: "金額は30以上である必要があります" },
+  amountMustBeMultipleOf10: { zh: "金额必须是10的倍数", en: "Amount must be a multiple of 10", ko: "금액은 10의 배수여야 합니다", ja: "金額は10の倍数である必要があります" },
   copySuccess: { zh: "复制成功", en: "Copy successful", ko: "복사 성공", ja: "コピー成功" },
   referralCodeCopiedToClipboard: { zh: "推荐码已复制到剪贴板", en: "Referral code copied to clipboard", ko: "추천 코드가 클립보드에 복사되었습니다", ja: "紹介コードがクリップボードにコピーされました" },
   copyFailed: { zh: "复制失败", en: "Copy failed", ko: "복사 실패", ja: "コピー失敗" },
