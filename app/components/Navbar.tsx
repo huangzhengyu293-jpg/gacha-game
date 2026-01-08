@@ -272,6 +272,7 @@ export default function Navbar() {
   const [realname, setRealname] = useState('');
   const [realPhone, setRealPhone] = useState('');
   const REALNAME_SESSION_KEY = 'deposit_realname_info_v1';
+  const REALNAME_REQUIRED_CHANNEL_IDS = useMemo(() => new Set<number>([19, 20]), []);
   const { data: commonChannelData } = useQuery({
     queryKey: ['commonChannel'],
     queryFn: () => api.getCommonChannel(),
@@ -373,7 +374,7 @@ export default function Navbar() {
       if (res?.code === 100000 && res?.data?.url) {
         // 仅当支付方式 id=19 且充值成功时，临时存储实名信息（sessionStorage：关闭页面自动清除）
         try {
-          if (typeof window !== 'undefined' && Number(variables?.id) === 19) {
+          if (typeof window !== 'undefined' && REALNAME_REQUIRED_CHANNEL_IDS.has(Number(variables?.id))) {
             const payload = {
               realID: String(variables?.realID ?? ''),
               realname: String(variables?.realname ?? ''),
@@ -431,7 +432,7 @@ export default function Navbar() {
     if (!isRechargeAmountValid() || !selectedChannel?.id) return;
 
     const channelId = Number(selectedChannel?.id);
-    if (channelId === 19) {
+    if (REALNAME_REQUIRED_CHANNEL_IDS.has(channelId)) {
       // 打开实名弹窗时尝试从 sessionStorage 回填（仅本次页面会话有效）
       try {
         if (typeof window !== 'undefined') {
@@ -465,7 +466,7 @@ export default function Navbar() {
     if (rechargeMutation.isPending) return;
     if (!selectedChannel?.id || !isRechargeAmountValid()) return;
     const channelId = Number(selectedChannel?.id);
-    if (channelId !== 19) return;
+    if (!REALNAME_REQUIRED_CHANNEL_IDS.has(channelId)) return;
 
     const idValue = realID.trim();
     const nameValue = realname.trim();
@@ -486,7 +487,7 @@ export default function Navbar() {
       realname: nameValue,
       phone: phoneValue,
     });
-  }, [isRechargeAmountValid, realID, realPhone, realname, rechargeAmount, rechargeMutation, selectedChannel?.id, t, toast]);
+  }, [isRechargeAmountValid, realID, realPhone, realname, rechargeAmount, rechargeMutation, selectedChannel?.id, t, toast, REALNAME_REQUIRED_CHANNEL_IDS]);
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
