@@ -923,11 +923,17 @@ export default function Navbar() {
     setHighlightStyle({ left, width, visible: true });
   }, [activeIndex]);
 
+  const canViewLimitedEvents = Number((user as any)?.userInfo?.id ?? (user as any)?.id ?? 0) === 13779;
+
   const navigationItems = [
     { key: 'packs', labelKey: 'packs', icon: 'packs', href: '/packs' },
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
+    // 限时活动：仅白名单用户可见；图标复用活动 icon
+    ...(canViewLimitedEvents
+      ? [{ key: 'limited-events', labelKey: 'limitedEventsNav', icon: 'events', href: '/limited-events' } as const]
+      : []),
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 

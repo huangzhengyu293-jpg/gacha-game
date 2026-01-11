@@ -340,7 +340,7 @@ export default function EventsPage() {
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-[25px]" style={{ color: '#7A8185' }}>#</th>
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 w-1/2" style={{ color: '#7A8185' }}>{t('raceWinners')}</th>
                 <th className="h-12 px-4 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0" style={{ color: '#7A8185' }}>{t('openedLabel')}</th>
-                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
+                <th className="h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-left" style={{ color: '#7A8185' }}>{t('prizeLabel')}</th>
               </tr>
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
