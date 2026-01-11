@@ -3,8 +3,6 @@
 import { useI18n } from "./I18nProvider";
 import { RaceCountdownCard } from "./RaceCountdownCard";
 import type { TablePlayer, TopThreePlayer } from "../lib/consumeLeaderboard";
-import ProductDetailsModal from "./ProductDetailsModal";
-import { useState } from "react";
 
 type Props = {
   title: string;
@@ -42,10 +40,6 @@ export function RaceLeaderboardSection({
   tableData,
 }: Props) {
   const { t } = useI18n();
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailsName, setDetailsName] = useState("");
-  const [detailsImage, setDetailsImage] = useState("");
-  const [detailsDescription, setDetailsDescription] = useState("");
   const arrangedTopThree = topThree.length === 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
   const remainingWidth = `calc(100% - ${mobileRankColWidthPx}px)`;
   const colW3 = `calc(${remainingWidth} * 3 / 7)`;
@@ -147,27 +141,23 @@ export function RaceLeaderboardSection({
                         {player.prize}
                       </p>
                     </div>
-                        <button
-                          type="button"
-                          className="mt-1 border border-solid rounded-lg py-0.5 sm:py-1 md:py-2 w-full cursor-pointer"
+                        <div
+                          className="mt-1 border border-solid rounded-lg py-0.5 sm:py-1 md:py-2 w-full"
                           style={{ borderColor: "#34383c" }}
-                          onClick={() => {
-                            const img =
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            alt=""
+                            src={
                               player.rank === 1
                                 ? "/theme/default/11.png"
                                 : player.rank === 2
                                   ? "/theme/default/22.png"
-                                  : "/theme/default/33.png";
-                            setDetailsName(player.prize || t("notAvailable"));
-                            setDetailsImage(img);
-                            setDetailsDescription(t("notAvailable"));
-                            setDetailsOpen(true);
-                          }}
-                        >
-                          <p className="font-extrabold text-[10px] sm:text-[12px] md:text-[14px] w-full text-center" style={{ color: "#FFFFFF" }}>
-                            {t("rewardDetails")}
-                          </p>
-                        </button>
+                                  : "/theme/default/33.png"
+                            }
+                            className="block w-full max-w-full h-11 sm:h-12 md:h-14 object-contain"
+                          />
+                        </div>
                   </div>
                   <div className="py-2 sm:py-1.5 md:py-2 px-2 sm:px-3 md:px-4 w-full rounded-br-lg rounded-bl-lg" style={{ backgroundColor: "#292f34" }}>
                     <p className="text-[9px] sm:text-[11px] md:text-[13px] font-semibold text-center sm:leading-tight" style={{ color: "#cbd5db" }}>
@@ -227,31 +217,7 @@ export function RaceLeaderboardSection({
                 className={`h-12 px-4 align-middle font-medium [&:has([role=checkbox])]:pr-0 text-right ${equalizeDataColsOnMobile ? 'w-auto' : ''}`}
                 style={{ color: "#7A8185" }}
               >
-                <div className="flex items-center justify-end gap-2">
-                  <span>{t("prizeLabel")}</span>
-                  <button
-                    type="button"
-                    aria-label={t("viewDetails")}
-                    className="w-7 h-7 flex items-center justify-center rounded-md cursor-pointer bg-[#2A2D35] text-[#7A8084] hover:text-white"
-                    onClick={() => {
-                      setDetailsName(t("prizeLabel"));
-                      setDetailsImage("/theme/default/44.png");
-                      setDetailsDescription(t("notAvailable"));
-                      setDetailsOpen(true);
-                    }}
-                  >
-                    <div className="size-4 flex justify-center">
-                      <svg viewBox="0 0 21 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M10.2015 15.9999C8.17738 16.0075 6.19172 15.4472 4.47046 14.3825C2.74883 13.3179 1.36052 11.7915 0.463115 9.97718C-0.15429 8.73041 -0.15429 7.26686 0.463115 6.02009C1.67464 3.59605 3.74642 1.71115 6.27399 0.733299C8.80128 -0.244433 11.6026 -0.244433 14.1295 0.733299C16.657 1.71103 18.7288 3.59601 19.9404 6.02009C20.5578 7.26686 20.5578 8.73041 19.9404 9.97718C19.043 11.7915 17.6547 13.3179 15.9331 14.3825C14.2116 15.4471 12.2259 16.0075 10.202 15.9999H10.2015ZM2.19045 6.87906C1.83288 7.58259 1.83288 8.41472 2.19045 9.11825C2.91884 10.6182 4.0588 11.8802 5.47715 12.7569C6.89566 13.6336 8.53407 14.0888 10.2014 14.0695C11.8687 14.0888 13.5072 13.6336 14.9256 12.7569C16.344 11.8802 17.4839 10.6182 18.2123 9.11825C18.5699 8.41472 18.5699 7.58259 18.2123 6.87906C17.4839 5.37911 16.344 4.11716 14.9256 3.24044C13.5071 2.36372 11.8687 1.90855 10.2014 1.92778C8.53403 1.90855 6.89562 2.36372 5.47715 3.24044C4.0588 4.11716 2.91884 5.37911 2.19045 6.87906ZM10.2005 11.859C9.1766 11.859 8.19469 11.4523 7.47064 10.7283C6.7466 10.0042 6.3399 9.02232 6.3399 7.99838C6.3399 6.97445 6.7466 5.99254 7.47064 5.2685C8.19469 4.54445 9.1766 4.13776 10.2005 4.13776C11.2245 4.13776 12.2064 4.54445 12.9304 5.2685C13.6545 5.99254 14.0612 6.97445 14.0612 9.02232C14.0612 10.0042 13.6545 10.7283 12.9304 10.7283C12.2064 11.4523 11.2245 11.859 10.2005 11.859Z"
-                          fill="currentColor"
-                        ></path>
-                      </svg>
-                    </div>
-                  </button>
-                </div>
+                {t("prizeLabel")}
               </th>
             </tr>
           </thead>
@@ -311,28 +277,22 @@ export function RaceLeaderboardSection({
                   </span>
                 </td>
                 <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-right font-extrabold" style={{ color: "#68d391" }}>
-                  <span
-                    className={`block w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis align-middle ${tablePrizeCellWidthClassName ?? ''}`}
-                    title={row.prize}
-                  >
-                    {row.prize}
-                  </span>
+                  <div className="inline-flex items-center gap-2 max-w-full ml-auto">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt="" src="/theme/default/44.png" className="block w-4 h-4 object-contain flex-none" />
+                    <span
+                      className={`block min-w-0 whitespace-nowrap overflow-hidden text-ellipsis align-middle ${tablePrizeCellWidthClassName ?? ''}`}
+                      title={row.prize}
+                    >
+                      {row.prize}
+                    </span>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      <ProductDetailsModal
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        name={detailsName}
-        image={detailsImage}
-        price={0}
-        description={detailsDescription}
-        showFallbackDescription={false}
-      />
     </>
   );
 }
