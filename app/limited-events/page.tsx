@@ -54,12 +54,12 @@ export default function LimitedEventsPage() {
 
   const PLAYER_PRIZES = useMemo(
     () => [
-      '保时捷帕拉梅拉',
-      '劳力士黑冰糖',
-      '劳力士灰钻日志',
-      ...Array.from({ length: 17 }, () => '苹果17 PRO MAX 1TB'),
+      t('limitedPrizePorschePanamera'),
+      t('limitedPrizeRolexBlackSugar'),
+      t('limitedPrizeRolexGreyDiamondDatejust'),
+      ...Array.from({ length: 17 }, () => t('limitedPrizeIphone17ProMax1TB')),
     ],
-    [],
+    [t],
   );
 
   const getPrizePlayer = (rank: number) => PLAYER_PRIZES[rank - 1] ?? '--';

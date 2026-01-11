@@ -11,6 +11,7 @@ export default function ProductDetailsModal({
   price,
   description,
   animateIn,
+  showFallbackDescription,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,10 +20,15 @@ export default function ProductDetailsModal({
   price: number;
   description?: string;
   animateIn?: boolean;
+  showFallbackDescription?: boolean;
 }) {
   const { t } = useI18n();
   if (!open) return null;
   const showAnim = animateIn ?? true;
+  const showFallback = showFallbackDescription ?? true;
+  const safeName = name?.trim?.() ? name : '--';
+  const priceNum = Number(price);
+  const showPrice = Number.isFinite(priceNum) && priceNum > 0;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -47,16 +53,30 @@ export default function ProductDetailsModal({
         <div>
           <div className="rounded-lg" style={{ backgroundColor: '#34383C', padding: 24 }}>
             <div className="h-[250px] flex justify-center">
-              <img alt={name || 'product'} loading="lazy" decoding="async" src={image || ''} style={{ color: 'transparent', objectFit: 'contain', height: '100%', width: 'auto' }} />
+              {image ? (
+                <img
+                  alt={safeName || 'product'}
+                  loading="lazy"
+                  decoding="async"
+                  src={image}
+                  style={{ color: 'transparent', objectFit: 'contain', height: '100%', width: 'auto' }}
+                />
+              ) : (
+                <div className="w-full h-full" />
+              )}
             </div>
           </div>
           <div className="flex flex-col gap-4 pt-10">
             <div>
-              <p className="font-black text-lg" style={{ color: '#FFFFFF' }}>{name}</p>
-              <p className="text-xl" style={{ color: '#FFFFFF' }}>{`$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}</p>
+              <p className="font-black text-lg" style={{ color: '#FFFFFF' }}>{safeName}</p>
+              {showPrice ? (
+                <p className="text-xl" style={{ color: '#FFFFFF' }}>
+                  {`$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}
+                </p>
+              ) : null}
             </div>
             <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-            <p style={{ color: '#7A8084' }}>{description || t('productDescFallback')}</p>
+            <p style={{ color: '#7A8084' }}>{description || (showFallback ? t('productDescFallback') : '')}</p>
           </div>
         </div>
         <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#9CA3AF' }}>

@@ -436,6 +436,12 @@ const dict: Dict = {
   openFirstPack: { zh: "开启您的第一个礼包！", en: "Open your first pack!", ko: "첫 번째 팩을 열어보세요!", ja: "最初のパックを開封しよう！" },
   yourBestDeal: { zh: "您的最佳交易", en: "Your best deal", ko: "당신의 최고의 거래", ja: "あなたのベスト取引" },
   viewDetails: { zh: "查看详情", en: "View details", ko: "자세히 보기", ja: "詳細を見る" },
+  rewardDetails: { zh: "奖励详情", en: "Reward details", ko: "보상 상세", ja: "報酬詳細" },
+  notAvailable: { zh: "暂无", en: "N/A", ko: "없음", ja: "なし" },
+  limitedPrizePorschePanamera: { zh: "保时捷帕拉梅拉", en: "Porsche Panamera", ko: "포르쉐 파나메라", ja: "ポルシェ パナメーラ" },
+  limitedPrizeRolexBlackSugar: { zh: "劳力士黑冰糖", en: "Rolex Black Sugar", ko: "롤렉스 블랙 슈가", ja: "ロレックス ブラックシュガー" },
+  limitedPrizeRolexGreyDiamondDatejust: { zh: "劳力士灰钻日志", en: "Rolex Grey Diamond Datejust", ko: "롤렉스 그레이 다이아 데이저스트", ja: "ロレックス グレー ダイヤ デイトジャスト" },
+  limitedPrizeIphone17ProMax1TB: { zh: "苹果17 PRO MAX 1TB", en: "iPhone 17 Pro Max 1TB", ko: "아이폰 17 프로 맥스 1TB", ja: "iPhone 17 Pro Max 1TB" },
   // Home / How it works
   howItWorksTitle: { zh: "使用说明", en: "How it works", ko: "이용 방법", ja: "使い方" },
   howStep1Title: { zh: "开启礼包", en: "Open packs", ko: "팩 열기", ja: "パックを開ける" },
