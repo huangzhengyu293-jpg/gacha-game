@@ -1,15 +1,13 @@
 'use client';
 
 import { useI18n } from '../components/I18nProvider';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import BestLiveSidebar from '../components/BestLiveSidebar';
 import { RaceLeaderboardSection } from '../components/RaceLeaderboardSection';
 import { mapConsumeRanking } from '../lib/consumeLeaderboard';
 import { RaceCountdownCard } from '../components/RaceCountdownCard';
-import { useAuth } from '../hooks/useAuth';
-import { useRouter } from 'next/navigation';
 
 // 北京时间（UTC+8）
 const BJT_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -28,21 +26,10 @@ const computeLimitedMsBjt = () => {
 
 export default function LimitedEventsPage() {
   const { t } = useI18n();
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const currentUserId = Number((user as any)?.userInfo?.id ?? (user as any)?.id ?? 0);
-  const canView = isAuthenticated && currentUserId === 13779;
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (canView) return;
-    router.replace('/_not-found');
-  }, [authLoading, canView, router]);
 
   const { data: consumeData } = useQuery({
     queryKey: ['consumeData'],
     queryFn: () => api.getConsume(),
-    enabled: canView,
     staleTime: 30_000,
   });
 
@@ -64,25 +51,13 @@ export default function LimitedEventsPage() {
 
   const getPrizePlayer = (rank: number) => PLAYER_PRIZES[rank - 1] ?? '--';
 
-  // 暂无接口：玩家赛暂用周赛数据占位
+  // 限时活动排行榜：复用活动页同接口（getConsume），取 ranking_activitie
   const rankingPlayer = mapConsumeRanking(
-    consumeData?.data?.ranking_week,
+    consumeData?.data?.ranking_activitie,
     'limited-player',
     getPrizePlayer,
     formatOpened,
   );
-
-  if (authLoading) {
-    return (
-      <div className="flex flex-col flex-1 items-center justify-center min-h-screen">
-        <span className="font-semibold text-base" style={{ color: '#FFFFFF' }}>
-          {t('loading')}
-        </span>
-      </div>
-    );
-  }
-
-  if (!canView) return null;
 
   return (
     <div

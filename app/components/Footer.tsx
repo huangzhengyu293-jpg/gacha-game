@@ -69,8 +69,7 @@ const MobileAccordionMemo = memo(MobileAccordionBase, (prev, next) => prev.title
 
 export default function Footer() {
   const { lang, setLang, t } = useI18n();
-  const { user, isAuthenticated } = useAuth();
-  const canViewLimitedEvents = isAuthenticated && Number((user as any)?.userInfo?.id ?? (user as any)?.id ?? 0) === 13779;
+  useAuth();
   // 保留初始展开偏好，具体开合由子组件自管理，避免父级重渲染干扰动画
   const gamesDefaultOpen = true;
   const legalDefaultOpen = false;
@@ -106,11 +105,9 @@ export default function Footer() {
               <a href="/battles" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
               <a href="/deals" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
               <a href="/events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-              {canViewLimitedEvents ? (
-                <a href="/limited-events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
-                  {t("limitedEventsNav")}
-                </a>
-              ) : null}
+              <a href="/limited-events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
+                {t("limitedEventsNav")}
+              </a>
               <a href="/rewards" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
             </div>
           </MobileAccordionMemo>
@@ -174,11 +171,9 @@ export default function Footer() {
             <a href="/battles" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
             <a href="/deals" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
             <a href="/events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-            {canViewLimitedEvents ? (
-              <a href="/limited-events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
-                {t("limitedEventsNav")}
-              </a>
-            ) : null}
+            <a href="/limited-events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
+              {t("limitedEventsNav")}
+            </a>
             <a href="/rewards" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
           </div>
           <div className="flex flex-col min-w-44 gap-1">
