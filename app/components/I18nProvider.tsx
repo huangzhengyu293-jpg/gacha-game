@@ -692,6 +692,12 @@ const dict: Dict = {
     ko: "거래마다 $2.5 수수료가 부과됩니다",
     ja: "各取引ごとに$2.5の手数料がかかります",
   },
+  scanToPayTitle: { zh: "扫码支付", en: "Scan to pay", ko: "스캔하여 결제", ja: "スキャンして支払う" },
+  pleaseScanWithAlipay: { zh: "请用支付宝扫描", en: "Please scan with Alipay", ko: "Alipay로 스캔하세요", ja: "Alipayでスキャンしてください" },
+  pleaseScanWithWeChat: { zh: "请用微信扫描", en: "Please scan with WeChat", ko: "WeChat으로 스캔하세요", ja: "WeChatでスキャンしてください" },
+  generatingQr: { zh: "二维码生成中...", en: "Generating QR...", ko: "QR 생성 중...", ja: "QRを生成中..." },
+  qrCodeAlt: { zh: "支付二维码", en: "Payment QR code", ko: "결제 QR 코드", ja: "支払いQRコード" },
+  qrGenerateFailed: { zh: "二维码生成失败，请重试", en: "Failed to generate QR. Please try again.", ko: "QR 생성 실패. 다시 시도하세요.", ja: "QRの生成に失敗しました。再試行してください。" },
   amountLabel: { zh: "金额", en: "Amount", ko: "금액", ja: "金額" },
   enterAmount: { zh: "请输入金额", en: "Enter amount", ko: "금액을 입력하세요", ja: "金額を入力してください" },
   amountValidationPositiveInteger: {

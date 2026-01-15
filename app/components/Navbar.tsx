@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
+import PayQrModal from './PayQrModal';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
@@ -267,6 +268,9 @@ export default function Navbar() {
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [showPayQrModal, setShowPayQrModal] = useState(false);
+  const [payQrUrl, setPayQrUrl] = useState('');
+  const [payQrChannelId, setPayQrChannelId] = useState<number>(0);
   const [showRealNameModal, setShowRealNameModal] = useState(false);
   const [realID, setRealID] = useState('');
   const [realname, setRealname] = useState('');
@@ -302,12 +306,21 @@ export default function Navbar() {
       setSelectedChannel(null);
       setCdkValue('');
       setRechargeAmount('');
+      setShowPayQrModal(false);
+      setPayQrUrl('');
+      setPayQrChannelId(0);
       setShowRealNameModal(false);
       setRealID('');
       setRealname('');
       setRealPhone('');
     }
   }, [showWalletModal]);
+
+  const closePayQrModal = useCallback(() => {
+    setShowPayQrModal(false);
+    setPayQrUrl('');
+    setPayQrChannelId(0);
+  }, []);
 
   // 金额输入验证：只能输入数字、整数、>=100
   const handleRechargeAmountChange = (value: string) => {
@@ -389,8 +402,16 @@ export default function Navbar() {
         }
 
         const url = String(res.data.url);
-        // 仅尝试新标签页打开，不跳转当前页
-        window.open(url, '_blank', 'noopener,noreferrer');
+        const channelId = Number(variables?.id);
+        // id=19/20：不跳转页面，改为弹出二维码弹窗
+        if (channelId === 19 || channelId === 20) {
+          setPayQrChannelId(channelId);
+          setPayQrUrl(url);
+          setShowPayQrModal(true);
+        } else {
+          // 其他支付方式：仅尝试新标签页打开，不跳转当前页
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
         // 清空金额输入
         setRechargeAmount('');
         setShowRealNameModal(false);
@@ -1998,6 +2019,8 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      <PayQrModal isOpen={showPayQrModal} onClose={closePayQrModal} payUrl={payQrUrl} channelId={payQrChannelId} />
       <CartModal isOpen={showCart} onClose={() => setShowCart(false)} totalPrice={1.38} />
     </div>
   );
