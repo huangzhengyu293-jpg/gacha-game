@@ -403,11 +403,21 @@ export default function Navbar() {
 
         const url = String(res.data.url);
         const channelId = Number(variables?.id);
-        // id=19/20：不跳转页面，改为弹出二维码弹窗
+        // id=19/20：移动端/平板端保持原逻辑直接跳转；仅 PC 桌面端弹出二维码弹窗
         if (channelId === 19 || channelId === 20) {
-          setPayQrChannelId(channelId);
-          setPayQrUrl(url);
-          setShowPayQrModal(true);
+          const isDesktop =
+            typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+              ? window.matchMedia('(min-width: 1024px)').matches
+              : false;
+
+          if (isDesktop) {
+            setPayQrChannelId(channelId);
+            setPayQrUrl(url);
+            setShowPayQrModal(true);
+          } else {
+            // 移动端/平板端：保持原逻辑直接跳转（新标签页）
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
         } else {
           // 其他支付方式：仅尝试新标签页打开，不跳转当前页
           window.open(url, '_blank', 'noopener,noreferrer');
