@@ -124,32 +124,41 @@ export default function DatePickerField({
         .dp-dark-cal .react-datepicker__navigation--next,
         .dp-dark-cal .react-datepicker__navigation-icon::before { display: none; }
       `}</style>
-      <DatePicker
-        selected={isRange ? undefined : selected}
-        startDate={isRange ? rangeSelected[0] : undefined}
-        endDate={isRange ? rangeSelected[1] : undefined}
-        selectsRange={isRange}
-        onChange={(d) => {
-          if (!isRange) {
+      {isRange ? (
+        <DatePicker
+          startDate={rangeSelected[0]}
+          endDate={rangeSelected[1]}
+          selectsRange={true}
+          onChange={(d) => {
+            const raw = Array.isArray(d) ? d : [null, null];
+            const start = raw[0] instanceof Date && !Number.isNaN(raw[0].getTime()) ? raw[0] : null;
+            const end = raw[1] instanceof Date && !Number.isNaN(raw[1].getTime()) ? raw[1] : null;
+            if (!isControlled) setUncontrolledRange([start, end]);
+            if (onRangeChange) onRangeChange(start ? formatDateToYmd(start) : '', end ? formatDateToYmd(end) : '');
+          }}
+          dateFormat="yyyy-MM-dd"
+          popperPlacement="bottom-start"
+          calendarClassName="dp-dark-cal"
+          todayButton="今天"
+          wrapperClassName="w-full"
+          customInput={<CustomInput id={id} placeholder={placeholder} />}
+        />
+      ) : (
+        <DatePicker
+          selected={selected}
+          onChange={(d) => {
             const date = d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
             if (!isControlled) setUncontrolledSelected(date);
             if (onChange) onChange(date ? formatDateToYmd(date) : "");
-            return;
-          }
-
-          const raw = Array.isArray(d) ? d : [null, null];
-          const start = raw[0] instanceof Date && !Number.isNaN(raw[0].getTime()) ? raw[0] : null;
-          const end = raw[1] instanceof Date && !Number.isNaN(raw[1].getTime()) ? raw[1] : null;
-          if (!isControlled) setUncontrolledRange([start, end]);
-          if (onRangeChange) onRangeChange(start ? formatDateToYmd(start) : '', end ? formatDateToYmd(end) : '');
-        }}
-        dateFormat="yyyy-MM-dd"
-        popperPlacement="bottom-start"
-        calendarClassName="dp-dark-cal"
-        todayButton="今天"
-        wrapperClassName="w-full"
-        customInput={<CustomInput id={id} placeholder={placeholder} />}
-      />
+          }}
+          dateFormat="yyyy-MM-dd"
+          popperPlacement="bottom-start"
+          calendarClassName="dp-dark-cal"
+          todayButton="今天"
+          wrapperClassName="w-full"
+          customInput={<CustomInput id={id} placeholder={placeholder} />}
+        />
+      )}
       
     </div>
   );
