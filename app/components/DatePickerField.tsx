@@ -6,7 +6,24 @@ import "react-datepicker/dist/react-datepicker.css";
 
 type DatePickerFieldProps = {
   id?: string;
-  defaultValue?: string; // yyyy-MM-dd
+  /** 非受控默认值：yyyy-MM-dd */
+  defaultValue?: string;
+  /** 受控值：yyyy-MM-dd；传了就以 value 为准 */
+  value?: string;
+  /** 变更回调：yyyy-MM-dd（清空时返回空字符串） */
+  onChange?: (next: string) => void;
+  /** 范围选择：开始值 yyyy-MM-dd */
+  startValue?: string;
+  /** 范围选择：结束值 yyyy-MM-dd */
+  endValue?: string;
+  /** 范围选择变更回调：yyyy-MM-dd（清空时返回空字符串） */
+  onRangeChange?: (start: string, end: string) => void;
+  /** 模式：单选或范围 */
+  mode?: 'single' | 'range';
+  /** 占位符 */
+  placeholder?: string;
+  /** 外层最大宽度 class */
+  wrapperClassName?: string;
 };
 
 function parseDateString(dateStr?: string): Date | null {
@@ -18,11 +35,19 @@ function parseDateString(dateStr?: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
+function formatDateToYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 const CustomInput = React.forwardRef<HTMLDivElement, any>(function CustomInput(
-  { value, onClick, id },
+  { value, onClick, id, placeholder },
   ref
 ) {
-  const display = value && String(value).length > 0 ? String(value) : "日/月/年";
+  const display =
+    value && String(value).length > 0 ? String(value) : (placeholder ? String(placeholder) : "日/月/年");
   return (
     <div
       id={id}
@@ -44,12 +69,31 @@ const CustomInput = React.forwardRef<HTMLDivElement, any>(function CustomInput(
   );
 });
 
-export default function DatePickerField({ id, defaultValue }: DatePickerFieldProps) {
+export default function DatePickerField({
+  id,
+  defaultValue,
+  value,
+  onChange,
+  startValue,
+  endValue,
+  onRangeChange,
+  mode = 'single',
+  placeholder,
+  wrapperClassName,
+}: DatePickerFieldProps) {
+  const isRange = mode === 'range';
+  const isControlled = isRange ? startValue !== undefined || endValue !== undefined : value !== undefined;
   const initial = useMemo(() => parseDateString(defaultValue), [defaultValue]);
-  const [selected, setSelected] = useState<Date | null>(initial);
+  const controlledDate = useMemo(() => parseDateString(value), [value]);
+  const controlledStart = useMemo(() => parseDateString(startValue), [startValue]);
+  const controlledEnd = useMemo(() => parseDateString(endValue), [endValue]);
+  const [uncontrolledSelected, setUncontrolledSelected] = useState<Date | null>(initial);
+  const [uncontrolledRange, setUncontrolledRange] = useState<[Date | null, Date | null]>([null, null]);
+  const selected = isControlled ? controlledDate : uncontrolledSelected;
+  const rangeSelected = isControlled ? [controlledStart, controlledEnd] : uncontrolledRange;
 
   return (
-    <div className="relative w-full max-w-[540px]">
+    <div className={wrapperClassName ? `relative w-full ${wrapperClassName}` : "relative w-full max-w-[540px]"}>
       <style>{`
         .react-datepicker-wrapper { width: 100%; }
         .react-datepicker__input-container { width: 100%; display: block; }
@@ -81,14 +125,30 @@ export default function DatePickerField({ id, defaultValue }: DatePickerFieldPro
         .dp-dark-cal .react-datepicker__navigation-icon::before { display: none; }
       `}</style>
       <DatePicker
-        selected={selected}
-        onChange={(d) => setSelected(d)}
+        selected={isRange ? undefined : selected}
+        startDate={isRange ? rangeSelected[0] : undefined}
+        endDate={isRange ? rangeSelected[1] : undefined}
+        selectsRange={isRange}
+        onChange={(d) => {
+          if (!isRange) {
+            const date = d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+            if (!isControlled) setUncontrolledSelected(date);
+            if (onChange) onChange(date ? formatDateToYmd(date) : "");
+            return;
+          }
+
+          const raw = Array.isArray(d) ? d : [null, null];
+          const start = raw[0] instanceof Date && !Number.isNaN(raw[0].getTime()) ? raw[0] : null;
+          const end = raw[1] instanceof Date && !Number.isNaN(raw[1].getTime()) ? raw[1] : null;
+          if (!isControlled) setUncontrolledRange([start, end]);
+          if (onRangeChange) onRangeChange(start ? formatDateToYmd(start) : '', end ? formatDateToYmd(end) : '');
+        }}
         dateFormat="yyyy-MM-dd"
         popperPlacement="bottom-start"
         calendarClassName="dp-dark-cal"
         todayButton="今天"
         wrapperClassName="w-full"
-        customInput={<CustomInput id={id} />}
+        customInput={<CustomInput id={id} placeholder={placeholder} />}
       />
       
     </div>

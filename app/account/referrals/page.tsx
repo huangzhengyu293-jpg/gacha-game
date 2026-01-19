@@ -10,7 +10,9 @@ import { api } from "@/app/lib/api";
 import { showGlobalToast } from "@/app/components/ToastProvider";
 import InlineSelect from "@/app/components/InlineSelect";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
-import { getReferralDownlines, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
+import DatePickerField from "@/app/components/DatePickerField";
+import DealsPaginationBar from "@/app/components/DealsPaginationBar";
+import { getUserInviter, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
 import { sanitizeMoneyInput, useCommonWithdrawalMutation } from "@/app/hooks/useCommonWithdrawalMutation";
 
 export default function ReferralsPage() {
@@ -49,6 +51,11 @@ export default function ReferralsPage() {
   const [editingCode, setEditingCode] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [downlineRange, setDownlineRange] = useState<ReferralDownlineRange>(5);
+  const [downlineStartDate, setDownlineStartDate] = useState('');
+  const [downlineEndDate, setDownlineEndDate] = useState('');
+  const [downlineKeywordInput, setDownlineKeywordInput] = useState('');
+  const [downlineKeyword, setDownlineKeyword] = useState('');
+  const [downlinePage, setDownlinePage] = useState(1);
   
   // CDK相关状态
   const [isAddingCdk, setIsAddingCdk] = useState(false);
@@ -98,9 +105,40 @@ export default function ReferralsPage() {
     fillDefaultMoneyFromWallet({ bean: walletBeanNumber });
   }, [walletBeanNumber, withdrawMoney, fillDefaultMoneyFromWallet]);
 
+  // keyword 做轻量防抖：避免每次输入都触发请求
+  useEffect(() => {
+    const handle = setTimeout(() => setDownlineKeyword(downlineKeywordInput.trim()), 400);
+    return () => clearTimeout(handle);
+  }, [downlineKeywordInput]);
+
+  const useCustomDownlineDatetime = Boolean(downlineStartDate && downlineEndDate);
+  const downlineStartDatetime = useMemo(() => {
+    if (!useCustomDownlineDatetime) return '';
+    return `${downlineStartDate} 00:00:00`;
+  }, [useCustomDownlineDatetime, downlineStartDate]);
+  const downlineEndDatetime = useMemo(() => {
+    if (!useCustomDownlineDatetime) return '';
+    return `${downlineEndDate} 23:59:59`;
+  }, [useCustomDownlineDatetime, downlineEndDate]);
+
   const { data: downlineResp, isLoading: downlineLoading } = useQuery({
-    queryKey: ['referralDownlines', user?.token, downlineRange],
-    queryFn: () => getReferralDownlines({ type: downlineRange }),
+    queryKey: [
+      'userInviter',
+      user?.token,
+      downlinePage,
+      downlineRange,
+      downlineKeyword,
+      downlineStartDate,
+      downlineEndDate,
+    ],
+    queryFn: () =>
+      getUserInviter({
+        page: downlinePage,
+        keyword: downlineKeyword,
+        ...(useCustomDownlineDatetime
+          ? { start_datetime: downlineStartDatetime, end_datetime: downlineEndDatetime }
+          : { type: downlineRange }),
+      }),
     enabled: Boolean(user?.token),
     staleTime: 30_000,
   });
@@ -111,10 +149,68 @@ export default function ReferralsPage() {
       Array.isArray(root?.data) ? root.data :
       Array.isArray(root?.list) ? root.list :
       Array.isArray(root?.rows) ? root.rows :
+      Array.isArray(root?.data?.data) ? root.data.data :
+      Array.isArray(root?.data?.list) ? root.data.list :
+      Array.isArray(root?.data?.rows) ? root.data.rows :
       Array.isArray(root) ? root :
       [];
     return Array.isArray(rows) ? rows.filter(Boolean) : [];
   }, [downlineResp]);
+
+  const downlinePagination = useMemo(() => {
+    const root = downlineResp?.data as any;
+    const totalRaw =
+      root?.total ??
+      root?.count ??
+      root?.data?.total ??
+      root?.data?.count ??
+      root?.meta?.total ??
+      root?.pagination?.total ??
+      0;
+    const perPageRaw =
+      root?.per_page ??
+      root?.page_size ??
+      root?.limit ??
+      root?.data?.per_page ??
+      root?.meta?.per_page ??
+      root?.pagination?.per_page ??
+      0;
+    const currentRaw =
+      root?.current_page ??
+      root?.page ??
+      root?.data?.current_page ??
+      root?.meta?.current_page ??
+      root?.pagination?.page ??
+      downlinePage;
+    const lastRaw =
+      root?.last_page ??
+      root?.total_page ??
+      root?.data?.last_page ??
+      root?.meta?.last_page ??
+      root?.pagination?.last_page ??
+      0;
+
+    const total = Number(totalRaw);
+    const perPageFallback = downlineRows.length > 0 ? downlineRows.length : 10;
+    const perPageNum = Number(perPageRaw);
+    const perPage = Number.isFinite(perPageNum) && perPageNum > 0 ? perPageNum : perPageFallback;
+    const currentNum = Number(currentRaw);
+    const current = Number.isFinite(currentNum) && currentNum > 0 ? currentNum : downlinePage;
+    const lastNum = Number(lastRaw);
+    const last =
+      Number.isFinite(lastNum) && lastNum > 0
+        ? lastNum
+        : Number.isFinite(total) && total > 0
+          ? Math.ceil(total / perPage)
+          : 0;
+
+    const start = total > 0 ? (current - 1) * perPage + 1 : 0;
+    const end = total > 0 ? Math.min(total, (current - 1) * perPage + downlineRows.length) : 0;
+    const hasPrev = current > 1;
+    const hasNext = last > 0 ? current < last : downlineRows.length >= perPage;
+
+    return { total: Number.isFinite(total) ? total : 0, perPage, current, last, start, end, hasPrev, hasNext };
+  }, [downlineResp, downlineRows.length, downlinePage, downlineRows]);
 
   const formatMoney = (v: any) => {
     const n = Number(v);
@@ -458,6 +554,10 @@ export default function ReferralsPage() {
                       const safe = (Number.isFinite(n) ? n : 5) as ReferralDownlineRange;
                       const next = (safe >= 1 && safe <= 5 ? safe : 5) as ReferralDownlineRange;
                       setDownlineRange(next);
+                      // 规则：切换 type 时清空开始/结束时间，且不传 start/end
+                      setDownlineStartDate('');
+                      setDownlineEndDate('');
+                      setDownlinePage(1);
                     }}
                     options={[
                       { label: t('referralFilterToday'), value: '1' },
@@ -467,6 +567,41 @@ export default function ReferralsPage() {
                       { label: t('referralFilterAll'), value: '5' },
                     ]}
                     wrapperClassName="w-[140px] sm:w-[208px]"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <div className="w-full min-w-0">
+                  <div className="text-sm font-bold mb-2" style={{ color: '#FFFFFF' }}>{t('referralFilterDatetime')}</div>
+                  <DatePickerField
+                    id="ref-downline-daterange"
+                    mode="range"
+                    startValue={downlineStartDate}
+                    endValue={downlineEndDate}
+                    onRangeChange={(s, e) => {
+                      setDownlineStartDate(s);
+                      setDownlineEndDate(e);
+                      // 规则：自定义时间时不传 type（请求侧会自动省略 type）
+                      setDownlinePage(1);
+                    }}
+                    placeholder={t('referralFilterDatetimePlaceholder')}
+                    wrapperClassName="max-w-none"
+                  />
+                </div>
+
+                <div className="w-full min-w-0">
+                  <div className="text-sm font-bold mb-2" style={{ color: '#FFFFFF' }}>{t('referralFilterKeyword')}</div>
+                  <input
+                    className="flex h-10 w-full rounded-md border-0 px-3 py-2 text-base font-semibold"
+                    style={{ backgroundColor: '#292F34', color: '#FFFFFF' }}
+                    value={downlineKeywordInput}
+                    onChange={(e) => {
+                      setDownlineKeywordInput(e.target.value);
+                      setDownlinePage(1);
+                    }}
+                    placeholder={t('referralFilterKeywordPlaceholder')}
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -498,7 +633,9 @@ export default function ReferralsPage() {
                         const consume = formatMoney(row?.inviter_consume ?? row?.consume ?? row?.flow ?? row?.subordinate_flow ?? 0);
                         return (
                           <tr key={String(row?.id ?? `${idx}`)} style={{ borderTop: '1px solid #2E3134' }}>
-                            <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>{idx + 1}</td>
+                            <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
+                              {(downlinePagination.current - 1) * downlinePagination.perPage + idx + 1}
+                            </td>
                             <td className="px-4 py-3 font-semibold" style={{ color: '#7A8084' }}>
                               <span className="block truncate max-w-[180px] sm:max-w-none">{name}</span>
                             </td>
@@ -518,6 +655,19 @@ export default function ReferralsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="mt-3">
+                <DealsPaginationBar
+                  start={downlinePagination.start}
+                  end={downlinePagination.end}
+                  total={downlinePagination.total}
+                  onPrev={() => downlinePagination.hasPrev && setDownlinePage((p) => Math.max(1, p - 1))}
+                  onNext={() => downlinePagination.hasNext && setDownlinePage((p) => p + 1)}
+                  disabledPrev={!downlinePagination.hasPrev}
+                  disabledNext={!downlinePagination.hasNext}
+                  hideRangeText
+                />
               </div>
             </div>
 
