@@ -6,6 +6,7 @@ import type { SlotSymbol } from "@/app/components/SlotMachine/LuckySlotMachine";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
 import { useI18n } from "@/app/components/I18nProvider";
 import { allocateJackpotPercentageBps } from "../utils";
+import StreamerBadge from "@/app/components/StreamerBadge";
 
 function clampSlotIndex(value: number, totalSlots: number) {
   if (!Number.isFinite(value)) return 0;
@@ -476,6 +477,7 @@ export default function ParticipantsWithPrizes({
   ) => {
     const isRealSlot = slotIndex < totalSlots;
     const isBot = isBotParticipant(participant);
+    const isStreamer = !isBot && Number(participant?.promotion) === 1;
     const maskId = `${slotKey}-mask`;
     const isEliminated =
       Boolean(participant) && gameMode === 'elimination' && eliminatedPlayerIds.has(participant!.id);
@@ -493,7 +495,7 @@ export default function ParticipantsWithPrizes({
                 <div className="flex gap-2 items-center justify-center flex-col sm:flex-row">
                   <div className="flex relative">
                     <div className="relative">
-                      <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
+                      <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: "1px" }}>
                         <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
                           {!participant.avatar ? (
                             renderBotAvatar(maskId)
@@ -504,7 +506,7 @@ export default function ParticipantsWithPrizes({
                               width={32}
                               height={32}
                               className="object-cover w-full h-full pointer-events-none"
-                              style={{ color: 'transparent' }}
+                              style={{ color: "transparent" }}
                             />
                           )}
                         </div>
@@ -521,12 +523,26 @@ export default function ParticipantsWithPrizes({
                         </>
                       )}
                     </div>
-                    {!isBot && (participant.vipLevel ?? 0) > 0 && (
+                    {/* 等级：主播(且非机器人)时不显示 */}
+                    {!isBot && !isStreamer && (participant.vipLevel ?? 0) > 0 && (
                       <div
                         className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
-                        style={{ backgroundColor: '#22272B', border: '1px solid #2B2F33', color: '#FFFFFF' }}
+                        style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
                       >
                         <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
+                      </div>
+                    )}
+                    {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+                    {isStreamer && (
+                      <div
+                        className={
+                          "pointer-events-none absolute " +
+                          (isLargeScreen 
+                            ? "-bottom-4 left-1/2 -translate-x-1/2" 
+                            : "left-full bottom-0")
+                        }
+                      >
+                        <StreamerBadge size="xs" />
                       </div>
                     )}
                   </div>
@@ -621,49 +637,65 @@ export default function ParticipantsWithPrizes({
       const isBot = isBotParticipant(member);
       const maskId = `${teamId}-member-${index}-mask`;
       const isEliminated = gameMode === 'elimination' && eliminatedPlayerIds.has(member.id);
-      const shouldShowVip = !isBot && (member.vipLevel ?? 0) > 0;
+      const isStreamer = !isBot && Number(member?.promotion) === 1;
+      const shouldShowVip = !isBot && !isStreamer && (member.vipLevel ?? 0) > 0;
 
       return (
         <div key={member.id} className="flex gap-2 items-center justify-center flex-col sm:flex-row">
-          <div className="flex relative">
-            <div className="relative">
-              <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: '1px' }}>
-                <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
-                  {!member.avatar ? (
-                    renderBotAvatar(maskId)
-                  ) : (
-                    <img
-                      alt={member.name}
-                      src={member.avatar}
-                      width={32}
-                      height={32}
-                      className="object-cover w-full h-full pointer-events-none"
-                      style={{ color: 'transparent' }}
-                    />
-                  )}
-                </div>
-              </div>
-              {isEliminated && (
-                <>
-                  <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
-                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                      <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
-                      <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
-                    </svg>
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex relative">
+              <div className="relative">
+                <div className="overflow-hidden border rounded-full border-gray-700" style={{ borderWidth: "1px" }}>
+                  <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
+                    {!member.avatar ? (
+                      renderBotAvatar(maskId)
+                    ) : (
+                      <img
+                        alt={member.name}
+                        src={member.avatar}
+                        width={32}
+                        height={32}
+                        className="object-cover w-full h-full pointer-events-none"
+                        style={{ color: "transparent" }}
+                      />
+                    )}
                   </div>
-                </>
+                </div>
+                {isEliminated && (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
+                      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                        <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
+                        <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
+                      </svg>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {shouldShowVip && (
+                <div
+                  className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
+                  style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
+                >
+                  <span className="text-xxs font-bold leading-none text-white">{member.vipLevel}</span>
+                </div>
+              )}
+              {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+              {isStreamer && (
+                <div
+                  className={
+                    "pointer-events-none absolute " +
+                    (isLargeScreen 
+                      ? "-bottom-4 left-1/2 -translate-x-1/2" 
+                      : "left-full bottom-0")
+                  }
+                >
+                  <StreamerBadge size="xs" />
+                </div>
               )}
             </div>
-
-            {shouldShowVip && (
-              <div
-                className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
-                style={{ backgroundColor: '#22272B', border: '1px solid #2B2F33', color: '#FFFFFF' }}
-              >
-                <span className="text-xxs font-bold leading-none text-white">{member.vipLevel}</span>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col gap-1 items-center sm:items-start">
@@ -882,6 +914,7 @@ export default function ParticipantsWithPrizes({
           const isRealSlot = slotIndex < totalSlots;
           const slotKey = isRealSlot ? `slot-${slotIndex}` : `placeholder-${safeActiveGroup}-${slotOffset}`;
           const isBot = isBotParticipant(participant);
+          const isStreamer = !isBot && Number(participant?.promotion) === 1;
           const maskId = `${slotKey}-mask`;
           const isLoadingSlot = !!pendingActionSlots[slotIndex];
           return (
@@ -894,49 +927,64 @@ export default function ParticipantsWithPrizes({
                   <div className="flex flex-1 justify-center items-center">
                     {participant ? (
                       <div className="flex gap-2 items-center justify-center flex-col sm:flex-row">
-                      <div className="flex relative">
-                        <div className="relative">
-                          <div
-                              className="overflow-hidden border rounded-full border-gray-700"
-                              style={{ borderWidth: "1px" }}
-                            >
-                              <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
-                                {!participant.avatar ? (
-                                  renderBotAvatar(maskId)
-                                ) : (
-                              <img
-                                src={participant.avatar}
-                                alt={participant.name}
-                                width={32}
-                                height={32}
-                                className="object-cover w-full h-full pointer-events-none"
-                                style={{ color: "transparent" }}
-                              />
-                                )}
-                            </div>
-                          </div>
-                          {gameMode === 'elimination' && eliminatedPlayerIds.has(participant.id) && (
-                            <>
-                              <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
-                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
-                                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                                  <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
-                                  <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
-                                </svg>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex relative">
+                          <div className="relative">
+                            <div
+                                className="overflow-hidden border rounded-full border-gray-700"
+                                style={{ borderWidth: "1px" }}
+                              >
+                                <div className="relative rounded-full overflow-hidden w-6 h-6 sm:w-8 sm:h-8">
+                                  {!participant.avatar ? (
+                                    renderBotAvatar(maskId)
+                                  ) : (
+                                <img
+                                  src={participant.avatar}
+                                  alt={participant.name}
+                                  width={32}
+                                  height={32}
+                                  className="object-cover w-full h-full pointer-events-none"
+                                  style={{ color: "transparent" }}
+                                />
+                                  )}
                               </div>
-                            </>
+                            </div>
+                            {gameMode === 'elimination' && eliminatedPlayerIds.has(participant.id) && (
+                              <>
+                                <div className="pointer-events-none absolute inset-0 rounded-full bg-black/60" />
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[#FF9C49] z-10">
+                                  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                                    <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"></circle>
+                                    <line x1="6.67941" y1="7.26624" x2="33.6794" y2="32.2662" stroke="currentColor" strokeWidth="2"></line>
+                                  </svg>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          
+                          {/* 等级：主播(且非机器人)时不显示 */}
+                          {!isBot && !isStreamer && (participant.vipLevel ?? 0) > 0 && (
+                            <div
+                              className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
+                              style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
+                            >
+                              <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
+                            </div>
+                          )}
+                          {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+                          {isStreamer && (
+                            <div
+                              className={
+                                "pointer-events-none absolute " +
+                                (isLargeScreen 
+                                  ? "-bottom-4 left-1/2 -translate-x-1/2" 
+                                  : "left-full bottom-0")
+                              }
+                            >
+                              <StreamerBadge size="xs" />
+                            </div>
                           )}
                         </div>
-                        
-                        {/* 序号标记 - 机器人不显示 */}
-                        {!isBot && (participant.vipLevel ?? 0) > 0 && (
-                          <div
-                            className="px-1 py-0.5 flex items-center justify-center rounded-full absolute z-10 -bottom-1 size-4 -left-1"
-                            style={{ backgroundColor: "#22272B", border: "1px solid #2B2F33", color: "#FFFFFF" }}
-                          >
-                            <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
-                          </div>
-                        )}
                       </div>
                       
                       <div className="flex flex-col gap-1 items-center sm:items-start">

@@ -58,6 +58,7 @@ const dict: Dict = {
   itemsLabel: { zh: "个物品", en: "items", ko: "개 아이템", ja: "個のアイテム" },
   productDetailsTitle: { zh: "产品详情", en: "Product Details", ko: "제품 상세", ja: "製品詳細" },
   productDescFallback: { zh: "暂无", en: "N/A", ko: "없음", ja: "なし" },
+  streamerLabel: { zh: "主播", en: "Streamer", ko: "스트리머", ja: "配信者" },
   close: { zh: "关闭", en: "Close", ko: "닫기", ja: "閉じる" },
   // Battles
   battleSortPriceDesc: { zh: "价格：从高到低", en: "Price: High to Low", ko: "가격: 높은순", ja: "価格: 高い順" },

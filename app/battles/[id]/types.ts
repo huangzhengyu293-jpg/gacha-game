@@ -28,6 +28,8 @@ export type Participant = {
   vipLevel?: number;
   // 后端字段：user.robot === 1 表示机器人，0 表示普通用户
   robot?: number;
+  // 后端字段：promotion === 1 表示主播
+  promotion?: number;
   slotIndex?: number;
 };
 
