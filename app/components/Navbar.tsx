@@ -350,6 +350,7 @@ export default function Navbar() {
 
   // 验证金额是否有效
   const ALLOWED_AMOUNTS_FOR_19 = useMemo(() => new Set([50, 100, 150, 200, 250, 300]), []);
+  const ALLOWED_AMOUNTS_FOR_21 = useMemo(() => new Set([50, 100, 150, 200, 300, 500]), []);
 
   const isRechargeAmountValid = useCallback(() => {
     const raw = rechargeAmount.trim();
@@ -364,8 +365,11 @@ export default function Navbar() {
     if (channelId === 19) {
       return ALLOWED_AMOUNTS_FOR_19.has(num);
     }
+    if (channelId === 21) {
+      return ALLOWED_AMOUNTS_FOR_21.has(num);
+    }
     return num >= 100;
-  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19]);
+  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19, ALLOWED_AMOUNTS_FOR_21]);
 
   const rechargeAmountErrorText = useMemo(() => {
     if (!rechargeAmount) return '';
@@ -373,8 +377,21 @@ export default function Navbar() {
     const channelId = Number(selectedChannel?.id);
     if (channelId === 16) return t('amountValidationPositiveInteger');
     if (channelId === 19) return t('amountValidationPresetOnly');
+    if (channelId === 21) return t('amountValidationPresetOnly21');
     return t('amountValidationError');
   }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
+
+  const presetAmountsForButtons = useMemo(() => {
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 21) return ['50', '100', '150', '200', '300', '500'];
+    const list: any[] = Array.isArray(selectedChannel?.money_list) ? selectedChannel.money_list : [];
+    return list
+      .map((m: any) =>
+        typeof m === 'number' || typeof m === 'string' ? String(m) : String(m?.money ?? m?.amount ?? ''),
+      )
+      .map((s: string) => s.trim())
+      .filter((s: string) => Boolean(s));
+  }, [selectedChannel?.id, (selectedChannel as any)?.money_list]);
 
   const rechargeMutation = useMutation({
     mutationFn: async (payload: { id: string | number; money: string | number; realID?: string; realname?: string; phone?: string }) => {
@@ -1848,16 +1865,16 @@ export default function Navbar() {
                     ) : (
                       <div className="flex flex-col gap-3">
                         <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
-                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示（无 money_list 则不展示） */}
-                        {selectedChannel?.id !== 2 && Array.isArray(selectedChannel?.money_list) && selectedChannel.money_list.length > 0 && (
+                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示 */}
+                        {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 && (
                           <div className="grid w-full grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
-                            {selectedChannel.money_list.map((m: any, i: number) => {
-                              const val = typeof m === 'number' || typeof m === 'string' ? String(m) : String(m?.money ?? m?.amount ?? '');
-                              if (!val || !val.trim()) return null;
-                              const isActive = rechargeAmount === val;
+                            {presetAmountsForButtons.map((val: string, i: number) => {
+                              const v = String(val || '').trim();
+                              if (!v) return null;
+                              const isActive = rechargeAmount === v;
                               return (
                                 <button
-                                  key={`${val}_${i}`}
+                                  key={`${v}_${i}`}
                                   type="button"
                                   className="inline-flex w-full items-center justify-center rounded-md h-9 px-2 text-xs sm:text-sm font-bold transition-colors disabled:pointer-events-none interactive-focus"
                                   style={{
@@ -1868,9 +1885,9 @@ export default function Navbar() {
                                     opacity: rechargeMutation.isPending ? 0.7 : 1,
                                   }}
                                   disabled={rechargeMutation.isPending}
-                                  onClick={() => handleSelectPresetAmount(val)}
+                                  onClick={() => handleSelectPresetAmount(v)}
                                 >
-                                  {val}
+                                  {v}
                                 </button>
                               );
                             })}
