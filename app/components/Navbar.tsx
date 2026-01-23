@@ -276,7 +276,7 @@ export default function Navbar() {
   const [realname, setRealname] = useState('');
   const [realPhone, setRealPhone] = useState('');
   const REALNAME_SESSION_KEY = 'deposit_realname_info_v1';
-  const REALNAME_REQUIRED_CHANNEL_IDS = useMemo(() => new Set<number>([19, 20]), []);
+  const REALNAME_REQUIRED_CHANNEL_IDS = useMemo(() => new Set<number>([19, 20, 21]), []);
   const { data: commonChannelData } = useQuery({
     queryKey: ['commonChannel'],
     queryFn: () => api.getCommonChannel(),
@@ -404,6 +404,7 @@ export default function Navbar() {
         const url = String(res.data.url);
         const channelId = Number(variables?.id);
         // id=19/20：移动端/平板端保持原逻辑直接跳转；仅 PC 桌面端弹出二维码弹窗
+        // id=21：无论是PC还是手机端都需要弹出二维码
         if (channelId === 19 || channelId === 20) {
           const isDesktop =
             typeof window !== 'undefined' && typeof window.matchMedia === 'function'
@@ -418,6 +419,11 @@ export default function Navbar() {
             // 移动端/平板端：保持原逻辑直接跳转（新标签页）
             window.open(url, '_blank', 'noopener,noreferrer');
           }
+        } else if (channelId === 21) {
+          // id=21：所有设备都弹出二维码弹窗
+          setPayQrChannelId(channelId);
+          setPayQrUrl(url);
+          setShowPayQrModal(true);
         } else {
           // 其他支付方式：仅尝试新标签页打开，不跳转当前页
           window.open(url, '_blank', 'noopener,noreferrer');
