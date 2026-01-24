@@ -902,6 +902,55 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       if (targetBaseIndex + cycleLen < totalLen) {
         virtualItemsRef.current[targetBaseIndex + cycleLen] = selectedPrize;
       }
+
+      // 🚫 防“泄题”：淘汰/决胜模式下，确保最终停住的答案左右两侧不会出现同一头像/同一玩家
+      // 否则会出现“答案旁边贴一个一样头像”，玩家一眼就能锁定答案。
+      if (isEliminationMode) {
+        const normalizeImage = (s?: SlotSymbol | null) => String(s?.image ?? '').trim();
+        const isSameVisual = (a?: SlotSymbol | null, b?: SlotSymbol | null) => {
+          if (!a || !b) return false;
+          if (String(a.id) === String(b.id)) return true;
+          const ai = normalizeImage(a);
+          const bi = normalizeImage(b);
+          return Boolean(ai && bi && ai === bi);
+        };
+
+        const pool = Array.from(
+          new Map((initialSymbolsRef.current || []).map((item) => [String(item?.id ?? ''), item])).values(),
+        ).filter((s) => Boolean(s && s.id));
+
+        const pickDifferent = (avoidA?: SlotSymbol | null, avoidB?: SlotSymbol | null) => {
+          if (pool.length <= 1) return null;
+          return (
+            pool.find((c) => !isSameVisual(c, avoidA) && !isSameVisual(c, avoidB)) ??
+            pool.find((c) => !isSameVisual(c, avoidA)) ??
+            null
+          );
+        };
+
+        const leftIndex = targetBaseIndex - 1;
+        const rightIndex = targetBaseIndex + 1;
+
+        if (leftIndex >= 0 && leftIndex < totalLen) {
+          const currentLeft = virtualItemsRef.current[leftIndex] ?? null;
+          if (isSameVisual(currentLeft, selectedPrize)) {
+            const replacement = pickDifferent(selectedPrize, virtualItemsRef.current[rightIndex] ?? null);
+            if (replacement) {
+              virtualItemsRef.current[leftIndex] = replacement;
+            }
+          }
+        }
+
+        if (rightIndex >= 0 && rightIndex < totalLen) {
+          const currentRight = virtualItemsRef.current[rightIndex] ?? null;
+          if (isSameVisual(currentRight, selectedPrize)) {
+            const replacement = pickDifferent(selectedPrize, virtualItemsRef.current[leftIndex] ?? null);
+            if (replacement) {
+              virtualItemsRef.current[rightIndex] = replacement;
+            }
+          }
+        }
+      }
     }
     
     await spinPhase1(duration, targetBaseIndex);

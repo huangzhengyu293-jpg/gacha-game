@@ -2318,7 +2318,18 @@ useEffect(() => {
     }
 
     if (gameMode === 'classic') {
-      const comparison = getClassicComparisonValues();
+      const toCents = (value: unknown) => {
+        const num = Number(value ?? 0);
+        if (!Number.isFinite(num)) return 0;
+        return Math.round(num * 100);
+      };
+
+      const rawComparison = getClassicComparisonValues();
+      const comparison: Record<string, number> = {};
+      Object.entries(rawComparison).forEach(([id, value]) => {
+        if (!id) return;
+        comparison[id] = toCents(value);
+      });
       const values = Object.values(comparison);
       if (!values.length) return null;
       const comparator = isInverted ? Math.min : Math.max;
