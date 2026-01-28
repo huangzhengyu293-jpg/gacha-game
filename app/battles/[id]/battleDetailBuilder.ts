@@ -303,6 +303,13 @@ function buildBattleParticipants(
         vipLevel:
           parseNumber((wrapper as any)?.user?.vip ?? (wrapper as any)?.vip ?? (wrapper as any)?.user?.user_vip) || 0,
         robot: parseNumber((user as any)?.robot ?? (wrapper as any)?.robot ?? (wrapper as any)?.user?.robot ?? 0),
+        promotion: ((user as any)?.promotion !== undefined) 
+          ? parseNumber((user as any)?.promotion)
+          : ((wrapper as any)?.promotion !== undefined)
+          ? parseNumber((wrapper as any)?.promotion)
+          : ((wrapper as any)?.user?.promotion !== undefined)
+          ? parseNumber((wrapper as any)?.user?.promotion)
+          : undefined,
         items: [],
         slotIndex,
       };

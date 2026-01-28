@@ -5,8 +5,8 @@ const CHAPORT_APP_ID = "69483deef3424436c3b3c237";
 export default function ChaportLiveChat() {
   return (
     <>
-      <Script id="chaport-live-chat" strategy="afterInteractive">
-        {`
+    <Script id="chaport-live-chat" strategy="afterInteractive">
+      {`
 (function(w,d,v3){
   w.chaportConfig = { appId : '${CHAPORT_APP_ID}' };
   if(w.chaport) return;
@@ -25,8 +25,8 @@ export default function ChaportLiveChat() {
   var ss = d.getElementsByTagName('script')[0];
   ss.parentNode.insertBefore(s,ss);
 })(window, document);
-        `}
-      </Script>
+      `}
+    </Script>
 
       <style>{`
         /* Chaport overrides: keep scope as tight as possible */

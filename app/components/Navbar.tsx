@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
+import PayQrModal from './PayQrModal';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
@@ -267,11 +268,15 @@ export default function Navbar() {
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [showPayQrModal, setShowPayQrModal] = useState(false);
+  const [payQrUrl, setPayQrUrl] = useState('');
+  const [payQrChannelId, setPayQrChannelId] = useState<number>(0);
   const [showRealNameModal, setShowRealNameModal] = useState(false);
   const [realID, setRealID] = useState('');
   const [realname, setRealname] = useState('');
   const [realPhone, setRealPhone] = useState('');
   const REALNAME_SESSION_KEY = 'deposit_realname_info_v1';
+  const REALNAME_REQUIRED_CHANNEL_IDS = useMemo(() => new Set<number>([19, 20, 21]), []);
   const { data: commonChannelData } = useQuery({
     queryKey: ['commonChannel'],
     queryFn: () => api.getCommonChannel(),
@@ -301,12 +306,21 @@ export default function Navbar() {
       setSelectedChannel(null);
       setCdkValue('');
       setRechargeAmount('');
+      setShowPayQrModal(false);
+      setPayQrUrl('');
+      setPayQrChannelId(0);
       setShowRealNameModal(false);
       setRealID('');
       setRealname('');
       setRealPhone('');
     }
   }, [showWalletModal]);
+
+  const closePayQrModal = useCallback(() => {
+    setShowPayQrModal(false);
+    setPayQrUrl('');
+    setPayQrChannelId(0);
+  }, []);
 
   // 金额输入验证：只能输入数字、整数、>=100
   const handleRechargeAmountChange = (value: string) => {
@@ -336,6 +350,7 @@ export default function Navbar() {
 
   // 验证金额是否有效
   const ALLOWED_AMOUNTS_FOR_19 = useMemo(() => new Set([50, 100, 150, 200, 250, 300]), []);
+  const ALLOWED_AMOUNTS_FOR_21 = useMemo(() => new Set([50, 100, 150, 200, 300, 500]), []);
 
   const isRechargeAmountValid = useCallback(() => {
     const raw = rechargeAmount.trim();
@@ -350,8 +365,11 @@ export default function Navbar() {
     if (channelId === 19) {
       return ALLOWED_AMOUNTS_FOR_19.has(num);
     }
+    if (channelId === 21) {
+      return ALLOWED_AMOUNTS_FOR_21.has(num);
+    }
     return num >= 100;
-  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19]);
+  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19, ALLOWED_AMOUNTS_FOR_21]);
 
   const rechargeAmountErrorText = useMemo(() => {
     if (!rechargeAmount) return '';
@@ -359,8 +377,21 @@ export default function Navbar() {
     const channelId = Number(selectedChannel?.id);
     if (channelId === 16) return t('amountValidationPositiveInteger');
     if (channelId === 19) return t('amountValidationPresetOnly');
+    if (channelId === 21) return t('amountValidationPresetOnly21');
     return t('amountValidationError');
   }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
+
+  const presetAmountsForButtons = useMemo(() => {
+    const channelId = Number(selectedChannel?.id);
+    if (channelId === 21) return ['50', '100', '150', '200', '300', '500'];
+    const list: any[] = Array.isArray(selectedChannel?.money_list) ? selectedChannel.money_list : [];
+    return list
+      .map((m: any) =>
+        typeof m === 'number' || typeof m === 'string' ? String(m) : String(m?.money ?? m?.amount ?? ''),
+      )
+      .map((s: string) => s.trim())
+      .filter((s: string) => Boolean(s));
+  }, [selectedChannel?.id, (selectedChannel as any)?.money_list]);
 
   const rechargeMutation = useMutation({
     mutationFn: async (payload: { id: string | number; money: string | number; realID?: string; realname?: string; phone?: string }) => {
@@ -373,7 +404,7 @@ export default function Navbar() {
       if (res?.code === 100000 && res?.data?.url) {
         // 仅当支付方式 id=19 且充值成功时，临时存储实名信息（sessionStorage：关闭页面自动清除）
         try {
-          if (typeof window !== 'undefined' && Number(variables?.id) === 19) {
+          if (typeof window !== 'undefined' && REALNAME_REQUIRED_CHANNEL_IDS.has(Number(variables?.id))) {
             const payload = {
               realID: String(variables?.realID ?? ''),
               realname: String(variables?.realname ?? ''),
@@ -388,8 +419,32 @@ export default function Navbar() {
         }
 
         const url = String(res.data.url);
-        // 仅尝试新标签页打开，不跳转当前页
-        window.open(url, '_blank', 'noopener,noreferrer');
+        const channelId = Number(variables?.id);
+        // id=19/20：移动端/平板端保持原逻辑直接跳转；仅 PC 桌面端弹出二维码弹窗
+        // id=21：无论是PC还是手机端都需要弹出二维码
+        if (channelId === 19 || channelId === 20) {
+          const isDesktop =
+            typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+              ? window.matchMedia('(min-width: 1024px)').matches
+              : false;
+
+          if (isDesktop) {
+            setPayQrChannelId(channelId);
+            setPayQrUrl(url);
+            setShowPayQrModal(true);
+          } else {
+            // 移动端/平板端：保持原逻辑直接跳转（新标签页）
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+        } else if (channelId === 21) {
+          // id=21：所有设备都弹出二维码弹窗
+          setPayQrChannelId(channelId);
+          setPayQrUrl(url);
+          setShowPayQrModal(true);
+        } else {
+          // 其他支付方式：仅尝试新标签页打开，不跳转当前页
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
         // 清空金额输入
         setRechargeAmount('');
         setShowRealNameModal(false);
@@ -431,7 +486,7 @@ export default function Navbar() {
     if (!isRechargeAmountValid() || !selectedChannel?.id) return;
 
     const channelId = Number(selectedChannel?.id);
-    if (channelId === 19) {
+    if (REALNAME_REQUIRED_CHANNEL_IDS.has(channelId)) {
       // 打开实名弹窗时尝试从 sessionStorage 回填（仅本次页面会话有效）
       try {
         if (typeof window !== 'undefined') {
@@ -465,7 +520,7 @@ export default function Navbar() {
     if (rechargeMutation.isPending) return;
     if (!selectedChannel?.id || !isRechargeAmountValid()) return;
     const channelId = Number(selectedChannel?.id);
-    if (channelId !== 19) return;
+    if (!REALNAME_REQUIRED_CHANNEL_IDS.has(channelId)) return;
 
     const idValue = realID.trim();
     const nameValue = realname.trim();
@@ -486,7 +541,7 @@ export default function Navbar() {
       realname: nameValue,
       phone: phoneValue,
     });
-  }, [isRechargeAmountValid, realID, realPhone, realname, rechargeAmount, rechargeMutation, selectedChannel?.id, t, toast]);
+  }, [isRechargeAmountValid, realID, realPhone, realname, rechargeAmount, rechargeMutation, selectedChannel?.id, t, toast, REALNAME_REQUIRED_CHANNEL_IDS]);
   const [resendCountdown, setResendCountdown] = useState(0); // 重新发送倒计时
   // 中屏（>=640 && <1024）右上角弹框
   const [isMidViewport, setIsMidViewport] = useState(() => {
@@ -927,6 +982,8 @@ export default function Navbar() {
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
+    // 限时活动：开放所有用户可见；图标复用活动 icon
+    { key: 'limited-events', labelKey: 'limitedEventsNav', icon: 'events', href: '/limited-events' },
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 
@@ -1808,16 +1865,16 @@ export default function Navbar() {
                     ) : (
                       <div className="flex flex-col gap-3">
                         <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
-                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示（无 money_list 则不展示） */}
-                        {selectedChannel?.id !== 2 && Array.isArray(selectedChannel?.money_list) && selectedChannel.money_list.length > 0 && (
+                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示 */}
+                        {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 && (
                           <div className="grid w-full grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
-                            {selectedChannel.money_list.map((m: any, i: number) => {
-                              const val = typeof m === 'number' || typeof m === 'string' ? String(m) : String(m?.money ?? m?.amount ?? '');
-                              if (!val || !val.trim()) return null;
-                              const isActive = rechargeAmount === val;
+                            {presetAmountsForButtons.map((val: string, i: number) => {
+                              const v = String(val || '').trim();
+                              if (!v) return null;
+                              const isActive = rechargeAmount === v;
                               return (
                                 <button
-                                  key={`${val}_${i}`}
+                                  key={`${v}_${i}`}
                                   type="button"
                                   className="inline-flex w-full items-center justify-center rounded-md h-9 px-2 text-xs sm:text-sm font-bold transition-colors disabled:pointer-events-none interactive-focus"
                                   style={{
@@ -1828,9 +1885,9 @@ export default function Navbar() {
                                     opacity: rechargeMutation.isPending ? 0.7 : 1,
                                   }}
                                   disabled={rechargeMutation.isPending}
-                                  onClick={() => handleSelectPresetAmount(val)}
+                                  onClick={() => handleSelectPresetAmount(v)}
                                 >
-                                  {val}
+                                  {v}
                                 </button>
                               );
                             })}
@@ -1995,6 +2052,8 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      <PayQrModal isOpen={showPayQrModal} onClose={closePayQrModal} payUrl={payQrUrl} channelId={payQrChannelId} />
       <CartModal isOpen={showCart} onClose={() => setShowCart(false)} totalPrice={1.38} />
     </div>
   );

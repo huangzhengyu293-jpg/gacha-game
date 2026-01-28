@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, memo } from "react";
 import InlineSelect from "./InlineSelect";
 import { useI18n } from "./I18nProvider";
 import { LogoIcon } from "./icons/Logo";
+import { useAuth } from "../hooks/useAuth";
 
 // Hoisted accordion to avoid remounts on Footer re-renders
 const MobileAccordionBase = ({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode; }) => {
@@ -68,6 +69,7 @@ const MobileAccordionMemo = memo(MobileAccordionBase, (prev, next) => prev.title
 
 export default function Footer() {
   const { lang, setLang, t } = useI18n();
+  useAuth();
   // 保留初始展开偏好，具体开合由子组件自管理，避免父级重渲染干扰动画
   const gamesDefaultOpen = true;
   const legalDefaultOpen = false;
@@ -103,6 +105,9 @@ export default function Footer() {
               <a href="/battles" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
               <a href="/deals" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
               <a href="/events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
+              <a href="/limited-events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
+                {t("limitedEventsNav")}
+              </a>
               <a href="/rewards" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
             </div>
           </MobileAccordionMemo>
@@ -156,6 +161,10 @@ export default function Footer() {
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("support")}</p>
             <p className="text-base" style={{ color: '#7A8084' }}>{t("email")}</p>
           </div>
+          <div className="flex flex-col mt-2">
+            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
+            <p className="text-base" style={{ color: '#7A8084' }}>QQ：647513449</p>
+          </div>
         </div>
 
         {/* Desktop columns */}
@@ -166,6 +175,9 @@ export default function Footer() {
             <a href="/battles" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
             <a href="/deals" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
             <a href="/events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
+            <a href="/limited-events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
+              {t("limitedEventsNav")}
+            </a>
             <a href="/rewards" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
           </div>
           <div className="flex flex-col min-w-44 gap-1">
@@ -213,6 +225,10 @@ export default function Footer() {
             <div className="flex flex-col">
               <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("support")}</p>
               <p className="text-base" style={{ color: '#7A8084' }}>{t("email")}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
+              <p className="text-base" style={{ color: '#7A8084' }}>QQ：647513449</p>
             </div>
           </div>
         </div>

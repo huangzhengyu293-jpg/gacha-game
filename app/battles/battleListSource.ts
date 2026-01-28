@@ -7,6 +7,8 @@ export type ParticipantPreview = {
   avatar: string;
   slotIndex?: number;
   vipLevel?: number;
+  promotion?: number;
+  robot?: number;
 };
 
 export type BattleListCard = {
@@ -329,6 +331,16 @@ export function buildBattleListCards(
               avatar: userInfo.avatar ?? '',
               slotIndex: Number.isFinite(rawOrder) && rawOrder > 0 ? rawOrder - 1 : undefined,
               vipLevel: Number(userInfo.vip ?? wrapper.vip ?? 0) || undefined,
+              promotion: ((userInfo as any).promotion !== undefined) 
+                ? Number((userInfo as any).promotion) 
+                : ((wrapper as any).promotion !== undefined)
+                ? Number((wrapper as any).promotion)
+                : undefined,
+              robot: ((userInfo as any).robot !== undefined) 
+                ? Number((userInfo as any).robot) 
+                : ((wrapper as any).robot !== undefined)
+                ? Number((wrapper as any).robot)
+                : undefined,
             } as ParticipantPreview;
           })
           .filter((participant): participant is ParticipantPreview => Boolean(participant))

@@ -8,6 +8,10 @@ export interface RawBattleListUserSlot {
     name: string;
     avatar: string;
     vip: number;
+    // 后端新增：promotion=1 表示主播
+    promotion?: number;
+    // 后端字段：robot === 1 表示机器人
+    robot?: number;
   };
 }
 

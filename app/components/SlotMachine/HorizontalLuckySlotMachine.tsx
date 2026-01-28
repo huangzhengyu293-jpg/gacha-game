@@ -42,6 +42,45 @@ const GLOW_COLOR_MAP: Record<string, string> = {
 const RANDOM_OFFSET_MIN_RATIO = 0.2;
 const RANDOM_OFFSET_MAX_RATIO = 0.49;
 
+function buildOrderedCycleSequence(inputSymbols: SlotSymbol[], count: number): SlotSymbol[] {
+  const safeCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  if (!Array.isArray(inputSymbols) || inputSymbols.length === 0 || safeCount === 0) return [];
+
+  // 按输入顺序去重（以 id 为准），避免出现“同一玩家重复出现导致相邻重复”的最差体验
+  const seen = new Set<string>();
+  const orderedUnique: SlotSymbol[] = [];
+  for (const s of inputSymbols) {
+    const id = String(s?.id ?? '').trim();
+    if (!id) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    orderedUnique.push(s);
+  }
+
+  if (orderedUnique.length === 0) return [];
+  if (orderedUnique.length === 1) {
+    // 只有 1 个玩家时无法避免相邻重复
+    return Array.from({ length: safeCount }, () => orderedUnique[0]);
+  }
+
+  const seq: SlotSymbol[] = [];
+  let lastId = '';
+  for (let i = 0; seq.length < safeCount && i < safeCount * 3; i += 1) {
+    const symbol = orderedUnique[i % orderedUnique.length];
+    const symbolId = String(symbol?.id ?? '');
+    if (symbolId && symbolId === lastId) continue;
+    seq.push(symbol);
+    lastId = symbolId;
+  }
+
+  // 兜底：极端情况下填满
+  while (seq.length < safeCount) {
+    seq.push(orderedUnique[seq.length % orderedUnique.length]);
+  }
+
+  return seq;
+}
+
 function resolveGlowColor(symbol: SlotSymbol): string | null {
   if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
     return '#E4AE33';
@@ -563,10 +602,15 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       return;
     }
     
-    const symbolSequence: SlotSymbol[] = [];
-    for (let j = 0; j < itemsPerReel; j++) {
-      symbolSequence.push(initialSymbolsRef.current[Math.floor(Math.random() * initialSymbolsRef.current.length)]);
-    }
+    const symbolSequence: SlotSymbol[] = isEliminationMode
+      ? buildOrderedCycleSequence(initialSymbolsRef.current, itemsPerReel)
+      : (() => {
+          const seq: SlotSymbol[] = [];
+          for (let j = 0; j < itemsPerReel; j++) {
+            seq.push(initialSymbolsRef.current[Math.floor(Math.random() * initialSymbolsRef.current.length)]);
+          }
+          return seq;
+        })();
     
     virtualItemsRef.current = [];
     for (let repeat = 0; repeat < repeatTimes; repeat++) {
@@ -605,7 +649,7 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       
       });
     });
-  }, [isSpinning, itemsPerReel, repeatTimes, itemWidth, reelCenter, updateVirtualItems, updateSelection]);
+  }, [isSpinning, itemsPerReel, repeatTimes, itemWidth, reelCenter, updateVirtualItems, updateSelection, isEliminationMode]);
 
   const spinPhase1 = useCallback((duration: number, finalIndex: number): Promise<void> => {
     return new Promise(resolve => {
@@ -857,6 +901,55 @@ const HorizontalLuckySlotMachine = forwardRef<HorizontalLuckySlotMachineHandle, 
       }
       if (targetBaseIndex + cycleLen < totalLen) {
         virtualItemsRef.current[targetBaseIndex + cycleLen] = selectedPrize;
+      }
+
+      // 🚫 防“泄题”：淘汰/决胜模式下，确保最终停住的答案左右两侧不会出现同一头像/同一玩家
+      // 否则会出现“答案旁边贴一个一样头像”，玩家一眼就能锁定答案。
+      if (isEliminationMode) {
+        const normalizeImage = (s?: SlotSymbol | null) => String(s?.image ?? '').trim();
+        const isSameVisual = (a?: SlotSymbol | null, b?: SlotSymbol | null) => {
+          if (!a || !b) return false;
+          if (String(a.id) === String(b.id)) return true;
+          const ai = normalizeImage(a);
+          const bi = normalizeImage(b);
+          return Boolean(ai && bi && ai === bi);
+        };
+
+        const pool = Array.from(
+          new Map((initialSymbolsRef.current || []).map((item) => [String(item?.id ?? ''), item])).values(),
+        ).filter((s) => Boolean(s && s.id));
+
+        const pickDifferent = (avoidA?: SlotSymbol | null, avoidB?: SlotSymbol | null) => {
+          if (pool.length <= 1) return null;
+          return (
+            pool.find((c) => !isSameVisual(c, avoidA) && !isSameVisual(c, avoidB)) ??
+            pool.find((c) => !isSameVisual(c, avoidA)) ??
+            null
+          );
+        };
+
+        const leftIndex = targetBaseIndex - 1;
+        const rightIndex = targetBaseIndex + 1;
+
+        if (leftIndex >= 0 && leftIndex < totalLen) {
+          const currentLeft = virtualItemsRef.current[leftIndex] ?? null;
+          if (isSameVisual(currentLeft, selectedPrize)) {
+            const replacement = pickDifferent(selectedPrize, virtualItemsRef.current[rightIndex] ?? null);
+            if (replacement) {
+              virtualItemsRef.current[leftIndex] = replacement;
+            }
+          }
+        }
+
+        if (rightIndex >= 0 && rightIndex < totalLen) {
+          const currentRight = virtualItemsRef.current[rightIndex] ?? null;
+          if (isSameVisual(currentRight, selectedPrize)) {
+            const replacement = pickDifferent(selectedPrize, virtualItemsRef.current[leftIndex] ?? null);
+            if (replacement) {
+              virtualItemsRef.current[rightIndex] = replacement;
+            }
+          }
+        }
       }
     }
     

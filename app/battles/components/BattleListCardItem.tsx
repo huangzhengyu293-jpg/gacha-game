@@ -7,6 +7,7 @@ import BattleConnectorIcon from "./BattleConnectorIcon";
 import SlotSpinnerIcon from "./SlotSpinnerIcon";
 import InfoTooltip from "@/app/components/InfoTooltip";
 import { useI18n } from "@/app/components/I18nProvider";
+import StreamerBadge from "@/app/components/StreamerBadge";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -281,7 +282,14 @@ export default function BattleListCardItem({
               <div className="flex items-center gap-1">
                 {team.members.map((member, memberIdx) =>
                   member ? (
-                    <Avatar key={member.id || `member-${memberIdx}`} src={member.avatar} alt={member.name} />
+                    <div key={member.id || `member-${memberIdx}`} className="flex relative items-center justify-center">
+                      <Avatar src={member.avatar} alt={member.name} />
+                      {Number(member.promotion) === 1 && Number(member.robot) !== 1 && (
+                        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-4">
+                          <StreamerBadge size="xs" />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <EmptySlotAvatar key={`slot-${teamIdx}-${memberIdx}`} />
                   ),
@@ -311,7 +319,14 @@ export default function BattleListCardItem({
           return (
             <Fragment key={participantKey}>
             {participant ? (
-              <Avatar src={participant.avatar} alt={participant.name} />
+              <div className="flex relative items-center justify-center">
+                <Avatar src={participant.avatar} alt={participant.name} />
+                {Number(participant.promotion) === 1 && Number(participant.robot) !== 1 && (
+                  <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-4">
+                    <StreamerBadge size="xs" />
+                  </div>
+                )}
+              </div>
             ) : (
               <EmptySlotAvatar />
             )}
