@@ -174,7 +174,7 @@ export default function RewardsPage() {
           disabled: isClaiming,
           onClick: () => handleClaim(type),
         };
-      }
+    }
       return { label: t('nothingToClaim'), disabled: true };
     }
     return { label: t('nothingToClaim'), disabled: true };
@@ -386,13 +386,13 @@ export default function RewardsPage() {
                               <div className="font-bold text-md">
                                 <div className="flex gap-2 items-center">
                                   {isLocked && (
-                                    <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
-                                      <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                        <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                        <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
-                                      </svg>
-                                    </div>
+                                  <div className="flex justify-center" style={{ height: '18px', width: '18px' }}>
+                                    <svg viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M8.00065 11.8333C8.36884 11.8333 8.66732 11.5349 8.66732 11.1667C8.66732 10.7985 8.36884 10.5 8.00065 10.5C7.63246 10.5 7.33398 10.7985 7.33398 11.1667C7.33398 11.5349 7.63246 11.8333 8.00065 11.8333Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                      <path d="M12.6667 7.16663H3.33333C2.59695 7.16663 2 7.76358 2 8.49996V13.8333C2 14.5697 2.59695 15.1666 3.33333 15.1666H12.6667C13.403 15.1666 14 14.5697 14 13.8333V8.49996C14 7.76358 13.403 7.16663 12.6667 7.16663Z" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                      <path d="M4.66602 7.16671V5.16671C4.66602 4.28265 5.01721 3.43481 5.64233 2.80968C6.26745 2.18456 7.11529 1.83337 7.99935 1.83337C8.8834 1.83337 9.73125 2.18456 10.3564 2.80968C10.9815 3.43481 11.3327 4.28265 11.3327 5.16671V7.16671" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"></path>
+                                    </svg>
+                                  </div>
                                   )}
                                   <p className="text-base text-white font-extrabold truncate max-w-[160px]">{name || t('freePackFallback')}</p>
                                 </div>

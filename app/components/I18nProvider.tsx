@@ -735,6 +735,12 @@ const dict: Dict = {
   priceHighToLow: { zh: "价格从高到低", en: "Price High to Low", ko: "가격 높은순", ja: "価格高い順" },
   volatility: { zh: "波动性", en: "Volatility", ko: "변동성", ja: "ボラティリティ" },
   priceRange: { zh: "价格区间", en: "Price Range", ko: "가격 범위", ja: "価格帯" },
+  businessCooperation: {
+    zh: "商务合作",
+    en: "Business Cooperation",
+    ko: "비즈니스 협력",
+    ja: "ビジネス提携"
+  },
   // Generic/common
   all: { zh: "全部", en: "All", ko: "전체", ja: "すべて" },
   any: { zh: "不限", en: "Any", ko: "무관", ja: "指定なし" },
