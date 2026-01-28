@@ -25,6 +25,11 @@ export interface SlotSymbol {
 interface LuckySlotMachineProps {
   symbols: SlotSymbol[];
   selectedPrizeId?: string | null;
+  /**
+   * 提供 seed 後，老虎机的“装饰性随机”（转轮内容、停住微偏移等）可跨刷新/跨设备复现。
+   * 不影响最终开奖结果（仍以 selectedPrizeId / 后端结果为准）。
+   */
+  rngSeed?: string | number;
   onSpinStart?: () => void;
   onSpinComplete?: (result: SlotSymbol) => void;
   height?: number; // 转轮高度，默认540
@@ -51,6 +56,34 @@ const RANDOM_OFFSET_MIN_RATIO = 0.2;
 const RANDOM_OFFSET_MAX_RATIO = 0.49;
 const FINAL_ALIGNMENT_DURATION = 480;
 
+type SlotRng = () => number;
+
+function xfnv1a32(input: string): number {
+  // 32-bit FNV-1a
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): SlotRng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createSeededRng(seed: string | number, salt: string): SlotRng {
+  const seedStr = typeof seed === 'number' ? String(Math.floor(seed)) : String(seed);
+  const mixed = xfnv1a32(`${seedStr}|${salt}`);
+  return mulberry32(mixed);
+}
+
 function resolveQualityHex(symbol: SlotSymbol): string {
   if (symbol.id === GOLDEN_PLACEHOLDER_ID) {
     return QUALITY_HEX_MAP.placeholder;
@@ -75,6 +108,7 @@ function hexToRgb(hex: string): string {
 const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProps>(({
   symbols,
   selectedPrizeId,
+  rngSeed,
   onSpinStart,
   onSpinComplete,
   height = 540,
@@ -110,12 +144,27 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
   const FAKE_STOP_OFFSET_SCALE = 0.4;
   // Calculate reel center based on actual height (450px fixed)
   const reelCenter = 225; // Fixed at 450/2 = 225px for all screen sizes
+
+  // 可复现 RNG（当 rngSeed 存在时）
+  const reelRngRef = useRef<SlotRng>(() => Math.random());
+  const stopOffsetRngRef = useRef<SlotRng>(() => Math.random());
+  useEffect(() => {
+    if (rngSeed === null || rngSeed === undefined) {
+      reelRngRef.current = () => Math.random();
+      stopOffsetRngRef.current = () => Math.random();
+      return;
+    }
+    reelRngRef.current = createSeededRng(rngSeed, 'reels');
+    stopOffsetRngRef.current = createSeededRng(rngSeed, 'stopOffset');
+  }, [rngSeed]);
+
   const getRandomStopOffset = useCallback((baseHeight: number) => {
     const clampedHeight = baseHeight || itemHeightRef.current || 150;
     const minOffset = clampedHeight * RANDOM_OFFSET_MIN_RATIO;
     const maxOffset = clampedHeight * RANDOM_OFFSET_MAX_RATIO;
-    const magnitude = Math.random() * (maxOffset - minOffset) + minOffset;
-    return magnitude * (Math.random() < 0.5 ? 1 : -1);
+    const rand = stopOffsetRngRef.current;
+    const magnitude = rand() * (maxOffset - minOffset) + minOffset;
+    return magnitude * (rand() < 0.5 ? 1 : -1);
   }, []);
 
   
@@ -523,7 +572,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // 🚀 Build virtual items array (NO DOM creation yet!)
     const symbolSequence: SlotSymbol[] = [];
     for (let j = 0; j < itemsPerReel; j++) {
-      symbolSequence.push(initialSymbolsRef.current[Math.floor(Math.random() * initialSymbolsRef.current.length)]);
+      const rand = reelRngRef.current;
+      symbolSequence.push(initialSymbolsRef.current[Math.floor(rand() * initialSymbolsRef.current.length)]);
     }
     
     virtualItemsRef.current = [];
@@ -870,7 +920,8 @@ const LuckySlotMachine = forwardRef<LuckySlotMachineHandle, LuckySlotMachineProp
     // 重新生成虚拟项目数组（保持相同的结构）
     const symbolSequence: SlotSymbol[] = [];
     for (let j = 0; j < itemsPerReelRef.current; j++) {
-      symbolSequence.push(newSymbols[Math.floor(Math.random() * newSymbols.length)]);
+      const rand = reelRngRef.current;
+      symbolSequence.push(newSymbols[Math.floor(rand() * newSymbols.length)]);
     }
     
     virtualItemsRef.current = [];
