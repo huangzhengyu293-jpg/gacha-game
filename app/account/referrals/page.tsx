@@ -235,15 +235,14 @@ export default function ReferralsPage() {
   const cdkAmountValid = useMemo(() => {
     const amount = Number(newCdkAmount);
     if (!newCdkAmount.trim() || isNaN(amount)) return false;
-    return amount >= 30 && amount % 10 === 0;
+    return Number.isInteger(amount) && amount > 0;
   }, [newCdkAmount]);
   
   const cdkAmountError = useMemo(() => {
     if (!newCdkAmount.trim()) return '';
     const amount = Number(newCdkAmount);
     if (isNaN(amount)) return t('pleaseEnterValidNumber');
-    if (amount < 30) return t('amountMustBeGreaterThanOrEqual30');
-    if (amount % 10 !== 0) return t('amountMustBeMultipleOf10');
+    if (!Number.isInteger(amount) || amount <= 0) return t('pleaseEnterPositiveInteger');
     return '';
   }, [newCdkAmount, t]);
   
@@ -762,8 +761,8 @@ export default function ReferralsPage() {
                                 }}
                                 disabled={isCreatingCdk}
                                 placeholder={t('pleaseEnterAmount')}
-                                min="30"
-                                step="10"
+                                min="1"
+                                step="1"
                               />
                               <button
                                 onClick={handleConfirmAddCdk}
