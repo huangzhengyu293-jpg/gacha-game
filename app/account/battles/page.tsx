@@ -59,6 +59,7 @@ export default function BattlesPage() {
             <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountProfile')}</span></Link>
             <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDepositsTitle')}</span></Link>
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountWithdrawalsTitle')}</span></Link>
+            <Link href="/account/transfers" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountTransfersTitle')}</span></Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountClaimsTitle')}</span></Link>
             <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSalesTitle')}</span></Link>
             <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">{t('accountBattlesTitle')}</span></Link>
@@ -90,12 +91,11 @@ export default function BattlesPage() {
                 <div className="flex flex-col gap-4">
                   {cards.map((card) => {
                     const isWaiting = Number(card.status) === 0;
-                    const displayCard = Number(card.status) === 2 ? { ...card, status: 3 } : card;
                     return (
                       <BattleListCardItem
                         key={card.id}
-                        // 对战历史只展示已完成：status=2 直接按“已开启”展示
-                        card={displayCard}
+                        // 与对战列表一致：由 BattleListCardItem 内部按时间推算决定显示“进行中”或“已开启”
+                        card={card}
                         labels={{
                           cost: t("cost"),
                             opened: t("opened"),

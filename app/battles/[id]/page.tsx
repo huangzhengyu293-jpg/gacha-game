@@ -73,6 +73,58 @@ const ENTRY_DELAY_MS = 5000;
 const SECOND_STAGE_RESULT_PAUSE_MS = 500;
 type DayjsInstance = ReturnType<typeof dayjs>;
 
+function buildBattleSlotPoolSignature(symbols: SlotSymbol[]): string {
+  // 作为 seed 的一部分：同一场对战中若池内容变化，滚动表现变化也“可解释”
+  return symbols.map((s) => s.id).join(',');
+}
+
+function buildBattleSlotRngSeed(args: {
+  battleId: string | null;
+  roundIndex: number;
+  participantId: string;
+  pool: 'normal' | 'legendary';
+  stage: 'first' | 'second';
+  symbols: SlotSymbol[];
+}): string | undefined {
+  if (!args.battleId) return undefined;
+  const poolSig = buildBattleSlotPoolSignature(args.symbols);
+  return `battle:${args.battleId}|round:${args.roundIndex}|player:${args.participantId}|pool:${args.pool}|stage:${args.stage}|poolSig:${poolSig}`;
+}
+
+function xfnv1a32(input: string): number {
+  // 32-bit FNV-1a：跨设备/跨刷新稳定
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seedToUnitFloat(seed: string): number {
+  // [0, 1)
+  return xfnv1a32(seed) / 4294967296;
+}
+
+function buildJackpotSegmentsSignature(
+  segments: Array<{ id: string; percentage: number; color: string }>,
+): string {
+  // 作为 seed 的一部分：确保同一局同一段数据得到同一停点
+  // 注意：保持顺序敏感（顺序变化时 seed 也会变化）
+  return segments.map((s) => `${s.id}:${s.percentage}:${s.color}`).join('|');
+}
+
+function buildJackpotRngSeed(args: {
+  battleId: string | null;
+  roundIndex: number;
+  winnerId: string;
+  segments: Array<{ id: string; percentage: number; color: string }>;
+}): string | undefined {
+  if (!args.battleId) return undefined;
+  const sig = buildJackpotSegmentsSignature(args.segments);
+  return `battle:${args.battleId}|round:${args.roundIndex}|mode:jackpot|winner:${args.winnerId}|segments:${sig}`;
+}
+
 
 
 function parseTimestampToDayjs(value: unknown): DayjsInstance | null {
@@ -173,11 +225,13 @@ const SlotEdgePointer = ({ side }: { side: 'left' | 'right' | 'top' | 'bottom' }
 function JackpotProgressBarInline({ 
   players, 
   winnerId, 
-  onComplete 
+  onComplete,
+  rngSeed,
 }: { 
   players: Array<{id: string; name: string; percentage: number; color: string}>; 
   winnerId: string; 
   onComplete: () => void;
+  rngSeed?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const segmentsRef = useRef<HTMLDivElement>(null);
@@ -270,8 +324,9 @@ function JackpotProgressBarInline({
     
     if (!winnerFound) return;
     
-    // 🎲 在获胜者色块区间内随机选择一个停止位置
-    const randomPercent = winnerStartPercent + (Math.random() * (winnerEndPercent - winnerStartPercent));
+    // 🎲 在获胜者色块区间内选择一个停止位置（可重放：seeded；否则回退 Math.random）
+    const unit = rngSeed ? seedToUnitFloat(`${rngSeed}|stopPercent`) : Math.random();
+    const randomPercent = winnerStartPercent + (unit * (winnerEndPercent - winnerStartPercent));
     
     // 计算这个随机位置在第 N 份色条中的绝对像素位置
     // 注意：这里必须和渲染时每份色条的宽度保持一致（用同一个 containerWidth）
@@ -304,7 +359,7 @@ function JackpotProgressBarInline({
         gsap.killTweensOf(segmentsRef.current);
       }
     };
-  }, [players, winnerId, onComplete, containerWidth]);
+  }, [players, winnerId, onComplete, containerWidth, rngSeed]);
   
   // 渲染色块（使用 flex 布局形成连续的色条）
   const renderSegments = (width: number) => {
@@ -1712,6 +1767,12 @@ useEffect(() => {
         color: playerColors[entry.id] || 'rgb(128, 128, 128)',
       };
     });
+    // 🔒 确保色块排序稳定：按 battleData.participants 的顺序（participantIdList）锁定
+    if (participantIdList.length > 0) {
+      const indexById = new Map<string, number>();
+      participantIdList.forEach((id, idx) => indexById.set(id, idx));
+      segments.sort((a, b) => (indexById.get(a.id) ?? 1e9) - (indexById.get(b.id) ?? 1e9));
+    }
 
     const preCalculatedWinner = jackpotWinnerRef.current;
     const winnerId = predeterminedWinnerIds[0] || preCalculatedWinner?.id || validParticipants[0]?.id || '';
@@ -1724,6 +1785,7 @@ useEffect(() => {
     participantValues,
     playerColors,
     predeterminedWinnerIds,
+    participantIdList,
     battleData.isInverted,
     battleData.isLastChance,
   ]);
@@ -5096,6 +5158,12 @@ useEffect(() => {
                   key={`jackpot-animation-${jackpotAnimationKey}`}
                   players={jackpotPlayerSegments}
                   winnerId={jackpotWinnerId}
+                  rngSeed={buildJackpotRngSeed({
+                    battleId: routeBattleId,
+                    roundIndex: gameData.currentRound,
+                    winnerId: jackpotWinnerId,
+                    segments: jackpotPlayerSegments,
+                  })}
                   onComplete={handleJackpotAnimationComplete}
                 />
               ) : (
@@ -5172,6 +5240,14 @@ useEffect(() => {
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
+                                  rngSeed={buildBattleSlotRngSeed({
+                                    battleId: routeBattleId,
+                                    roundIndex: gameData.currentRound,
+                                    participantId: participant.id,
+                                    pool: 'normal',
+                                    stage: 'first',
+                                    symbols: currentRoundData.pools.normal,
+                                  })}
                                   symbols={currentRoundData.pools.normal}
                                   selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                   height={450}
@@ -5195,6 +5271,14 @@ useEffect(() => {
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
+                                    rngSeed={buildBattleSlotRngSeed({
+                                      battleId: routeBattleId,
+                                      roundIndex: gameData.currentRound,
+                                      participantId: participant.id,
+                                      pool: 'legendary',
+                                      stage: 'second',
+                                      symbols: currentRoundData.pools.legendary,
+                                    })}
                                     symbols={currentRoundData.pools.legendary}
                                     selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
@@ -5252,6 +5336,14 @@ useEffect(() => {
                               ref={(ref) => {
                                 if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                               }}
+                              rngSeed={buildBattleSlotRngSeed({
+                                battleId: routeBattleId,
+                                roundIndex: gameData.currentRound,
+                                participantId: participant.id,
+                                pool: 'normal',
+                                stage: 'first',
+                                symbols: currentRoundData.pools.normal,
+                              })}
                               symbols={currentRoundData.pools.normal}
                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                               height={450}
@@ -5273,6 +5365,14 @@ useEffect(() => {
                                 ref={(ref) => {
                                   if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                 }}
+                                rngSeed={buildBattleSlotRngSeed({
+                                  battleId: routeBattleId,
+                                  roundIndex: gameData.currentRound,
+                                  participantId: participant.id,
+                                  pool: 'legendary',
+                                  stage: 'second',
+                                  symbols: currentRoundData.pools.legendary,
+                                })}
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
@@ -5321,6 +5421,14 @@ useEffect(() => {
                               ref={(ref) => {
                                 if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                               }}
+                              rngSeed={buildBattleSlotRngSeed({
+                                battleId: routeBattleId,
+                                roundIndex: gameData.currentRound,
+                                participantId: participant.id,
+                                pool: 'normal',
+                                stage: 'first',
+                                symbols: currentRoundData.pools.normal,
+                              })}
                               symbols={currentRoundData.pools.normal}
                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                               height={450}
@@ -5342,6 +5450,14 @@ useEffect(() => {
                                 ref={(ref) => {
                                   if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                 }}
+                                rngSeed={buildBattleSlotRngSeed({
+                                  battleId: routeBattleId,
+                                  roundIndex: gameData.currentRound,
+                                  participantId: participant.id,
+                                  pool: 'legendary',
+                                  stage: 'second',
+                                  symbols: currentRoundData.pools.legendary,
+                                })}
                                 symbols={currentRoundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}
@@ -5397,6 +5513,14 @@ useEffect(() => {
                                     ref={(ref) => {
                                       if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
+                                    rngSeed={buildBattleSlotRngSeed({
+                                      battleId: routeBattleId,
+                                      roundIndex,
+                                      participantId: participant.id,
+                                      pool: 'normal',
+                                      stage: 'first',
+                                      symbols: roundData.pools.normal,
+                                    })}
                                     symbols={roundData.pools.normal}
                                     selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                     height={450}
@@ -5419,6 +5543,14 @@ useEffect(() => {
                                       ref={(ref) => {
                                         if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                       }}
+                                      rngSeed={buildBattleSlotRngSeed({
+                                        battleId: routeBattleId,
+                                        roundIndex,
+                                        participantId: participant.id,
+                                        pool: 'legendary',
+                                        stage: 'second',
+                                        symbols: roundData.pools.legendary,
+                                      })}
                                       symbols={roundData.pools.legendary}
                                       selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                       height={450}
@@ -5453,11 +5585,49 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-first-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'normal',
+                              stage: 'first',
+                              symbols: currentRoundData.pools.normal,
+                            })}
+                            symbols={currentRoundData.pools.normal}
+                            selectedPrizeId={!keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={spinDuration}
+                            onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-second-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'legendary',
+                              stage: 'second',
+                              symbols: currentRoundData.pools.legendary,
+                            })}
+                            symbols={currentRoundData.pools.legendary}
+                            selectedPrizeId={keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={NORMAL_ROUND_DURATION_MS}
+                            onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                             </div>
                           )}
                         </div>
@@ -5481,11 +5651,49 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-first-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'normal',
+                              stage: 'first',
+                              symbols: currentRoundData.pools.normal,
+                            })}
+                            symbols={currentRoundData.pools.normal}
+                            selectedPrizeId={!keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={spinDuration}
+                            onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-second-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'legendary',
+                              stage: 'second',
+                              symbols: currentRoundData.pools.legendary,
+                            })}
+                            symbols={currentRoundData.pools.legendary}
+                            selectedPrizeId={keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={NORMAL_ROUND_DURATION_MS}
+                            onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                             </div>
                           )}
                         </div>
@@ -5509,11 +5717,49 @@ useEffect(() => {
                       return (
                         <div key={participant.id} className="flex flex-col items-center gap-2 flex-1 min-w-0 relative" style={{ marginTop: `${-(450 - 130) / 2}px` }}>
                           <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: !keySuffix ? 1 : 0, pointerEvents: !keySuffix ? 'auto' : 'none', zIndex: !keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-first-${gameData.currentRound}`} ref={(ref) => { if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.normal} selectedPrizeId={!keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={spinDuration} onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-first-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'normal',
+                              stage: 'first',
+                              symbols: currentRoundData.pools.normal,
+                            })}
+                            symbols={currentRoundData.pools.normal}
+                            selectedPrizeId={!keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={spinDuration}
+                            onSpinComplete={(result) => !keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                           </div>
                           {isGoldenPlayer && currentRoundData.pools.legendary.length > 0 && (
                             <div className="w-full h-full transition-opacity duration-300 absolute inset-0" style={{ opacity: keySuffix ? 1 : 0, pointerEvents: keySuffix ? 'auto' : 'none', zIndex: keySuffix ? 1 : 0 }}>
-                          <LuckySlotMachine key={`${participant.id}-second-${gameData.currentRound}`} ref={(ref) => { if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref; }} symbols={currentRoundData.pools.legendary} selectedPrizeId={keySuffix ? selectedPrizeId : null} height={450} itemSizeOverride={100}  spinDuration={NORMAL_ROUND_DURATION_MS} onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)} />
+                          <LuckySlotMachine
+                            key={`${participant.id}-second-${gameData.currentRound}`}
+                            ref={(ref) => {
+                              if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
+                            }}
+                            rngSeed={buildBattleSlotRngSeed({
+                              battleId: routeBattleId,
+                              roundIndex: gameData.currentRound,
+                              participantId: participant.id,
+                              pool: 'legendary',
+                              stage: 'second',
+                              symbols: currentRoundData.pools.legendary,
+                            })}
+                            symbols={currentRoundData.pools.legendary}
+                            selectedPrizeId={keySuffix ? selectedPrizeId : null}
+                            height={450}
+                            itemSizeOverride={100}
+                            spinDuration={NORMAL_ROUND_DURATION_MS}
+                            onSpinComplete={(result) => keySuffix && handleSlotComplete(participant.id, result)}
+                          />
                             </div>
                           )}
                         </div>
@@ -5571,6 +5817,14 @@ useEffect(() => {
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
+                                  rngSeed={buildBattleSlotRngSeed({
+                                    battleId: routeBattleId,
+                                    roundIndex,
+                                    participantId: participant.id,
+                                    pool: 'normal',
+                                    stage: 'first',
+                                    symbols: roundData.pools.normal,
+                                  })}
                                   symbols={roundData.pools.normal}
                                   selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                   height={450}
@@ -5594,6 +5848,14 @@ useEffect(() => {
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
+                                    rngSeed={buildBattleSlotRngSeed({
+                                      battleId: routeBattleId,
+                                      roundIndex,
+                                      participantId: participant.id,
+                                      pool: 'legendary',
+                                      stage: 'second',
+                                      symbols: roundData.pools.legendary,
+                                    })}
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
@@ -5658,6 +5920,14 @@ useEffect(() => {
                                   ref={(ref) => {
                                     if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                                   }}
+                                  rngSeed={buildBattleSlotRngSeed({
+                                    battleId: routeBattleId,
+                                    roundIndex,
+                                    participantId: participant.id,
+                                    pool: 'normal',
+                                    stage: 'first',
+                                    symbols: roundData.pools.normal,
+                                  })}
                                   symbols={roundData.pools.normal}
                                   selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                                   height={450}
@@ -5681,6 +5951,14 @@ useEffect(() => {
                                     ref={(ref) => {
                                       if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                     }}
+                                    rngSeed={buildBattleSlotRngSeed({
+                                      battleId: routeBattleId,
+                                      roundIndex,
+                                      participantId: participant.id,
+                                      pool: 'legendary',
+                                      stage: 'second',
+                                      symbols: roundData.pools.legendary,
+                                    })}
                                     symbols={roundData.pools.legendary}
                                     selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                     height={450}
@@ -5735,6 +6013,14 @@ useEffect(() => {
                               ref={(ref) => {
                                 if (ref && !keySuffix) slotMachineRefs.current[participant.id] = ref;
                               }}
+                              rngSeed={buildBattleSlotRngSeed({
+                                battleId: routeBattleId,
+                                roundIndex,
+                                participantId: participant.id,
+                                pool: 'normal',
+                                stage: 'first',
+                                symbols: roundData.pools.normal,
+                              })}
                               symbols={roundData.pools.normal}
                               selectedPrizeId={!keySuffix ? selectedPrizeId : null}
                               height={450}
@@ -5758,6 +6044,14 @@ useEffect(() => {
                                 ref={(ref) => {
                                   if (ref && keySuffix) slotMachineRefs.current[participant.id] = ref;
                                 }}
+                                rngSeed={buildBattleSlotRngSeed({
+                                  battleId: routeBattleId,
+                                  roundIndex,
+                                  participantId: participant.id,
+                                  pool: 'legendary',
+                                  stage: 'second',
+                                  symbols: roundData.pools.legendary,
+                                })}
                                 symbols={roundData.pools.legendary}
                                 selectedPrizeId={keySuffix ? selectedPrizeId : null}
                                 height={450}

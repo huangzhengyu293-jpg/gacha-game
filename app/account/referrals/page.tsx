@@ -235,15 +235,14 @@ export default function ReferralsPage() {
   const cdkAmountValid = useMemo(() => {
     const amount = Number(newCdkAmount);
     if (!newCdkAmount.trim() || isNaN(amount)) return false;
-    return amount >= 30 && amount % 10 === 0;
+    return Number.isInteger(amount) && amount > 0;
   }, [newCdkAmount]);
   
   const cdkAmountError = useMemo(() => {
     if (!newCdkAmount.trim()) return '';
     const amount = Number(newCdkAmount);
     if (isNaN(amount)) return t('pleaseEnterValidNumber');
-    if (amount < 30) return t('amountMustBeGreaterThanOrEqual30');
-    if (amount % 10 !== 0) return t('amountMustBeMultipleOf10');
+    if (!Number.isInteger(amount) || amount <= 0) return t('pleaseEnterPositiveInteger');
     return '';
   }, [newCdkAmount, t]);
   
@@ -406,6 +405,7 @@ export default function ReferralsPage() {
             <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountProfile')}</span></Link>
             <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDepositsTitle')}</span></Link>
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountWithdrawalsTitle')}</span></Link>
+            <Link href="/account/transfers" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountTransfersTitle')}</span></Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountClaimsTitle')}</span></Link>
             <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSalesTitle')}</span></Link>
             <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountBattlesTitle')}</span></Link>
@@ -762,8 +762,8 @@ export default function ReferralsPage() {
                                 }}
                                 disabled={isCreatingCdk}
                                 placeholder={t('pleaseEnterAmount')}
-                                min="30"
-                                step="10"
+                                min="1"
+                                step="1"
                               />
                               <button
                                 onClick={handleConfirmAddCdk}
