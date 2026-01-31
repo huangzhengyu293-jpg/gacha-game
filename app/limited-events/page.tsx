@@ -19,8 +19,8 @@ const getBjtNow = () => {
 
 const computeLimitedMsBjt = () => {
   const bjt = getBjtNow();
-  // 截止到今年 2.28（北京时间）=> 2026-02-28 00:00 CST
-  const target = Date.UTC(2026, 1, 28, 0, 0, 0);
+  // 限時活動：按月循環，倒計時到「北京时间下月 1 日 00:00」
+  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth() + 1, 1, 0, 0, 0);
   return Math.max(0, target - bjt.getTime());
 };
 
