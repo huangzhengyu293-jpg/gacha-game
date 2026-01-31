@@ -19,8 +19,8 @@ const getBjtNow = () => {
 
 const computeLimitedMsBjt = () => {
   const bjt = getBjtNow();
-  // 每月循环：到北京时间下个月 1 号 00:00
-  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth() + 1, 1, 0, 0, 0);
+  // 截止到今年 2.28（北京时间）=> 2026-02-28 00:00 CST
+  const target = Date.UTC(2026, 1, 28, 0, 0, 0);
   return Math.max(0, target - bjt.getTime());
 };
 

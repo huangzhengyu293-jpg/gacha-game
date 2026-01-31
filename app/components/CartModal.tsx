@@ -52,11 +52,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
   const [confirmCount, setConfirmCount] = useState(0);
   const [confirmGain, setConfirmGain] = useState(0);
   const [confirmPayload, setConfirmPayload] = useState<string[]>([]);
-  // 确认转赠弹窗状态（与出售一致）
-  const [transferOpen, setTransferOpen] = useState(false);
-  const [transferCount, setTransferCount] = useState(0);
-  const [transferPayload, setTransferPayload] = useState<string[]>([]);
-  const [transferEmail, setTransferEmail] = useState('');
   const [withdrawCryptoOpen, setWithdrawCryptoOpen] = useState(false);
   const withdrawalStorageMutation = useWithdrawalStorageMutation();
 
@@ -139,8 +134,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
       setSelectedItems(new Set());
       setSelectionOrder([]);
       setConfirmOpen(false);
-      setTransferOpen(false);
-      setTransferEmail('');
       setWithdrawCryptoOpen(false);
     }
   }, [isOpen, refetchCart]);
@@ -380,66 +373,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     },
   });
 
-  const isValidEmail = useCallback((value: string) => {
-    const v = value.trim();
-    if (!v) return false;
-    // 简单且足够的邮箱格式校验（前端）
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  }, []);
-
-  const transferEmailError = useMemo(() => {
-    if (!transferOpen) return '';
-    if (!transferEmail.trim()) return '';
-    return isValidEmail(transferEmail) ? '' : t('invalidEmailFormat');
-  }, [transferEmail, transferOpen, isValidEmail, t]);
-
-  const transferEnabled = useMemo(() => {
-    if (!transferOpen) return false;
-    if (!transferPayload.length) return false;
-    return isValidEmail(transferEmail);
-  }, [transferEmail, transferOpen, transferPayload.length, isValidEmail]);
-
-  const confirmTransferMutation = useMutation({
-    mutationFn: async (payload: { toEmail: string; storageIds: string[] }) => {
-      if (!payload.storageIds.length) {
-        throw new Error(t('selectItemsFirst'));
-      }
-      if (!isValidEmail(payload.toEmail)) {
-        throw new Error(t('invalidEmailFormat'));
-      }
-      return api.transferItems({ toEmail: payload.toEmail.trim(), storageIds: payload.storageIds });
-    },
-    onSuccess: (resp: any) => {
-      if (resp?.code !== 100000) {
-        showGlobalToast({
-          title: t('error'),
-          description: resp?.message || t('retryLater'),
-          variant: 'error',
-        });
-        return;
-      }
-      setSelectedItems(new Set());
-      setSelectionOrder([]);
-      queryClient.invalidateQueries({ queryKey: ['userStorage'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      showGlobalToast({
-        title: t('transferSuccess'),
-        description: t('actionSuccess'),
-        variant: 'success',
-      });
-      refetchCart();
-      setTransferOpen(false);
-      setTransferEmail('');
-    },
-    onError: (error: any) => {
-      showGlobalToast({
-        title: t('error'),
-        description: error?.message || t('retryLater'),
-        variant: 'error',
-      });
-    },
-  });
-
   const buildSelectedSellIds = (): string[] => {
     const ids: string[] = [];
     for (const uniqueId of selectedItems) {
@@ -459,15 +392,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
     setConfirmCount(payload.length);
     setConfirmGain(selectedTotal);
     setConfirmOpen(true);
-  };
-
-  const openTransferForSelected = () => {
-    if (selectedCount === 0) return;
-    const payload = buildSelectedSellIds();
-    setTransferPayload(payload);
-    setTransferCount(payload.length);
-    setTransferEmail('');
-    setTransferOpen(true);
   };
 
   const openConfirmForSingle = (item: CartItem) => {
@@ -734,16 +658,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   {t('sell')}
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                  style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                  disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-                  onClick={() => { if (selectedCount > 0) openTransferForSelected(); }}
-                >
-                  {t('transfer')}
-                </button>
-                <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
                   style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
                   disabled={selectedCount === 0}
@@ -866,16 +780,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   {t('sell')}
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                  style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                  disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-                  onClick={() => { if (selectedCount > 0) openTransferForSelected(); }}
-                >
-                  {t('transfer')}
-                </button>
-                <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
                   style={{ backgroundColor: '#34383C', color: selectedCount === 0 ? '#7A8084' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
                   disabled={selectedCount === 0}
@@ -933,16 +837,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
               >
                 {t('sell')}
-              </button>
-              <button
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
-                disabled={selectedCount === 0}
-                onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-                onClick={() => { if (selectedCount > 0) openTransferForSelected(); }}
-              >
-                {t('transfer')}
               </button>
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:sm:min-w-28 font-bold"
@@ -1192,110 +1086,6 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 type="button"
                 className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer"
                 onClick={() => { if (!confirmSellMutation.isPending) setConfirmOpen(false); }}
-                style={{ color: '#7A8084' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6">
-                  <path d="M18 6 6 18"></path>
-                  <path d="m6 6 12 12"></path>
-                </svg>
-                <span className="sr-only">Close</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 确认转赠弹窗 */}
-        {transferOpen && (
-          <div
-            className="fixed px-4 inset-0 z-[100] bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-y-auto flex justify-center items-start py-16"
-            style={{ pointerEvents: 'auto' }}
-            onClick={() => { if (!confirmTransferMutation.isPending) setTransferOpen(false); }}
-          >
-            <div
-              role="dialog"
-              aria-describedby="transfer-confirm-desc"
-              aria-labelledby="transfer-confirm-title"
-              data-state="open"
-              className="overflow-hidden z-[110] grid w-full gap-4 p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative max-w-2xl"
-              tabIndex={-1}
-              style={{ pointerEvents: 'auto', backgroundColor: '#161A1D', color: '#FFFFFF', fontFamily: 'Urbanist, sans-serif', fontWeight: 700 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex flex-col gap-1.5 text-center sm:text-left">
-                <h2 id="transfer-confirm-title" className="text-xl font-bold leading-none tracking-tight text-left">
-                  {t('transferConfirmTitle').replace('{count}', String(transferCount))}
-                </h2>
-              </div>
-              <div className="flex flex-col items-start gap-4 py-2" id="transfer-confirm-desc">
-                <p>{t('transferConfirmSummary').replace('{count}', String(transferCount))}</p>
-                <div className="flex flex-col items-start gap-3 w-full">
-                  <p className="font-bold">{t('transferRecipientEmailLabel')}</p>
-                  <input
-                    type="email"
-                    inputMode="email"
-                    value={transferEmail}
-                    onChange={(e) => setTransferEmail(e.target.value)}
-                    placeholder={t('transferRecipientEmailPlaceholder')}
-                    className="flex h-10 w-full rounded-md border px-3 py-2 text-base font-semibold"
-                    style={{
-                      backgroundColor: '#1D2125',
-                      color: '#FFFFFF',
-                      borderColor: transferEmailError ? '#EB4B4B' : '#4B5563',
-                      borderWidth: '1px',
-                    }}
-                    disabled={confirmTransferMutation.isPending}
-                    autoComplete="off"
-                  />
-                  {transferEmailError ? (
-                    <div className="text-sm" style={{ color: '#EB4B4B' }}>
-                      {transferEmailError}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="flex flex-col items-start gap-4 rounded-lg p-4 w-full" style={{ border: '1px solid #161A1D', backgroundColor: '#161A1D' }}>
-                  <p className="font-bold">{t('transferNoticeTitle')}</p>
-                  <p className="text-sm">{t('transferNoticeLine1')}</p>
-                  <p className="text-sm">{t('transferNoticeLine2')}</p>
-                </div>
-              </div>
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2 gap-2">
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-transparent text-base font-bold select-none h-10 px-6"
-                  onClick={() => setTransferOpen(false)}
-                  disabled={confirmTransferMutation.isPending}
-                  style={{ color: '#7A8084', cursor: 'pointer' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6"
-                  onClick={() => {
-                    if (confirmTransferMutation.isPending) return;
-                    if (!transferEnabled) {
-                      showGlobalToast({
-                        title: t('inputError'),
-                        description: transferEmailError || t('invalidEmailFormat'),
-                        variant: 'error',
-                        durationMs: 2000,
-                      });
-                      return;
-                    }
-                    confirmTransferMutation.mutate({ toEmail: transferEmail, storageIds: transferPayload });
-                  }}
-                  disabled={confirmTransferMutation.isPending || !transferEnabled}
-                  style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: transferEnabled ? 'pointer' : 'not-allowed' }}
-                >
-                  {t('continueAction')}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer"
-                onClick={() => { if (!confirmTransferMutation.isPending) setTransferOpen(false); }}
                 style={{ color: '#7A8084' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}

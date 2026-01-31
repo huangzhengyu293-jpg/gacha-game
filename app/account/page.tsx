@@ -289,9 +289,6 @@ const userName =
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
               <span className="font-bold">{t('withdrawals')}</span>
             </Link>
-            <Link href="/account/transfers" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
-              <span className="font-bold">{t('accountTransfersTitle')}</span>
-            </Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item">
               <span className="font-bold">{t('claims')}</span>
             </Link>
