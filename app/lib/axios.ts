@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://test-api.flamedraw.com';
+const BASE_URL = 'https://test-api.flamedraw.com';
 
 // 创建 axios 实例
 const axiosInstance: AxiosInstance = axios.create({

@@ -226,7 +226,7 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
   const { method = 'GET', data, params, headers, ...restConfig } = config;
 
   // ✅ 如果是 /api/ 开头的路径，添加后端 API 地址
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://test-api.flamedraw.com';
+  const API_BASE_URL = 'https://test-api.flamedraw.com'
   let url = endpoint.startsWith('/api/') ? `${API_BASE_URL}${endpoint}` : endpoint;
   
   if (params) {
