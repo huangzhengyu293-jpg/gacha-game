@@ -194,7 +194,7 @@ const dict: Dict = {
   weeklyRewardTitle: { zh: "每周奖励", en: "Weekly reward", ko: "주간 보상", ja: "ウィークリーボーナス" },
   weeklyRewardDesc: { zh: "领取您过去 7 天游戏的奖励！", en: "Claim rewards from the past 7 days!", ko: "지난 7일 보상을 받으세요!", ja: "過去7日間のプレイ報酬を受け取ろう！" },
   monthlyRewardTitle: { zh: "每月奖励", en: "Monthly reward", ko: "월간 보상", ja: "マンスリーボーナス" },
-  monthlyRewardDesc: { zh: "领取您过去 30 天游戏的奖励！", en: "Claim rewards from the past 30 days!", ko: "지난 30일 보상을 받으세요!", ja: "過去30日間のプレイ報酬を受け取ろう！" },
+  monthlyRewardDesc: { zh: "领取您过去 1个月游戏的奖励！", en: "Claim rewards from the past 30 days!", ko: "지난 30일 보상을 받으세요!", ja: "過去30日間のプレイ報酬を受け取ろう！" },
   freePacks: { zh: "免费礼包", en: "Free packs", ko: "무료 팩", ja: "無料パック" },
   freePackFallback: { zh: "Free Pack", en: "Free Pack", ko: "무료 팩", ja: "無料パック" },
   noData: { zh: "暂无数据", en: "No data", ko: "데이터 없음", ja: "データなし" },
