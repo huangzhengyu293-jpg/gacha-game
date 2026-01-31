@@ -810,6 +810,15 @@ export const api = {
     });
     return result;
   },
+  getTransferLogs: async (page: number | string) => {
+    const result = await request<ApiResponse<any>>('/api/user/transferLogs', {
+      method: 'GET',
+      params: {
+        page: String(page),
+      },
+    });
+    return result;
+  },
   inviteRobots: async (params: { id: string | number; order: string | number }) => {
     const formData = new URLSearchParams();
     formData.append('id', String(params.id));
@@ -895,6 +904,18 @@ export const api = {
       formData.append(`shop_ids[${idx}]`, id);
     });
     const result = await request<ApiResponse>('/api/user/exchange', {
+      method: 'POST',
+      data: formData,
+    });
+    return result;
+  },
+  transferItems: async (payload: { toEmail: string; storageIds: string[] }) => {
+    const formData = new FormData();
+    formData.append('to_email', payload.toEmail);
+    payload.storageIds.forEach((id, idx) => {
+      formData.append(`storage_ids[${idx}]`, id);
+    });
+    const result = await request<ApiResponse>('/api/user/transfer', {
       method: 'POST',
       data: formData,
     });

@@ -33,8 +33,8 @@ const computeWeeklyMsBjt = () => {
 
 const computeMonthlyMsBjt = () => {
   const bjt = getBjtNow();
-  // 月赛：固定倒计时到 2026 年 1 月结束（北京时间）=> 2026-02-01 00:00 CST
-  const target = Date.UTC(2026, 1, 1, 0, 0, 0);
+  // 月赛：每月循环，到北京时间下个月 1 号 00:00
+  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth() + 1, 1, 0, 0, 0);
   return Math.max(0, target - bjt.getTime());
 };
 
