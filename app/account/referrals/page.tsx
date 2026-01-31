@@ -29,7 +29,7 @@ export default function ReferralsPage() {
     return Number((user?.userInfo as any)?.user_type ?? 0);
   }, [user?.userInfo]);
   
-  const canShowCdk = userType === 2;
+  const canShowCdk = userType === 2 || userType === 3;
 
   // 从 userInfo 获取数据
   const subordinateNum = useMemo(() => {
