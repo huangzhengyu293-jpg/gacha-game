@@ -32,6 +32,9 @@ type SidebarProps = {
   liveIcon?: ReactNode;
   className?: string;
   width?: string | number;
+  // 服务端预取：让右侧栏首屏一起就绪，避免“直播开启先出来，最佳开启后出来再挤下去”
+  initialBoxBestRecord?: any;
+  initialBoxRecord2?: any;
 };
 
 const defaultStarIcon = (
@@ -67,6 +70,8 @@ export default function BestLiveSidebar({
   liveIcon = defaultCircleIcon,
   className = '',
   width = '224px',
+  initialBoxBestRecord,
+  initialBoxRecord2,
 }: SidebarProps) {
   const { t } = useI18n();
   const resolvedBestOpensTitle = bestOpensTitle ?? t("bestOpens");
@@ -78,12 +83,14 @@ export default function BestLiveSidebar({
   const { data: bestRecordResp } = useQuery({
     queryKey: ['boxBestRecord'],
     queryFn: () => api.getBoxBestRecord?.(),
+    ...(initialBoxBestRecord ? { initialData: initialBoxBestRecord, initialDataUpdatedAt: Date.now() } : {}),
     staleTime: 30_000,
   });
 
   const { data: liveRecordResp } = useQuery({
     queryKey: ['boxRecord2'],
     queryFn: () => api.getBoxRecord2?.(),
+    ...(initialBoxRecord2 ? { initialData: initialBoxRecord2, initialDataUpdatedAt: Date.now() } : {}),
     refetchInterval: livePollMs,
     refetchIntervalInBackground: true,
     staleTime: 0,
