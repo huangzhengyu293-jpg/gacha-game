@@ -40,6 +40,7 @@ export default function PackCard({
 }: PackCardProps) {
   const { t } = useI18n();
   const cardRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [transform, setTransform] = useState({ rotateX: 0, rotateY: 0, scale: 1 });
   const [showModal, setShowModal] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
@@ -129,6 +130,29 @@ export default function PackCard({
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [touchActionsOpen]);
 
+  // SSR/硬刷新场景：图片可能在 React 绑定 onLoad/onError 之前就已加载完成，
+  // 这会导致 onLoad 事件被错过，从而一直转圈。
+  // 这里用 img.complete 做兜底，确保首屏不会永远停在 loading。
+  useEffect(() => {
+    setIsImageLoaded(false);
+    setHasImageError(false);
+
+    const el = imgRef.current;
+    if (!el) return;
+
+    // 下一帧再检查，避免读到旧的 complete 状态
+    const raf = window.requestAnimationFrame(() => {
+      const img = imgRef.current;
+      if (!img) return;
+      if (img.complete) {
+        const ok = img.naturalWidth > 0;
+        setHasImageError(!ok);
+        setIsImageLoaded(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [imageUrl]);
+
   const forceActionsVisible = showActions && isTouchPrimary && touchActionsOpen;
   const actionVisibilityClass = forceActionsVisible
     ? 'opacity-100 pointer-events-auto'
@@ -158,9 +182,8 @@ export default function PackCard({
         height={height}
         decoding="async"
         src={imageUrl}
-        className={`color-transparent h-full w-full object-cover transition-opacity duration-300 ${
-          isImageLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
+        ref={imgRef}
+        className="color-transparent h-full w-full object-cover"
         style={{ color: 'transparent' }}
         onLoad={() => setIsImageLoaded(true)}
         onError={() => {
@@ -168,6 +191,16 @@ export default function PackCard({
           setIsImageLoaded(true);
         }}
       />
+      {/* 加载遮罩：仅在未加载完成时显示（避免“永远转圈”观感） */}
+      {!isImageLoaded && !hasImageError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]" style={{ zIndex: 3 }}>
+          <LoadingSpinner
+            className="h-10 w-10"
+            indicatorColor="#1D2125"
+            trackColor="#1D212533"
+          />
+        </div>
+      )}
       {topDecorationSrc ? (
         <div className="pointer-events-none absolute top-0 left-0 z-[2] flex w-full justify-center">
           <img
@@ -183,7 +216,7 @@ export default function PackCard({
         </div>
       ) : null}
       {overlayUrl ? (
-        <div className="flex absolute w-full h-full inset-0 items-center justify-center">
+        <div className="flex absolute w-full h-full inset-0 items-center justify-center" style={{ zIndex: 1 }}>
           <img
             alt=""
             loading="lazy"
@@ -191,24 +224,13 @@ export default function PackCard({
             height={height - 17}
             decoding="async"
             src={overlayUrl}
-            className={`color-transparent object-contain transition-opacity duration-300 ${
-              isImageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
+            className="color-transparent object-contain"
             style={{ color: 'transparent' }}
           />
         </div>
       ) : null}
-      {!isImageLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]">
-          <LoadingSpinner
-            className="h-10 w-10"
-            indicatorColor="#1D2125"
-            trackColor="#1D212533"
-          />
-        </div>
-      )}
       {hasImageError && isImageLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-gray-300 text-sm">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-gray-300 text-sm" style={{ zIndex: 5 }}>
           {t('loadFailed') || 'Load failed'}
         </div>
       )}
