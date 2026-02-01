@@ -73,13 +73,14 @@ function HighlightCard({ c }: { c: Card }) {
   );
 }
 
-export default function TradeHighlights() {
+export default function TradeHighlights({ initialLuckyBestRecord }: { initialLuckyBestRecord?: any } = {}) {
   const { data } = useQuery({
     queryKey: ["luckyBestRecord"],
     queryFn: () => api.getLuckyBestRecord(),
     staleTime: 30_000,
     refetchInterval: false,
     refetchIntervalInBackground: false,
+    ...(initialLuckyBestRecord ? { initialData: initialLuckyBestRecord, initialDataUpdatedAt: Date.now() } : {}),
   });
 
   const cards = useMemo<Card[]>(() => {
