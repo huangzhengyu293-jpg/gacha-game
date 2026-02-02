@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PackContentsModal from './PackContentsModal';
 import LoadingSpinner from './icons/LoadingSpinner';
 import { useAuth } from '../hooks/useAuth';
@@ -20,7 +20,6 @@ interface PackCardProps {
   packId?: string; // 用于"眼睛"弹出商品列表
   packTitle?: string;
   packPrice?: number;
-  showTopDecoration?: boolean; // 是否显示封面顶部装饰图
 }
 
 export default function PackCard({
@@ -36,7 +35,6 @@ export default function PackCard({
   packId,
   packTitle,
   packPrice,
-  showTopDecoration = true,
 }: PackCardProps) {
   const { t } = useI18n();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -134,18 +132,6 @@ export default function PackCard({
     ? 'opacity-100 pointer-events-auto'
     : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto';
 
-  const topDecorationSrc = useMemo(() => {
-    if (!showTopDecoration) return null;
-    const candidates = ['/images/one.webp', '/images/two.webp', '/images/three.webp', '/images/four.webp'] as const;
-    const seed = String(packId ?? href ?? imageUrl ?? '');
-    let hash = 0;
-    for (let i = 0; i < seed.length; i += 1) {
-      hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-    }
-    const idx = Math.abs(hash) % candidates.length;
-    return candidates[idx];
-  }, [imageUrl, href, packId, showTopDecoration]);
-
   const content = (
     <div
       className="flex relative overflow-hidden bg-[#0f1113]"
@@ -168,20 +154,6 @@ export default function PackCard({
           setIsImageLoaded(true);
         }}
       />
-      {topDecorationSrc ? (
-        <div className="pointer-events-none absolute top-0 left-0 z-[2] flex w-full justify-center">
-          <img
-            alt=""
-            loading="lazy"
-            width={186}
-            height={45}
-            decoding="async"
-            src={topDecorationSrc}
-            className="color-transparent object-contain"
-            style={{ color: 'transparent' }}
-          />
-        </div>
-      ) : null}
       {overlayUrl ? (
         <div className="flex absolute w-full h-full inset-0 items-center justify-center">
           <img
