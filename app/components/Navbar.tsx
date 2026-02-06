@@ -339,6 +339,7 @@ export default function Navbar() {
     // 按支付方式分流校验：输入框只做“格式”处理，具体合法性由 isRechargeAmountValid 控制
     // - id=16：必须正整数（>0）
     // - id=19：只允许特定面额（50,100,150,200,250,300）
+    // - id=22：只允许特定面额（50,100,150,200,300,400,500,600,700,800）
     // - 其他：保持原逻辑（>=100）
     const channelId = Number(selectedChannel?.id);
     if (channelId === 16) {
@@ -351,6 +352,7 @@ export default function Navbar() {
   // 验证金额是否有效
   const ALLOWED_AMOUNTS_FOR_19 = useMemo(() => new Set([50, 100, 150, 200, 250, 300]), []);
   const ALLOWED_AMOUNTS_FOR_21 = useMemo(() => new Set([50, 100, 150, 200, 300, 500]), []);
+  const ALLOWED_AMOUNTS_FOR_22 = useMemo(() => new Set([50, 100, 150, 200, 300, 400, 500, 600, 700, 800]), []);
 
   const isRechargeAmountValid = useCallback(() => {
     const raw = rechargeAmount.trim();
@@ -368,8 +370,11 @@ export default function Navbar() {
     if (channelId === 21) {
       return ALLOWED_AMOUNTS_FOR_21.has(num);
     }
+    if (channelId === 22) {
+      return ALLOWED_AMOUNTS_FOR_22.has(num);
+    }
     return num >= 100;
-  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19, ALLOWED_AMOUNTS_FOR_21]);
+  }, [rechargeAmount, selectedChannel?.id, ALLOWED_AMOUNTS_FOR_19, ALLOWED_AMOUNTS_FOR_21, ALLOWED_AMOUNTS_FOR_22]);
 
   const rechargeAmountErrorText = useMemo(() => {
     if (!rechargeAmount) return '';
@@ -378,12 +383,14 @@ export default function Navbar() {
     if (channelId === 16) return t('amountValidationPositiveInteger');
     if (channelId === 19) return t('amountValidationPresetOnly');
     if (channelId === 21) return t('amountValidationPresetOnly21');
+    if (channelId === 22) return t('amountValidationPresetOnly22');
     return t('amountValidationError');
   }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
 
   const presetAmountsForButtons = useMemo(() => {
     const channelId = Number(selectedChannel?.id);
     if (channelId === 21) return ['50', '100', '150', '200', '300', '500'];
+    if (channelId === 22) return ['50', '100', '150', '200', '300', '400', '500', '600', '700', '800'];
     const list: any[] = Array.isArray(selectedChannel?.money_list) ? selectedChannel.money_list : [];
     return list
       .map((m: any) =>
