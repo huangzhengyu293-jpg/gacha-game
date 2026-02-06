@@ -360,17 +360,18 @@ export default function Navbar() {
     const num = parseInt(raw, 10);
     if (Number.isNaN(num)) return false;
 
-    const channelId = Number(selectedChannel?.id);
-    if (channelId === 16) {
+    const channelIdRaw = selectedChannel?.id;
+    const channelId = channelIdRaw != null ? Number(channelIdRaw) : NaN;
+    if (channelId === 16 || channelIdRaw === 16 || channelIdRaw === '16') {
       return num > 0;
     }
-    if (channelId === 19) {
+    if (channelId === 19 || channelIdRaw === 19 || channelIdRaw === '19') {
       return ALLOWED_AMOUNTS_FOR_19.has(num);
     }
-    if (channelId === 21) {
+    if (channelId === 21 || channelIdRaw === 21 || channelIdRaw === '21') {
       return ALLOWED_AMOUNTS_FOR_21.has(num);
     }
-    if (channelId === 22) {
+    if (channelId === 22 || channelIdRaw === 22 || channelIdRaw === '22') {
       return ALLOWED_AMOUNTS_FOR_22.has(num);
     }
     return num >= 100;
@@ -379,11 +380,12 @@ export default function Navbar() {
   const rechargeAmountErrorText = useMemo(() => {
     if (!rechargeAmount) return '';
     if (isRechargeAmountValid()) return '';
-    const channelId = Number(selectedChannel?.id);
-    if (channelId === 16) return t('amountValidationPositiveInteger');
-    if (channelId === 19) return t('amountValidationPresetOnly');
-    if (channelId === 21) return t('amountValidationPresetOnly21');
-    if (channelId === 22) return t('amountValidationPresetOnly22');
+    const channelIdRaw = selectedChannel?.id;
+    const channelId = channelIdRaw != null ? Number(channelIdRaw) : NaN;
+    if (channelId === 16 || channelIdRaw === 16 || channelIdRaw === '16') return t('amountValidationPositiveInteger');
+    if (channelId === 19 || channelIdRaw === 19 || channelIdRaw === '19') return t('amountValidationPresetOnly');
+    if (channelId === 21 || channelIdRaw === 21 || channelIdRaw === '21') return t('amountValidationPresetOnly21');
+    if (channelId === 22 || channelIdRaw === 22 || channelIdRaw === '22') return t('amountValidationPresetOnly22');
     return t('amountValidationError');
   }, [rechargeAmount, isRechargeAmountValid, selectedChannel?.id, t]);
 
