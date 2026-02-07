@@ -480,6 +480,14 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
 
   // 移除 click 跳变，统一通过按下+拖拽改百分比
 
+  // 手动移动转盘绿色区域（拖拽弧/白点/空白）时，若有指针则隐藏，并把角度重置为初始 0，下次转动从 0 出现无闪烁
+  useEffect(() => {
+    if (dragging === 'body' || dragging === 'start' || dragging === 'end' || dragging === 'percent') {
+      setDemoVisible(false);
+      setDemoAngle(-Math.PI / 2); // 与 runSpinAnimation 的初始 startAngle 一致，下次点击转动从 0 开始
+    }
+  }, [dragging]);
+
   // 拖拽白点改变百分比
   useEffect(() => {
     function onMove(ev: MouseEvent) {
