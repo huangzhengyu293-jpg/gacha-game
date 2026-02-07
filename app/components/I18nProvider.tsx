@@ -60,6 +60,7 @@ const dict: Dict = {
   productDescFallback: { zh: "暂无", en: "N/A", ko: "없음", ja: "なし" },
   streamerLabel: { zh: "主播", en: "Streamer", ko: "스트리머", ja: "配信者" },
   close: { zh: "关闭", en: "Close", ko: "닫기", ja: "閉じる" },
+  gotIt: { zh: "知道了", en: "Got it", ko: "알겠습니다", ja: "わかりました" },
   // Battles
   battleSortPriceDesc: { zh: "价格：从高到低", en: "Price: High to Low", ko: "가격: 높은순", ja: "価格: 高い順" },
   battleSortLatest: { zh: "最新", en: "Latest", ko: "최신", ja: "最新" },
@@ -138,6 +139,7 @@ const dict: Dict = {
   spinEarning: { zh: "转动获取: ${amount}", en: "Spin to get: ${amount}", ko: "스핀 획득: ${amount}", ja: "スピン報酬: ${amount}" },
   spinFailedTitle: { zh: "转动失败", en: "Spin failed", ko: "스핀 실패", ja: "スピン失敗" },
   spinFailedDesc: { zh: "转动失败，请稍后重试", en: "Spin failed, please try again later", ko: "스핀에 실패했습니다. 잠시 후 다시 시도하세요", ja: "スピンに失敗しました。後でもう一度お試しください" },
+  winCongratsTitle: { zh: "恭喜获得", en: "Congratulations!", ko: "축하합니다!", ja: "おめでとうございます!" },
   dealsRange: { zh: "显示 {start} - {end} 共 {total}", en: "Showing {start}-{end} of {total}", ko: "{total}개 중 {start}-{end} 표시", ja: "{total} 件中 {start} - {end} を表示" },
   prevPage: { zh: "上一页", en: "Prev", ko: "이전", ja: "前へ" },
   nextPage: { zh: "下一页", en: "Next", ko: "다음", ja: "次へ" },

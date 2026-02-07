@@ -13,14 +13,16 @@ export interface SelectedProduct {
   originalPrice: number; // 商品原价
   rate: number; // 系数
   percent: number; // 1..80
+  level?: number; // 道具等级，用于恭喜弹窗光晕 (1~5)
 }
 
 interface DealsTopSectionProps {
   selectedProduct?: SelectedProduct | null;
   onReselectSelectedProduct?: () => void;
+  onUiLockChange?: (locked: boolean) => void;
 }
 
-export default function DealsTopSection({ selectedProduct = null, onReselectSelectedProduct }: DealsTopSectionProps) {
+export default function DealsTopSection({ selectedProduct = null, onReselectSelectedProduct, onUiLockChange }: DealsTopSectionProps) {
   const [percent, setPercent] = useState<number>(0);
   const [activeController, setActiveController] = useState<null | 'left' | 'center'>(null);
   const [uiLocked, setUiLocked] = useState<boolean>(false);
@@ -80,13 +82,17 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             onDragStart={() => setActiveController('center')}
             onDragEnd={() => setActiveController(null)}
             uiLocked={uiLocked || inactive}
-            onLockChange={(locked: boolean) => setUiLocked(locked)}
+            onLockChange={(locked: boolean) => {
+              setUiLocked(locked);
+              onUiLockChange?.(locked);
+            }}
             spinPrice={spinPrice}
             inactive={inactive}
             productId={selectedProduct?.id || null}
             productImage={selectedProduct?.image || null}
             productTitle={selectedProduct?.name || null}
             productPrice={spinPrice}
+            productLevel={selectedProduct?.level}
           />
         </div>
         <div className="hidden lg:block lg:w-[339.44px] lg:order-2">

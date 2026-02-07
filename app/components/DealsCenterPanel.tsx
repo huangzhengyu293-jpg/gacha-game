@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Urbanist } from 'next/font/google';
 import { useMutation } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastProvider';
@@ -14,6 +15,18 @@ const isSiteMuted = () => {
   if (typeof window === 'undefined') return false;
   return Boolean((window as any).__siteMuted);
 };
+
+// 与礼包/直播开启一致：按 level 映射光晕颜色
+function glowColorFromLevel(lv?: number): string {
+  switch (lv) {
+    case 1: return '#E4AE33';
+    case 2: return '#EB4B4B';
+    case 3: return '#8847FF';
+    case 4: return '#4B69FF';
+    case 5: return '#829DBB';
+    default: return '#FACC15';
+  }
+}
 
 interface DealsCenterPanelProps {
   percent?: number;
@@ -28,11 +41,12 @@ interface DealsCenterPanelProps {
   productImage?: string | null;
   productTitle?: string | null;
   productPrice?: number | null;
+  productLevel?: number;
 }
 
 const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '600', '700', '800', '900'], display: 'swap' });
 
-export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null }: DealsCenterPanelProps) {
+export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onDragStart, onDragEnd, uiLocked = false, onLockChange, spinPrice = 0, inactive = false, productId = null, productImage = null, productTitle = null, productPrice = null, productLevel }: DealsCenterPanelProps) {
   const toast = useToast();
   const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -49,6 +63,11 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
   const demoRafRef = useRef<number | null>(null);
   const demoActiveRef = useRef<boolean>(false);
   const [demoOutcome, setDemoOutcome] = useState<'win' | 'lose'>('win');
+  const [winModalOpen, setWinModalOpen] = useState(false);
+  const [winModalGlowColor, setWinModalGlowColor] = useState<string>('#FACC15');
+  const productLevelRef = useRef<number | undefined>(productLevel);
+  const modalFireworkRef = useRef<FireworkAreaHandle>(null);
+  productLevelRef.current = productLevel;
   const { isAuthenticated, fetchUserBean } = useAuth();
   const isAuthed = isAuthenticated;
   const audioInitPromiseRef = useRef<Promise<void> | null>(null);
@@ -143,11 +162,10 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
         demoRafRef.current = null;
         onLockChange && onLockChange(false);
         
-        // 🎉 如果中奖，在指针停住后触发礼花和音效
+        // 🎉 如果中奖，打开恭喜获得弹窗（礼花在弹窗内触发）；用打开时的 productLevel 算光晕色
         if (winResult) {
-          // 触发礼花
-          fireworkRef.current?.triggerFirework();
-          
+          setWinModalGlowColor(glowColorFromLevel(productLevelRef.current));
+          setWinModalOpen(true);
           // 🎵 播放 win.wav 音效
           if (typeof window !== 'undefined' && !isSiteMuted()) {
             const ctx = (window as any).__audioContext;
@@ -417,6 +435,15 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
       if (demoRafRef.current != null) cancelAnimationFrame(demoRafRef.current);
     };
   }, []);
+
+  // 弹窗打开时在弹窗内触发礼花
+  useEffect(() => {
+    if (!winModalOpen) return;
+    const t = setTimeout(() => {
+      modalFireworkRef.current?.triggerFirework();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [winModalOpen]);
 
   function cwDelta(fromDeg: number, toDeg: number): number {
     // 顺时针从 from 到 to 的角距离，范围 0..360
@@ -780,6 +807,147 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
           {t('demoSpin')}
         </button>
       </div>
+
+      {/* 恭喜获得弹窗：宽高与转盘右侧组件相当、略大；手机端适配；底部「知道了」样式参考演示转动 */}
+      <AnimatePresence>
+        {winModalOpen && (
+          <motion.div
+            className="fixed inset-0 flex items-center md:items-start justify-center z-[1000] pt-[max(1rem,env(safe-area-inset-top,0px))] px-4 pb-4 sm:p-6 md:pt-[max(5rem,env(safe-area-inset-top,0px))] lg:pt-[max(6rem,env(safe-area-inset-top,0px))]"
+            style={{
+              paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
+              paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))',
+              paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setWinModalOpen(false)}
+          >
+            <div className="absolute inset-0 bg-black/60" aria-hidden />
+            <motion.div
+              className="relative w-full max-w-[360px] rounded-xl overflow-hidden shadow-2xl flex flex-col"
+              style={{ backgroundColor: '#22272B', minHeight: 'min(420px, 85vh)' }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                transition: {
+                  type: 'spring',
+                  damping: 14,
+                  stiffness: 260,
+                  mass: 0.8,
+                },
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.92,
+                transition: { duration: 0.18, ease: 'easeIn' },
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 弹窗内礼花层 */}
+              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+                <FireworkArea ref={modalFireworkRef} className="rounded-xl" />
+              </div>
+
+              {/* 顶部标题 */}
+              <p className="relative z-10 text-center font-extrabold text-lg sm:text-xl pt-5 pb-1 text-white">
+                {t('winCongratsTitle')}
+              </p>
+
+              {/* 卡片内容（参考直播开启 card，无头像） */}
+              <div className="relative z-10 flex flex-col items-center justify-between flex-1 px-4 sm:px-6 pb-4 pt-2">
+                <div className="relative flex-1 flex w-full justify-center min-h-[140px] sm:min-h-[180px]">
+                  {/* 光晕层：与 LiveFeedElement 一致，用打开弹窗时存下的颜色，不是写死的黄色 */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
+                    <div
+                      style={{
+                        width: '58%',
+                        height: '58%',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(255,255,255,0.28), rgba(255,255,255,0) 58%)',
+                        filter: 'blur(14px)',
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '26%',
+                        height: '26%',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)',
+                        filter: 'blur(10px)',
+                        opacity: 0.95,
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '92%',
+                        height: '92%',
+                        borderRadius: '50%',
+                        background: `radial-gradient(circle, ${winModalGlowColor}AA, rgba(0,0,0,0) 72%)`,
+                        filter: 'blur(36px)',
+                        opacity: 0.95,
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 1 }}>
+                    {productImage ? (
+                      <img
+                        alt={productTitle || ''}
+                        loading="lazy"
+                        decoding="async"
+                        className="pointer-events-none max-h-[160px] sm:max-h-[200px] w-auto object-contain"
+                        src={productImage}
+                      />
+                    ) : (
+                      <div className="rounded-md w-28 h-28 sm:w-32 sm:h-32" style={{ backgroundColor: '#93C5FD' }} />
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col w-full gap-0.5 mt-3">
+                  <p className="font-semibold truncate max-w-full text-center text-base sm:text-lg" style={{ color: '#7A8084' }}>
+                    {productTitle || ''}
+                  </p>
+                  <div className="flex justify-center">
+                    <p className="font-extrabold text-base sm:text-lg" style={{ color: '#FFFFFF' }}>
+                      ${(productPrice ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 知道了：样式参考演示转动按钮 */}
+              <div className="relative z-10 p-4 pt-0 sm:p-5 sm:pt-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-base font-bold select-none h-11 px-6 w-full"
+                  style={{ backgroundColor: '#2A2D35', color: '#FFFFFF', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
+                  onTouchStart={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
+                  onTouchEnd={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; }}
+                  onClick={() => setWinModalOpen(false)}
+                >
+                  {t('gotIt')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

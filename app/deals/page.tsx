@@ -17,6 +17,7 @@ export interface SearchFilters {
 function DealsPageInner() {
   const { t } = useI18n();
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
+  const [spinLocked, setSpinLocked] = useState<boolean>(false);
   const [preselectSteamId, setPreselectSteamId] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({
     name: '',
@@ -53,12 +54,13 @@ function DealsPageInner() {
   return (
     <div className="w-full">
       <div className="mx-auto w-full max-w-[1280px] px-4">
-        <DealsTopSection selectedProduct={selectedProduct} onReselectSelectedProduct={reselectSelected} />
+        <DealsTopSection selectedProduct={selectedProduct} onReselectSelectedProduct={reselectSelected} onUiLockChange={setSpinLocked} />
         <div className="mt-6">
           <DealsSearchToolbar filters={filters} onFiltersChange={setFilters} />
         </div>
         <DealsProductGridSection
           filters={filters}
+          selectionDisabled={spinLocked}
           onSelectProduct={(p: ProductItem) => {
             setSelectedProduct((prev) => {
               if (prev?.id === p.id) {
@@ -76,13 +78,14 @@ function DealsPageInner() {
                   originalPrice: originalPrice,
                   rate: rate,
                   percent: percentValue,
+                  level: p.level,
                 };
               }
             });
           }}
         selectedId={selectedProduct?.id}
         preselectSteamId={preselectSteamId}
-        onPreselectMatch={(p) => {
+          onPreselectMatch={(p) => {
           setSelectedProduct({
             id: p.id,
             name: p.name,
@@ -91,6 +94,7 @@ function DealsPageInner() {
             originalPrice: p.originalPrice || p.price,
             rate: p.rate || 1,
             percent: p.percent || 1,
+            level: p.level,
           });
         }}
         />

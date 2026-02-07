@@ -17,6 +17,7 @@ export interface ProductItem {
   percent: number; // 1..80
   originalPrice?: number; // 商品原价 (steam.bean)
   rate?: number; // 系数
+  level?: number; // 道具等级，用于光晕颜色 (1~5)
   subtitle?: string;
   description?: string;
   brand?: string;
@@ -25,7 +26,7 @@ export interface ProductItem {
   rating?: number; // 1..5
 }
 
-function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; onSelect?: (p: ProductItem) => void; selected?: boolean; onQuickView?: (p: ProductItem) => void; }) {
+function ProductCard({ p, onSelect, selected, onQuickView, disabled }: { p: ProductItem; onSelect?: (p: ProductItem) => void; selected?: boolean; onQuickView?: (p: ProductItem) => void; disabled?: boolean; }) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [isSmall, setIsSmall] = useState(false);
@@ -38,18 +39,24 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
   }, []);
-  const effectiveHover = isSmall ? true : hovered;
+  const effectiveHover = !disabled && (isSmall ? true : hovered);
   const bodyBg = effectiveHover ? '#34383C' : '#22272B';
   const glowOpacity = effectiveHover ? 0.9 : 0.4;
   const borderColor = selected ? '#FFFFFF' : '#2A2D35';
 
   return (
     <div
-      className="relative border rounded-lg overflow-hidden h-40 sm:h-44 md:h-48 border-solid cursor-pointer"
-      style={{ borderColor, borderWidth: 1 }}
-      onMouseEnter={() => setHovered(true)}
+      className="relative border rounded-lg overflow-hidden h-40 sm:h-44 md:h-48 border-solid"
+      style={{
+        borderColor,
+        borderWidth: 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+      }}
+      onMouseEnter={() => !disabled && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => onSelect && onSelect(p)}
+      onClick={() => !disabled && onSelect && onSelect(p)}
     >
       <button
         aria-label={t('viewDetails')}
@@ -57,7 +64,8 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
         style={{ backgroundColor: '#2A2D35', color: '#7A8084' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#FFFFFF'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7A8084'; }}
-        onClick={(e) => { e.stopPropagation(); onQuickView && onQuickView(p); }}
+        onClick={(e) => { e.stopPropagation(); !disabled && onQuickView && onQuickView(p); }}
+        disabled={disabled}
       >
         <div className="size-4 flex justify-center">
           <svg viewBox="0 0 21 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -94,7 +102,7 @@ function ProductCard({ p, onSelect, selected, onQuickView }: { p: ProductItem; o
   );
 }
 
-export default function DealsProductGridSection({ filters, onSelectProduct, selectedId, preselectSteamId, onPreselectMatch }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string; preselectSteamId?: string | null; onPreselectMatch?: (p: ProductItem) => void; }) {
+export default function DealsProductGridSection({ filters, onSelectProduct, selectedId, preselectSteamId, onPreselectMatch, selectionDisabled = false }: { filters: SearchFilters; onSelectProduct?: (p: ProductItem) => void; selectedId?: string; preselectSteamId?: string | null; onPreselectMatch?: (p: ProductItem) => void; selectionDisabled?: boolean; }) {
   const { t } = useI18n();
   const { data: products = [] as ProductItem[] } = useQuery({
     queryKey: ['lucky-list', filters],
@@ -120,6 +128,8 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
           const probability = 0.01; // 1%
           const userEarnings = steamBean * rate * probability;
           
+          // 道具列表里每条数据都有 level，选中后整条对象都在，直接拿 level 给转盘/弹窗用
+          const lv = item.level ?? item.steam?.level ?? item.steam?.lv ?? item?.lv;
           return {
             id: item.id || String(Math.random()),
             steamId: item.steam_id ?? item.steam?.id ?? item.id,
@@ -129,6 +139,7 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
             originalPrice: steamBean, // 保存原价
             rate: rate, // 保存系数
             percent: 1, // 默认1%概率
+            level: lv != null && lv !== '' ? Number(lv) : undefined,
             description: item.description || '',
             subtitle: t('spinEarning').replace('{amount}', userEarnings.toFixed(2)),
             brand: item.brand || '',
@@ -227,7 +238,7 @@ export default function DealsProductGridSection({ filters, onSelectProduct, sele
             selectedId === p.id ||
             (!!preselectSteamId && String(preselectSteamId) === String(p.steamId ?? ''));
           return (
-            <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={matched} onQuickView={openQuickView} />
+            <ProductCard key={p.id} p={p} onSelect={onSelectProduct} selected={matched} onQuickView={openQuickView} disabled={selectionDisabled} />
           );
         })}
       </div>
