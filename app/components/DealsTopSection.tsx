@@ -92,6 +92,7 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             productImage={selectedProduct?.image || null}
             productTitle={selectedProduct?.name || null}
             productPrice={spinPrice}
+            productOriginalPrice={selectedProduct?.originalPrice ?? null}
             productLevel={selectedProduct?.level}
           />
         </div>
