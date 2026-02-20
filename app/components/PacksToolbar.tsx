@@ -470,7 +470,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
                     className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
                     style={{ ['--vol-hover' as any]: '#24C0FF' }}
                   >
-                    <span className="packs-vol-text">1</span>
+                    <span className="packs-vol-text packs-vol-num">1</span>
                     <span className="packs-vol-text ml-[45px]">{t("volatilityLevel1Desc")}</span>
                   </button>
 
@@ -479,7 +479,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
                     className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
                     style={{ ['--vol-hover' as any]: '#45DA45' }}
                   >
-                    <span className="packs-vol-text">2</span>
+                    <span className="packs-vol-text packs-vol-num">2</span>
                     <span className="packs-vol-text ml-[45px]">{t("volatilityLevel2Desc")}</span>
                   </button>
 
@@ -488,7 +488,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
                     className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
                     style={{ ['--vol-hover' as any]: '#B13EFF' }}
                   >
-                    <span className="packs-vol-text">3</span>
+                    <span className="packs-vol-text packs-vol-num">3</span>
                     <span className="packs-vol-text ml-[45px]">{t("volatilityLevel3Desc")}</span>
                   </button>
 
@@ -497,7 +497,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
                     className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
                     style={{ ['--vol-hover' as any]: '#FF21A9' }}
                   >
-                    <span className="packs-vol-text">4</span>
+                    <span className="packs-vol-text packs-vol-num">4</span>
                     <span className="packs-vol-text ml-[45px]">{t("volatilityLevel4Desc")}</span>
                   </button>
 
@@ -506,7 +506,7 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
                     className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
                     style={{ ['--vol-hover' as any]: '#FF2525' }}
                   >
-                    <span className="packs-vol-text">5</span>
+                    <span className="packs-vol-text packs-vol-num">5</span>
                     <span className="packs-vol-text ml-[45px]">{t("volatilityLevel5Desc")}</span>
                   </button>
                 </div>
@@ -554,12 +554,30 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
       </div>
 
       <style jsx global>{`
+        .packs-vol-option {
+          align-items: center;
+        }
         .packs-vol-option .packs-vol-text {
           color: #ffffff;
+          display: inline-flex;
+          align-items: center;
+          line-height: 1;
+        }
+        .packs-vol-option .packs-vol-num {
+          width: 14px;
+          justify-content: center;
+          flex: 0 0 14px;
         }
         .packs-vol-option:hover .packs-vol-text,
         .packs-vol-option:focus-visible .packs-vol-text {
           color: var(--vol-hover);
+        }
+
+        /* 触屏/无鼠标设备：直接使用“hover颜色”渲染文字（数字与描述都变色） */
+        @media (hover: none) {
+          .packs-vol-option .packs-vol-text {
+            color: var(--vol-hover);
+          }
         }
       `}</style>
     </div>
