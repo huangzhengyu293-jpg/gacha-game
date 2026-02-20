@@ -743,6 +743,17 @@ const dict: Dict = {
   official: { zh: "官方", en: "Official", ko: "공식", ja: "公式" },
   priceHighToLow: { zh: "价格从高到低", en: "Price High to Low", ko: "가격 높은순", ja: "価格高い順" },
   volatility: { zh: "波动性", en: "Volatility", ko: "변동성", ja: "ボラティリティ" },
+  volatilityLevel1Desc: { zh: "稳定", en: "Stable", ko: "안정", ja: "安定" },
+  volatilityLevel2Desc: { zh: "小起伏", en: "Slight swings", ko: "작은 변동", ja: "小さな変動" },
+  volatilityLevel3Desc: { zh: "冒险", en: "Adventurous", ko: "모험", ja: "冒険" },
+  volatilityLevel4Desc: { zh: "心跳时刻", en: "Heart-pounding", ko: "심장 뛰는 순간", ja: "心拍の瞬間" },
+  volatilityLevel5Desc: { zh: "孤注一掷", en: "All-in", ko: "올인", ja: "一か八か" },
+  volatilityTip: {
+    zh: "低波动意味着更加平稳，奖品价值相对均衡。\n高波动往往奖品价值更高，但也伴随着更高的风险。",
+    en: "Low volatility is steadier, with more balanced prize values.\nHigh volatility can mean higher prize values, but also higher risk.",
+    ko: "낮은 변동성은 더 안정적이며 보상 가치가 비교적 균형적입니다.\n높은 변동성은 더 높은 보상 가치를 기대할 수 있지만 더 큰 위험도 동반합니다.",
+    ja: "低ボラティリティはより安定しており、賞品価値が比較的均衡です。\n高ボラティリティは賞品価値が高い傾向がありますが、リスクも高くなります。",
+  },
   priceRange: { zh: "价格区间", en: "Price Range", ko: "가격 범위", ja: "価格帯" },
   businessCooperation: {
     zh: "商务合作",

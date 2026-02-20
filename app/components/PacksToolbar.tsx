@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "./I18nProvider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import InfoTooltip from "./InfoTooltip";
 
 interface PacksToolbarProps {
   showCreateButton?: boolean;
@@ -59,6 +60,25 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
     if (v === '1' || v === '2' || v === '3' || v === '4' || v === '5') return v;
     return "all";
   }, [filters?.volatility]);
+
+  const volatilityDisplay = useMemo(() => {
+    if (volatility === "all") return t("all");
+    const key =
+      volatility === "1" ? "volatilityLevel1Desc" :
+      volatility === "2" ? "volatilityLevel2Desc" :
+      volatility === "3" ? "volatilityLevel3Desc" :
+      volatility === "4" ? "volatilityLevel4Desc" :
+      volatility === "5" ? "volatilityLevel5Desc" :
+      null;
+    // 选择器上只显示描述，不显示序号 1-5
+    return key ? t(key as any) : String(volatility);
+  }, [volatility, t]);
+
+  const volatilityDisplayMobile = useMemo(() => {
+    if (volatility === "all") return t("all");
+    // 小屏：右侧字样只显示序号 1-5（不显示描述）
+    return String(volatility);
+  }, [volatility, t]);
   
   const price = useMemo((): "allPrices" | "gte500" | "range250to500" | "range100to250" | "range50to100" | "range25to50" | "range5to25" | "lte5" => {
     if (!filters?.price_min && !filters?.price_max) return "allPrices";
@@ -345,22 +365,150 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
 
         {/* 第三个选择器：波动性 1-5（传统选择器） */}
         <div className="relative">
-          <button ref={volBtnRef} onClick={()=>{ setVolOpen(v=>!v); setCategoryOpen(false); setSortOpen(false); setPriceOpen(false); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border hover:text-accent-foreground py-2 h-10 px-4 bg-[#1D2125] border-[#22272B] text-white hover:bg-[#22272B] rounded-md w-full cursor-pointer" type="button" aria-haspopup="menu" aria-expanded={volOpen}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-flame h-4 w-4"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
-            <span>{t("volatility")}</span>
-            <span className="ml-1 truncate" style={{ color: '#7A8084' }}>{volatility === 'all' ? t('all') : volatility}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 ml-auto"><path d="m6 9 6 6 6-6"></path></svg>
+          <button
+            ref={volBtnRef}
+            onClick={() => { setVolOpen((v) => !v); setCategoryOpen(false); setSortOpen(false); setPriceOpen(false); }}
+            className="group inline-flex items-center justify-center gap-0 whitespace-nowrap text-sm font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border hover:text-accent-foreground py-2 h-10 px-4 bg-[#1D2125] border-[#22272B] text-white hover:bg-[#22272B] rounded-md w-full cursor-pointer"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={volOpen}
+          >
+            <div className="flex items-center min-w-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-flame h-4 w-4 mr-2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+              <span>{t("volatility")}</span>
+              {/* “稳定”到“！”不加任何间距：由文字本身提供右边距 12px */}
+              <span className="ml-3 mr-3 truncate" style={{ color: '#7A8084' }}>
+                <span className="sm:hidden">{volatilityDisplayMobile}</span>
+                <span className="hidden sm:inline">{volatilityDisplay}</span>
+              </span>
+              {/* 小屏不显示感叹号；大屏 hover 显示 */}
+              <div className="hidden sm:flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <InfoTooltip
+                  triggerTag="span"
+                  usePortal
+                  showArrow={false}
+                  content={t("volatilityTip")}
+                  // 这里要保证“描述文字 ↔ ！”的视觉间距就是 ml-3(12px)，所以按钮本体贴合图标尺寸，避免组件内留白
+                  buttonClassName="inline-flex items-center justify-center transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none w-5 h-5 min-w-5 min-h-5 max-w-5 max-h-5 rounded-[4px] hover:bg-gray-700 p-0"
+                  tooltipClassName="z-50 overflow-hidden rounded-md border border-[#34383C] px-3 py-2 text-sm font-bold shadow-md animate-in fade-in-0 zoom-in-95 max-w-[min(92vw,560px)] bg-[#22272b] text-[#FFFFFF] whitespace-pre-line"
+                  trigger={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="lucide lucide-circle-alert size-5 text-[#7A8084]"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" x2="12" y1="8" y2="12"></line>
+                      <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                    </svg>
+                  }
+                />
+              </div>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 ml-auto"><path d="m6 9 6 6 6-6"></path></svg>
           </button>
           {volOpen ? (
             <div className="absolute left-0 mt-1 z-20">
-              <div ref={volMenuRef} className="bg-[#22272B] border-0 rounded-lg overflow-hidden shadow-lg p-0 w-56">
+              <div
+                ref={volMenuRef}
+                className="bg-[#22272B] border-0 rounded-lg overflow-hidden shadow-lg p-0 w-max min-w-56 max-w-[min(92vw,520px)]"
+              >
                 <div className="flex flex-col px-2 py-1.5 gap-1">
-                  <button onClick={()=>{ handleSetVolatility('all'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">{t('all')}</button>
-                  <button onClick={()=>{ handleSetVolatility('1'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">1</button>
-                  <button onClick={()=>{ handleSetVolatility('2'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">2</button>
-                  <button onClick={()=>{ handleSetVolatility('3'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">3</button>
-                  <button onClick={()=>{ handleSetVolatility('4'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">4</button>
-                  <button onClick={()=>{ handleSetVolatility('5'); setVolOpen(false); }} className="relative flex select-none items-center gap-2 hover:bg-[#34383C] px-3 py-2 text-base text-white font-semibold w-full text-left cursor-pointer rounded-lg">5</button>
+                  <div
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => { handleSetVolatility('all'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#FFFFFF' }}
+                  >
+                    <span className="packs-vol-text leading-none flex items-center">{t('all')}</span>
+                    {/* 小屏：提示放在下拉框“全部”右边 12px，点击显示；不冒泡，点击其它部分仍可选中“全部” */}
+                    <div className="sm:hidden ml-3 flex items-center">
+                      <InfoTooltip
+                        triggerMode="click"
+                        stopPropagationOnClick
+                        usePortal
+                        portalWidthMode="max-content"
+                        showArrow={false}
+                        content={t("volatilityTip")}
+                        wrapperClassName="relative inline-flex items-center"
+                        buttonClassName="inline-flex items-center justify-center transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold disabled:text-gray-400 select-none w-5 h-5 min-w-5 min-h-5 max-w-5 max-h-5 rounded-[4px] hover:bg-gray-700 p-0 leading-none"
+                        tooltipClassName="z-50 overflow-hidden rounded-md border border-[#34383C] px-3 py-2 text-sm font-bold shadow-md animate-in fade-in-0 zoom-in-95 max-w-[min(92vw,560px)] bg-[#22272b] text-[#FFFFFF] whitespace-pre-line"
+                        trigger={
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="lucide lucide-circle-alert size-5 text-[#7A8084] block"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" x2="12" y1="8" y2="12"></line>
+                            <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                          </svg>
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => { handleSetVolatility('1'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#24C0FF' }}
+                  >
+                    <span className="packs-vol-text">1</span>
+                    <span className="packs-vol-text ml-[45px]">{t("volatilityLevel1Desc")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => { handleSetVolatility('2'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#45DA45' }}
+                  >
+                    <span className="packs-vol-text">2</span>
+                    <span className="packs-vol-text ml-[45px]">{t("volatilityLevel2Desc")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => { handleSetVolatility('3'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#B13EFF' }}
+                  >
+                    <span className="packs-vol-text">3</span>
+                    <span className="packs-vol-text ml-[45px]">{t("volatilityLevel3Desc")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => { handleSetVolatility('4'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#FF21A9' }}
+                  >
+                    <span className="packs-vol-text">4</span>
+                    <span className="packs-vol-text ml-[45px]">{t("volatilityLevel4Desc")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => { handleSetVolatility('5'); setVolOpen(false); }}
+                    className="packs-vol-option relative flex select-none items-center hover:bg-[#34383C] pl-[30px] pr-3 py-2 text-base font-semibold w-full text-left cursor-pointer rounded-lg"
+                    style={{ ['--vol-hover' as any]: '#FF2525' }}
+                  >
+                    <span className="packs-vol-text">5</span>
+                    <span className="packs-vol-text ml-[45px]">{t("volatilityLevel5Desc")}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -404,6 +552,16 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
           ) : null}
         </div>
       </div>
+
+      <style jsx global>{`
+        .packs-vol-option .packs-vol-text {
+          color: #ffffff;
+        }
+        .packs-vol-option:hover .packs-vol-text,
+        .packs-vol-option:focus-visible .packs-vol-text {
+          color: var(--vol-hover);
+        }
+      `}</style>
     </div>
   );
 }
