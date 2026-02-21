@@ -701,6 +701,12 @@ const dict: Dict = {
     ko: "이 결제 수단은 입금 금액에서 7% 수수료가 차감됩니다",
     ja: "この支払い方法では入金額から7%の手数料が差し引かれます",
   },
+  depositFeeNoticeAround7: {
+    zh: "此支付方式会扣除7%上下的手续费",
+    en: "This payment method will deduct a fee of around 7%",
+    ko: "이 결제 수단은 약 7% 내외의 수수료가 차감됩니다",
+    ja: "この支払い方法では約7%前後の手数料が差し引かれます",
+  },
   depositFeeNoticeFixed_2_5: {
     zh: "每笔交易将收取2.5$手续费",
     en: "A $2.5 fee will be charged for each transaction",
