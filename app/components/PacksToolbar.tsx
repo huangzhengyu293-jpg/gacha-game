@@ -558,7 +558,8 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
           align-items: center;
         }
         .packs-vol-option .packs-vol-text {
-          color: #ffffff;
+          /* 桌面端也直接渲染成对应等级颜色（与移动端一致） */
+          color: var(--vol-hover);
           display: inline-flex;
           align-items: center;
           line-height: 1;
@@ -567,17 +568,6 @@ export default function PacksToolbar({ showCreateButton = true, filters, onFilte
           width: 14px;
           justify-content: center;
           flex: 0 0 14px;
-        }
-        .packs-vol-option:hover .packs-vol-text,
-        .packs-vol-option:focus-visible .packs-vol-text {
-          color: var(--vol-hover);
-        }
-
-        /* 触屏/无鼠标设备：直接使用“hover颜色”渲染文字（数字与描述都变色） */
-        @media (hover: none) {
-          .packs-vol-option .packs-vol-text {
-            color: var(--vol-hover);
-          }
         }
       `}</style>
     </div>

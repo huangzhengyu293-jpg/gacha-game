@@ -432,6 +432,12 @@ const dict: Dict = {
     ko: "거래 시간은 달라질 수 있습니다. 대부분 5분 이내에 확인되지만, 대기 중인 거래는 최대 24시간이 걸릴 수 있습니다.",
     ja: "取引時間は変動します。通常は5分以内に承認されますが、保留中の取引は最大24時間かかる場合があります。",
   },
+  withdrawalTimeTip: {
+    zh: "提现时间在11点到凌晨3点根据不同的链通常情况在5分钟～1小时内到账 特殊情况有延迟到账的可能 但最长不会超过24小时。",
+    en: "Withdrawals are processed between 11:00 and 03:00. Depending on the chain, funds usually arrive within 5 minutes to 1 hour. Delays may occur, but will not exceed 24 hours.",
+    ko: "출금 처리 시간은 11:00~03:00이며 체인에 따라 보통 5분~1시간 내에 입금됩니다. 특수한 경우 지연될 수 있으나 최대 24시간을 넘지 않습니다.",
+    ja: "出金処理時間は11:00〜03:00で、チェーンによって通常5分〜1時間で着金します。遅延する場合がありますが、最長でも24時間を超えることはありません。",
+  },
   requestWithdraw: { zh: "请求提款", en: "Request withdrawal", ko: "출금 요청", ja: "出金をリクエスト" },
   yourBestBattle: { zh: "您的最佳对战", en: "Your best battle", ko: "당신의 최고의 배틀", ja: "あなたのベストバトル" },
   firstBattleWin: { zh: "您的首次对战胜利", en: "Your first battle win", ko: "당신의 첫 배틀 승리", ja: "あなたの最初のバトル勝利" },
