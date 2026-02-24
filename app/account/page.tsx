@@ -99,23 +99,38 @@ const userName =
     setCountry(typeof safeAddr?.countries === 'string' ? safeAddr.countries : '');
   }, [user, userName]);
   const photoPool = [
-    '/photo/photo_6163277584888696109_y.jpg',
-    '/photo/photo_6163277584888696110_y.jpg',
-    '/photo/photo_6163277584888696111_y.jpg',
-    '/photo/photo_6163277584888696112_y.jpg',
-    '/photo/photo_6163277584888696113_y.jpg',
-    '/photo/photo_6163277584888696114_y.jpg',
-    '/photo/photo_6163277584888696115_y.jpg',
-    '/photo/photo_6163277584888696116_y.jpg',
-    '/photo/photo_6163277584888696117_y.jpg',
-    '/photo/photo_6163277584888696118_y.jpg',
+    '/photo/ty001.png',
+    '/photo/ty002.png',
+    '/photo/ty003.png',
+    '/photo/ty004.png',
+    '/photo/ty005.png',
+    '/photo/ty006.png',
+    '/photo/ty007.png',
+    '/photo/ty008.png',
+    '/photo/ty009.png',
+    '/photo/ty010.png',
+    '/photo/ty01.png',
+    '/photo/ty02.png',
+    '/photo/ty03.png',
+    '/photo/ty04.png',
+    '/photo/ty05.png',
+    '/photo/ty06.png',
+    '/photo/ty07.png',
+    '/photo/ty08.png',
+    '/photo/ty09.png',
+    '/photo/ty10.png',
   ];
   const handleGenerateAvatar = () => {
     const pick = photoPool[Math.floor(Math.random() * photoPool.length)];
+    const isPng = pick.endsWith('.png');
     fetch(pick)
       .then((res) => res.blob())
       .then((blob) => {
-        const file = new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' });
+        const file = new File(
+          [blob],
+          isPng ? 'avatar.png' : 'avatar.jpg',
+          { type: blob.type || (isPng ? 'image/png' : 'image/jpeg') }
+        );
         uploadAvatarMutation.mutate(file);
       })
       .catch(() => {
