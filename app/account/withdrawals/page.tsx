@@ -175,14 +175,14 @@ export default function WithdrawalsPage() {
                           <span className="font-semibold">{t('withdrawalReturnReason')}:</span>
                         ) : null}
                       </div>
-                      <div className="flex flex-col items-start gap-2 col-span-3 overflow-hidden">
+                      <div className="flex flex-col items-start gap-2">
                         <span>{bean}</span>
                         <span className="font-semibold">{methodText}</span>
-                        <span className="font-extrabold text-sm" style={{ color: statusColor }}>
+                        <span className="font-semibold" style={{ color: statusColor }}>
                           {statusText}
                         </span>
                         {shouldShowRefusedReason ? (
-                          <span className="text-sm break-all" style={{ color: '#EB4B4B' }}>
+                          <span className="font-semibold" style={{ color: statusColor }}>
                             {refusedReason}
                           </span>
                         ) : null}
