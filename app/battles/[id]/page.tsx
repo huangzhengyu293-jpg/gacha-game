@@ -389,7 +389,8 @@ function JackpotProgressBarInline({
             className="h-full flex-shrink-0"
             style={{
               width: `${widthPx}px`,
-              border: `1px solid ${player.color}`,
+              // 用 inset 內框替代 border，避免改變實際寬度造成停點映射偏移
+              boxShadow: `inset 0 0 0 1px ${player.color}`,
               background: `repeating-linear-gradient(115deg, ${player.color}, ${lighter} 1px, ${lighter} 5px, ${player.color} 6px, ${player.color} 17px)`,
             }}
           />
