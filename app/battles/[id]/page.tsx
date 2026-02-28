@@ -324,9 +324,22 @@ function JackpotProgressBarInline({
     
     if (!winnerFound) return;
     
-    // 🎲 在获胜者色块区间内选择一个停止位置（可重放：seeded；否则回退 Math.random）
+    // 🎲 在获胜者色块内选择停止位置，但要避开边界，避免视觉上像“隔壁色块中奖”
     const unit = rngSeed ? seedToUnitFloat(`${rngSeed}|stopPercent`) : Math.random();
-    const randomPercent = winnerStartPercent + (unit * (winnerEndPercent - winnerStartPercent));
+    const winnerRangePercent = Math.max(0, winnerEndPercent - winnerStartPercent);
+    const winnerRangePixels = (winnerRangePercent / 100) * containerWidth;
+    // 安全内缩：至少 3px；常规按 12% 内缩；最多不超过 18px
+    const edgeInsetPx = Math.min(18, Math.max(3, winnerRangePixels * 0.12));
+    let randomPixelsInWinner: number;
+    if (winnerRangePixels > edgeInsetPx * 2 + 1) {
+      const safeStartPx = edgeInsetPx;
+      const safeEndPx = winnerRangePixels - edgeInsetPx;
+      randomPixelsInWinner = safeStartPx + unit * (safeEndPx - safeStartPx);
+    } else {
+      // 区段太窄时退回中心，尽可能远离边界
+      randomPixelsInWinner = winnerRangePixels / 2;
+    }
+    const randomPercent = winnerStartPercent + (randomPixelsInWinner / containerWidth) * 100;
     
     // 计算这个随机位置在第 N 份色条中的绝对像素位置
     // 注意：这里必须和渲染时每份色条的宽度保持一致（用同一个 containerWidth）

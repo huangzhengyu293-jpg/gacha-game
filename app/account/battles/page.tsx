@@ -15,6 +15,7 @@ import type { RawBattleListItem } from "@/app/components/bettlesListData";
 export default function BattlesPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const showPaginationBars = false;
   const {
     data,
     isLoading,
@@ -80,13 +81,15 @@ export default function BattlesPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <DealsPaginationBar
-                  start={paginationMeta.start}
-                  end={paginationMeta.end}
-                  total={paginationMeta.total}
-                  disabledPrev
-                  disabledNext
-                />
+                {showPaginationBars ? (
+                  <DealsPaginationBar
+                    start={paginationMeta.start}
+                    end={paginationMeta.end}
+                    total={paginationMeta.total}
+                    disabledPrev
+                    disabledNext
+                  />
+                ) : null}
                 <div className="flex flex-col gap-4">
                   {cards.map((card) => {
                     const isWaiting = Number(card.status) === 0;
@@ -123,13 +126,15 @@ export default function BattlesPage() {
                     );
                   })}
                 </div>
-                <DealsPaginationBar
-                  start={paginationMeta.start}
-                  end={paginationMeta.end}
-                  total={paginationMeta.total}
-                  disabledPrev
-                  disabledNext
-                />
+                {showPaginationBars ? (
+                  <DealsPaginationBar
+                    start={paginationMeta.start}
+                    end={paginationMeta.end}
+                    total={paginationMeta.total}
+                    disabledPrev
+                    disabledNext
+                  />
+                ) : null}
               </div>
             )}
           </div>
