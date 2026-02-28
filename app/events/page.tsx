@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import BestLiveSidebar from '../components/BestLiveSidebar';
 
-type RaceType = 'weekly' | 'monthly' | 'daily';
+type RaceType = 'weekly' | 'monthly';
 
 // 北京时间（UTC+8）
 const BJT_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -13,13 +13,6 @@ const BJT_OFFSET_MS = 8 * 60 * 60 * 1000;
 const getBjtNow = () => {
   const now = Date.now();
   return new Date(now + BJT_OFFSET_MS);
-};
-
-const computeDailyMsBjt = () => {
-  const bjt = getBjtNow();
-  // 到北京时间次日 00:00
-  const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth(), bjt.getUTCDate() + 1, 0, 0, 0);
-  return target - bjt.getTime();
 };
 
 const computeWeeklyMsBjt = () => {
@@ -77,10 +70,6 @@ const RaceCountdownCard = memo(function RaceCountdownCard({
     };
 
     const tick = () => {
-      if (raceType === 'daily') {
-        setCountdownText(formatHMS(computeDailyMsBjt()));
-        return;
-      }
       if (raceType === 'weekly') {
         setCountdownText(formatDHMS(computeWeeklyMsBjt()));
         return;
@@ -123,9 +112,7 @@ const RaceCountdownCard = memo(function RaceCountdownCard({
             className="flex items-center justify-center font-semibold text-white text-sm md:text-base border border-solid rounded-lg min-h-11 px-4 text-center"
             style={{ borderColor: '#34383c', backgroundColor: '#1d2125' }}
           >
-            {raceType === 'daily'
-              ? t('raffleStartsIn').replace('{time}', countdownText)
-              : t('raceEndsIn').replace('{time}', countdownText)}
+            {t('raceEndsIn').replace('{time}', countdownText)}
           </p>
         </div>
       </div>
@@ -135,7 +122,7 @@ const RaceCountdownCard = memo(function RaceCountdownCard({
 
 export default function EventsPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'raffle' | 'raceWeekly' | 'raceMonthly'>('raffle');
+  const [activeTab, setActiveTab] = useState<'raceWeekly' | 'raceMonthly'>('raceWeekly');
   const { data: consumeData } = useQuery({
     queryKey: ['consumeData'],
     queryFn: () => api.getConsume(),
@@ -148,16 +135,12 @@ export default function EventsPage() {
     return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const DAILY_PRIZES = useMemo(
-    () => [500, 300, 100, 80, 60, 30, 30, 30, 30, 30, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
-    [],
-  );
   const WEEKLY_PRIZES = useMemo(
-    () => [3000, 1500, 800, 600, 400, 200, 100, 80, 80, 80, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30],
+    () => [1000, 800, 650, 400, 350, 300, 250, 220, 200, 180, 160, 150, 140, 35, 32, 30, 28, 25, 25, 25],
     [],
   );
   const MONTHLY_PRIZES = useMemo(
-    () => [20000, 10000, 5000, 4000, 3000, 2000, 1500, 1000, 800, 600, 300, 300, 300, 300, 300, 200, 200, 200, 200, 200],
+    () => [3000, 2200, 1800, 1300, 1100, 900, 700, 600, 500, 450, 400, 36],
     [],
   );
 
@@ -166,15 +149,15 @@ export default function EventsPage() {
     return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getPrizeByRank = (raceType: 'daily' | 'weekly' | 'monthly', rank: number) => {
+  const getPrizeByRank = (raceType: 'weekly' | 'monthly', rank: number) => {
     const idx = rank - 1;
-    const list = raceType === 'weekly' ? WEEKLY_PRIZES : raceType === 'monthly' ? MONTHLY_PRIZES : DAILY_PRIZES;
+    const list = raceType === 'weekly' ? WEEKLY_PRIZES : MONTHLY_PRIZES;
     return formatPrize(list[idx]);
   };
 
   const mapRanking = (
     raw: any,
-    raceType: 'daily' | 'weekly' | 'monthly',
+    raceType: 'weekly' | 'monthly',
   ): { topThree: TopThreePlayer[]; tableData: TablePlayer[] } => {
     const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
     const topThree = list.slice(0, 3).map((item, idx) => {
@@ -209,13 +192,6 @@ export default function EventsPage() {
 
   const rankingMonth = mapRanking(consumeData?.data?.ranking_month, 'monthly');
   const rankingWeek = mapRanking(consumeData?.data?.ranking_week, 'weekly');
-  const rankingYesterday =
-    Array.isArray(consumeData?.data?.ranking?.data)
-      ? consumeData?.data?.ranking?.data
-      : Array.isArray(consumeData?.data?.ranking)
-        ? consumeData?.data?.ranking
-        : [];
-  const rankingDaily = mapRanking(rankingYesterday, 'daily');
 
   // 比赛排行榜组件（周赛/月赛共用）
   type TopThreePlayer = {
@@ -248,7 +224,7 @@ export default function EventsPage() {
     topThree: TopThreePlayer[];
     tableData: TablePlayer[];
   }) => {
-    const prefix = raceType === 'weekly' ? 'weekly' : raceType === 'monthly' ? 'monthly' : 'daily';
+    const prefix = raceType === 'weekly' ? 'weekly' : 'monthly';
     const arrangedTopThree = topThree.length === 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
     
     return (
@@ -416,53 +392,6 @@ export default function EventsPage() {
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={activeTab === 'raffle'}
-                    aria-controls="radix-tab-content-raffle"
-                    data-state={activeTab === 'raffle' ? 'active' : 'inactive'}
-                    id="radix-tab-trigger-raffle"
-                    onClick={() => setActiveTab('raffle')}
-                    className={`inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 transition-colors duration-150 interactive-focus disabled:pointer-events-none disabled:opacity-50 text-base font-regular text-white h-14 font-bold cursor-pointer ${activeTab === 'raffle' ? 'bg-[#34383c]' : ''}`}
-                    tabIndex={activeTab === 'raffle' ? 0 : -1}
-                    data-orientation="horizontal"
-                    data-radix-collection-item=""
-                  >
-                   <div className="size-5 mr-2 hidden sm:block">
-                      <svg viewBox="0 0 20 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          d="M3.33333 15C3.33333 15 4.16666 14.1667 6.66666 14.1667C9.16666 14.1667 10.8333 15.8333 13.3333 15.8333C15.8333 15.8333 16.6667 15 16.6667 15V4.99999C16.6667 4.99999 15.8333 5.83332 13.3333 5.83332C10.8333 5.83332 9.16666 4.16666 6.66666 4.16666C4.16666 4.16666 3.33333 4.99999 3.33333 4.99999V15Z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        ></path>
-                        <path
-                          d="M7.5 14.1667V5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        ></path>
-                        <path
-                          d="M11.6667 15V5.83334"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        ></path>
-                        <path
-                          d="M16.6667 9.99999C16.6667 9.99999 15.8333 10.8333 13.3333 10.8333C10.8333 10.8333 9.16666 9.16666 6.66666 9.16666C4.16666 9.16666 3.33333 9.99999 3.33333 9.99999"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        ></path>
-                      </svg>
-                    </div>
-                    {t('eventsRaffleTab')}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
                     aria-selected={activeTab === 'raceWeekly'}
                     aria-controls="radix-tab-content-raceWeekly"
                     data-state={activeTab === 'raceWeekly' ? 'active' : 'inactive'}
@@ -557,29 +486,6 @@ export default function EventsPage() {
                 </div>
               </div>
               
-              {/* 抽奖 Tab 面板 */}
-              {activeTab === 'raffle' && (() => {
-                const { topThree, tableData } = rankingDaily;
-                return (
-                  <div
-                    data-state="active"
-                    data-orientation="horizontal"
-                    role="tabpanel"
-                    aria-labelledby="radix-tab-trigger-raffle"
-                    id="radix-tab-content-raffle"
-                    tabIndex={0}
-                    className="mt-4 interactive-focus"
-                  >
-                    <RaceLeaderboard
-                      title={t('eventsRaffleTab')}
-                      raceType="daily"
-                      topThree={topThree}
-                      tableData={tableData}
-                    />
-                  </div>
-                );
-              })()}
-
               {/* 周赛 Tab 面板 */}
               {activeTab === 'raceWeekly' && (() => {
                 const { topThree, tableData } = rankingWeek;

@@ -314,6 +314,7 @@ const dict: Dict = {
   claimStatusShipped: { zh: "已发货", en: "Shipped", ko: "배송됨", ja: "発送済み" },
   claimStatusReturnedToStorage: { zh: "已退回背包", en: "Returned to inventory", ko: "인벤토리로 반환됨", ja: "インベントリに返却" },
   withdrawalStatusReturned: { zh: "已退回", en: "Returned", ko: "반환됨", ja: "返却済み" },
+  withdrawalReturnReason: { zh: "退回理由", en: "Return reason", ko: "반려 사유", ja: "返却理由" },
   expressNumberLabel: { zh: "快递单号", en: "Tracking number", ko: "운송장 번호", ja: "追跡番号" },
   winChanceLabel: { zh: "获胜概率", en: "Win chance", ko: "승률", ja: "勝率" },
   betAmountLabel: { zh: "已投注金额", en: "Bet amount", ko: "베팅 금액", ja: "ベット額" },
@@ -721,6 +722,7 @@ const dict: Dict = {
   qrGenerateFailed: { zh: "二维码生成失败，请重试", en: "Failed to generate QR. Please try again.", ko: "QR 생성 실패. 다시 시도하세요.", ja: "QRの生成に失敗しました。再試行してください。" },
   amountLabel: { zh: "金额", en: "Amount", ko: "금액", ja: "金額" },
   enterAmount: { zh: "请输入金额", en: "Enter amount", ko: "금액을 입력하세요", ja: "金額を入力してください" },
+  enterRechargeAmount: { zh: "请输入充值金额", en: "Enter top-up amount", ko: "충전 금액을 입력하세요", ja: "チャージ金額を入力してください" },
   amountValidationPositiveInteger: {
     zh: "金额必须为正整数",
     en: "Amount must be a positive integer",

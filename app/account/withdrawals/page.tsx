@@ -146,6 +146,8 @@ export default function WithdrawalsPage() {
                 const status = item?.status ?? -1;
                 const statusText = getStatusText(status, t);
                 const statusColor = getStatusColor(status);
+                const refusedReason = String(item?.refused ?? '').trim();
+                const shouldShowRefusedReason = status === 2 && refusedReason.length > 0;
                 const formattedAmount = formatAmount(item?.bean);
                 const titleLeft = `${formattedAmount} ${methodText}`;
 
@@ -169,6 +171,9 @@ export default function WithdrawalsPage() {
                         <span className="font-semibold">{t('amountUsd')}:</span>
                         <span className="font-semibold">{t('method')}:</span>
                         <span className="font-semibold">{t('status')}:</span>
+                        {shouldShowRefusedReason ? (
+                          <span className="font-semibold">{t('withdrawalReturnReason')}:</span>
+                        ) : null}
                       </div>
                       <div className="flex flex-col items-start gap-2 col-span-3 overflow-hidden">
                         <span>{bean}</span>
@@ -176,6 +181,11 @@ export default function WithdrawalsPage() {
                         <span className="font-extrabold text-sm" style={{ color: statusColor }}>
                           {statusText}
                         </span>
+                        {shouldShowRefusedReason ? (
+                          <span className="text-sm break-all" style={{ color: '#EB4B4B' }}>
+                            {refusedReason}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

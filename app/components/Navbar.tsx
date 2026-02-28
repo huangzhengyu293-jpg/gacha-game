@@ -991,8 +991,7 @@ export default function Navbar() {
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
-    // 限时活动：开放所有用户可见；图标复用活动 icon
-    { key: 'limited-events', labelKey: 'limitedEventsNav', icon: 'events', href: '/limited-events' },
+    
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 
