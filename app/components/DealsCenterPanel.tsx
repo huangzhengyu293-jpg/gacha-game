@@ -933,11 +933,8 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
                   </p>
                   <div className="flex justify-center">
                     <p className="font-extrabold text-base sm:text-lg" style={{ color: '#FFFFFF' }}>
-<<<<<<< HEAD
-                      ${(productPrice ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-=======
+
                       ${(productOriginalPrice ?? productPrice ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
->>>>>>> feat/zhifu
                     </p>
                   </div>
                 </div>
