@@ -19,7 +19,6 @@ export default function AccountMobileMenu() {
       { labelKey: 'accountProfile', href: '/account' },
       { labelKey: 'accountDepositsTitle', href: '/account/deposits' },
       { labelKey: 'accountWithdrawalsTitle', href: '/account/withdrawals' },
-      { labelKey: 'accountTransfersTitle', href: '/account/transfers' },
       { labelKey: 'accountClaimsTitle', href: '/account/claims' },
       { labelKey: 'accountSalesTitle', href: '/account/sales' },
       { labelKey: 'accountBattlesTitle', href: '/account/battles' },

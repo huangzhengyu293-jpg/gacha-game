@@ -19,7 +19,7 @@ const getBjtNow = () => {
 
 const computeLimitedMsBjt = () => {
   const bjt = getBjtNow();
-  // 每月循环：到北京时间下个月 1 号 00:00
+  // 限時活動：按月循環，倒計時到「北京时间下月 1 日 00:00」
   const target = Date.UTC(bjt.getUTCFullYear(), bjt.getUTCMonth() + 1, 1, 0, 0, 0);
   return Math.max(0, target - bjt.getTime());
 };

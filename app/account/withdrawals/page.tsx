@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { useI18n } from "@/app/components/I18nProvider";
+import InfoTooltip from "@/app/components/InfoTooltip";
 import { useAuth } from "@/app/hooks/useAuth";
 import { getWithdrawalLog } from "@/api/common";
 
@@ -78,7 +79,6 @@ export default function WithdrawalsPage() {
             <Link href="/account" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountProfile')}</span></Link>
             <Link href="/account/deposits" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountDepositsTitle')}</span></Link>
             <Link href="/account/withdrawals" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item--active"><span className="font-bold">{t('accountWithdrawalsTitle')}</span></Link>
-            <Link href="/account/transfers" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountTransfersTitle')}</span></Link>
             <Link href="/account/claims" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountClaimsTitle')}</span></Link>
             <Link href="/account/sales" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountSalesTitle')}</span></Link>
             <Link href="/account/battles" className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative font-bold select-none h-10 px-6 justify-start text-md acct-menu-item"><span className="font-bold">{t('accountBattlesTitle')}</span></Link>
@@ -89,9 +89,40 @@ export default function WithdrawalsPage() {
           </div>
         </div>
         <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-2">
-          <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
-            <AccountMobileMenu />
-            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('accountWithdrawalsTitle')}</h1>
+          <div className="flex justify-between lg:justify-start lg:gap-3 items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
+            {/* 左侧：移动端按钮右边固定显示感叹号（点击提示，图标不消失）；桌面端不影响原按钮布局 */}
+            <div className="flex items-center gap-2">
+              <AccountMobileMenu />
+              <div className="lg:hidden flex items-center">
+                <InfoTooltip
+                  triggerMode="click"
+                  usePortal
+                  portalWidthMode="max-content"
+                  content={t('withdrawalTimeTip')}
+                  wrapperClassName="inline-flex items-center"
+                  buttonClassName="inline-flex items-center justify-center shrink-0 size-6 min-h-6 min-w-6 max-h-6 max-w-6 p-0 border-0 rounded-[4px] bg-transparent hover:bg-gray-700"
+                  /* 移动端：去掉缩放动画，避免反复点击时视觉位置抖动 */
+                  tooltipClassName="z-50 overflow-hidden rounded-md border border-[#34383C] px-3 py-2 text-sm font-bold shadow-md animate-in fade-in-0 max-w-[min(92vw,560px)] bg-[#22272b] text-[#FFFFFF] whitespace-pre-line"
+                />
+              </div>
+            </div>
+
+            {/* Web 端：整组放最左边，用 div 包住 title，感叹号在右侧并垂直居中 */}
+            <div className="hidden lg:flex items-center" style={{ color: '#FFFFFF' }}>
+              <h1 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>
+                {t('accountWithdrawalsTitle')}
+              </h1>
+              <div className="ml-3 flex items-center">
+                <InfoTooltip
+                  usePortal
+                  portalWidthMode="max-content"
+                  content={t('withdrawalTimeTip')}
+                  wrapperClassName="inline-flex items-center"
+                  buttonClassName="inline-flex items-center justify-center shrink-0 size-6 min-h-6 min-w-6 max-h-6 max-w-6 p-0 border-0 rounded-[4px] bg-transparent hover:bg-gray-700"
+                  tooltipClassName="z-50 overflow-hidden rounded-md border border-[#34383C] px-3 py-2 text-sm font-bold shadow-md animate-in fade-in-0 max-w-[min(92vw,560px)] bg-[#22272b] text-[#FFFFFF] whitespace-pre-line"
+                />
+              </div>
+            </div>
           </div>
           {records.length === 0 ? (
             <div className="flex flex-col gap-3 items-center justify-center py-12 self-stretch">
@@ -115,6 +146,8 @@ export default function WithdrawalsPage() {
                 const status = item?.status ?? -1;
                 const statusText = getStatusText(status, t);
                 const statusColor = getStatusColor(status);
+                const refusedReason = String(item?.refused ?? '').trim();
+                const shouldShowRefusedReason = status === 2 && refusedReason.length > 0;
                 const formattedAmount = formatAmount(item?.bean);
                 const titleLeft = `${formattedAmount} ${methodText}`;
 
@@ -138,13 +171,21 @@ export default function WithdrawalsPage() {
                         <span className="font-semibold">{t('amountUsd')}:</span>
                         <span className="font-semibold">{t('method')}:</span>
                         <span className="font-semibold">{t('status')}:</span>
+                        {shouldShowRefusedReason ? (
+                          <span className="font-semibold">{t('withdrawalReturnReason')}:</span>
+                        ) : null}
                       </div>
-                      <div className="flex flex-col items-start gap-2 col-span-3 overflow-hidden">
+                      <div className="flex flex-col items-start gap-2">
                         <span>{bean}</span>
                         <span className="font-semibold">{methodText}</span>
-                        <span className="font-extrabold text-sm" style={{ color: statusColor }}>
+                        <span className="font-semibold" style={{ color: statusColor }}>
                           {statusText}
                         </span>
+                        {shouldShowRefusedReason ? (
+                          <span className="font-semibold" style={{ color: statusColor }}>
+                            {refusedReason}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

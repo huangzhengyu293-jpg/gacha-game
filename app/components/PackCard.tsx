@@ -177,9 +177,25 @@ export default function PackCard({
           setIsImageLoaded(true);
         }}
       />
-      {/* 加载遮罩：仅在未加载完成时显示（避免“永远转圈”观感） */}
-      {!isImageLoaded && !hasImageError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]" style={{ zIndex: 3 }}>
+
+      {overlayUrl ? (
+        <div className="flex absolute w-full h-full inset-0 items-center justify-center">
+          <img
+            alt=""
+            loading="lazy"
+            width={width + 43}
+            height={height - 17}
+            decoding="async"
+            src={overlayUrl}
+            className={`color-transparent object-contain transition-opacity duration-300 ${
+              isImageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{ color: 'transparent' }}
+          />
+        </div>
+      ) : null}
+      {!isImageLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]">
           <LoadingSpinner
             className="h-10 w-10"
             indicatorColor="#1D2125"

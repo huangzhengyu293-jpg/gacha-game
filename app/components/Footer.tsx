@@ -105,9 +105,6 @@ export default function Footer() {
               <a href="/battles" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
               <a href="/deals" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
               <a href="/events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-              <a href="/limited-events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
-                {t("limitedEventsNav")}
-              </a>
               <a href="/rewards" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
             </div>
           </MobileAccordionMemo>
@@ -175,9 +172,6 @@ export default function Footer() {
             <a href="/battles" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
             <a href="/deals" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
             <a href="/events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-            <a href="/limited-events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
-              {t("limitedEventsNav")}
-            </a>
             <a href="/rewards" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
           </div>
           <div className="flex flex-col min-w-44 gap-1">
