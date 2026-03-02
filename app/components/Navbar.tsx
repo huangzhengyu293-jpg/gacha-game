@@ -268,6 +268,11 @@ export default function Navbar() {
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [walletTab, setWalletTab] = useState<'payment' | 'agent'>('payment');
+  const [editingAgent, setEditingAgent] = useState<any | null>(null);
+  const [editingAgentDraft, setEditingAgentDraft] = useState<{ name: string; contact: string; intro: string } | null>(null);
+  const [editingAgentField, setEditingAgentField] = useState<'name' | 'contact' | 'intro' | null>(null);
+  const [editedAgents, setEditedAgents] = useState<Record<number, { name: string; contact: string; intro: string }>>({});
   const [showPayQrModal, setShowPayQrModal] = useState(false);
   const [payQrUrl, setPayQrUrl] = useState('');
   const [payQrChannelId, setPayQrChannelId] = useState<number>(0);
@@ -293,6 +298,61 @@ export default function Navbar() {
     return [];
   }, [commonChannelData?.data]);
 
+  const agentItems = useMemo(() => {
+    // 对齐「生成头像」使用的头像池（app/account/page.tsx）
+    const avatarPool = [
+      '/photo/ty001.png',
+      '/photo/ty002.png',
+      '/photo/ty003.png',
+      '/photo/ty004.png',
+      '/photo/ty005.png',
+      '/photo/ty006.png',
+      '/photo/ty007.png',
+      '/photo/ty008.png',
+      '/photo/ty009.png',
+      '/photo/ty010.png',
+      '/photo/ty01.png',
+      '/photo/ty02.png',
+      '/photo/ty03.png',
+      '/photo/ty04.png',
+      '/photo/ty05.png',
+      '/photo/ty06.png',
+      '/photo/ty07.png',
+      '/photo/ty08.png',
+      '/photo/ty09.png',
+      '/photo/ty10.png',
+    ];
+    const names = ['代理商-华南A组', '代理商-北区运营', '代理商-新用户渠道', '代理商-海外拓展', '代理商-品牌合作', '代理商-支付专线'];
+    const contactPool = [
+      '客服邮箱：service-agent@flamedraw.com',
+      '商务邮箱：vip@flamedraw.com',
+      '联系电话：13800138000',
+      '微信：flamedraw_agent',
+      '电报：@flamedraw_agent',
+      '合作邮箱：bd_team@flamedraw.com',
+    ];
+    const introPool = [
+      '负责区域渠道维护与代理商协作。',
+      '专注支付转化与用户增长运营。',
+      '负责商务合作与客诉回访跟进。',
+      '支持跨境市场拓展与本地化推进。',
+      '负责高净值用户关系与服务支持。',
+      '对接品牌资源与活动投放优化。',
+    ];
+    const currencyPool = ['JPY', 'USD', 'EUR', 'CNY', 'KRW', 'USDT'];
+    return Array.from({ length: 10 }, (_, idx) => {
+      const seed = Math.floor(Math.random() * 900000);
+      return {
+        id: idx + 1,
+        name: names[(idx + seed) % names.length],
+        contact: contactPool[(idx + seed) % contactPool.length],
+        intro: introPool[(idx + seed) % introPool.length],
+        amount: `${currencyPool[(idx + seed) % currencyPool.length]} ${(5000 + (seed % 995000)).toLocaleString()}`,
+        avatar: avatarPool[(idx + seed) % avatarPool.length],
+      };
+    });
+  }, []);
+
   useEffect(() => {
     if (channelList.length === 0) return;
     if (!selectedChannel) {
@@ -303,6 +363,10 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!showWalletModal) {
+      setWalletTab('payment');
+      setEditingAgent(null);
+      setEditingAgentDraft(null);
+      setEditingAgentField(null);
       setSelectedChannel(null);
       setCdkValue('');
       setRechargeAmount('');
@@ -991,7 +1055,7 @@ export default function Navbar() {
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
-    
+
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 
@@ -1805,151 +1869,755 @@ export default function Navbar() {
             role="dialog"
             aria-modal="true"
             data-state="open"
-            className="overflow-hidden z-50 max-w-lg w-full shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative flex flex-col sm:max-w-2xl p-0 gap-0 min-h-[594px]"
+            className="overflow-hidden z-50 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-[8px] relative flex flex-col gap-0 border border-[#2E2E2E] w-full max-w-[837px] box-border"
             tabIndex={-1}
-            style={{ pointerEvents: 'auto', backgroundColor: '#161A1D' }}
+            style={{
+              pointerEvents: 'auto',
+              background: 'radial-gradient(60% 86% at 83% 1%, #22282E 0%, #161920 100%)',
+              borderRadius: '8px',
+              border: '1px solid #2E2E2E',
+              paddingTop: '40px',
+              paddingLeft: '40px',
+              paddingRight: '40px',
+              paddingBottom: '60px',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex-col gap-1.5 text-center sm:text-left flex border-b border-gray-700 h-16 p-6">
-              <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{t("depositTitle")}</h2>
+            {/* Header: 支付方式 + close icon */}
+            <div className="flex items-center justify-between">
+              <div
+                className="truncate"
+                style={{
+                  width: 48,
+                  height: 24,
+                  fontFamily: 'PingFangSC, PingFang SC',
+                  fontWeight: 500,
+                  fontSize: 24,
+                  color: '#FFFFFF',
+                  lineHeight: '24px',
+                  textAlign: 'left',
+                  fontStyle: 'normal',
+                }}
+              >
+                存款
+              </div>
+              <button
+                type="button"
+                aria-label="close"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/5 cursor-pointer"
+                onClick={() => setShowWalletModal(false)}
+              >
+                <span
+                  className="block w-6 h-6 bg-center bg-no-repeat bg-contain"
+                  style={{ backgroundImage: 'url(/images/icon-close.png)' }}
+                />
+              </button>
             </div>
-            <div className="flex flex-1 p-6">
-              <div className="flex flex-col w-full gap-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {channelList.map((item: any, idx: number) => {
-                    const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+
+            <div
+              className="mt-10 flex items-center gap-[15px] w-full max-w-[757px] h-[68px]"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '12px',
+                padding: '4px',
+              }}
+            >
+              <button
+                type="button"
+                className="inline-flex items-center justify-center cursor-pointer flex-1 min-w-0"
+                style={{
+                  height: '60px',
+                  borderRadius: '10px',
+                  background: walletTab === 'payment' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                }}
+                onClick={() => setWalletTab('payment')}
+              >
+                <span
+                  style={{
+                    height: '20px',
+                    fontFamily: 'PingFangSC, PingFang SC',
+                    fontWeight: 500,
+                    fontSize: '20px',
+                    color: '#FFFFFF',
+                    lineHeight: '20px',
+                    textAlign: 'center',
+                    fontStyle: 'normal',
+                  }}
+                >
+                  支付
+                </span>
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center cursor-pointer flex-1 min-w-0"
+                style={{
+                  height: '60px',
+                  borderRadius: '10px',
+                  background: walletTab === 'agent' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                }}
+                onClick={() => {
+                  setWalletTab('agent');
+                  setEditingAgent(null);
+                }}
+              >
+                <span
+                  style={{
+                    height: '20px',
+                    fontFamily: 'PingFangSC, PingFang SC',
+                    fontWeight: 500,
+                    fontSize: '20px',
+                    color: '#FFFFFF',
+                    lineHeight: '20px',
+                    textAlign: 'center',
+                    fontStyle: 'normal',
+                  }}
+                >
+                  代理商
+                </span>
+              </button>
+            </div>
+
+            {walletTab === 'payment' ? (
+              <>
+                <div className="mt-10 w-full max-w-[757px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-[25px] gap-y-[20px]">
+                    {channelList.map((item: any, idx: number) => {
+                      const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+                      const channelId = Number(item?.id);
+                      const channelIcon =
+                        channelId === 16
+                          ? '/images/ustd.png'
+                          : channelId === 2
+                            ? '/images/cdk.png'
+                            : channelId === 22
+                              ? '/images/alipay.png'
+                              : '';
+                      return (
+                        <div key={`${item?.id ?? idx}`} className="w-full h-[90px] flex items-center justify-center">
+                          <button
+                            type="button"
+                            className="relative box-border w-full h-[90px] rounded-[16px] text-left flex items-center py-[20px] pl-[30px] pr-[20px] transition-colors disabled:pointer-events-none interactive-focus"
+                            onClick={() => {
+                              setSelectedChannel(item);
+                              setCdkValue('');
+                              setRechargeAmount('');
+                            }}
+                            style={{
+                              background: active ? 'rgba(1,55,144,0.1)' : 'transparent',
+                              border: active ? '1px solid #254EB1' : '1px solid #535353',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div
+                              className="w-[50px] h-[50px] flex-none rounded-[10px] bg-center bg-no-repeat bg-contain"
+                              style={channelIcon ? { backgroundImage: `url(${channelIcon})` } : { backgroundColor: 'rgba(255,255,255,0.05)' }}
+                            />
+                            <div className="ml-[15px] min-w-0 flex-1">
+                              <p
+                                className="truncate max-w-full"
+                                style={{
+                                  height: '22px',
+                                  fontFamily: 'PingFangSC, PingFang SC',
+                                  fontWeight: 600,
+                                  fontSize: '22px',
+                                  color: '#FFFFFF',
+                                  lineHeight: '22px',
+                                }}
+                              >
+                                {item?.title ?? '--'}
+                              </p>
+                            </div>
+
+                            {active ? (
+                              <div className="absolute right-[20px] top-1/2 -translate-y-1/2">
+                                <span
+                                  className="block w-6 h-6 bg-center bg-no-repeat bg-contain"
+                                  style={{ backgroundImage: 'url(/images/xuanzhong.png)' }}
+                                />
+                              </div>
+                            ) : null}
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {(commonChannelData?.data ?? []).length === 0 && (
+                      <div className="text-center text-sm text-white/60 w-full col-span-full">{t("noPaymentMethod")}</div>
+                    )}
+                  </div>
+                </div>
+
+              {/* Divider: 50px below payment buttons */}
+              <div
+                className="mt-[50px] w-full max-w-[756px]"
+                style={{ height: 1, border: '1px solid #FFFFFF', opacity: 0.1 }}
+              />
+
+              {/* 选择金额 title 40px below divider */}
+              <div
+                className="mt-10"
+                style={{
+                  height: 24,
+                  fontFamily: 'PingFangSC, PingFang SC',
+                  fontWeight: 500,
+                  fontSize: 24,
+                  color: '#FFFFFF',
+                  lineHeight: '24px',
+                  textAlign: 'left',
+                  fontStyle: 'normal',
+                }}
+              >
+                选择金额
+              </div>
+
+            {/* Amount buttons 40px below title */}
+            {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 ? (
+              <div className="mt-10 w-full max-w-[756px]">
+                <div className="grid grid-cols-4 gap-5">
+                  {presetAmountsForButtons.map((val: string, i: number) => {
+                    const v = String(val || '').trim();
+                    if (!v) return null;
+                    const isActive = rechargeAmount === v;
                     return (
                       <button
-                        key={`${item?.id ?? idx}`}
-                        className={`inline-flex items-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative border rounded-lg justify-start h-16 px-4 text-left ${active ? 'border-[#4299E1] bg-blue-400/10' : 'border-gray-600 hover:bg-blue-400/10 hover:border-blue-400'}`}
-                        onClick={() => {
-                          setSelectedChannel(item);
-                          setCdkValue('');
-                          setRechargeAmount('');
-                        }}
-                        style={{ cursor: 'pointer' }}
+                        key={`${v}_${i}`}
+                        type="button"
+                        className={[
+                          "box-border h-[50px] w-full rounded-[8px] flex items-center justify-center",
+                          "transition-colors disabled:pointer-events-none interactive-focus",
+                          isActive
+                            ? "bg-[rgba(1,55,144,0.1)] border border-[#254EB1]"
+                            : "border border-[#535353]",
+                        ].join(" ")}
+                        style={{ cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer', opacity: rechargeMutation.isPending ? 0.7 : 1 }}
+                        disabled={rechargeMutation.isPending}
+                        onClick={() => handleSelectPresetAmount(v)}
                       >
-                        {/* 图片暂时隐藏 */}
-                        {/* <img alt={item?.title || 'channel'} className="size-8 object-contain" src={item?.logo} /> */}
-                        <div className="flex flex-col items-start">
-                          <p className="text-figma-body-base-600 text-white truncate max-w-full">{item?.title ?? '--'}</p>
-                          <p className="text-figma-body-sm-600 text-gray-400 line-clamp-2 break-words whitespace-pre-wrap">{item?.remark ?? ''}</p>
-                        </div>
+                        <span
+                          className="truncate"
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            height: '20px',
+                            fontWeight: isActive ? 600 : 500,
+                            fontSize: 20,
+                            color: isActive ? '#254EB1' : '#535353',
+                            lineHeight: '20px',
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {v}
+                        </span>
                       </button>
                     );
                   })}
-                  {(commonChannelData?.data ?? []).length === 0 && (
-                    <div className="text-center text-sm text-gray-400 w-full col-span-full">{t("noPaymentMethod")}</div>
-                  )}
                 </div>
-                {selectedChannel && (
-                  <div className="mt-4 flex flex-col gap-3">
-                    {selectedChannel?.id === 2 ? (
-                      <div className="flex flex-col gap-3">
-                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>CDK</label>
-                        <input
-                          type="text"
-                          value={cdkValue}
-                          onChange={(e) => setCdkValue(e.target.value)}
-                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
-                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
-                          placeholder={t("enterCDK")}
-                        />
-                        <div className="flex w-full justify-end">
-                          <button
-                            type="button"
-                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                            style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
-                            disabled={!cdkValue.trim() || cdkPayMutation.isPending}
-                            onClick={() => {
-                              if (!cdkValue.trim() || cdkPayMutation.isPending) return;
-                              cdkPayMutation.mutate(cdkValue.trim());
-                            }}
-                          >
-                            {cdkPayMutation.isPending ? t("submitting") : t("topUp")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
-                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示 */}
-                        {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 && (
-                          <div className="grid w-full grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
-                            {presetAmountsForButtons.map((val: string, i: number) => {
-                              const v = String(val || '').trim();
-                              if (!v) return null;
-                              const isActive = rechargeAmount === v;
-                              return (
-                                <button
-                                  key={`${v}_${i}`}
-                                  type="button"
-                                  className="inline-flex w-full items-center justify-center rounded-md h-9 px-2 text-xs sm:text-sm font-bold transition-colors disabled:pointer-events-none interactive-focus"
-                                  style={{
-                                    backgroundColor: isActive ? '#4299E1' : '#22272B',
-                                    color: '#FFFFFF',
-                                    border: `1px solid ${isActive ? '#4299E1' : '#34383C'}`,
-                                    cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer',
-                                    opacity: rechargeMutation.isPending ? 0.7 : 1,
-                                  }}
-                                  disabled={rechargeMutation.isPending}
-                                  onClick={() => handleSelectPresetAmount(v)}
-                                >
-                                  {v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={rechargeAmount}
-                          onChange={(e) => handleRechargeAmountChange(e.target.value)}
-                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
-                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
-                          placeholder={t("enterAmount")}
-                        />
-                        {rechargeAmount && !isRechargeAmountValid() && (
-                          <p className="text-sm" style={{ color: '#EF4444' }}>
-                            {rechargeAmountErrorText}
-                          </p>
-                        )}
-                        <div className="flex w-full items-center justify-between gap-3">
-                          <span />
-                          <button
-                            type="button"
-                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                            style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
-                            disabled={rechargeMutation.isPending}
-                            onClick={handleRechargeSubmit}
-                          >
-                            {rechargeMutation.isPending ? t("submitting") : t("topUp")}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+              </div>
+            ) : null}
+
+            {/* 输入框 + 充值按钮：id=2 使用同款样式，仅 placeholder 与提交逻辑不同 */}
+            <div className="mt-[30px] w-full max-w-[756px]">
+              <div className="flex flex-col sm:flex-row items-start gap-5 w-full">
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    inputMode={selectedChannel?.id === 2 ? undefined : "numeric"}
+                    value={selectedChannel?.id === 2 ? cdkValue : rechargeAmount}
+                    onChange={(e) => {
+                      if (selectedChannel?.id === 2) {
+                        setCdkValue(e.target.value);
+                        return;
+                      }
+                      handleRechargeAmountChange(e.target.value);
+                    }}
+                    className="w-full h-[60px] rounded-[8px] px-5 text-white placeholder:text-[#535353] bg-transparent border border-[#535353] focus:outline-none"
+                    placeholder={selectedChannel?.id === 2 ? t("enterCDK") : t("enterRechargeAmount")}
+                    style={{
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 400,
+                      fontSize: 20,
+                      lineHeight: '22px',
+                      textAlign: 'left',
+                      fontStyle: 'normal',
+                    }}
+                  />
+                  <div className="mt-2 h-5">
+                    {selectedChannel?.id !== 2 && rechargeAmount && !isRechargeAmountValid() ? (
+                      <p className="text-sm" style={{ color: '#EF4444' }}>
+                        {rechargeAmountErrorText}
+                      </p>
+                    ) : null}
                   </div>
-                )}
+                </div>
+
+                <button
+                  type="button"
+                  className="w-full sm:w-[172px] h-[60px] rounded-[8px] flex items-center justify-center flex-none border-0"
+                  style={{
+                    background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                    cursor: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 'not-allowed' : 'pointer',
+                    opacity: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 0.7 : 1,
+                  }}
+                  disabled={selectedChannel?.id === 2 ? (!cdkValue.trim() || cdkPayMutation.isPending) : rechargeMutation.isPending}
+                  onClick={() => {
+                    if (selectedChannel?.id === 2) {
+                      if (!cdkValue.trim() || cdkPayMutation.isPending) return;
+                      cdkPayMutation.mutate(cdkValue.trim());
+                      return;
+                    }
+                    handleRechargeSubmit();
+                  }}
+                >
+                  <span
+                    style={{
+                      height: '20px',
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: 20,
+                      color: '#FFFFFF',
+                      lineHeight: '20px',
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    {t("topUp")}
+                  </span>
+                </button>
               </div>
             </div>
-            <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
-              <p className="text-center" style={{ color: '#7a8084', fontSize: 18,fontWeight: 500 }}>
-                {selectedChannel?.id === 19
-                  ? t("depositFeeNotice")
-                  : selectedChannel?.id === 22
-                    ? t("depositFeeNoticeAround7")
-                    : t("selectPaymentAndAmount")}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="absolute right-5 top-[18px] rounded-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
-              onClick={() => setShowWalletModal(false)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-              <span className="sr-only">Close</span>
-            </button>
+
+                {/* Bottom notice: keep original logic, only change style */}
+                <div className="mt-auto pt-8 w-full max-w-[756px]">
+                  <p
+                    className="text-left"
+                    style={{
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 400,
+                      fontSize: 18,
+                      color: '#535353',
+                      lineHeight: '18px',
+                      letterSpacing: 1,
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    *{' '}
+                    {selectedChannel?.id === 19
+                      ? t("depositFeeNotice")
+                      : selectedChannel?.id === 22
+                        ? t("depositFeeNoticeAround7")
+                        : t("selectPaymentAndAmount")}
+                  </p>
+                </div>
+              </>
+            ) : walletTab === 'agent' ? (
+              editingAgent ? (
+                <div className="mt-10 w-full h-[748px] rounded-[12px] p-[40px] flex flex-col" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center">
+                    <div
+                      className="w-[60px] h-[60px] rounded-full bg-center bg-no-repeat bg-cover flex-none"
+                      style={{ backgroundImage: `url(${editingAgent.avatar})` }}
+                    />
+                    <div
+                      className="ml-[16px] inline-flex items-center justify-center"
+                      style={{ width: '78px', height: '24px', borderRadius: '4px', border: '1px solid #0CAD00' }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 400,
+                          fontSize: '14px',
+                          color: '#0CAD00',
+                          lineHeight: '22px',
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        已实名认证
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-[8px]">
+                    <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          用户名
+                        </span>
+                        <span
+                          className="mt-[14px] truncate"
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: 'rgba(255,255,255,0.5)',
+                            lineHeight: '14px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {editingAgentField === 'name' ? (
+                            <input
+                              type="text"
+                              value={editingAgentDraft?.name ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => ({ name: e.target.value, contact: prev?.contact ?? editingAgent.contact, intro: prev?.intro ?? editingAgent.intro }))}
+                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit focus:outline-none"
+                              style={{
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '14px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            editingAgentDraft?.name ?? editingAgent.name
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '74px', height: '32px', borderRadius: '6px', border: '1px solid #FFFFFF', color: '#FFFFFF' }}
+                        onClick={() => {
+                          if (editingAgentField === 'name') {
+                            setEditingAgentDraft((prev) => ({ name: editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: prev?.intro ?? editingAgent.intro }));
+                            setEditingAgentField(null);
+                            return;
+                          }
+                          setEditingAgentField('name');
+                        }}
+                      >
+                        {editingAgentField === 'name' ? '取消' : '编辑'}
+                      </button>
+                    </div>
+
+                    <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          联系方式
+                        </span>
+                        <span
+                          className="mt-[14px] truncate"
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: 'rgba(255,255,255,0.5)',
+                            lineHeight: '14px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {editingAgentField === 'contact' ? (
+                            <input
+                              type="text"
+                              value={editingAgentDraft?.contact ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: e.target.value, intro: prev?.intro ?? editingAgent.intro }))}
+                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit focus:outline-none"
+                              style={{
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '14px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            editingAgentDraft?.contact ?? editingAgent.contact
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '74px', height: '32px', borderRadius: '6px', border: '1px solid #FFFFFF', color: '#FFFFFF' }}
+                        onClick={() => {
+                          if (editingAgentField === 'contact') {
+                            setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: editingAgent.contact, intro: prev?.intro ?? editingAgent.intro }));
+                            setEditingAgentField(null);
+                            return;
+                          }
+                          setEditingAgentField('contact');
+                        }}
+                      >
+                        {editingAgentField === 'contact' ? '取消' : '编辑'}
+                      </button>
+                    </div>
+
+                    <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col" style={{ maxWidth: 'calc(100% - 90px)' }}>
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          个人介绍
+                        </span>
+                        <span
+                          className="mt-[14px]"
+                          style={{
+                            height: '44px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: 'rgba(255,255,255,0.5)',
+                            lineHeight: '22px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {editingAgentField === 'intro' ? (
+                            <textarea
+                              value={editingAgentDraft?.intro ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: e.target.value }))}
+                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit resize-none focus:outline-none"
+                              style={{
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '22px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            editingAgentDraft?.intro ?? editingAgent.intro
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '74px', height: '32px', borderRadius: '6px', border: '1px solid #FFFFFF', color: '#FFFFFF' }}
+                        onClick={() => {
+                          if (editingAgentField === 'intro') {
+                            setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: editingAgent.intro }));
+                            setEditingAgentField(null);
+                            return;
+                          }
+                          setEditingAgentField('intro');
+                        }}
+                      >
+                        {editingAgentField === 'intro' ? '取消' : '编辑'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-auto pt-[40px] flex items-center justify-center gap-[16px]">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center cursor-pointer"
+                      style={{ width: '172px', height: '60px', borderRadius: '8px', border: '1px solid #535353' }}
+                      onClick={() => {
+                        setEditingAgentField(null);
+                        setEditingAgentDraft(null);
+                        setEditingAgent(null);
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: '20px',
+                          color: '#FFFFFF',
+                          lineHeight: '20px',
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        返回
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center cursor-pointer"
+                      style={{ width: '172px', height: '60px', borderRadius: '8px', background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' }}
+                      onClick={() => {
+                        if (editingAgent && editingAgentDraft) {
+                          setEditedAgents((prev) => ({
+                            ...prev,
+                            [editingAgent.id]: {
+                              name: editingAgentDraft.name,
+                              contact: editingAgentDraft.contact,
+                              intro: editingAgentDraft.intro,
+                            },
+                          }));
+                        }
+                        setEditingAgentField(null);
+                        setEditingAgent(null);
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: '20px',
+                          color: '#FFFFFF',
+                          lineHeight: '20px',
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        完成
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-10 w-full h-[730px] overflow-y-auto exchange-scroll">
+                  <div className="flex flex-col gap-[14px]">
+                    {agentItems.map((agent) => (
+                      <div
+                        key={agent.id}
+                        className="w-full h-[110px] rounded-[12px] px-[24px] py-[25px] flex items-center justify-between"
+                        style={{ background: 'rgba(255,255,255,0.04)' }}
+                      >
+                        {(() => {
+                          const mergedAgent = editedAgents[agent.id]
+                            ? { ...agent, ...editedAgents[agent.id] }
+                            : agent;
+                          return (
+                            <>
+                        <div className="min-w-0 flex-1 h-[60px] flex items-center gap-[16px]">
+                          <div
+                            className="w-[60px] h-[60px] rounded-full bg-center bg-no-repeat bg-cover flex-none"
+                            style={{ backgroundImage: `url(${mergedAgent.avatar})` }}
+                          />
+                          <div className="min-w-0 h-[60px] flex flex-col">
+                            <div className="mt-[8px] flex items-center">
+                              <span
+                                className="truncate"
+                                style={{
+                                  width: '136px',
+                                  height: '16px',
+                                  fontFamily: 'PingFangSC, PingFang SC',
+                                  fontWeight: 500,
+                                  fontSize: '16px',
+                                  color: 'rgba(255,255,255,0.9)',
+                                  lineHeight: '16px',
+                                  letterSpacing: '1px',
+                                  textAlign: 'left',
+                                  fontStyle: 'normal',
+                                }}
+                              >
+                                  {mergedAgent.name}
+                              </span>
+                              <button
+                                type="button"
+                                className="ml-[4px] inline-flex items-center justify-center cursor-pointer"
+                                style={{
+                                  width: '36px',
+                                  height: '16px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #666666',
+                                  background: 'transparent',
+                                }}
+                                onClick={() => {
+                                  setEditingAgent(mergedAgent);
+                                  setEditingAgentDraft({ name: mergedAgent.name, contact: mergedAgent.contact, intro: mergedAgent.intro });
+                                  setEditingAgentField(null);
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontFamily: 'PingFangSC, PingFang SC',
+                                    fontWeight: 500,
+                                    fontSize: '10px',
+                                    color: '#666666',
+                                    lineHeight: '10px',
+                                    textAlign: 'left',
+                                    fontStyle: 'normal',
+                                    textTransform: 'none',
+                                  }}
+                                >
+                                  编辑
+                                </span>
+                              </button>
+                            </div>
+                            <span
+                              className="mt-[14px] truncate"
+                              style={{
+                                height: '14px',
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '14px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {mergedAgent.contact}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: '#FFFFFF',
+                            lineHeight: '14px',
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {mergedAgent.amount}
+                        </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ) : null}
           </div>
         </div>
       )}
