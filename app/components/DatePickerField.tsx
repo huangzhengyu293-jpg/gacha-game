@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
+import { zhCN } from "date-fns/locale/zh-CN";
 import "react-datepicker/dist/react-datepicker.css";
 
 type DatePickerFieldProps = {
@@ -24,6 +25,10 @@ type DatePickerFieldProps = {
   placeholder?: string;
   /** 外层最大宽度 class */
   wrapperClassName?: string;
+  /** 最小可选日期：yyyy-MM-dd */
+  minDate?: string;
+  /** 最大可选日期：yyyy-MM-dd */
+  maxDate?: string;
 };
 
 function parseDateString(dateStr?: string): Date | null {
@@ -80,6 +85,8 @@ export default function DatePickerField({
   mode = 'single',
   placeholder,
   wrapperClassName,
+  minDate,
+  maxDate,
 }: DatePickerFieldProps) {
   const isRange = mode === 'range';
   const isControlled = isRange ? startValue !== undefined || endValue !== undefined : value !== undefined;
@@ -87,6 +94,25 @@ export default function DatePickerField({
   const controlledDate = useMemo(() => parseDateString(value), [value]);
   const controlledStart = useMemo(() => parseDateString(startValue), [startValue]);
   const controlledEnd = useMemo(() => parseDateString(endValue), [endValue]);
+  const minDateObj = useMemo(() => parseDateString(minDate), [minDate]);
+  const maxDateObj = useMemo(() => parseDateString(maxDate), [maxDate]);
+  const currentYear = new Date().getFullYear();
+  const yearStart = minDateObj?.getFullYear() ?? (currentYear - 10);
+  const yearEnd = maxDateObj?.getFullYear() ?? (currentYear + 10);
+  const yearOptions = useMemo(() => {
+    const list: number[] = [];
+    for (let y = yearStart; y <= yearEnd; y += 1) list.push(y);
+    return list;
+  }, [yearStart, yearEnd]);
+  const getMonthOptionsForYear = useMemo(() => {
+    return (year: number) => {
+      const startMonth = minDateObj && minDateObj.getFullYear() === year ? minDateObj.getMonth() : 0;
+      const endMonth = maxDateObj && maxDateObj.getFullYear() === year ? maxDateObj.getMonth() : 11;
+      const months: number[] = [];
+      for (let m = startMonth; m <= endMonth; m += 1) months.push(m);
+      return months;
+    };
+  }, [minDateObj, maxDateObj]);
   const [uncontrolledSelected, setUncontrolledSelected] = useState<Date | null>(initial);
   const [uncontrolledRange, setUncontrolledRange] = useState<[Date | null, Date | null]>([null, null]);
   const selected = isControlled ? controlledDate : uncontrolledSelected;
@@ -118,6 +144,24 @@ export default function DatePickerField({
         .react-datepicker-popper[data-placement^="top"] .react-datepicker__triangle { display: none !important; border: 0 !important; }
         .dp-dark-cal .react-datepicker__today-button { background-color: #34383C; color: #FFFFFF; border-top: 1px solid #292F34; }
         .dp-dark-cal .react-datepicker__today-button:hover { background-color: #3C4044; }
+        .dp-dark-cal .react-datepicker__month-select,
+        .dp-dark-cal .react-datepicker__year-select {
+          height: 32px;
+          border: 0;
+          border-radius: 6px;
+          background-color: #22272B;
+          color: #FFFFFF;
+          font-size: 14px;
+          font-weight: 700;
+          padding: 0 8px;
+          outline: none;
+          cursor: pointer;
+          margin: 0 4px;
+        }
+        .dp-dark-cal .react-datepicker__month-select:hover,
+        .dp-dark-cal .react-datepicker__year-select:hover {
+          background-color: #34383C;
+        }
         /* 隐藏头部左右导航白色箭头 */
         .dp-dark-cal .react-datepicker__navigation,
         .dp-dark-cal .react-datepicker__navigation--previous,
@@ -137,9 +181,53 @@ export default function DatePickerField({
             if (onRangeChange) onRangeChange(start ? formatDateToYmd(start) : '', end ? formatDateToYmd(end) : '');
           }}
           dateFormat="yyyy-MM-dd"
+          locale={zhCN}
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          renderCustomHeader={({ date, changeYear, changeMonth }) => {
+            const y = date.getFullYear();
+            const m = date.getMonth();
+            const months = getMonthOptionsForYear(y);
+            return (
+              <div className="flex items-center justify-center py-2">
+                <select
+                  className="react-datepicker__year-select"
+                  value={y}
+                  onChange={(e) => {
+                    const nextYear = Number(e.target.value);
+                    changeYear(nextYear);
+                    const nextMonths = getMonthOptionsForYear(nextYear);
+                    if (nextMonths.length > 0 && !nextMonths.includes(m)) {
+                      changeMonth(nextMonths[0]);
+                    }
+                  }}
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}年
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="react-datepicker__month-select"
+                  value={m}
+                  onChange={(e) => changeMonth(Number(e.target.value))}
+                >
+                  {months.map((month) => (
+                    <option key={month} value={month}>
+                      {month + 1}月
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }}
           popperPlacement="bottom-start"
           calendarClassName="dp-dark-cal"
           todayButton="今天"
+          minDate={minDateObj ?? undefined}
+          maxDate={maxDateObj ?? undefined}
           wrapperClassName="w-full"
           customInput={<CustomInput id={id} placeholder={placeholder} />}
         />
@@ -152,9 +240,53 @@ export default function DatePickerField({
             if (onChange) onChange(date ? formatDateToYmd(date) : "");
           }}
           dateFormat="yyyy-MM-dd"
+          locale={zhCN}
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          renderCustomHeader={({ date, changeYear, changeMonth }) => {
+            const y = date.getFullYear();
+            const m = date.getMonth();
+            const months = getMonthOptionsForYear(y);
+            return (
+              <div className="flex items-center justify-center py-2">
+                <select
+                  className="react-datepicker__year-select"
+                  value={y}
+                  onChange={(e) => {
+                    const nextYear = Number(e.target.value);
+                    changeYear(nextYear);
+                    const nextMonths = getMonthOptionsForYear(nextYear);
+                    if (nextMonths.length > 0 && !nextMonths.includes(m)) {
+                      changeMonth(nextMonths[0]);
+                    }
+                  }}
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}年
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="react-datepicker__month-select"
+                  value={m}
+                  onChange={(e) => changeMonth(Number(e.target.value))}
+                >
+                  {months.map((month) => (
+                    <option key={month} value={month}>
+                      {month + 1}月
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }}
           popperPlacement="bottom-start"
           calendarClassName="dp-dark-cal"
           todayButton="今天"
+          minDate={minDateObj ?? undefined}
+          maxDate={maxDateObj ?? undefined}
           wrapperClassName="w-full"
           customInput={<CustomInput id={id} placeholder={placeholder} />}
         />

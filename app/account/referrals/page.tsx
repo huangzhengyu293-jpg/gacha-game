@@ -7,6 +7,7 @@ import AccountMobileMenu from "../components/AccountMobileMenu";
 import { useI18n } from "@/app/components/I18nProvider";
 import { useAuth } from "@/app/hooks/useAuth";
 import { api } from "@/app/lib/api";
+import axiosInstance from "@/app/lib/axios";
 import { showGlobalToast } from "@/app/components/ToastProvider";
 import InlineSelect from "@/app/components/InlineSelect";
 import LoadingSpinnerIcon from "@/app/components/icons/LoadingSpinner";
@@ -31,18 +32,23 @@ export default function ReferralsPage() {
   
   const canShowCdk = userType === 2 || userType === 3;
 
+  const [summaryStartDate, setSummaryStartDate] = useState('');
+  const [summaryEndDate, setSummaryEndDate] = useState('');
+  const [summaryUserInfo, setSummaryUserInfo] = useState<any | null>(null);
+  const effectiveUserInfo = useMemo(() => summaryUserInfo ?? user?.userInfo, [summaryUserInfo, user?.userInfo]);
+
   // 从 userInfo 获取数据
   const subordinateNum = useMemo(() => {
-    return Number((user?.userInfo as any)?.subordinate_num ?? 0);
-  }, [user?.userInfo]);
+    return Number((effectiveUserInfo as any)?.subordinate_num ?? 0);
+  }, [effectiveUserInfo]);
 
   const subordinateRecharge = useMemo(() => {
-    return Number((user?.userInfo as any)?.subordinate_rechange ?? 0);
-  }, [user?.userInfo]);
+    return Number((effectiveUserInfo as any)?.subordinate_rechange ?? 0);
+  }, [effectiveUserInfo]);
 
   const subordinateFlow = useMemo(() => {
-    return Number((user?.userInfo as any)?.subordinate_flow ?? 0);
-  }, [user?.userInfo]);
+    return Number((effectiveUserInfo as any)?.subordinate_flow ?? 0);
+  }, [effectiveUserInfo]);
 
   const [withdrawMoney, setWithdrawMoney] = useState('');
   const [withdrawWalletAddress, setWithdrawWalletAddress] = useState('');
@@ -56,6 +62,15 @@ export default function ReferralsPage() {
   const [downlineKeywordInput, setDownlineKeywordInput] = useState('');
   const [downlineKeyword, setDownlineKeyword] = useState('');
   const [downlinePage, setDownlinePage] = useState(1);
+  const referralDateMin = '2025-01-01';
+  const referralDateMax = useMemo(() => {
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const y = endOfMonth.getFullYear();
+    const m = String(endOfMonth.getMonth() + 1).padStart(2, '0');
+    const d = String(endOfMonth.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
   
   // CDK相关状态
   const [isAddingCdk, setIsAddingCdk] = useState(false);
@@ -120,6 +135,50 @@ export default function ReferralsPage() {
     if (!useCustomDownlineDatetime) return '';
     return `${downlineEndDate} 23:59:59`;
   }, [useCustomDownlineDatetime, downlineEndDate]);
+
+  const useCustomSummaryDatetime = Boolean(summaryStartDate && summaryEndDate);
+  const summaryStartDatetime = useMemo(() => {
+    if (!useCustomSummaryDatetime) return '';
+    return `${summaryStartDate} 00:00:00`;
+  }, [useCustomSummaryDatetime, summaryStartDate]);
+  const summaryEndDatetime = useMemo(() => {
+    if (!useCustomSummaryDatetime) return '';
+    return `${summaryEndDate} 23:59:59`;
+  }, [useCustomSummaryDatetime, summaryEndDate]);
+
+  // 默认保持原逻辑；仅当日期筛选变化且有起止时间时调用 userinfo
+  useEffect(() => {
+    if (!useCustomSummaryDatetime) {
+      setSummaryUserInfo(null);
+      return;
+    }
+    if (!user?.token) return;
+
+    let cancelled = false;
+    const fetchSummary = async () => {
+      try {
+        const response = await axiosInstance.get('/api/auth/userinfo', {
+          params: {
+            start_datetime: summaryStartDatetime,
+            end_datetime: summaryEndDatetime,
+          },
+        });
+        if (cancelled) return;
+        if (response?.data?.code === 100000 && response?.data?.data) {
+          setSummaryUserInfo(response.data.data);
+        } else {
+          setSummaryUserInfo(null);
+        }
+      } catch {
+        if (!cancelled) setSummaryUserInfo(null);
+      }
+    };
+
+    fetchSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [useCustomSummaryDatetime, summaryStartDatetime, summaryEndDatetime, user?.token]);
 
   const { data: downlineResp, isLoading: downlineLoading } = useQuery({
     queryKey: [
@@ -417,9 +476,45 @@ export default function ReferralsPage() {
 
         {/* 右侧内容 */}
         <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-2">
-          <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0">
+          <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0 gap-2">
             <AccountMobileMenu />
-            <h1 className="text-2xl font-bold hidden lg:block" style={{ color: '#FFFFFF' }}>{t('affiliateProgram')}</h1>
+            <div className="flex lg:hidden items-center gap-2 flex-1 min-w-0">
+              <div className="min-w-0 w-full max-w-[270px]">
+                <DatePickerField
+                  id="ref-summary-daterange-mobile-top"
+                  mode="range"
+                  startValue={summaryStartDate}
+                  endValue={summaryEndDate}
+                  minDate={referralDateMin}
+                  maxDate={referralDateMax}
+                  onRangeChange={(s, e) => {
+                    setSummaryStartDate(s);
+                    setSummaryEndDate(e);
+                  }}
+                  placeholder={t('referralFilterDatetime')}
+                  wrapperClassName="max-w-none"
+                />
+              </div>
+            </div>
+            <div className="hidden lg:flex items-center">
+              <h1 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t('affiliateProgram')}</h1>
+              <div className="ml-5 w-[270px]">
+                <DatePickerField
+                  id="ref-summary-daterange-desktop"
+                  mode="range"
+                  startValue={summaryStartDate}
+                  endValue={summaryEndDate}
+                  minDate={referralDateMin}
+                  maxDate={referralDateMax}
+                  onRangeChange={(s, e) => {
+                    setSummaryStartDate(s);
+                    setSummaryEndDate(e);
+                  }}
+                  placeholder={t('referralFilterDatetime')}
+                  wrapperClassName="max-w-none"
+                />
+              </div>
+            </div>
             <button 
               onClick={copyCode} 
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-sm font-bold select-none h-8 px-3" 
@@ -578,6 +673,8 @@ export default function ReferralsPage() {
                     mode="range"
                     startValue={downlineStartDate}
                     endValue={downlineEndDate}
+                    minDate={referralDateMin}
+                    maxDate={referralDateMax}
                     onRangeChange={(s, e) => {
                       setDownlineStartDate(s);
                       setDownlineEndDate(e);
