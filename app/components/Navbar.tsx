@@ -303,6 +303,24 @@ export default function Navbar() {
     staleTime: 60_000,
   });
 
+  const { data: merchantInfoData, isSuccess: merchantInfoSuccess } = useQuery({
+    queryKey: ['merchantInfo'],
+    queryFn: () => api.getMerchantInfo(),
+    enabled: showWalletModal && walletTab === 'agent',
+    staleTime: 60_000,
+  });
+
+  const hasMerchantInfo = useMemo(() => {
+    if (!merchantInfoSuccess) return true;
+    const d = merchantInfoData?.data as any;
+    if (d == null) return false;
+    if (Array.isArray(d)) {
+      return d.length > 0;
+    }
+    if (typeof d === 'object' && Object.keys(d).length === 0) return false;
+    return true;
+  }, [merchantInfoSuccess, merchantInfoData?.data]);
+
   // 兼容不同返回结构
   const channelList = useMemo(() => {
     const d: any = commonChannelData?.data;
@@ -908,24 +926,76 @@ export default function Navbar() {
     },
   });
 
+  const applyMerchantMutation = useMutation({
+    mutationFn: async () => {
+      return api.setMerchant({ contact: '', introduction: '' });
+    },
+    onSuccess: async (res: any) => {
+      const code = (res as any)?.code;
+      const message = (res as any)?.message;
+      if (code === 100000) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
+          queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
+        ]);
+        try {
+          toast.show({
+            variant: 'success',
+            title: t("submitSuccessTitle"),
+            description: t("operationSuccess"),
+          });
+        } catch {}
+      } else {
+        try {
+          toast.show({
+            variant: 'error',
+            title: t("submitFailTitle"),
+            description: message || t("retryLater"),
+          });
+        } catch {}
+      }
+    },
+    onError: (err: any) => {
+      try {
+        toast.show({
+          variant: 'error',
+          title: t("submitFailTitle"),
+          description: err?.message || t("retryLater"),
+        });
+      } catch {}
+    },
+  });
+
   const agentPayDepositMutation = useMutation({
     mutationFn: async (payload: { amount: string }) => {
       return api.payDeposit(payload);
     },
     onSuccess: async (res: any) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
-        queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
-        fetchUserBean(),
-      ]);
-      setAgentAmountModal(null);
-      try {
-        toast.show({
-          variant: 'success',
-          title: t("submitSuccessTitle"),
-          description: (res && (res as any).message) || t("operationSuccess"),
-        });
-      } catch {}
+      const code = (res as any)?.code;
+      const message = (res as any)?.message;
+      if (code === 100000) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
+          queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
+          fetchUserBean(),
+        ]);
+        setAgentAmountModal(null);
+        try {
+          toast.show({
+            variant: 'success',
+            title: t("submitSuccessTitle"),
+            description: message || t("operationSuccess"),
+          });
+        } catch {}
+      } else {
+        try {
+          toast.show({
+            variant: 'error',
+            title: t("submitFailTitle"),
+            description: message || t("retryLater"),
+          });
+        } catch {}
+      }
     },
     onError: (err: any) => {
       try {
@@ -943,19 +1013,31 @@ export default function Navbar() {
       return api.returnedDeposit(payload);
     },
     onSuccess: async (res: any) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
-        queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
-        fetchUserBean(),
-      ]);
-      setAgentAmountModal(null);
-      try {
-        toast.show({
-          variant: 'success',
-          title: t("submitSuccessTitle"),
-          description: (res && (res as any).message) || t("operationSuccess"),
-        });
-      } catch {}
+      const code = (res as any)?.code;
+      const message = (res as any)?.message;
+      if (code === 100000) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
+          queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
+          fetchUserBean(),
+        ]);
+        setAgentAmountModal(null);
+        try {
+          toast.show({
+            variant: 'success',
+            title: t("submitSuccessTitle"),
+            description: message || t("operationSuccess"),
+          });
+        } catch {}
+      } else {
+        try {
+          toast.show({
+            variant: 'error',
+            title: t("submitFailTitle"),
+            description: message || t("retryLater"),
+          });
+        } catch {}
+      }
     },
     onError: (err: any) => {
       try {
@@ -2866,12 +2948,11 @@ export default function Navbar() {
                                     paddingBottom: pxToRem(2),
                                   }}
                                 >
-                                  {mergedAgent.contact}
+                                  {(mergedAgent.contact && mergedAgent.contact.trim()) ? mergedAgent.contact : t("noContactInfo")}
                                 </span>
                                 <span
                                   className="flex-none flex items-center"
                                   style={{
-                                    width: pxToRem(1),
                                     height: pxToRem(8),
                                     borderLeft: '1px solid #979797',
                                     marginLeft: pxToRem(8),
@@ -2899,33 +2980,64 @@ export default function Navbar() {
                     className="mt-auto w-full flex justify-center items-center"
                     style={{ paddingTop: pxToRem(16) }}
                   >
-                    <button
-                      type="button"
-                      className="flex items-center justify-center cursor-pointer"
-                      style={{
-                        width: '100%',
-                        maxWidth: pxToRem(329),
-                        height: pxToRem(48),
-                        borderRadius: pxToRem(8),
-                        background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
-                      }}
-                      onClick={() => setShowWalletModal(false)}
-                    >
-                      <span
+                    {hasMerchantInfo ? (
+                      <button
+                        type="button"
+                        className="flex items-center justify-center cursor-pointer"
                         style={{
-                          height: pxToRem(18),
-                          fontFamily: 'PingFangSC, PingFang SC',
-                          fontWeight: 500,
-                          fontSize: pxToRem(18),
-                          color: '#FFFFFF',
-                          lineHeight: pxToRem(18),
-                          textAlign: 'center',
-                          fontStyle: 'normal',
+                          width: '100%',
+                          maxWidth: pxToRem(329),
+                          height: pxToRem(48),
+                          borderRadius: pxToRem(8),
+                          background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
                         }}
+                        onClick={() => setShowWalletModal(false)}
                       >
-                        {t("complete")}
-                      </span>
-                    </button>
+                        <span
+                          style={{
+                            height: pxToRem(18),
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(18),
+                            color: '#FFFFFF',
+                            lineHeight: pxToRem(18),
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("complete")}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex items-center justify-center cursor-pointer disabled:opacity-60"
+                        style={{
+                          width: '100%',
+                          maxWidth: pxToRem(329),
+                          height: pxToRem(48),
+                          borderRadius: pxToRem(8),
+                          background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                        }}
+                        disabled={applyMerchantMutation.isPending}
+                        onClick={() => applyMerchantMutation.mutate()}
+                      >
+                        <span
+                          style={{
+                            height: pxToRem(18),
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(18),
+                            color: '#FFFFFF',
+                            lineHeight: pxToRem(18),
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("applyToBeAgent")}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -3430,7 +3542,7 @@ export default function Navbar() {
               </>
             ) : walletTab === 'agent' ? (
               editingAgent ? (
-                <div className="mt-10 w-full h-[626px] rounded-[12px] p-[40px] flex flex-col" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <div className="mt-4 w-full h-[626px] rounded-[12px] p-[40px] flex flex-col" style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <div className="flex items-center">
                     <div
                       className="w-[60px] h-[60px] rounded-full bg-center bg-no-repeat bg-cover flex-none"
@@ -3739,8 +3851,35 @@ export default function Navbar() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-10 w-full h-[608px] overflow-y-auto exchange-scroll">
-                  <div className="flex flex-col gap-[14px]">
+                <>
+                  {!hasMerchantInfo && (
+                    <div className="w-full" style={{ marginTop: 16, marginBottom: 16 }}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center cursor-pointer"
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: 8,
+                          border: '1px solid #535353',
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: 16,
+                          color: '#FFFFFF',
+                          lineHeight: '20px',
+                          background: 'transparent',
+                        }}
+                        disabled={applyMerchantMutation.isPending}
+                        onClick={() => applyMerchantMutation.mutate()}
+                      >
+                        {t("applyToBeAgent")}
+                      </button>
+                    </div>
+                  )}
+                  <div
+                    className="w-full h-[608px] overflow-y-auto exchange-scroll"
+                    style={{ marginTop: hasMerchantInfo ? 16 : 0 }}
+                  >
+                    <div className="flex flex-col gap-[16px]">
                     {merchantList.map((row: any) => {
                       const baseId = row.user_id ?? row.id;
                         const baseAgent: any = {
@@ -3903,7 +4042,7 @@ export default function Navbar() {
                                 fontStyle: 'normal',
                               }}
                             >
-                              {mergedAgent.contact}
+                              {(mergedAgent.contact && mergedAgent.contact.trim()) ? mergedAgent.contact : t("noContactInfo")}
                             </span>
                           </div>
                         </div>
@@ -3927,6 +4066,7 @@ export default function Navbar() {
                     })}
                   </div>
                 </div>
+                </>
               )
             ) : null}
           </div>
