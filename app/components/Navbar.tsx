@@ -2,15 +2,18 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useI18n } from './I18nProvider';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
 import PayQrModal from './PayQrModal';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { pxToRem } from '../lib/rem';
 import { LogoIcon } from './icons/Logo';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
 
@@ -118,6 +121,7 @@ export default function Navbar() {
   } = useAuth();
 
 
+  const isMobile = useIsMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number; visible: boolean }>({ left: 0, width: 0, visible: false });
@@ -268,6 +272,13 @@ export default function Navbar() {
   const [showCart, setShowCart] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [walletTab, setWalletTab] = useState<'payment' | 'agent'>('payment');
+  const [editingAgent, setEditingAgent] = useState<any | null>(null);
+  const [editingAgentDraft, setEditingAgentDraft] = useState<{ name: string; contact: string; intro: string } | null>(null);
+  const [editingAgentField, setEditingAgentField] = useState<'name' | 'contact' | 'intro' | null>(null);
+  const [editedAgents, setEditedAgents] = useState<Record<number, { name: string; contact: string; intro: string }>>({});
+  const [agentIntroPopover, setAgentIntroPopover] = useState<{ id: string | number; intro: string; x: number; y: number } | null>(null);
+  const [agentAmountModal, setAgentAmountModal] = useState<{ mode: 'pay' | 'return'; amount: string } | null>(null);
   const [showPayQrModal, setShowPayQrModal] = useState(false);
   const [payQrUrl, setPayQrUrl] = useState('');
   const [payQrChannelId, setPayQrChannelId] = useState<number>(0);
@@ -284,6 +295,14 @@ export default function Navbar() {
     staleTime: 60_000,
   });
 
+  const queryClient = useQueryClient();
+  const { data: merchantListData } = useQuery({
+    queryKey: ['merchantList'],
+    queryFn: () => api.getMerchantList(),
+    enabled: showWalletModal && walletTab === 'agent',
+    staleTime: 60_000,
+  });
+
   // 兼容不同返回结构
   const channelList = useMemo(() => {
     const d: any = commonChannelData?.data;
@@ -292,6 +311,14 @@ export default function Navbar() {
     if (Array.isArray(d?.list)) return d.list;
     return [];
   }, [commonChannelData?.data]);
+
+  const merchantList = useMemo(() => {
+    const d: any = merchantListData?.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.data)) return d.data;
+    if (Array.isArray(d?.list)) return d.list;
+    return [];
+  }, [merchantListData?.data]);
 
   useEffect(() => {
     if (channelList.length === 0) return;
@@ -303,6 +330,10 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!showWalletModal) {
+      setWalletTab('payment');
+      setEditingAgent(null);
+      setEditingAgentDraft(null);
+      setEditingAgentField(null);
       setSelectedChannel(null);
       setCdkValue('');
       setRechargeAmount('');
@@ -867,6 +898,75 @@ export default function Navbar() {
       });
     },
   });
+
+  const merchantSaveMutation = useMutation({
+    mutationFn: async (payload: { contact: string; introduction: string }) => {
+      return api.setMerchant(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchantList'] });
+    },
+  });
+
+  const agentPayDepositMutation = useMutation({
+    mutationFn: async (payload: { amount: string }) => {
+      return api.payDeposit(payload);
+    },
+    onSuccess: async (res: any) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
+        fetchUserBean(),
+      ]);
+      setAgentAmountModal(null);
+      try {
+        toast.show({
+          variant: 'success',
+          title: t("submitSuccessTitle"),
+          description: (res && (res as any).message) || t("operationSuccess"),
+        });
+      } catch {}
+    },
+    onError: (err: any) => {
+      try {
+        toast.show({
+          variant: 'error',
+          title: t("submitFailTitle"),
+          description: err?.message || t("retryLater"),
+        });
+      } catch {}
+    },
+  });
+
+  const agentReturnDepositMutation = useMutation({
+    mutationFn: async (payload: { amount: string }) => {
+      return api.returnedDeposit(payload);
+    },
+    onSuccess: async (res: any) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['merchantList'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchantInfo'] }),
+        fetchUserBean(),
+      ]);
+      setAgentAmountModal(null);
+      try {
+        toast.show({
+          variant: 'success',
+          title: t("submitSuccessTitle"),
+          description: (res && (res as any).message) || t("operationSuccess"),
+        });
+      } catch {}
+    },
+    onError: (err: any) => {
+      try {
+        toast.show({
+          variant: 'error',
+          title: t("submitFailTitle"),
+          description: err?.message || t("retryLater"),
+        });
+      } catch {}
+    },
+  });
   const passwordScore = (() => {
     // 简化：长度符合即给中档分数，用于进度条/提示文案
     if (passLenOK) return 3;
@@ -991,7 +1091,7 @@ export default function Navbar() {
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
-    
+
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 
@@ -1793,8 +1893,1188 @@ export default function Navbar() {
           </div>
         </div>
       )}
-      {/* 钱包弹窗 */}
-      {showWalletModal && (
+      {/* 钱包弹窗：手机端底部拉起，桌面端居中浮层 */}
+      {showWalletModal && isMobile && (
+        <AnimatePresence>
+          <motion.div
+            data-state="open"
+            className="fixed inset-0 z-50 overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ pointerEvents: 'auto' }}
+            onClick={() => setShowWalletModal(false)}
+          >
+            <div className="absolute inset-0 bg-black/[0.48]" aria-hidden />
+            <motion.div
+              key="mobile-deposit-sheet"
+              role="dialog"
+              aria-modal="true"
+              className="absolute left-0 right-0 bottom-0 z-10 w-full max-w-full mx-auto flex flex-col overflow-hidden"
+              style={{
+                width: '100%',
+                height: pxToRem(643),
+                background: '#171A1D',
+                borderRadius: `${pxToRem(16)} ${pxToRem(16)} 0 0`,
+                paddingTop: pxToRem(20),
+                paddingLeft: pxToRem(20),
+                paddingRight: pxToRem(20),
+                paddingBottom: pxToRem(10),
+              }}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'tween', duration: 0.25 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (editingAgentField) {
+                  setEditingAgentField(null);
+                }
+                if (agentIntroPopover) {
+                  setAgentIntroPopover(null);
+                }
+              }}
+            >
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full shrink-0 gap-2">
+                <span aria-hidden />
+                <span
+                  style={{
+                    height: pxToRem(18),
+                    fontFamily: 'PingFangSC, PingFang SC',
+                    fontWeight: 600,
+                    fontSize: pxToRem(18),
+                    color: '#FFFFFF',
+                    lineHeight: pxToRem(18),
+                    letterSpacing: '1px',
+                    textAlign: 'center',
+                    fontStyle: 'normal',
+                  }}
+                >
+                  {t("orderPaymentTitle")}
+                </span>
+                <button
+                  type="button"
+                  aria-label="close"
+                  className="flex items-center justify-center justify-self-end cursor-pointer"
+                  style={{ width: pxToRem(20), height: pxToRem(20) }}
+                  onClick={() => setShowWalletModal(false)}
+                >
+                  <span
+                    className="block w-full h-full bg-center bg-no-repeat bg-contain"
+                    style={{ backgroundImage: 'url(/images/phoneClose.png)' }}
+                  />
+                </button>
+              </div>
+              <div
+                className="flex items-center w-full"
+                style={{
+                  marginTop: pxToRem(26),
+                  height: pxToRem(44),
+                  background: 'rgba(255,255,255,0.05)',
+                  borderRadius: pxToRem(8),
+                  padding: pxToRem(2),
+                }}
+              >
+                <button
+                  type="button"
+                  className="flex-1 flex items-center justify-center cursor-pointer min-w-0"
+                  style={{
+                    height: pxToRem(40),
+                    borderRadius: pxToRem(6),
+                    background: walletTab === 'payment' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                  }}
+                  onClick={() => {
+                    queryClient.refetchQueries({ queryKey: ['commonChannel'] });
+                    setWalletTab('payment');
+                  }}
+                >
+                  <span
+                    style={{
+                      height: pxToRem(20),
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: pxToRem(14),
+                      color: '#FFFFFF',
+                      lineHeight: pxToRem(20),
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    支付
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 flex items-center justify-center cursor-pointer min-w-0"
+                  style={{
+                    height: pxToRem(40),
+                    borderRadius: pxToRem(6),
+                    background: walletTab === 'agent' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                  }}
+                  onClick={() => {
+                    queryClient.fetchQuery({ queryKey: ['merchantList'], queryFn: () => api.getMerchantList() });
+                    setWalletTab('agent');
+                    setEditingAgent(null);
+                  }}
+                >
+                  <span
+                    style={{
+                      height: pxToRem(20),
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: pxToRem(14),
+                      color: '#FFFFFF',
+                      lineHeight: pxToRem(20),
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    代理商
+                  </span>
+                </button>
+              </div>
+              {walletTab === 'payment' && (
+                <>
+                  <div
+                    className="w-full shrink-0 no-scrollbar"
+                    style={{
+                      marginTop: pxToRem(16),
+                      height: pxToRem(450),
+                      overflowY: 'auto',
+                      msOverflowStyle: 'none',
+                      scrollbarWidth: 'none',
+                    }}
+                  >
+                    <div
+                      className="w-full flex flex-col"
+                      style={{ gap: pxToRem(15), paddingRight: pxToRem(2) }}
+                    >
+                      {channelList.map((item: any, idx: number) => {
+                        const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+                        const channelId = Number(item?.id);
+                        const channelIcon =
+                          channelId === 16 ? '/images/ustd.png'
+                            : channelId === 2 ? '/images/cdk.png'
+                              : channelId === 22 ? '/images/alipay.png'
+                                : '';
+                        return (
+                          <button
+                            key={item?.id ?? idx}
+                            type="button"
+                            className="w-full flex items-center text-left cursor-pointer box-border"
+                            style={{
+                              height: pxToRem(60),
+                              borderRadius: pxToRem(8),
+                              border: active ? '1px solid #254EB1' : '1px solid #535353',
+                              background: active ? 'rgba(1,55,144,0.1)' : 'transparent',
+                              paddingTop: pxToRem(11),
+                              paddingBottom: pxToRem(11),
+                              paddingLeft: pxToRem(15),
+                              paddingRight: pxToRem(16),
+                            }}
+                            onClick={() => {
+                              setSelectedChannel(item);
+                              setCdkValue('');
+                              setRechargeAmount('');
+                            }}
+                          >
+                            <div
+                              className="flex-none bg-center bg-no-repeat bg-contain"
+                              style={{
+                                width: pxToRem(38),
+                                height: pxToRem(38),
+                                ...(channelIcon ? { backgroundImage: `url(${channelIcon})` } : { backgroundColor: 'rgba(255,255,255,0.05)' }),
+                              }}
+                            />
+                            <span
+                              className="flex-1 min-w-0 truncate"
+                              style={{
+                                marginLeft: pxToRem(10),
+                                height: pxToRem(16),
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 500,
+                                fontSize: pxToRem(16),
+                                color: '#FFFFFF',
+                                lineHeight: pxToRem(16),
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {item?.title ?? '--'}
+                            </span>
+                            {active && (
+                              <span
+                                className="flex-none bg-center bg-no-repeat bg-contain"
+                                style={{
+                                  width: pxToRem(20),
+                                  height: pxToRem(20),
+                                  backgroundImage: 'url(/images/xuanzhong.png)',
+                                }}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                      {(commonChannelData?.data ?? []).length === 0 && (
+                        <div className="text-center text-sm text-white/60 w-full py-4">{t("noPaymentMethod")}</div>
+                      )}
+                      <div
+                        className="w-full"
+                        style={{
+                          marginTop: pxToRem(30),
+                          paddingLeft: pxToRem(10),
+                          height: pxToRem(16),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 600,
+                          fontSize: pxToRem(16),
+                          color: '#FFFFFF',
+                          lineHeight: pxToRem(16),
+                          letterSpacing: '1px',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        选择金额
+                      </div>
+                      {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 ? (
+                        <div
+                          className="w-full grid"
+                          style={{
+                            marginTop: pxToRem(20),
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: `${pxToRem(10)} ${pxToRem(18)}`,
+                          }}
+                        >
+                          {presetAmountsForButtons.map((val: string, i: number) => {
+                            const v = String(val || '').trim();
+                            if (!v) return null;
+                            const isActive = rechargeAmount === v;
+                            return (
+                              <button
+                                key={`mobile-${v}_${i}`}
+                                type="button"
+                                className="box-border flex items-center justify-center cursor-pointer"
+                                style={{
+                                  height: pxToRem(40),
+                                  width: '100%',
+                                  borderRadius: pxToRem(6),
+                                  background: isActive ? 'rgba(1,55,144,0.1)' : 'transparent',
+                                  border: isActive ? '1px solid #254EB1' : '1px solid #535353',
+                                  opacity: rechargeMutation.isPending ? 0.7 : 1,
+                                }}
+                                disabled={rechargeMutation.isPending}
+                                onClick={() => handleSelectPresetAmount(v)}
+                              >
+                                <span
+                                  className="truncate"
+                                  style={{
+                                    fontFamily: 'PingFangSC, PingFang SC',
+                                    height: isActive ? pxToRem(16) : pxToRem(18),
+                                    fontWeight: isActive ? 600 : 500,
+                                    fontSize: isActive ? pxToRem(16) : pxToRem(18),
+                                    color: isActive ? '#254EB1' : '#535353',
+                                    lineHeight: isActive ? pxToRem(16) : pxToRem(18),
+                                    letterSpacing: '1px',
+                                    textAlign: 'center',
+                                    fontStyle: 'normal',
+                                  }}
+                                >
+                                  {v}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div
+                        className="w-full"
+                        style={{ marginTop: pxToRem(15) }}
+                      >
+                        <input
+                          type="text"
+                          inputMode={selectedChannel?.id === 2 ? undefined : "numeric"}
+                          value={selectedChannel?.id === 2 ? cdkValue : rechargeAmount}
+                          onChange={(e) => {
+                            if (selectedChannel?.id === 2) {
+                              setCdkValue(e.target.value);
+                              return;
+                            }
+                            handleRechargeAmountChange(e.target.value);
+                          }}
+                          className="w-full bg-transparent outline-none"
+                          style={{
+                            height: pxToRem(50),
+                            borderRadius: pxToRem(8),
+                            border: '1px solid #535353',
+                            paddingLeft: pxToRem(15),
+                            paddingRight: pxToRem(12),
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(16),
+                            lineHeight: pxToRem(16),
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                            color: '#FFFFFF',
+                          }}
+                          placeholder={selectedChannel?.id === 2 ? t("enterCDK") : t("enterRechargeAmount")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="mt-auto w-full flex justify-center items-center"
+                    style={{ paddingTop: pxToRem(16) }}
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center justify-center"
+                      style={{
+                        width: '100%',
+                        maxWidth: pxToRem(329),
+                        height: pxToRem(48),
+                        borderRadius: pxToRem(8),
+                        background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                        opacity: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 0.7 : 1,
+                        cursor: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 'not-allowed' : 'pointer',
+                      }}
+                      disabled={selectedChannel?.id === 2 ? (!cdkValue.trim() || cdkPayMutation.isPending) : rechargeMutation.isPending}
+                      onClick={() => {
+                        if (selectedChannel?.id === 2) {
+                          if (!cdkValue.trim() || cdkPayMutation.isPending) return;
+                          cdkPayMutation.mutate(cdkValue.trim());
+                          return;
+                        }
+                        handleRechargeSubmit();
+                      }}
+                    >
+                      <span
+                        style={{
+                          height: pxToRem(18),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: pxToRem(18),
+                          color: '#FFFFFF',
+                          lineHeight: pxToRem(18),
+                          textAlign: 'center',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("topUp")}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+              {walletTab === 'agent' && editingAgent && (
+                <>
+                  {/* 頭像 + 已实名认证 + 充值/提取 */}
+                  <div
+                    className="w-full flex flex-col items-center justify-center"
+                    style={{
+                      marginTop: pxToRem(16),
+                      height: pxToRem(136),
+                      background: 'rgba(255,255,255,0.04)',
+                      borderRadius: pxToRem(8),
+                      padding: pxToRem(20),
+                    }}
+                  >
+                    <div
+                      className="rounded-full bg-center bg-no-repeat bg-cover"
+                      style={{
+                        width: pxToRem(44),
+                        height: pxToRem(44),
+                        backgroundImage: `url(${editingAgent.avatar})`,
+                      }}
+                    />
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        marginTop: pxToRem(8),
+                        width: pxToRem(76),
+                        height: pxToRem(20),
+                        borderRadius: pxToRem(2),
+                        border: '1px solid #0CAD00',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 400,
+                          fontSize: pxToRem(12),
+                          color: '#0CAD00',
+                          lineHeight: pxToRem(12),
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("merchantVerified")}
+                      </span>
+                    </div>
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        marginTop: pxToRem(12),
+                        gap: pxToRem(8),
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAgentAmountModal({ mode: 'pay', amount: '' });
+                        }}
+                        style={{
+                          height: pxToRem(12),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 400,
+                          fontSize: pxToRem(12),
+                          color: '#1677FF',
+                          lineHeight: pxToRem(12),
+                          textAlign: 'left',
+                          fontStyle: 'normal',
+                          cursor: 'pointer',
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        {t("merchantPay")}
+                      </button>
+                      <span
+                        style={{
+                          width: pxToRem(1),
+                          height: pxToRem(12),
+                          background: '#1677FF',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAgentAmountModal({ mode: 'return', amount: '' });
+                        }}
+                        style={{
+                          height: pxToRem(12),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 400,
+                          fontSize: pxToRem(12),
+                          color: '#1677FF',
+                          lineHeight: pxToRem(12),
+                          textAlign: 'left',
+                          fontStyle: 'normal',
+                          cursor: 'pointer',
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        {t("merchantReturn")}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 詳情卡片：用户名 / 联系方式 / 个人介绍 */}
+                  <div
+                    className="w-full flex flex-col"
+                    style={{
+                      marginTop: pxToRem(8),
+                      height: pxToRem(196),
+                      background: 'rgba(255,255,255,0.04)',
+                      borderRadius: pxToRem(8),
+                      paddingLeft: pxToRem(10),
+                      paddingRight: pxToRem(10),
+                      paddingTop: pxToRem(12),
+                      paddingBottom: pxToRem(12),
+                    }}
+                  >
+                    {/* 用户名（只展示，不可编辑） */}
+                    <div
+                      className="flex items-center"
+                      style={{
+                        height: pxToRem(52),
+                        borderBottom: '1px solid #333333',
+                      }}
+                    >
+                      <div
+                        className="flex items-center"
+                        style={{ width: '50%' }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(12),
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: pxToRem(12),
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantUsername")}
+                        </span>
+                      </div>
+                      <div
+                        className="flex items-center justify-end min-w-0"
+                        style={{ width: '50%', gap: pxToRem(2) }}
+                      >
+                        <span
+                          className="truncate min-w-0"
+                          style={{
+                            display: 'inline-block',
+                            maxWidth: pxToRem(120),
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(12),
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: pxToRem(12),
+                            letterSpacing: '1px',
+                            textAlign: 'right',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {editingAgent.name}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 联系方式（可编辑） */}
+                    <div
+                      className="flex items-center cursor-pointer"
+                      style={{
+                        height: pxToRem(52),
+                        borderBottom: '1px solid #333333',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (editingAgentField !== 'contact') setEditingAgentField('contact');
+                      }}
+                    >
+                      <div
+                        className="flex items-center"
+                        style={{ width: '50%' }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(12),
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: pxToRem(12),
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantContact")}
+                        </span>
+                      </div>
+                      <div
+                        className="flex items-center justify-end min-w-0"
+                        style={{ width: '50%', gap: pxToRem(2) }}
+                      >
+                        {editingAgentField === 'contact' ? (
+                          <input
+                            type="text"
+                            value={editingAgentDraft?.contact ?? ''}
+                            onChange={(e) =>
+                              setEditingAgentDraft((prev) => ({
+                                name: prev?.name ?? editingAgent.name,
+                                contact: e.target.value,
+                                intro: prev?.intro ?? (editingAgent as any).intro ?? '',
+                              }))
+                            }
+                            className="w-full bg-transparent border-0 outline-none"
+                            style={{
+                            maxWidth: pxToRem(200),
+                              fontFamily: 'PingFangSC, PingFang SC',
+                              fontWeight: 500,
+                              fontSize: pxToRem(12),
+                              color: 'rgba(255,255,255,0.9)',
+                              lineHeight: pxToRem(12),
+                              letterSpacing: '1px',
+                              textAlign: 'right',
+                              fontStyle: 'normal',
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <span
+                              className="truncate min-w-0"
+                              style={{
+                            maxWidth: pxToRem(200),
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 500,
+                                fontSize: pxToRem(12),
+                                color: 'rgba(255,255,255,0.9)',
+                                lineHeight: pxToRem(12),
+                                letterSpacing: '1px',
+                                textAlign: 'right',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {editingAgentDraft?.contact ?? (editingAgent as any).contact ?? ''}
+                            </span>
+                            <span
+                              className="flex-none bg-center bg-no-repeat bg-contain"
+                              style={{
+                                width: pxToRem(16),
+                                height: pxToRem(16),
+                                backgroundImage: 'url(/images/you.png)',
+                              }}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 个人介绍（可编辑，多行） */}
+                    <div
+                      className="flex items-center"
+                      style={{
+                        height: pxToRem(90),
+                      }}
+                    >
+                      <div
+                        className="flex items-center"
+                        style={{ width: '50%' }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: pxToRem(12),
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: pxToRem(12),
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantIntro")}
+                        </span>
+                      </div>
+                      <div
+                        className="flex items-center justify-end min-w-0"
+                        style={{
+                          width: '50%',
+                          marginLeft: pxToRem(8),
+                          height: pxToRem(54),
+                          gap: pxToRem(2),
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (editingAgentField !== 'intro') setEditingAgentField('intro');
+                        }}
+                      >
+                        {editingAgentField === 'intro' ? (
+                          <textarea
+                            value={editingAgentDraft?.intro ?? ''}
+                            onChange={(e) =>
+                              setEditingAgentDraft((prev) => ({
+                                name: prev?.name ?? editingAgent.name,
+                                contact: prev?.contact ?? (editingAgent as any).contact ?? '',
+                                intro: e.target.value,
+                              }))
+                            }
+                            className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit resize-none focus:outline-none focus:ring-0 box-border exchange-scroll"
+                            style={{
+                              fontFamily: 'PingFangSC, PingFang SC',
+                              fontWeight: 400,
+                              fontSize: pxToRem(12),
+                              color: 'rgba(188,188,188,0.9)',
+                              lineHeight: pxToRem(18),
+                              textAlign: 'center',
+                              fontStyle: 'normal',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            } as any}
+                          />
+                        ) : (
+                          <>
+                            <span
+                              className="block w-full"
+                              style={{
+                                maxHeight: pxToRem(54),
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: pxToRem(12),
+                                color: 'rgba(188,188,188,0.9)',
+                                lineHeight: pxToRem(18),
+                                textAlign: 'center',
+                                fontStyle: 'normal',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              } as any}
+                            >
+                              {editingAgentDraft?.intro ?? (editingAgent as any).intro ?? ''}
+                            </span>
+                            <span
+                              className="flex-none bg-center bg-no-repeat bg-contain"
+                              style={{
+                                width: pxToRem(16),
+                                height: pxToRem(16),
+                                backgroundImage: 'url(/images/you.png)',
+                              }}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 底部完成按鈕（距離彈窗底部約 20px，置底） */}
+                  <div
+                    className="mt-auto w-full flex justify-center items-end"
+                    style={{ paddingBottom: pxToRem(20) }}
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center justify-center cursor-pointer disabled:opacity-60"
+                      style={{
+                        width: '100%',
+                        maxWidth: pxToRem(329),
+                        height: pxToRem(48),
+                        borderRadius: pxToRem(8),
+                        background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                      }}
+                      disabled={merchantSaveMutation.isPending || !editingAgent || !editingAgentDraft}
+                      onClick={() => {
+                        if (!editingAgent || !editingAgentDraft || merchantSaveMutation.isPending) return;
+                        merchantSaveMutation.mutate({
+                          contact: editingAgentDraft.contact,
+                          introduction: editingAgentDraft.intro,
+                        });
+                        setEditedAgents((prev) => ({
+                          ...prev,
+                          [editingAgent.id]: {
+                            name: editingAgentDraft.name,
+                            contact: editingAgentDraft.contact,
+                            intro: editingAgentDraft.intro,
+                          },
+                        }));
+                        setEditingAgentField(null);
+                        setEditingAgent(null);
+                      }}
+                    >
+                      <span
+                        style={{
+                          height: pxToRem(18),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: pxToRem(18),
+                          color: '#FFFFFF',
+                          lineHeight: pxToRem(18),
+                          textAlign: 'center',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("complete")}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+              {walletTab === 'agent' && !editingAgent && (
+                <>
+                  <div
+                    className="w-full shrink-0 no-scrollbar"
+                    style={{
+                      marginTop: pxToRem(16),
+                      height: pxToRem(450),
+                      overflowY: 'auto',
+                      msOverflowStyle: 'none',
+                      scrollbarWidth: 'none',
+                    }}
+                  >
+                    <div
+                      className="w-full flex flex-col"
+                      style={{ gap: pxToRem(8) }}
+                    >
+                      {merchantList.map((row: any) => {
+                        const baseId = row.user_id ?? row.id;
+                        const baseAgent: any = {
+                          id: baseId,
+                          name: row.user?.name ?? row.name ?? '--',
+                          contact: row.contact ?? '',
+                          intro: (row as any).introduction ?? (row as any).intro ?? '',
+                          amount: `${t("merchantDepositPrefix")} $${row.deposit ?? 0}`,
+                          deposit: Number(row.deposit ?? 0),
+                          avatar: row.user?.avatar ?? row.avatar ?? '',
+                          user_id: row.user_id,
+                        };
+                        const mergedAgent = editedAgents[baseId]
+                          ? { ...baseAgent, ...editedAgents[baseId] }
+                          : baseAgent;
+                        const isOwner =
+                          String((user as any)?.userInfo?.id ?? '') === String(row.user_id ?? row.user?.id ?? '');
+                        return (
+                          <div
+                            key={baseId ?? mergedAgent.name}
+                            className="w-full flex items-center box-border"
+                            style={{
+                              height: pxToRem(76),
+                              background: 'rgba(255,255,255,0.04)',
+                              borderRadius: pxToRem(8),
+                              padding: pxToRem(16),
+                            }}
+                          >
+                            <div
+                              className="relative flex-none"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!mergedAgent.intro) return;
+                                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                setAgentIntroPopover((prev) =>
+                                  prev && prev.id === mergedAgent.id
+                                    ? null
+                                    : {
+                                        id: mergedAgent.id,
+                                        intro: mergedAgent.intro,
+                                        x: rect.right + 8,
+                                        y: rect.top,
+                                      },
+                                );
+                              }}
+                            >
+                              <div
+                                className="rounded-full bg-center bg-no-repeat bg-cover"
+                                style={{
+                                  width: pxToRem(44),
+                                  height: pxToRem(44),
+                                  backgroundImage: `url(${mergedAgent.avatar})`,
+                                }}
+                              />
+                            </div>
+                            <div
+                              className="flex-1 min-w-0 flex flex-col justify-center"
+                              style={{
+                                marginLeft: pxToRem(8),
+                                height: pxToRem(44),
+                              }}
+                            >
+                              <div
+                                className="flex items-center"
+                                style={{
+                                  marginTop: pxToRem(4),
+                                  height: pxToRem(14),
+                                  gap: pxToRem(4),
+                                }}
+                              >
+                                <span
+                                  className="truncate min-w-0"
+                                  style={{
+                                    display: 'inline-block',
+                                    maxWidth: pxToRem(120),
+                                    fontFamily: 'PingFangSC, PingFang SC',
+                                    fontWeight: 500,
+                                    fontSize: pxToRem(14),
+                                    color: 'rgba(255,255,255,0.9)',
+                                    lineHeight: pxToRem(14),
+                                    letterSpacing: '1px',
+                                    textAlign: 'left',
+                                    fontStyle: 'normal',
+                                  }}
+                                >
+                                  {mergedAgent.name}
+                                </span>
+                                {isOwner && (
+                                  <button
+                                    type="button"
+                                    className="flex-none inline-flex items-center justify-center cursor-pointer"
+                                    style={{
+                                      width: pxToRem(36),
+                                      height: pxToRem(14),
+                                      borderRadius: pxToRem(7),
+                                      border: '1px solid #FFFFFF',
+                                      opacity: 0.5,
+                                      fontFamily: 'PingFangSC, PingFang SC',
+                                      fontWeight: 500,
+                                      fontSize: pxToRem(10),
+                                      color: '#FFFFFF',
+                                      lineHeight: pxToRem(10),
+                                      textAlign: 'center',
+                                      fontStyle: 'normal',
+                                      textTransform: 'none',
+                                      background: 'transparent',
+                                    }}
+                                    onClick={async () => {
+                                      try {
+                                        const res: any = await queryClient.fetchQuery({
+                                          queryKey: ['merchantInfo'],
+                                          queryFn: () => api.getMerchantInfo(),
+                                        });
+                                        const info: any = res?.data ?? res;
+                                        const latestDeposit = Number(info?.deposit ?? mergedAgent.deposit ?? 0);
+                                        const latestContact = info?.contact ?? mergedAgent.contact ?? '';
+                                        const latestIntro =
+                                          (info as any)?.introduction ??
+                                          (info as any)?.intro ??
+                                          (mergedAgent as any).intro ??
+                                          '';
+                                        const nextAgent = {
+                                          ...mergedAgent,
+                                          deposit: latestDeposit,
+                                          amount: `${t("merchantDepositPrefix")} $${latestDeposit}`,
+                                          contact: latestContact,
+                                          intro: latestIntro,
+                                        };
+                                        setEditingAgent(nextAgent);
+                                        setEditingAgentDraft({
+                                          name: nextAgent.name,
+                                          contact: nextAgent.contact,
+                                          intro: nextAgent.intro ?? '',
+                                        });
+                                      } catch {
+                                        setEditingAgent(mergedAgent);
+                                        setEditingAgentDraft({
+                                          name: mergedAgent.name,
+                                          contact: mergedAgent.contact,
+                                          intro: (mergedAgent as any).intro ?? '',
+                                        });
+                                      }
+                                      setEditingAgentField(null);
+                                    }}
+                                  >
+                                    编辑
+                                  </button>
+                                )}
+                              </div>
+                              <div
+                                className="flex items-center min-w-0"
+                                style={{
+                                  marginTop: pxToRem(12),
+                                  minHeight: pxToRem(14),
+                                  fontFamily: 'PingFangSC, PingFang SC',
+                                  fontWeight: 400,
+                                  fontSize: pxToRem(11),
+                                  color: 'rgba(255,255,255,0.5)',
+                                  lineHeight: pxToRem(14),
+                                  textAlign: 'left',
+                                  fontStyle: 'normal',
+                                }}
+                              >
+                                <span
+                                  className="truncate min-w-0"
+                                  style={{
+                            maxWidth: pxToRem(200),
+                                    lineHeight: pxToRem(14),
+                                    paddingTop: pxToRem(1),
+                                    paddingBottom: pxToRem(2),
+                                  }}
+                                >
+                                  {mergedAgent.contact}
+                                </span>
+                                <span
+                                  className="flex-none flex items-center"
+                                  style={{
+                                    width: pxToRem(1),
+                                    height: pxToRem(8),
+                                    borderLeft: '1px solid #979797',
+                                    marginLeft: pxToRem(8),
+                                    marginRight: pxToRem(8),
+                                  }}
+                                />
+                                <span
+                                  className="truncate flex-shrink-0"
+                                  style={{
+                                    lineHeight: pxToRem(14),
+                                    paddingTop: pxToRem(1),
+                                    paddingBottom: pxToRem(2),
+                                  }}
+                                >
+                                  {mergedAgent.amount}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div
+                    className="mt-auto w-full flex justify-center items-center"
+                    style={{ paddingTop: pxToRem(16) }}
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center justify-center cursor-pointer"
+                      style={{
+                        width: '100%',
+                        maxWidth: pxToRem(329),
+                        height: pxToRem(48),
+                        borderRadius: pxToRem(8),
+                        background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                      }}
+                      onClick={() => setShowWalletModal(false)}
+                    >
+                      <span
+                        style={{
+                          height: pxToRem(18),
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: pxToRem(18),
+                          color: '#FFFFFF',
+                          lineHeight: pxToRem(18),
+                          textAlign: 'center',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("complete")}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+            {agentAmountModal && editingAgent && (
+              <div
+                className="fixed inset-0 z-[60] flex items-center justify-center"
+                onClick={() => setAgentAmountModal(null)}
+              >
+                <div className="absolute inset-0 bg-black/40" />
+                <div
+                  className="relative flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: pxToRem(275),
+                    height: pxToRem(166),
+                    background: '#191D24',
+                    borderRadius: pxToRem(8),
+                    padding: pxToRem(16),
+                  }}
+                >
+                  <div className="flex items-end justify-between">
+                    <span
+                      style={{
+                        height: pxToRem(24),
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 500,
+                        fontSize: pxToRem(16),
+                        color: 'rgba(255,255,255,0.88)',
+                        lineHeight: pxToRem(24),
+                        textAlign: 'left',
+                        fontStyle: 'normal',
+                      }}
+                    >
+                      {t("merchantEnterAmountTitle")}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="close"
+                      className="flex items-center justify-center cursor-pointer"
+                      style={{ width: pxToRem(20), height: pxToRem(20) }}
+                      onClick={() => setAgentAmountModal(null)}
+                    >
+                      <span
+                        className="block w-full h-full bg-center bg-no-repeat bg-contain"
+                        style={{ backgroundImage: 'url(/images/icon-close.png)' }}
+                      />
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: pxToRem(16),
+                    }}
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={agentAmountModal.amount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // 只允許正整數（可為空字串）
+                        if (value && !/^\d+$/.test(value)) return;
+
+                        const depositMax = Math.max(0, Math.floor(Number((editingAgent as any).deposit ?? 0)));
+                        const walletMax = Math.max(0, Math.floor(Number((user?.bean as any)?.bean ?? 0)));
+                        let next = value;
+
+                        if (value) {
+                          const num = Number(value);
+                          if (!Number.isNaN(num)) {
+                            if (agentAmountModal.mode === 'pay') {
+                              if (num > walletMax) {
+                                next = String(walletMax);
+                              }
+                            } else {
+                              if (num > depositMax) {
+                                next = String(depositMax);
+                              }
+                            }
+                          }
+                        }
+
+                        setAgentAmountModal((prev) => (prev ? { ...prev, amount: next } : prev));
+                      }}
+                      placeholder={agentAmountModal.mode === 'pay' ? t("merchantPayPlaceholder") : t("merchantReturnPlaceholder")}
+                      className="w-full outline-none"
+                      style={{
+                        height: pxToRem(40),
+                        background: 'rgba(216,216,216,0.05)',
+                        borderRadius: pxToRem(4),
+                        paddingLeft: pxToRem(12),
+                        paddingRight: pxToRem(12),
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 400,
+                        fontSize: pxToRem(16),
+                        color: '#FFFFFF',
+                        lineHeight: pxToRem(16),
+                        textAlign: 'left',
+                        fontStyle: 'normal',
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-end items-end flex-1">
+                    <button
+                      type="button"
+                      className="flex items-center justify-center cursor-pointer"
+                      style={{
+                        width: pxToRem(65),
+                        height: pxToRem(30),
+                        background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                        borderRadius: pxToRem(4),
+                      }}
+                      disabled={
+                        !agentAmountModal.amount ||
+                        agentPayDepositMutation.isPending ||
+                        agentReturnDepositMutation.isPending
+                      }
+                      onClick={() => {
+                        const amount = agentAmountModal.amount || '0';
+                        if (!amount || Number(amount) <= 0) return;
+                        if (agentAmountModal.mode === 'pay') {
+                          agentPayDepositMutation.mutate({ amount });
+                        } else {
+                          agentReturnDepositMutation.mutate({ amount });
+                        }
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: pxToRem(14),
+                          color: '#FFFFFF',
+                          lineHeight: pxToRem(14),
+                          textAlign: 'center',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        确定
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      )}
+      {showWalletModal && !isMobile && (
         <div
           data-state="open"
           className="fixed px-4 inset-0 z-50 bg-black/[0.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-y-auto flex justify-center items-start py-16"
@@ -1805,152 +3085,1039 @@ export default function Navbar() {
             role="dialog"
             aria-modal="true"
             data-state="open"
-            className="overflow-hidden z-50 max-w-lg w-full shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg relative flex flex-col sm:max-w-2xl p-0 gap-0 min-h-[594px]"
+            className="overflow-hidden z-50 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-[6px] relative flex flex-col gap-0 border border-[#2E2E2E] w-full max-w-[670px] box-border"
             tabIndex={-1}
-            style={{ pointerEvents: 'auto', backgroundColor: '#161A1D' }}
+            style={{
+              pointerEvents: 'auto',
+              background: 'radial-gradient(60% 86% at 83% 1%, #22282E 0%, #161920 100%)',
+              borderRadius: '6px',
+              border: '1px solid #2E2E2E',
+              paddingTop: '32px',
+              paddingLeft: '32px',
+              paddingRight: '32px',
+              paddingBottom: '48px',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex-col gap-1.5 text-center sm:text-left flex border-b border-gray-700 h-16 p-6">
-              <h2 className="text-xl text-white font-bold leading-none tracking-tight text-left">{t("depositTitle")}</h2>
+            {/* Header: 支付方式 + close icon */}
+            <div className="flex items-center justify-between">
+              <div
+                className="truncate"
+                style={{
+                  width: 38,
+                  height: 19,
+                  fontFamily: 'PingFangSC, PingFang SC',
+                  fontWeight: 500,
+                  fontSize: 19,
+                  color: '#FFFFFF',
+                  lineHeight: '19px',
+                  textAlign: 'left',
+                  fontStyle: 'normal',
+                }}
+              >
+                存款
+              </div>
+              <button
+                type="button"
+                aria-label="close"
+                className="inline-flex items-center justify-center w-6 h-6 rounded-lg hover:bg-white/5 cursor-pointer"
+                onClick={() => setShowWalletModal(false)}
+              >
+                <span
+                  className="block w-5 h-5 bg-center bg-no-repeat bg-contain"
+                  style={{ backgroundImage: 'url(/images/icon-close.png)' }}
+                />
+              </button>
             </div>
-            <div className="flex flex-1 p-6">
-              <div className="flex flex-col w-full gap-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {channelList.map((item: any, idx: number) => {
-                    const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+
+            <div
+              className="mt-8 flex items-center gap-[12px] w-full max-w-[606px] h-[54px]"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '10px',
+                padding: '3px',
+              }}
+            >
+              <button
+                type="button"
+                className="inline-flex items-center justify-center cursor-pointer flex-1 min-w-0"
+                style={{
+                  height: '48px',
+                  borderRadius: '8px',
+                  background: walletTab === 'payment' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                }}
+                onClick={() => {
+                  queryClient.refetchQueries({ queryKey: ['commonChannel'] });
+                  setWalletTab('payment');
+                }}
+              >
+                <span
+                  style={{
+                    height: '16px',
+                    fontFamily: 'PingFangSC, PingFang SC',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#FFFFFF',
+                    lineHeight: '16px',
+                    textAlign: 'center',
+                    fontStyle: 'normal',
+                  }}
+                >
+                  支付
+                </span>
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center cursor-pointer flex-1 min-w-0"
+                style={{
+                  height: '48px',
+                  borderRadius: '8px',
+                  background: walletTab === 'agent' ? 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' : 'transparent',
+                }}
+                onClick={() => {
+                  queryClient.fetchQuery({ queryKey: ['merchantList'], queryFn: () => api.getMerchantList() });
+                  setWalletTab('agent');
+                  setEditingAgent(null);
+                }}
+              >
+                <span
+                  style={{
+                    height: '16px',
+                    fontFamily: 'PingFangSC, PingFang SC',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#FFFFFF',
+                    lineHeight: '16px',
+                    textAlign: 'center',
+                    fontStyle: 'normal',
+                  }}
+                >
+                  代理商
+                </span>
+              </button>
+            </div>
+
+            {walletTab === 'payment' ? (
+              <>
+                <div className="mt-8 w-full max-w-[606px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-[20px] gap-y-[16px]">
+                    {channelList.map((item: any, idx: number) => {
+                      const active = selectedChannel?.id === item?.id || (!selectedChannel && idx === 0);
+                      const channelId = Number(item?.id);
+                      const channelIcon =
+                        channelId === 16
+                          ? '/images/ustd.png'
+                          : channelId === 2
+                            ? '/images/cdk.png'
+                            : channelId === 22
+                              ? '/images/alipay.png'
+                              : '';
+                      return (
+                        <div key={`${item?.id ?? idx}`} className="w-full h-[72px] flex items-center justify-center">
+                          <button
+                            type="button"
+                            className="relative box-border w-full h-[72px] rounded-[13px] text-left flex items-center py-[16px] pl-[24px] pr-[16px] transition-colors disabled:pointer-events-none interactive-focus"
+                            onClick={() => {
+                              setSelectedChannel(item);
+                              setCdkValue('');
+                              setRechargeAmount('');
+                            }}
+                            style={{
+                              background: active ? 'rgba(1,55,144,0.1)' : 'transparent',
+                              border: active ? '1px solid #254EB1' : '1px solid #535353',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div
+                              className="w-[40px] h-[40px] flex-none rounded-[8px] bg-center bg-no-repeat bg-contain"
+                              style={channelIcon ? { backgroundImage: `url(${channelIcon})` } : { backgroundColor: 'rgba(255,255,255,0.05)' }}
+                            />
+                            <div className="ml-[12px] min-w-0 flex-1">
+                              <p
+                                className="truncate max-w-full"
+                                style={{
+                                  height: '18px',
+                                  fontFamily: 'PingFangSC, PingFang SC',
+                                  fontWeight: 600,
+                                  fontSize: '18px',
+                                  color: '#FFFFFF',
+                                  lineHeight: '18px',
+                                }}
+                              >
+                                {item?.title ?? '--'}
+                              </p>
+                            </div>
+
+                            {active ? (
+                              <div className="absolute right-[16px] top-1/2 -translate-y-1/2">
+                                <span
+                                  className="block w-5 h-5 bg-center bg-no-repeat bg-contain"
+                                  style={{ backgroundImage: 'url(/images/xuanzhong.png)' }}
+                                />
+                              </div>
+                            ) : null}
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {(commonChannelData?.data ?? []).length === 0 && (
+                      <div className="text-center text-sm text-white/60 w-full col-span-full">{t("noPaymentMethod")}</div>
+                    )}
+                  </div>
+                </div>
+
+              {/* Divider: 40px below payment buttons */}
+              <div
+                className="mt-[40px] w-full max-w-[605px]"
+                style={{ height: 1, border: '1px solid #FFFFFF', opacity: 0.1 }}
+              />
+
+              {/* 选择金额 title 32px below divider */}
+              <div
+                className="mt-8"
+                style={{
+                  height: 19,
+                  fontFamily: 'PingFangSC, PingFang SC',
+                  fontWeight: 500,
+                  fontSize: 19,
+                  color: '#FFFFFF',
+                  lineHeight: '19px',
+                  textAlign: 'left',
+                  fontStyle: 'normal',
+                }}
+              >
+                选择金额
+              </div>
+
+            {/* Amount buttons 32px below title */}
+            {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 ? (
+              <div className="mt-8 w-full max-w-[605px]">
+                <div className="grid grid-cols-4 gap-4">
+                  {presetAmountsForButtons.map((val: string, i: number) => {
+                    const v = String(val || '').trim();
+                    if (!v) return null;
+                    const isActive = rechargeAmount === v;
                     return (
                       <button
-                        key={`${item?.id ?? idx}`}
-                        className={`inline-flex items-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative border rounded-lg justify-start h-16 px-4 text-left ${active ? 'border-[#4299E1] bg-blue-400/10' : 'border-gray-600 hover:bg-blue-400/10 hover:border-blue-400'}`}
-                        onClick={() => {
-                          setSelectedChannel(item);
-                          setCdkValue('');
-                          setRechargeAmount('');
-                        }}
-                        style={{ cursor: 'pointer' }}
+                        key={`${v}_${i}`}
+                        type="button"
+                        className={[
+                          "box-border h-[40px] w-full rounded-[6px] flex items-center justify-center",
+                          "transition-colors disabled:pointer-events-none interactive-focus",
+                          isActive
+                            ? "bg-[rgba(1,55,144,0.1)] border border-[#254EB1]"
+                            : "border border-[#535353]",
+                        ].join(" ")}
+                        style={{ cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer', opacity: rechargeMutation.isPending ? 0.7 : 1 }}
+                        disabled={rechargeMutation.isPending}
+                        onClick={() => handleSelectPresetAmount(v)}
                       >
-                        {/* 图片暂时隐藏 */}
-                        {/* <img alt={item?.title || 'channel'} className="size-8 object-contain" src={item?.logo} /> */}
-                        <div className="flex flex-col items-start">
-                          <p className="text-figma-body-base-600 text-white truncate max-w-full">{item?.title ?? '--'}</p>
-                          <p className="text-figma-body-sm-600 text-gray-400 line-clamp-2 break-words whitespace-pre-wrap">{item?.remark ?? ''}</p>
-                        </div>
+                        <span
+                          className="truncate"
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            height: '16px',
+                            fontWeight: isActive ? 600 : 500,
+                            fontSize: 16,
+                            color: isActive ? '#254EB1' : '#535353',
+                            lineHeight: '16px',
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {v}
+                        </span>
                       </button>
                     );
                   })}
-                  {(commonChannelData?.data ?? []).length === 0 && (
-                    <div className="text-center text-sm text-gray-400 w-full col-span-full">{t("noPaymentMethod")}</div>
-                  )}
                 </div>
-                {selectedChannel && (
-                  <div className="mt-4 flex flex-col gap-3">
-                    {selectedChannel?.id === 2 ? (
-                      <div className="flex flex-col gap-3">
-                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>CDK</label>
-                        <input
-                          type="text"
-                          value={cdkValue}
-                          onChange={(e) => setCdkValue(e.target.value)}
-                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
-                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
-                          placeholder={t("enterCDK")}
-                        />
-                        <div className="flex w-full justify-end">
-                          <button
-                            type="button"
-                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                            style={{ backgroundColor: '#34383C', color: '#FFFFFF' }}
-                            disabled={!cdkValue.trim() || cdkPayMutation.isPending}
-                            onClick={() => {
-                              if (!cdkValue.trim() || cdkPayMutation.isPending) return;
-                              cdkPayMutation.mutate(cdkValue.trim());
-                            }}
-                          >
-                            {cdkPayMutation.isPending ? t("submitting") : t("topUp")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        <label className="text-base font-medium" style={{ color: '#FFFFFF' }}>{t("amountLabel")}</label>
-                        {/* 金额面值按钮：除 id===2 的支付方式外均可展示 */}
-                        {selectedChannel?.id !== 2 && Array.isArray(presetAmountsForButtons) && presetAmountsForButtons.length > 0 && (
-                          <div className="grid w-full grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
-                            {presetAmountsForButtons.map((val: string, i: number) => {
-                              const v = String(val || '').trim();
-                              if (!v) return null;
-                              const isActive = rechargeAmount === v;
-                              return (
-                                <button
-                                  key={`${v}_${i}`}
-                                  type="button"
-                                  className="inline-flex w-full items-center justify-center rounded-md h-9 px-2 text-xs sm:text-sm font-bold transition-colors disabled:pointer-events-none interactive-focus"
-                                  style={{
-                                    backgroundColor: isActive ? '#4299E1' : '#22272B',
-                                    color: '#FFFFFF',
-                                    border: `1px solid ${isActive ? '#4299E1' : '#34383C'}`,
-                                    cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer',
-                                    opacity: rechargeMutation.isPending ? 0.7 : 1,
-                                  }}
-                                  disabled={rechargeMutation.isPending}
-                                  onClick={() => handleSelectPresetAmount(v)}
-                                >
-                                  {v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={rechargeAmount}
-                          onChange={(e) => handleRechargeAmountChange(e.target.value)}
-                          className="flex h-10 w-full rounded-md px-3 py-2 text-base"
-                          style={{ backgroundColor: '#292F34', color: '#FFFFFF', border: '1px solid #34383C' }}
-                          placeholder={t("enterAmount")}
-                        />
-                        {rechargeAmount && !isRechargeAmountValid() && (
-                          <p className="text-sm" style={{ color: '#EF4444' }}>
-                            {rechargeAmountErrorText}
-                          </p>
-                        )}
-                        <div className="flex w-full items-center justify-between gap-3">
-                          <span />
-                          <button
-                            type="button"
-                            className="btn-dark inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 min-w-36"
-                            style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
-                            disabled={rechargeMutation.isPending}
-                            onClick={handleRechargeSubmit}
-                          >
-                            {rechargeMutation.isPending ? t("submitting") : t("topUp")}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+              </div>
+            ) : null}
+
+            {/* 输入框 + 充值按钮：id=2 使用同款样式，仅 placeholder 与提交逻辑不同 */}
+            <div className="mt-[24px] w-full max-w-[605px]">
+              <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    inputMode={selectedChannel?.id === 2 ? undefined : "numeric"}
+                    value={selectedChannel?.id === 2 ? cdkValue : rechargeAmount}
+                    onChange={(e) => {
+                      if (selectedChannel?.id === 2) {
+                        setCdkValue(e.target.value);
+                        return;
+                      }
+                      handleRechargeAmountChange(e.target.value);
+                    }}
+                    className="w-full h-[48px] rounded-[6px] px-4 text-white placeholder:text-[#535353] bg-transparent border border-[#535353] focus:outline-none"
+                    placeholder={selectedChannel?.id === 2 ? t("enterCDK") : t("enterRechargeAmount")}
+                    style={{
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 400,
+                      fontSize: 16,
+                      lineHeight: '18px',
+                      textAlign: 'left',
+                      fontStyle: 'normal',
+                    }}
+                  />
+                  <div className="mt-1.5 h-4">
+                    {selectedChannel?.id !== 2 && rechargeAmount && !isRechargeAmountValid() ? (
+                      <p className="text-xs" style={{ color: '#EF4444' }}>
+                        {rechargeAmountErrorText}
+                      </p>
+                    ) : null}
                   </div>
-                )}
+                </div>
+
+                <button
+                  type="button"
+                  className="w-full sm:w-[138px] h-[48px] rounded-[6px] flex items-center justify-center flex-none border-0"
+                  style={{
+                    background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                    cursor: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 'not-allowed' : 'pointer',
+                    opacity: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 0.7 : 1,
+                  }}
+                  disabled={selectedChannel?.id === 2 ? (!cdkValue.trim() || cdkPayMutation.isPending) : rechargeMutation.isPending}
+                  onClick={() => {
+                    if (selectedChannel?.id === 2) {
+                      if (!cdkValue.trim() || cdkPayMutation.isPending) return;
+                      cdkPayMutation.mutate(cdkValue.trim());
+                      return;
+                    }
+                    handleRechargeSubmit();
+                  }}
+                >
+                  <span
+                    style={{
+                      height: '16px',
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: 16,
+                      color: '#FFFFFF',
+                      lineHeight: '16px',
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    {t("topUp")}
+                  </span>
+                </button>
               </div>
             </div>
-            <div className="flex items-center justify-center py-3 px-6" style={{ fontFamily: 'Urbanist, sans-serif' }}>
-              <p className="text-center" style={{ color: '#7a8084', fontSize: 18,fontWeight: 500 }}>
-                {selectedChannel?.id === 19
-                  ? t("depositFeeNotice")
-                  : selectedChannel?.id === 22
-                    ? t("depositFeeNoticeAround7")
-                    : t("selectPaymentAndAmount")}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="absolute right-5 top-[18px] rounded-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
-              onClick={() => setShowWalletModal(false)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-              <span className="sr-only">Close</span>
-            </button>
+
+                {/* Bottom notice: keep original logic, only change style */}
+                <div className="mt-auto pt-6 w-full max-w-[605px]">
+                  <p
+                    className="text-left"
+                    style={{
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 400,
+                      fontSize: 14,
+                      color: '#535353',
+                      lineHeight: '14px',
+                      letterSpacing: 1,
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    *{' '}
+                    {selectedChannel?.id === 19
+                      ? t("depositFeeNotice")
+                      : selectedChannel?.id === 22
+                        ? t("depositFeeNoticeAround7")
+                        : t("selectPaymentAndAmount")}
+                  </p>
+                </div>
+              </>
+            ) : walletTab === 'agent' ? (
+              editingAgent ? (
+                <div className="mt-10 w-full h-[626px] rounded-[12px] p-[40px] flex flex-col" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center">
+                    <div
+                      className="w-[60px] h-[60px] rounded-full bg-center bg-no-repeat bg-cover flex-none"
+                      style={{ backgroundImage: `url(${editingAgent.avatar})` }}
+                    />
+                    <div className="ml-[16px] flex flex-col">
+                      <div
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '78px', height: '24px', borderRadius: '4px', border: '1px solid #0CAD00' }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: '#0CAD00',
+                            lineHeight: '22px',
+                            textAlign: 'right',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantVerified")}
+                        </span>
+                      </div>
+                      <div
+                        className="mt-[16px] flex items-center"
+                        style={{ gap: '8px' }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setAgentAmountModal({ mode: 'pay', amount: '' })}
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: '#1677FF',
+                            lineHeight: '14px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                            cursor: 'pointer',
+                            background: 'transparent',
+                            border: 'none',
+                            padding: 0,
+                          }}
+                        >
+                        {t("merchantPay")}
+                        </button>
+                        <span
+                          style={{
+                            width: '1px',
+                            height: '12px',
+                            background: '#1677FF',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAgentAmountModal({ mode: 'return', amount: '' })}
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: '#1677FF',
+                            lineHeight: '14px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                            cursor: 'pointer',
+                            background: 'transparent',
+                            border: 'none',
+                            padding: 0,
+                          }}
+                        >
+                        {t("merchantReturn")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-[8px]">
+                    <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantUsername")}
+                        </span>
+                        <div className="mt-[14px] h-[20px] flex items-center min-w-0">
+                          <span
+                            className="truncate block w-full"
+                            style={{
+                              height: '20px',
+                              lineHeight: '20px',
+                              fontFamily: 'PingFangSC, PingFang SC',
+                              fontWeight: 400,
+                              fontSize: '14px',
+                              color: 'rgba(255,255,255,0.5)',
+                              letterSpacing: '1px',
+                              fontStyle: 'normal',
+                            }}
+                          >
+                            {editingAgent.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantContact")}
+                        </span>
+                        <div className="mt-[14px] h-[36px] min-w-0 overflow-hidden flex-shrink-0">
+                          <textarea
+                            readOnly={editingAgentField !== 'contact'}
+                            value={editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
+                            onChange={(e) => editingAgentField === 'contact' && setEditingAgentDraft((prev) => (prev ? { ...prev, contact: e.target.value } : { name: editingAgent.name, contact: e.target.value, intro: editingAgent.intro }))}
+                            className="w-full h-full bg-transparent border-0 p-0 m-0 resize-none focus:outline-none focus:ring-0 box-border text-inherit block"
+                            style={{
+                              fontFamily: 'PingFangSC, PingFang SC',
+                              fontWeight: 400,
+                              fontSize: '14px',
+                              color: 'rgba(255,255,255,0.5)',
+                              lineHeight: '18px',
+                              letterSpacing: '1px',
+                              textAlign: 'left',
+                              fontStyle: 'normal',
+                              minHeight: '36px',
+                              height: '36px',
+                              cursor: editingAgentField === 'contact' ? 'text' : 'default',
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '74px', height: '32px', borderRadius: '6px', border: '1px solid #FFFFFF', color: '#FFFFFF' }}
+                        onClick={() => {
+                          if (editingAgentField === 'contact') {
+                            setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: editingAgent.contact, intro: prev?.intro ?? editingAgent.intro }));
+                            setEditingAgentField(null);
+                            return;
+                          }
+                          setEditingAgentField('contact');
+                        }}
+                      >
+                        {editingAgentField === 'contact' ? '取消' : '编辑'}
+                      </button>
+                    </div>
+
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span
+                          style={{
+                            height: '16px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 500,
+                            fontSize: '16px',
+                            color: 'rgba(255,255,255,0.9)',
+                            lineHeight: '16px',
+                            letterSpacing: '1px',
+                            textAlign: 'left',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {t("merchantIntro")}
+                        </span>
+                        <div className="mt-[14px] h-[36px] flex items-center min-w-0">
+                          {editingAgentField === 'intro' ? (
+                            <textarea
+                              value={editingAgentDraft?.intro ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: e.target.value }))}
+                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit resize-none focus:outline-none focus:ring-0 box-border exchange-scroll"
+                              style={{
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '18px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            <span
+                              className="line-clamp-2 break-all block w-full overflow-hidden"
+                              style={{
+                                height: '36px',
+                                lineHeight: '18px',
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                letterSpacing: '1px',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {editingAgentDraft?.intro ?? editingAgent.intro}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        style={{ width: '74px', height: '32px', borderRadius: '6px', border: '1px solid #FFFFFF', color: '#FFFFFF' }}
+                        onClick={() => {
+                          if (editingAgentField === 'intro') {
+                            setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: editingAgent.intro }));
+                            setEditingAgentField(null);
+                            return;
+                          }
+                          setEditingAgentField('intro');
+                        }}
+                      >
+                        {editingAgentField === 'intro' ? '取消' : '编辑'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-auto pt-[32px] flex items-center justify-center gap-[13px]">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center cursor-pointer"
+                      style={{ width: '138px', height: '48px', borderRadius: '6px', border: '1px solid #535353' }}
+                      onClick={() => {
+                        setEditingAgentField(null);
+                        setEditingAgentDraft(null);
+                        setEditingAgent(null);
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: '16px',
+                          color: '#FFFFFF',
+                          lineHeight: '16px',
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("back")}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center cursor-pointer disabled:opacity-60"
+                      style={{ width: '138px', height: '48px', borderRadius: '6px', background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)' }}
+                      disabled={merchantSaveMutation.isPending || !editingAgent || !editingAgentDraft}
+                      onClick={() => {
+                        if (!editingAgent || !editingAgentDraft || merchantSaveMutation.isPending) return;
+                        merchantSaveMutation.mutate({
+                          contact: editingAgentDraft.contact,
+                          introduction: editingAgentDraft.intro,
+                        });
+                        setEditedAgents((prev) => ({
+                          ...prev,
+                          [editingAgent.id]: {
+                            name: editingAgentDraft.name,
+                            contact: editingAgentDraft.contact,
+                            intro: editingAgentDraft.intro,
+                          },
+                        }));
+                        setEditingAgentField(null);
+                        setEditingAgent(null);
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'PingFangSC, PingFang SC',
+                          fontWeight: 500,
+                          fontSize: '16px',
+                          color: '#FFFFFF',
+                          lineHeight: '16px',
+                          textAlign: 'right',
+                          fontStyle: 'normal',
+                        }}
+                      >
+                        {t("complete")}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-10 w-full h-[608px] overflow-y-auto exchange-scroll">
+                  <div className="flex flex-col gap-[14px]">
+                    {merchantList.map((row: any) => {
+                      const baseId = row.user_id ?? row.id;
+                        const baseAgent: any = {
+                          id: baseId,
+                          name: row.user?.name ?? row.name ?? '--',
+                          contact: row.contact ?? '',
+                          intro: (row as any).introduction ?? (row as any).intro ?? '',
+                          amount: `${t("merchantDepositPrefix")} $${row.deposit ?? 0}`,
+                          deposit: Number(row.deposit ?? 0),
+                          avatar: row.user?.avatar ?? row.avatar ?? '',
+                          user_id: row.user_id,
+                        };
+                      const mergedAgent = editedAgents[baseId]
+                        ? { ...baseAgent, ...editedAgents[baseId] }
+                        : baseAgent;
+                      const isOwner =
+                        String((user as any)?.userInfo?.id ?? '') === String(row.user_id ?? row.user?.id ?? '');
+                      return (
+                        <div
+                          key={baseId ?? mergedAgent.name}
+                          className="relative w-full min-h-[110px] rounded-[12px] px-[24px] py-[25px] flex items-center justify-between"
+                          style={{ background: 'rgba(255,255,255,0.04)' }}
+                        >
+                          <>
+                        <div className="min-w-0 flex-1 min-h-[72px] flex items-center gap-[16px]">
+                          <div
+                            className="relative w-[60px] h-[60px] flex-none"
+                            onMouseEnter={(e) => {
+                              if (!isMobile && mergedAgent.intro) {
+                                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                setAgentIntroPopover({
+                                  id: baseId,
+                                  intro: mergedAgent.intro,
+                                  x: rect.right + 8,
+                                  y: rect.top,
+                                });
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              if (!isMobile) setAgentIntroPopover((prev) => (prev && prev.id === baseId ? null : prev));
+                            }}
+                            onClick={(e) => {
+                              if (isMobile && mergedAgent.intro) {
+                                e.stopPropagation();
+                                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                setAgentIntroPopover((prev) =>
+                                  prev && prev.id === baseId
+                                    ? null
+                                    : {
+                                        id: baseId,
+                                        intro: mergedAgent.intro,
+                                        x: rect.right + 8,
+                                        y: rect.top,
+                                      },
+                                );
+                              }
+                            }}
+                          >
+                            <div
+                              className="w-[60px] h-[60px] rounded-full bg-center bg-no-repeat bg-cover"
+                              style={{ backgroundImage: `url(${mergedAgent.avatar})` }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <div className="mt-[8px] flex items-center">
+                              <span
+                                className="truncate"
+                                style={{
+                                  maxWidth: '136px',
+                                  height: '16px',
+                                  fontFamily: 'PingFangSC, PingFang SC',
+                                  fontWeight: 500,
+                                  fontSize: '16px',
+                                  color: 'rgba(255,255,255,0.9)',
+                                  lineHeight: '16px',
+                                  letterSpacing: '1px',
+                                  textAlign: 'left',
+                                  fontStyle: 'normal',
+                                }}
+                              >
+                                  {mergedAgent.name}
+                              </span>
+                              {isOwner && (
+                                <button
+                                  type="button"
+                                  className="ml-[4px] inline-flex items-center justify-center cursor-pointer"
+                                  style={{
+                                    width: '36px',
+                                    height: '16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #666666',
+                                    background: 'transparent',
+                                  }}
+                                  onClick={async () => {
+                                    try {
+                                      const res: any = await queryClient.fetchQuery({
+                                        queryKey: ['merchantInfo'],
+                                        queryFn: () => api.getMerchantInfo(),
+                                      });
+                                      const info: any = res?.data ?? res;
+                                      const latestDeposit = Number(info?.deposit ?? mergedAgent.deposit ?? 0);
+                                      const latestContact = info?.contact ?? mergedAgent.contact ?? '';
+                                      const latestIntro =
+                                        (info as any)?.introduction ??
+                                        (info as any)?.intro ??
+                                        mergedAgent.intro ??
+                                        '';
+                                      const nextAgent = {
+                                        ...mergedAgent,
+                                        deposit: latestDeposit,
+                                        amount: `${t("merchantDepositPrefix")} $${latestDeposit}`,
+                                        contact: latestContact,
+                                        intro: latestIntro,
+                                      };
+                                      setEditingAgent(nextAgent);
+                                      setEditingAgentDraft({
+                                        name: nextAgent.name,
+                                        contact: nextAgent.contact,
+                                        intro: nextAgent.intro ?? '',
+                                      });
+                                    } catch {
+                                      setEditingAgent(mergedAgent);
+                                      setEditingAgentDraft({
+                                        name: mergedAgent.name,
+                                        contact: mergedAgent.contact,
+                                        intro: mergedAgent.intro,
+                                      });
+                                    }
+                                    setEditingAgentField(null);
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontFamily: 'PingFangSC, PingFang SC',
+                                      fontWeight: 500,
+                                      fontSize: '10px',
+                                      color: '#666666',
+                                      lineHeight: '10px',
+                                      textAlign: 'left',
+                                      fontStyle: 'normal',
+                                      textTransform: 'none',
+                                    }}
+                                  >
+                                    编辑
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                            <span
+                              className="mt-[14px] line-clamp-2 break-all"
+                              style={{
+                                minHeight: '32px',
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                lineHeight: '16px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {mergedAgent.contact}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            height: '14px',
+                            fontFamily: 'PingFangSC, PingFang SC',
+                            fontWeight: 400,
+                            fontSize: '14px',
+                            color: '#FFFFFF',
+                            lineHeight: '14px',
+                            textAlign: 'center',
+                            fontStyle: 'normal',
+                          }}
+                        >
+                          {mergedAgent.amount}
+                        </span>
+                          </>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
+            ) : null}
           </div>
+          {agentAmountModal && editingAgent && (
+            <div
+              className="fixed inset-0 z-[60] flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAgentAmountModal(null);
+              }}
+            >
+              <div className="absolute inset-0" />
+              <div
+                className="relative flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 384,
+                  height: 166,
+                  background: '#191D24',
+                  borderRadius: 8,
+                  padding: 20,
+                }}
+              >
+                <div className="flex items-end justify-between">
+                  <span
+                    style={{
+                      height: 24,
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: 16,
+                      color: 'rgba(255,255,255,0.88)',
+                      lineHeight: '24px',
+                      textAlign: 'left',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    {t("merchantEnterAmountTitle")}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="close"
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{ width: 20, height: 20 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAgentAmountModal(null);
+                    }}
+                  >
+                    <span
+                      className="block w-full h-full bg-center bg-no-repeat bg-contain"
+                      style={{ backgroundImage: 'url(/images/icon-close.png)' }}
+                    />
+                  </button>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={agentAmountModal.amount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // 只允許正整數（可為空字串）
+                      if (value && !/^\d+$/.test(value)) return;
+
+                      const depositMax = Math.max(0, Math.floor(Number((editingAgent as any).deposit ?? 0)));
+                      const walletMax = Math.max(0, Math.floor(Number((user?.bean as any)?.bean ?? 0)));
+                      let next = value;
+
+                      if (value) {
+                        const num = Number(value);
+                        if (!Number.isNaN(num)) {
+                          if (agentAmountModal.mode === 'pay') {
+                            if (num > walletMax) {
+                              next = String(walletMax);
+                            }
+                          } else {
+                            if (num > depositMax) {
+                              next = String(depositMax);
+                            }
+                          }
+                        }
+                      }
+
+                      setAgentAmountModal((prev) => (prev ? { ...prev, amount: next } : prev));
+                    }}
+                    placeholder={agentAmountModal.mode === 'pay' ? t("merchantPayPlaceholder") : t("merchantReturnPlaceholder")}
+                    className="w-full outline-none bg-transparent"
+                    style={{
+                      width: '100%',
+                      height: 40,
+                      background: 'rgba(216,216,216,0.05)',
+                      borderRadius: 8,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 400,
+                      fontSize: 16,
+                      color: '#FFFFFF',
+                      lineHeight: '16px',
+                      textAlign: 'left',
+                      fontStyle: 'normal',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-end mt-4" style={{ gap: 16 }}>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{
+                      width: 65,
+                      height: 30,
+                      borderRadius: 6,
+                      border: '1px solid #535353',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAgentAmountModal(null);
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        color: '#FFFFFF',
+                        lineHeight: '14px',
+                        textAlign: 'center',
+                        fontStyle: 'normal',
+                      }}
+                    >
+                      取消
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{
+                      width: 65,
+                      height: 30,
+                      background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                      borderRadius: 6,
+                    }}
+                    disabled={
+                      !agentAmountModal.amount ||
+                      agentPayDepositMutation.isPending ||
+                      agentReturnDepositMutation.isPending
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const amount = agentAmountModal.amount || '0';
+                      if (!amount || Number(amount) <= 0) return;
+                      if (agentAmountModal.mode === 'pay') {
+                        agentPayDepositMutation.mutate({ amount });
+                      } else {
+                        agentReturnDepositMutation.mutate({ amount });
+                      }
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        color: '#FFFFFF',
+                        lineHeight: '14px',
+                        textAlign: 'center',
+                        fontStyle: 'normal',
+                      }}
+                    >
+                      确定
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {agentIntroPopover && (
+        <div
+          className="pointer-events-none fixed px-3 py-2 rounded bg-black/80 text-xs text-white whitespace-normal"
+          style={{
+            width: 150,
+            left: agentIntroPopover.x,
+            top: agentIntroPopover.y,
+            border: '1px solid #888',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+            zIndex: 99999,
+          }}
+        >
+          {agentIntroPopover.intro}
         </div>
       )}
 
