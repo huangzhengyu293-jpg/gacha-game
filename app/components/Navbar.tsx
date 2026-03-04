@@ -2701,7 +2701,7 @@ export default function Navbar() {
                           name: row.user?.name ?? row.name ?? '--',
                           contact: row.contact ?? '',
                           intro: (row as any).introduction ?? (row as any).intro ?? '',
-                          amount: `${t("merchantDepositPrefix")} ${row.deposit ?? 0}`,
+                          amount: `${t("merchantDepositPrefix")} $${row.deposit ?? 0}`,
                           deposit: Number(row.deposit ?? 0),
                           avatar: row.user?.avatar ?? row.avatar ?? '',
                           user_id: row.user_id,
@@ -2818,7 +2818,7 @@ export default function Navbar() {
                                         const nextAgent = {
                                           ...mergedAgent,
                                           deposit: latestDeposit,
-                                          amount: `${t("merchantDepositPrefix")} ${latestDeposit}`,
+                                          amount: `${t("merchantDepositPrefix")} $${latestDeposit}`,
                                           contact: latestContact,
                                           intro: latestIntro,
                                         };
@@ -3748,7 +3748,7 @@ export default function Navbar() {
                           name: row.user?.name ?? row.name ?? '--',
                           contact: row.contact ?? '',
                           intro: (row as any).introduction ?? (row as any).intro ?? '',
-                          amount: `${t("merchantDepositPrefix")} ${row.deposit ?? 0}`,
+                          amount: `${t("merchantDepositPrefix")} $${row.deposit ?? 0}`,
                           deposit: Number(row.deposit ?? 0),
                           avatar: row.user?.avatar ?? row.avatar ?? '',
                           user_id: row.user_id,
@@ -3851,7 +3851,7 @@ export default function Navbar() {
                                       const nextAgent = {
                                         ...mergedAgent,
                                         deposit: latestDeposit,
-                                        amount: `${t("merchantDepositPrefix")} ${latestDeposit}`,
+                                        amount: `${t("merchantDepositPrefix")} $${latestDeposit}`,
                                         contact: latestContact,
                                         intro: latestIntro,
                                       };
