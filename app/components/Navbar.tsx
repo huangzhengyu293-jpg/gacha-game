@@ -2561,7 +2561,8 @@ export default function Navbar() {
                           height: pxToRem(54),
                           gap: pxToRem(2),
                         }}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (editingAgentField !== 'intro') setEditingAgentField('intro');
                         }}
                       >
