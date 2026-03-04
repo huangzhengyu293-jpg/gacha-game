@@ -94,6 +94,11 @@ const AUTH_REQUIRED_PATHS = [
   '/api/user/storage',
   '/api/user/rebate',
   '/api/user/receiveRebate',
+  '/api/user/merchantList',
+  '/api/user/merchantInfo',
+  '/api/user/setMerchant',
+  '/api/user/payDeposit',
+  '/api/user/returnedDeposit',
   '/api/auth/userinfo',
   '/api/auth/logout',
   '/api/lucky/go',
@@ -929,6 +934,58 @@ export const api = {
   getCommonChannel: async () => {
     const result = await request<ApiResponse>('/api/common/channel', {
       method: 'GET',
+    });
+    return result;
+  },
+  getMerchantList: async () => {
+    const result = await request<ApiResponse>('/api/user/merchantList', {
+      method: 'GET',
+    });
+    return result;
+  },
+  getMerchantInfo: async () => {
+    const result = await request<ApiResponse>('/api/user/merchantInfo', {
+      method: 'GET',
+    });
+    return result;
+  },
+  setMerchant: async (payload: { contact: string; introduction: string }) => {
+    const formData = new URLSearchParams();
+    formData.append('contact', payload.contact);
+    formData.append('introduction', payload.introduction);
+
+    const result = await request<ApiResponse>('/api/user/setMerchant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  payDeposit: async (payload: { amount: string }) => {
+    const formData = new URLSearchParams();
+    formData.append('amount', payload.amount);
+
+    const result = await request<ApiResponse>('/api/user/payDeposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
+    });
+    return result;
+  },
+  returnedDeposit: async (payload: { amount: string }) => {
+    const formData = new URLSearchParams();
+    formData.append('amount', payload.amount);
+
+    const result = await request<ApiResponse>('/api/user/returnedDeposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: formData.toString(),
     });
     return result;
   },
