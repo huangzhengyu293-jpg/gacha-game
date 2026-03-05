@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback, useMemo, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useI18n } from './I18nProvider';
@@ -276,6 +277,8 @@ export default function Navbar() {
   const [editingAgent, setEditingAgent] = useState<any | null>(null);
   const [editingAgentDraft, setEditingAgentDraft] = useState<{ name: string; contact: string; intro: string } | null>(null);
   const [editingAgentField, setEditingAgentField] = useState<'name' | 'contact' | 'intro' | null>(null);
+  const mobileContactInputRef = useRef<HTMLInputElement>(null);
+  const mobileIntroTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [editedAgents, setEditedAgents] = useState<Record<number, { name: string; contact: string; intro: string }>>({});
   const [agentIntroPopover, setAgentIntroPopover] = useState<{ id: string | number; intro: string; x: number; y: number } | null>(null);
   const [agentAmountModal, setAgentAmountModal] = useState<{ mode: 'pay' | 'return'; amount: string } | null>(null);
@@ -332,10 +335,11 @@ export default function Navbar() {
 
   const merchantList = useMemo(() => {
     const d: any = merchantListData?.data;
-    if (Array.isArray(d)) return d;
-    if (Array.isArray(d?.data)) return d.data;
-    if (Array.isArray(d?.list)) return d.list;
-    return [];
+    let arr: any[] = [];
+    if (Array.isArray(d)) arr = d;
+    else if (Array.isArray(d?.data)) arr = d.data;
+    else if (Array.isArray(d?.list)) arr = d.list;
+    return arr.slice().sort((a, b) => Number(b?.deposit ?? 0) - Number(a?.deposit ?? 0));
   }, [merchantListData?.data]);
 
   useEffect(() => {
@@ -364,6 +368,15 @@ export default function Navbar() {
       setRealPhone('');
     }
   }, [showWalletModal]);
+
+  useEffect(() => {
+    if (!isMobile || !editingAgentField) return;
+    const t = setTimeout(() => {
+      if (editingAgentField === 'contact') mobileContactInputRef.current?.focus();
+      else if (editingAgentField === 'intro') mobileIntroTextareaRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [isMobile, editingAgentField]);
 
   const closePayQrModal = useCallback(() => {
     setShowPayQrModal(false);
@@ -2556,6 +2569,7 @@ export default function Navbar() {
                       >
                         {editingAgentField === 'contact' ? (
                           <input
+                            ref={mobileContactInputRef}
                             type="text"
                             value={editingAgentDraft?.contact ?? ''}
                             onChange={(e) =>
@@ -2650,6 +2664,7 @@ export default function Navbar() {
                       >
                         {editingAgentField === 'intro' ? (
                           <textarea
+                            ref={mobileIntroTextareaRef}
                             value={editingAgentDraft?.intro ?? ''}
                             onChange={(e) =>
                               setEditingAgentDraft((prev) => ({
@@ -3042,12 +3057,13 @@ export default function Navbar() {
                 </>
               )}
             </motion.div>
-            {agentAmountModal && editingAgent && (
+            {agentAmountModal && editingAgent && typeof document !== 'undefined' && createPortal(
               <div
                 className="fixed inset-0 z-[60] flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
                 onClick={() => setAgentAmountModal(null)}
               >
-                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0" aria-hidden />
                 <div
                   className="relative flex flex-col"
                   onClick={(e) => e.stopPropagation()}
@@ -3181,7 +3197,8 @@ export default function Navbar() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </motion.div>
         </AnimatePresence>
@@ -3622,7 +3639,24 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  <div className="mt-[8px]">
+                  <div
+                    className="mt-[8px]"
+                    onClick={(e) => {
+                      if (editingAgentField && !(e.target as HTMLElement).closest('input') && !(e.target as HTMLElement).closest('textarea') && !(e.target as HTMLElement).closest('button')) {
+                        if (editingAgent && editingAgentDraft) {
+                          setEditedAgents((prev) => ({
+                            ...prev,
+                            [editingAgent.id]: {
+                              name: editingAgentDraft.name ?? editingAgent.name,
+                              contact: editingAgentDraft.contact ?? '',
+                              intro: editingAgentDraft.intro ?? '',
+                            },
+                          }));
+                        }
+                        setEditingAgentField(null);
+                      }
+                    }}
+                  >
                     <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
                       <div className="flex flex-col min-w-0 flex-1">
                         <span
@@ -3660,8 +3694,8 @@ export default function Navbar() {
                       </div>
                     </div>
 
-                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
-                      <div className="flex flex-col min-w-0 flex-1">
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between" style={{ gap: 20 }}>
+                      <div className="flex flex-col min-w-0 flex-1" style={{ maxWidth: 'calc(100% - 74px - 20px)' }}>
                         <span
                           style={{
                             height: '16px',
@@ -3677,26 +3711,48 @@ export default function Navbar() {
                         >
                           {t("merchantContact")}
                         </span>
-                        <div className="mt-[14px] h-[36px] min-w-0 overflow-hidden flex-shrink-0">
-                          <textarea
-                            readOnly={editingAgentField !== 'contact'}
-                            value={editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
-                            onChange={(e) => editingAgentField === 'contact' && setEditingAgentDraft((prev) => (prev ? { ...prev, contact: e.target.value } : { name: editingAgent.name, contact: e.target.value, intro: editingAgent.intro }))}
-                            className="w-full h-full bg-transparent border-0 p-0 m-0 resize-none focus:outline-none focus:ring-0 box-border text-inherit block"
-                            style={{
-                              fontFamily: 'PingFangSC, PingFang SC',
-                              fontWeight: 400,
-                              fontSize: '14px',
-                              color: 'rgba(255,255,255,0.5)',
-                              lineHeight: '18px',
-                              letterSpacing: '1px',
-                              textAlign: 'left',
-                              fontStyle: 'normal',
-                              minHeight: '36px',
-                              height: '36px',
-                              cursor: editingAgentField === 'contact' ? 'text' : 'default',
-                            }}
-                          />
+                        <div className="mt-[14px] min-w-0 flex-1">
+                          {editingAgentField === 'contact' ? (
+                            <input
+                              type="text"
+                              value={editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => (prev ? { ...prev, contact: e.target.value } : { name: editingAgent.name, contact: e.target.value, intro: editingAgent.intro }))}
+                              className="w-full outline-none bg-transparent"
+                              style={{
+                                width: '100%',
+                                height: 40,
+                                background: 'rgba(216,216,216,0.05)',
+                                border: '1px solid #535353',
+                                borderRadius: 8,
+                                paddingLeft: 12,
+                                paddingRight: 12,
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: '#FFFFFF',
+                                lineHeight: '18px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            <span
+                              className="block truncate"
+                              style={{
+                                height: '36px',
+                                lineHeight: '18px',
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                letterSpacing: '1px',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
@@ -3716,8 +3772,8 @@ export default function Navbar() {
                       </button>
                     </div>
 
-                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
-                      <div className="flex flex-col min-w-0 flex-1">
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between" style={{ gap: 20 }}>
+                      <div className="flex flex-col min-w-0 flex-1" style={{ maxWidth: 'calc(100% - 74px - 20px)' }}>
                         <span
                           style={{
                             height: '16px',
@@ -3733,17 +3789,23 @@ export default function Navbar() {
                         >
                           {t("merchantIntro")}
                         </span>
-                        <div className="mt-[14px] h-[36px] flex items-center min-w-0">
+                        <div className="mt-[14px] min-w-0 flex-1">
                           {editingAgentField === 'intro' ? (
                             <textarea
                               value={editingAgentDraft?.intro ?? ''}
                               onChange={(e) => setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: e.target.value }))}
-                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit resize-none focus:outline-none focus:ring-0 box-border exchange-scroll"
+                              className="w-full outline-none bg-transparent resize-none exchange-scroll"
                               style={{
+                                width: '100%',
+                                minHeight: 80,
+                                background: 'rgba(216,216,216,0.05)',
+                                border: '1px solid #535353',
+                                borderRadius: 8,
+                                padding: 12,
                                 fontFamily: 'PingFangSC, PingFang SC',
                                 fontWeight: 400,
                                 fontSize: '14px',
-                                color: 'rgba(255,255,255,0.5)',
+                                color: '#FFFFFF',
                                 lineHeight: '18px',
                                 letterSpacing: '1px',
                                 textAlign: 'left',
@@ -4070,15 +4132,16 @@ export default function Navbar() {
               )
             ) : null}
           </div>
-          {agentAmountModal && editingAgent && (
+          {agentAmountModal && editingAgent && typeof document !== 'undefined' && createPortal(
             <div
               className="fixed inset-0 z-[60] flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
               onClick={(e) => {
                 e.stopPropagation();
                 setAgentAmountModal(null);
               }}
             >
-              <div className="absolute inset-0" />
+              <div className="absolute inset-0" aria-hidden />
               <div
                 className="relative flex flex-col"
                 onClick={(e) => e.stopPropagation()}
@@ -4241,7 +4304,8 @@ export default function Navbar() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       )}
