@@ -2151,7 +2151,7 @@ export default function Navbar() {
                         const channelIcon =
                           channelId === 16 ? '/images/ustd.png'
                             : channelId === 2 ? '/images/cdk.png'
-                              : channelId === 22 ? '/images/alipay.png'
+                              : (channelId === 19 || channelId === 22) ? '/images/alipay.png'
                                 : '';
                         return (
                           <button
@@ -3338,7 +3338,7 @@ export default function Navbar() {
                           ? '/images/ustd.png'
                           : channelId === 2
                             ? '/images/cdk.png'
-                            : channelId === 22
+                            : (channelId === 19 || channelId === 22)
                               ? '/images/alipay.png'
                               : '';
                       return (
