@@ -551,6 +551,7 @@ const dict: Dict = {
   // Merchant / agent deposit & edit
   orderPaymentTitle: { zh: "订单支付", en: "Order payment", ko: "주문 결제", ja: "注文支払い" },
   merchantTabLabel: { zh: "代理商", en: "Agent", ko: "대리상", ja: "代理店" },
+  merchantAgentTip: { zh: "保证金代表信誉度，玩家请慎重选择代理商。如出现问题官方仅受理缴纳保证金的代理商。", en: "Deposit represents credibility. Please choose agents carefully. Official support only covers agents with paid deposit.", ko: "보증금은 신뢰도를 나타냅니다. 에이전트를 신중히 선택하세요. 문제 발생 시 공식 지원은 보증금을 납부한 에이전트에만 적용됩니다.", ja: "保証金は信頼度を表します。エージェントを慎重に選択してください。問題発生時、公式サポートは保証金を納付したエージェントのみ対象です。" },
   merchantVerified: { zh: "已实名认证", en: "Verified", ko: "실명 인증 완료", ja: "実名認証済み" },
   merchantPay: { zh: "缴纳", en: "Pay", ko: "납부", ja: "納付" },
   merchantReturn: { zh: "退回", en: "Return", ko: "반환", ja: "返還" },

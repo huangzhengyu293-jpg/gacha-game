@@ -17,6 +17,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { pxToRem } from '../lib/rem';
 import { LogoIcon } from './icons/Logo';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
+import InfoTooltip from './InfoTooltip';
 
 type PromoCodeFormProps = {
   value: string;
@@ -2113,20 +2114,53 @@ export default function Navbar() {
                     setEditingAgent(null);
                   }}
                 >
-                  <span
-                    style={{
-                      height: pxToRem(20),
-                      fontFamily: 'PingFangSC, PingFang SC',
-                      fontWeight: 500,
-                      fontSize: pxToRem(14),
-                      color: '#FFFFFF',
-                      lineHeight: pxToRem(20),
-                      textAlign: 'center',
-                      fontStyle: 'normal',
-                    }}
-                  >
-                    代理商
-                  </span>
+                  <div className="flex items-center" style={{ gap: pxToRem(8) }}>
+                    <span
+                      style={{
+                        height: pxToRem(20),
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 500,
+                        fontSize: pxToRem(14),
+                        color: '#FFFFFF',
+                        lineHeight: pxToRem(20),
+                        textAlign: 'center',
+                        fontStyle: 'normal',
+                      }}
+                    >
+                      {t("merchantTabLabel")}
+                    </span>
+                  <InfoTooltip
+                    content={t("merchantAgentTip")}
+                    triggerTag="span"
+                    triggerMode="click"
+                    stopPropagationOnClick
+                    usePortal
+                    portalWidthMode="max-content"
+                    showArrow={false}
+                    tooltipStyle={{ maxWidth: pxToRem(200), whiteSpace: 'normal' }}
+                    wrapperClassName="inline-flex items-center"
+                    buttonClassName="inline-flex items-center justify-center p-0 border-0 bg-transparent hover:bg-transparent"
+                    trigger={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width={pxToRem(16)}
+                        height={pxToRem(16)}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-circle-alert"
+                        style={{ color: '#FFFFFF', cursor: 'pointer' }}
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" x2="12" y1="8" y2="12"></line>
+                        <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                      </svg>
+                    }
+                  />
+                  </div>
                 </button>
               </div>
               {walletTab === 'payment' && (
@@ -3309,20 +3343,52 @@ export default function Navbar() {
                   setEditingAgent(null);
                 }}
               >
-                <span
-                  style={{
-                    height: '16px',
-                    fontFamily: 'PingFangSC, PingFang SC',
-                    fontWeight: 500,
-                    fontSize: '16px',
-                    color: '#FFFFFF',
-                    lineHeight: '16px',
-                    textAlign: 'center',
-                    fontStyle: 'normal',
-                  }}
-                >
-                  代理商
-                </span>
+                <div className="flex items-center" style={{ gap: 8 }}>
+                  <span
+                    style={{
+                      height: '16px',
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: '16px',
+                      color: '#FFFFFF',
+                      lineHeight: '16px',
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    {t("merchantTabLabel")}
+                  </span>
+                  <InfoTooltip
+                    content={t("merchantAgentTip")}
+                    triggerTag="span"
+                    triggerMode="hover"
+                    usePortal
+                    portalWidthMode="max-content"
+                    showArrow={false}
+                    tooltipStyle={{ maxWidth: 200, whiteSpace: 'normal' }}
+                    wrapperClassName="inline-flex items-center"
+                    buttonClassName="inline-flex items-center justify-center p-0 border-0 bg-transparent hover:bg-transparent"
+                  trigger={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="lucide lucide-circle-alert"
+                      style={{ color: '#FFFFFF', cursor: 'pointer' }}
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" x2="12" y1="8" y2="12"></line>
+                      <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                    </svg>
+                  }
+                />
+                </div>
               </button>
             </div>
 
