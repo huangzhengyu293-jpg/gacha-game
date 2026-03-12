@@ -58,12 +58,14 @@ export default function BattleModes({ sortValue = "latest", useBestRecord = fals
   );
 
   const sortedCards = useMemo(() => {
+    // 对战亮点（首页）：使用接口默认排序，不做额外排序
+    if (useBestRecord) return cards;
     const list = [...cards];
     if (sortValue === "latest") {
       return list.sort((a, b) => b.createdAt - a.createdAt);
     }
     return list.sort((a, b) => b.entryCost - a.entryCost);
-  }, [cards, sortValue]);
+  }, [cards, sortValue, useBestRecord]);
 
  
 
