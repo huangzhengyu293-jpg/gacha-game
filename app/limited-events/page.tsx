@@ -8,6 +8,7 @@ import BestLiveSidebar from '../components/BestLiveSidebar';
 import { RaceLeaderboardSection } from '../components/RaceLeaderboardSection';
 import { mapConsumeRanking } from '../lib/consumeLeaderboard';
 import { RaceCountdownCard } from '../components/RaceCountdownCard';
+import { useAuthContext } from '../providers/AuthProvider';
 
 // 北京时间（UTC+8）
 const BJT_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -26,9 +27,11 @@ const computeLimitedMsBjt = () => {
 
 export default function LimitedEventsPage() {
   const { t } = useI18n();
+  const { user } = useAuthContext();
 
+  // 登入狀態變化時重新調用接口（與活動頁共用 queryKey）
   const { data: consumeData } = useQuery({
-    queryKey: ['consumeData'],
+    queryKey: ['consumeData', !!user?.token],
     queryFn: () => api.getConsume(),
     staleTime: 30_000,
   });
