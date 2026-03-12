@@ -160,7 +160,6 @@ export default function Footer() {
           </div>
           <div className="flex flex-col mt-2">
             <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>QQ：647513449</p>
           </div>
         </div>
 
@@ -222,7 +221,6 @@ export default function Footer() {
             </div>
             <div className="flex flex-col">
               <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
-              <p className="text-base" style={{ color: '#7A8084' }}>QQ：647513449</p>
             </div>
           </div>
         </div>

@@ -790,10 +790,10 @@ const dict: Dict = {
   },
   priceRange: { zh: "价格区间", en: "Price Range", ko: "가격 범위", ja: "価格帯" },
   businessCooperation: {
-    zh: "商务合作",
-    en: "Business Cooperation",
-    ko: "비즈니스 협력",
-    ja: "ビジネス提携"
+    zh: "商务合作请联系客服",
+    en: "For business cooperation, please contact customer service",
+    ko: "비즈니스 협력을 원하시면 고객 서비스에 문의하세요",
+    ja: "ビジネス提携はカスタマーサービスまでお問い合わせください",
   },
   // Generic/common
   all: { zh: "全部", en: "All", ko: "전체", ja: "すべて" },
