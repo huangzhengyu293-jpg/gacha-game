@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import AccountMobileMenu from "../components/AccountMobileMenu";
 import { api } from "@/app/lib/api";
@@ -15,7 +15,7 @@ import type { RawBattleListItem } from "@/app/components/bettlesListData";
 export default function BattlesPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const showPaginationBars = false;
+  const [page, setPage] = useState(1);
   const {
     data,
     isLoading,
@@ -23,10 +23,11 @@ export default function BattlesPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["accountBattles"],
-    queryFn: () => api.getMyBattleList(),
-    staleTime: 30_000,
+    queryKey: ["accountBattles", page],
+    queryFn: () => api.getMyBattleList({ page }),
+    staleTime: 0, // 每次切換頁面都重新請求
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData, // 加載新頁時保留上一頁數據，不閃回空態
   });
 
   const rawList = useMemo<RawBattleListItem[]>(() => {
@@ -39,12 +40,27 @@ export default function BattlesPage() {
   }, [data]);
 
   const cards = useMemo(() => buildBattleListCards(rawList), [rawList]);
+
   const paginationMeta = useMemo(() => {
-    const total = cards.length;
-    const start = total > 0 ? 1 : 0;
-    const end = total;
-    return { start, end, total };
-  }, [cards.length]);
+    const root = data?.data as any;
+    const totalRaw = root?.total ?? root?.count ?? root?.meta?.total ?? 0;
+    const fromRaw = root?.from ?? root?.meta?.from;
+    const toRaw = root?.to ?? root?.meta?.to;
+    const lastPageRaw = root?.last_page ?? root?.meta?.last_page ?? root?.data?.last_page ?? 1;
+    const perPageRaw = root?.per_page ?? root?.meta?.per_page ?? root?.data?.per_page ?? 20;
+    const total = Number(totalRaw);
+    const lastPage = Math.max(1, Number(lastPageRaw));
+    const perPage = Number(perPageRaw) || 20;
+    const from = Number(fromRaw);
+    const to = Number(toRaw);
+    const start = Number.isFinite(from) && from > 0 ? from : (cards.length > 0 ? (page - 1) * perPage + 1 : 0);
+    const end = Number.isFinite(to) && to > 0 ? to : (cards.length > 0 ? (page - 1) * perPage + cards.length : 0);
+    const totalDisplay = Number.isFinite(total) && total > 0 ? total : (lastPage > 1 ? lastPage * perPage : cards.length);
+    return { start, end, total: totalDisplay, lastPage };
+  }, [data, page, cards.length]);
+
+  const disabledPrev = page <= 1;
+  const disabledNext = page >= paginationMeta.lastPage;
 
   return (
     <div className="w-full max-w-screen-xl px-4 pt-4 pb-40 mx-auto" style={{ color: '#7A8084' }}>
@@ -81,15 +97,15 @@ export default function BattlesPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {showPaginationBars ? (
-                  <DealsPaginationBar
-                    start={paginationMeta.start}
-                    end={paginationMeta.end}
-                    total={paginationMeta.total}
-                    disabledPrev
-                    disabledNext
-                  />
-                ) : null}
+                <DealsPaginationBar
+                  start={paginationMeta.start}
+                  end={paginationMeta.end}
+                  total={paginationMeta.total}
+                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setPage((p) => Math.min(paginationMeta.lastPage, p + 1))}
+                  disabledPrev={disabledPrev}
+                  disabledNext={disabledNext}
+                />
                 <div className="flex flex-col gap-4">
                   {cards.map((card) => {
                     const isWaiting = Number(card.status) === 0;
@@ -126,15 +142,15 @@ export default function BattlesPage() {
                     );
                   })}
                 </div>
-                {showPaginationBars ? (
-                  <DealsPaginationBar
-                    start={paginationMeta.start}
-                    end={paginationMeta.end}
-                    total={paginationMeta.total}
-                    disabledPrev
-                    disabledNext
-                  />
-                ) : null}
+                <DealsPaginationBar
+                  start={paginationMeta.start}
+                  end={paginationMeta.end}
+                  total={paginationMeta.total}
+                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setPage((p) => Math.min(paginationMeta.lastPage, p + 1))}
+                  disabledPrev={disabledPrev}
+                  disabledNext={disabledNext}
+                />
               </div>
             )}
           </div>

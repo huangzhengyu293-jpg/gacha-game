@@ -809,9 +809,11 @@ export const api = {
     });
     return result;
   },
-  getMyBattleList: async () => {
+  getMyBattleList: async (params?: { page?: number }) => {
+    const page = params?.page ?? 1;
     const result = await request<ApiResponse<any>>('/api/fight/mylist', {
       method: 'GET',
+      params: { page: String(page) },
     });
     return result;
   },
