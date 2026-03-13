@@ -76,7 +76,7 @@ export default function ProductDetailsModal({
               ) : null}
             </div>
             <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-            <p style={{ color: '#7A8084' }}>{description || (showFallback ? t('productDescFallback') : '')}</p>
+            <p style={{ color: '#7A8084' }}>{t('productDescFallback')}</p>
           </div>
         </div>
         <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#9CA3AF' }}>
