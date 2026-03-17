@@ -13,8 +13,8 @@ export default function RewardsPage() {
   const [dayCountdown, setDayCountdown] = useState(t('calculating'));
   const [weekCountdown, setWeekCountdown] = useState(t('calculating'));
   const [monthCountdown, setMonthCountdown] = useState(t('calculating'));
-  const disableTextColor = '#2b6cb0';
-  const buttonBg = '#4299e1';
+  const disableTextColor = '#254EB1';
+  const buttonBg = 'var(--deposit-btn-bg)';
   const buttonDisabledBg = '#292f34';
   const [claimingType, setClaimingType] = useState<1 | 2 | 3 | null>(null);
 
@@ -213,11 +213,17 @@ export default function RewardsPage() {
     <button
       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6 w-48 sm:w-40 md:w-48"
       style={{
-        backgroundColor: btn.disabled ? buttonBg : buttonBg,
+        background: btn.disabled ? buttonDisabledBg : buttonBg,
         color: btn.disabled ? disableTextColor : '#ffffff',
         cursor: btn.disabled ? 'not-allowed' : 'pointer',
       }}
       disabled={btn.disabled}
+      onMouseEnter={(e) => {
+        if (!btn.disabled) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)';
+      }}
+      onMouseLeave={(e) => {
+        if (!btn.disabled) (e.currentTarget as HTMLButtonElement).style.background = buttonBg;
+      }}
       onClick={() => {
         if (btn.disabled) return;
         btn.onClick?.();
@@ -239,7 +245,7 @@ export default function RewardsPage() {
                   <div className="flex justify-center items-center rounded-2xl px-6 py-6 bg-reward-card-highlight" style={{ backgroundColor: '#22272b' }}>
                     <div className="flex flex-col items-center gap-4 sm:max-w-60">
                       <div className="flex size-12 sm:size-14 rounded-2xl items-center justify-center" style={{ backgroundColor: '#292f34' }}>
-                        <div className="size-7 sm:size-8" style={{ color: '#4299e1' }}>
+                        <div className="size-7 sm:size-8" style={{ color: '#254EB1' }}>
                           <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4.71275 11.4188L9.02206 14.7441C9.80906 15.3514 10.9413 15.1941 11.5329 14.3952L16.0886 8.24305L20.6561 14.4111C21.2384 15.1975 22.3474 15.3642 23.1352 14.7839L27.7528 11.3826L25.331 26.0999H6.86021L4.71275 11.4188Z" stroke="currentColor" strokeWidth="1.8"></path>
                             <ellipse cx="15.9225" cy="3.46154" rx="1.96154" ry="1.96154" fill="currentColor"></ellipse>
@@ -259,7 +265,7 @@ export default function RewardsPage() {
                   <div className="flex justify-center items-center rounded-2xl px-6 py-6 bg-reward-card-highlight" style={{ backgroundColor: '#22272b' }}>
                     <div className="flex flex-col items-center gap-4 sm:max-w-60">
                       <div className="flex size-12 sm:size-14 rounded-2xl items-center justify-center" style={{ backgroundColor: '#292f34' }}>
-                        <div className="size-7 sm:size-8" style={{ color: '#4299e1' }}>
+                        <div className="size-7 sm:size-8" style={{ color: '#254EB1' }}>
                           <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M16.1283 8.64702L12.594 12.2487C12.0249 12.8286 12.4358 13.8074 13.2483 13.8074H14.4409C14.9472 13.8074 15.3576 14.2178 15.3576 14.724V16.9573C15.3576 17.7916 16.3816 18.1922 16.9476 17.5792L20.1811 14.0783C20.7233 13.4911 20.3069 12.5396 19.5077 12.5396H18.6159C18.1097 12.5396 17.6993 12.1292 17.6993 11.623V9.28905C17.6993 8.46821 16.7032 8.06114 16.1283 8.64702Z" fill="currentColor"></path>
                             <path d="M26.3231 12.8889C26.3231 18.4056 21.8509 22.8778 16.3342 22.8778C10.8175 22.8778 6.34531 18.4056 6.34531 12.8889C6.34531 7.37218 10.8175 2.9 16.3342 2.9C21.8509 2.9 26.3231 7.37218 26.3231 12.8889Z" stroke="currentColor" strokeWidth="1.8"></path>
@@ -279,7 +285,7 @@ export default function RewardsPage() {
                   <div className="flex justify-center items-center rounded-2xl px-6 py-6 bg-reward-card-highlight" style={{ backgroundColor: '#22272b' }}>
                     <div className="flex flex-col items-center gap-4 sm:max-w-60">
                       <div className="flex size-12 sm:size-14 rounded-2xl items-center justify-center" style={{ backgroundColor: '#292f34' }}>
-                        <div className="size-7 sm:size-8" style={{ color: '#4299e1' }}>
+                        <div className="size-7 sm:size-8" style={{ color: '#254EB1' }}>
                           <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M15.8708 7.53526L11.8303 11.6528C11.4763 12.0135 11.7318 12.6223 12.2372 12.6223H14.171C14.4859 12.6223 14.7412 12.8775 14.7412 13.1924V16.1068C14.7412 16.6258 15.3781 16.8749 15.7302 16.4937L19.4752 12.4387C19.8125 12.0736 19.5535 11.4818 19.0564 11.4818H17.418C17.1032 11.4818 16.8479 11.2265 16.8479 10.9116V7.93459C16.8479 7.42404 16.2284 7.17086 15.8708 7.53526Z" fill="currentColor"></path>
                             <path d="M24.5613 11.7962C24.5613 16.7341 20.5583 20.7371 15.6204 20.7371C10.6824 20.7371 6.67944 16.7341 6.67944 11.7962C6.67944 6.85821 10.6824 2.85522 15.6204 2.85522C20.5583 2.85522 24.5613 6.85821 24.5613 11.7962Z" stroke="currentColor" strokeWidth="1.71044"></path>
@@ -340,7 +346,7 @@ export default function RewardsPage() {
                   <p className="text-base font-extrabold text-white mb-3 leading-none break-words">{t('welcomeUser').replace('{name}', profileName)}</p>
                     <div className="w-full border p-0.5 rounded-full h-4" style={{ borderColor: '#2F3337' }}>
                       <div className="relative overflow-hidden rounded-full w-full h-full" style={{ backgroundColor: '#22272b' }}>
-                        <div className="h-full flex-1 transition-all" style={{ width: `${profileProgressNumber}%`, backgroundColor: '#4199e1' }}></div>
+                        <div className="h-full flex-1 transition-all" style={{ width: `${profileProgressNumber}%`, backgroundColor: '#254EB1' }}></div>
                       </div>
                     </div>
                     <div className="flex justify-between mt-2">

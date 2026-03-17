@@ -736,9 +736,12 @@ export default function ParticipantsWithPrizes({
                     type="button"
                     className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-10 px-6 flex-1 text-base font-bold ${
                       isActive
-                        ? "bg-blue-400 text-white hover:bg-blue-500"
+                        ? "text-white"
                         : "bg-transparent text-gray-400 hover:text-white"
                     }`}
+                    style={{ background: isActive ? 'var(--deposit-btn-bg)' : 'transparent' }}
+                    onMouseEnter={(e) => { if (isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? 'var(--deposit-btn-bg)' : 'transparent'; }}
                     onClick={() => setActiveTeamGroup(index)}
                   >
                     TEAM {index + 1}
@@ -893,9 +896,12 @@ export default function ParticipantsWithPrizes({
                   type="button"
                   className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-10 px-6 flex-1 text-base font-bold ${
                     isActive
-                      ? "bg-blue-400 text-white hover:bg-blue-500"
+                      ? "text-white"
                       : "bg-transparent text-gray-400 hover:text-white"
                   }`}
+                  style={{ background: isActive ? 'var(--deposit-btn-bg)' : 'transparent' }}
+                  onMouseEnter={(e) => { if (isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? 'var(--deposit-btn-bg)' : 'transparent'; }}
                   onClick={() => setActiveGroup(index)}
                 >
                   {group.label}

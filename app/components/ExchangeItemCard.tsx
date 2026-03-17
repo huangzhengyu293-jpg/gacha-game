@@ -22,8 +22,8 @@ export default function ExchangeItemCard({ item, selected, onToggle, disabled }:
   const [hovered, setHovered] = useState(false);
   const isDisabled = !!disabled;
 
-  const borderColor = selected ? '#4299E1' : hovered ? '#34383c' : '#22272B';
-  const checkboxBorder = selected ? '#4299E1' : hovered ? '#4299E1' : '#5A5E62';
+  const borderColor = selected ? '#254EB1' : hovered ? '#34383c' : '#22272B';
+  const checkboxBorder = selected ? '#254EB1' : hovered ? '#254EB1' : '#5A5E62';
 
   return (
     <div
@@ -78,7 +78,7 @@ export default function ExchangeItemCard({ item, selected, onToggle, disabled }:
           tabIndex={-1}
           style={{
             border: `1px solid ${checkboxBorder}`,
-            backgroundColor: selected ? '#4299E1' : 'transparent',
+            background: selected ? 'var(--deposit-btn-bg)' : 'transparent',
             color: '#FFFFFF',
           }}
           onClick={(e) => {

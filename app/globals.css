@@ -71,9 +71,17 @@ body { -webkit-text-size-adjust: 100%; }
   .min-h-mobile { min-height: 100dvh; }
 }
 
+/* 存款弹窗渐变背景 & 充值按钮样式（全局复用） */
+:root {
+  --deposit-gradient-bg: radial-gradient(60% 86% at 83% 1%, #22282E 0%, #161920 100%);
+  --deposit-btn-bg: linear-gradient(137deg, #3236BB 0%, #254EB1 100%);
+  --deposit-btn-bg-hover: linear-gradient(137deg, #3d41d4 0%, #2d5ac9 100%);
+  --deposit-btn-color: #FFFFFF;
+}
+
 /* Background image (borrowed style) */
 body {
-  background-color: #1D2125 !important;
+  background: var(--deposit-gradient-bg) !important;
   overflow-x: hidden;
 }
 
@@ -244,7 +252,7 @@ html { overflow-x: hidden; }
 
 /* 背景色工具类 */
 .bg-gray-650 {
-  background-color: #1d2125;
+  background: var(--deposit-gradient-bg);
 }
 
 /* Changa One 字体 */

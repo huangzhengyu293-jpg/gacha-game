@@ -9,11 +9,14 @@ module.exports = {
     extend: {
       colors: {
         'deals-bg': '#22272B',
-        'deals-input-bg': '#1D2125',
+        'deals-input-bg': '#22282E',
         'deals-button-bg': '#34383C',
         'deals-price-text': '#7A8084',
         'gray-650': '#34383C',
         'green-100': '#10B981',
+      },
+      backgroundImage: {
+        'deposit-gradient': 'radial-gradient(60% 86% at 83% 1%, #22282E 0%, #161920 100%)',
       },
       aspectRatio: {
         'battlePack': '3 / 4',

@@ -254,10 +254,10 @@ export default function Home() {
               />
               
 
-              {/* Interactive Cards Grid - 仅显示最新 5 个礼包（新建在最前） */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 self-stretch min-w-0">
-                {packs.slice(0, 5).map((pack: CatalogPack) => (
-                  <div className="relative flex flex-col items-stretch w-full" key={pack.id}>
+              {/* Interactive Cards Grid - 新礼包一排六个，等比例缩放 */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 self-stretch min-w-0">
+                {packs.slice(0, 12).map((pack: CatalogPack) => (
+                  <div className="relative flex flex-col items-stretch w-full min-w-0" key={pack.id}>
                     <PackCard
                       imageUrl={`${pack.image}?tr=q-50,w-640,c-at_max`}
                       alt={pack.title}
@@ -270,8 +270,8 @@ export default function Home() {
                       packTitle={pack.title}
                       packPrice={pack.price}
                     />
-                    <div className="flex justify-center pt-3">
-                      <p className="font-bold text-base" style={{ color: '#FFFFFF' }}>
+                    <div className="flex justify-center pt-1.5 sm:pt-2">
+                      <p className="font-bold text-xs sm:text-sm" style={{ color: '#FFFFFF' }}>
                         {`$${pack.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </p>
                     </div>
@@ -323,7 +323,6 @@ export default function Home() {
               <div className="mt-10">
                 <HowItWorks />
               </div>
-
               
             </div>
 

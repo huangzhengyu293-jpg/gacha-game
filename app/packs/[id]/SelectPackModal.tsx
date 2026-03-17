@@ -331,7 +331,7 @@ export default function SelectPackModal({
         </div>
 
         <div className="px-6">
-          <div className="h-[2px]" style={{ backgroundColor: '#1D2125' }} />
+          <div className="h-[2px]" style={{ background: 'var(--deposit-gradient-bg)' }} />
         </div>
         <div className="flex font-semibold gap-2 px-6 border-t h-14 items-center justify-end" style={{ borderColor: '#34383C' }}>
           <div className="flex gap-2">

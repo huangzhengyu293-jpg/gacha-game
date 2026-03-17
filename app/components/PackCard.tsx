@@ -174,8 +174,8 @@ export default function PackCard({
         <div className="absolute inset-0 flex items-center justify-center bg-[#22272B]">
           <LoadingSpinner
             className="h-10 w-10"
-            indicatorColor="#1D2125"
-            trackColor="#1D212533"
+            indicatorColor="#22282E"
+            trackColor="#22282E33"
           />
         </div>
       )}

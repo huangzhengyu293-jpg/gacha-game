@@ -63,16 +63,13 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
   return (
     <div className="flex flex-col items-stretch self-stretch py-8">
       <div className="flex flex-col lg:flex-row items-stretch gap-4">
-        <div className="w-full lg:w-[339.43px] xl:w-[339.43px] order-1 lg:order-0">
-          <DealsLeftPanel
-            onPercentChange={(p) => updatePercentFrom('left', p)}
-            initialSlider={percent}
-            onSliderInteractionStart={() => setActiveController('left')}
-            onSliderInteractionEnd={() => setActiveController(null)}
-            disabled={uiLocked || inactive}
-            inactive={inactive}
-            onReset={onReselectSelectedProduct}
-            calculatedPrice={spinPrice}
+        <div className="hidden lg:block lg:w-[339.44px] lg:order-0">
+          <DealsRightPanel 
+            percent={percent} 
+            inactive={inactive} 
+            product={selectedProduct ? { name: selectedProduct.name, image: selectedProduct.image, price: spinPrice } : null}
+            originalPrice={selectedProduct?.originalPrice || 0}
+            rate={selectedProduct?.rate || 1}
           />
         </div>
         <div className="w-full lg:flex-1 xl:w-[521.14px] order-0 lg:order-1">
@@ -96,13 +93,16 @@ export default function DealsTopSection({ selectedProduct = null, onReselectSele
             productLevel={selectedProduct?.level}
           />
         </div>
-        <div className="hidden lg:block lg:w-[339.44px] lg:order-2">
-          <DealsRightPanel 
-            percent={percent} 
-            inactive={inactive} 
-            product={selectedProduct ? { name: selectedProduct.name, image: selectedProduct.image, price: spinPrice } : null}
-            originalPrice={selectedProduct?.originalPrice || 0}
-            rate={selectedProduct?.rate || 1}
+        <div className="w-full lg:w-[339.43px] xl:w-[339.43px] order-1 lg:order-2">
+          <DealsLeftPanel
+            onPercentChange={(p) => updatePercentFrom('left', p)}
+            initialSlider={percent}
+            onSliderInteractionStart={() => setActiveController('left')}
+            onSliderInteractionEnd={() => setActiveController(null)}
+            disabled={uiLocked || inactive}
+            inactive={inactive}
+            onReset={onReselectSelectedProduct}
+            calculatedPrice={spinPrice}
           />
         </div>
       </div>

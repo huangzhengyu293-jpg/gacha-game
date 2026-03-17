@@ -81,7 +81,7 @@ export const RaceCountdownCard = memo(function RaceCountdownCard({
 
   return (
     <div className="rounded-lg p-4 md:p-8" style={{ backgroundColor: "#22272B" }}>
-      <div className="relative rounded-lg overflow-hidden" style={{ backgroundColor: "#1d2125" }}>
+      <div className="relative rounded-lg overflow-hidden" style={{ background: "var(--deposit-gradient-bg)" }}>
         <div
           className="absolute -top-6 left-0 w-full overflow-hidden rounded-lg pointer-events-none"
           style={{ height: "calc(100% + 1.5rem)" }}

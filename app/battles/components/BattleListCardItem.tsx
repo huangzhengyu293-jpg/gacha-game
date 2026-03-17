@@ -19,6 +19,7 @@ const formatCurrency = (value: number) => currencyFormatter.format(value ?? 0);
 
 type BattleListCardItemProps = {
   card: BattleListCard;
+  compact?: boolean; // 小屏紧凑样式：垂直布局，用于网格
   labels: {
     cost: string;
     opened: string;
@@ -92,10 +93,12 @@ function Gallery({
   items,
   highlightedIndex,
   canScroll = true,
+  compact = false,
 }: {
   items: Array<{ src: string; alt?: string }>;
   highlightedIndex?: number;
   canScroll?: boolean;
+  compact?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRefs = useRef<Array<HTMLImageElement | null>>([]);
@@ -177,7 +180,7 @@ function Gallery({
       ref={containerRef}
       style={{ WebkitOverflowScrolling: "touch" }}
     >
-      <div className="rounded-lg m-[1px] flex gap-3 pr-2 md:pr-[282px] py-1.5" style={{ height: 108 }}>
+      <div className={`rounded-lg m-[1px] flex gap-3 py-1.5 ${compact ? "pr-2" : "pr-2 md:pr-[282px]"}`} style={{ height: compact ? 96 : 108 }}>
         {items.map((g, i) => {
           const isActive = highlightedIndex === i;
           return (
@@ -237,6 +240,7 @@ const ShareConnectorIcon = () => (
 
 export default function BattleListCardItem({
   card,
+  compact = false,
   labels,
   onPrimaryAction,
   buttonColors,
@@ -358,8 +362,8 @@ export default function BattleListCardItem({
   })();
   const buttonColor = isPendingBattle
     ? {
-        default: "#4299e1",
-        hover: "#5ab0ff",
+        default: "var(--deposit-btn-bg)",
+        hover: "var(--deposit-btn-bg-hover)",
       }
     : buttonColors;
   const resolvedButtonColors = buttonColor ?? buttonColors ?? DEFAULT_BUTTON_COLORS;
@@ -376,7 +380,7 @@ export default function BattleListCardItem({
   return (
     <div className="cursor-pointer">
       <div
-        className="flex relative flex-col md:flex-row items-center p-4 rounded-lg cursor-pointer min-w-0 transition-colors"
+        className={`flex relative items-center rounded-lg cursor-pointer min-w-0 transition-colors ${compact ? "flex-col p-3" : "flex-col md:flex-row p-4"}`}
         style={{ backgroundColor: "#22272B" }}
         onClick={handleCardClick}
         onMouseEnter={(e) => {
@@ -387,11 +391,11 @@ export default function BattleListCardItem({
         }}
       >
         <div
-          className="absolute top-0 left-[35%] md:left-0 h-1.5 md:h-full w-[30%] md:w-1.5 rounded-b-lg md:rounded-r-none md:rounded-l-lg"
+          className={`absolute top-0 h-1.5 rounded-b-lg ${compact ? "left-[35%] w-[30%]" : "left-[35%] md:left-0 w-[30%] md:h-full md:w-1.5 md:rounded-r-none md:rounded-l-lg"}`}
           style={{ backgroundColor: modeVisual.accentColor }}
         />
 
-        <div className="flex flex-col items-center gap-2 w-full md:w-[21rem] min-w-0">
+        <div className={`flex flex-col items-center gap-2 w-full min-w-0 ${compact ? "" : "md:w-[21rem]"}`}>
           <div className="flex items-center gap-2">
             <p className="text-base font-extrabold" style={{ color: "#7A8084" }}>
               {modeLabel}
@@ -418,12 +422,13 @@ export default function BattleListCardItem({
           </div>
         </div>
 
-        <div className="flex flex-1 min-w-0 self-stretch md:self-center py-1">
+        <div className={`flex flex-1 min-w-0 py-1 ${compact ? "self-stretch" : "self-stretch md:self-center"}`}>
           <div className="flex relative w-full rounded-lg overflow-hidden" style={{ backgroundColor: "#0F1012" }}>
             <Gallery
               items={card.packImages}
               highlightedIndex={card.currentPackIndex}
               canScroll={card.status === 2}
+              compact={compact}
             />
             <div className="flex absolute justify-center items-center top-0 right-0 gap-1 py-[2.5px] px-1 m-1 rounded" style={{ backgroundColor: "#232529", color: "#FFFFFF" }}>
               <div className="size-3 text-white">
@@ -437,7 +442,7 @@ export default function BattleListCardItem({
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 w-full md:w-[12rem] overflow-hidden min-w-0">
+        <div className={`flex flex-col items-center gap-2 w-full overflow-hidden min-w-0 ${compact ? "" : "md:w-[12rem]"}`}>
           <div className="overflow-hidden max-w-full px-4">
             <p className="text-base font-bold text-center truncate" style={{ color: "#7A8084" }}>
               {statusText}
@@ -445,12 +450,12 @@ export default function BattleListCardItem({
           </div>
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none h-10 px-6 w-40 m-[1px]"
-            style={{ backgroundColor: resolvedButtonColors.default }}
+            style={{ background: resolvedButtonColors.default }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor = resolvedButtonColors.hover;
+              (e.currentTarget as HTMLButtonElement).style.background = resolvedButtonColors.hover;
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor = resolvedButtonColors.default;
+              (e.currentTarget as HTMLButtonElement).style.background = resolvedButtonColors.default;
             }}
             onClick={isPendingBattle && onPendingAction ? onPendingAction : onPrimaryAction}
           >

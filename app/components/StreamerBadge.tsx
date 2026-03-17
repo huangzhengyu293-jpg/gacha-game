@@ -17,13 +17,14 @@ export default function StreamerBadge({ size = "sm", className }: StreamerBadgeP
     <span
       className={[
         "inline-flex items-center justify-center whitespace-nowrap rounded-full",
-        "border border-[#2B2F33] bg-[#1D2125] text-[#E1E7EF]",
+        "border border-[#2B2F33] text-[#E1E7EF]",
         "font-bold leading-none",
         sizing,
         className,
       ]
         .filter(Boolean)
         .join(" ")}
+      style={{ background: 'var(--deposit-gradient-bg)' }}
     >
       {t("streamerLabel")}
     </span>

@@ -51,7 +51,7 @@ function PromoCodeForm({
        
         <input
           className="flex h-10 w-full rounded-md border border-gray-600 focus:border-gray-600 bg-gray-800 px-3 py-2 pr-12 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 text-[#7A8084]"
-          style={{ backgroundColor: '#1d2125', color: '#7A8084' }}
+          style={{ background: 'var(--deposit-gradient-bg)', color: '#7A8084' }}
           placeholder={placeholder ?? t("promoCodePlaceholder")}
           type="text"
           value={value}
@@ -59,9 +59,11 @@ function PromoCodeForm({
         />
         <button
           type="submit"
-          className="inline-flex items-center justify-center gap-2  whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
-          style={{ color: loading ? 'rgba(0,0,0,0)' : undefined, cursor: disabled ? 'not-allowed' : 'pointer', marginRight: showTopDivider ? '-4px' : '8px' }}
+          className="inline-flex items-center justify-center gap-2  whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus select-none absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
+          style={{ background: 'var(--deposit-btn-bg)', color: loading ? 'rgba(0,0,0,0)' : 'var(--deposit-btn-color)', cursor: disabled ? 'not-allowed' : 'pointer', marginRight: showTopDivider ? '-4px' : '8px' }}
           disabled={disabled}
+          onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1252,14 +1254,14 @@ export default function Navbar() {
   // const integralDisplay = (user?.bean as any)?.integral || 0;
 
   return (
-    <div className="flex flex-col sticky z-20 top-0 w-full items-center" style={{ backgroundColor: '#1D2125' }}>
+    <div className="flex flex-col sticky z-20 top-0 w-full items-center" style={{ background: 'var(--deposit-gradient-bg)' }}>
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         .menu-item:hover { background-color: transparent; }
         @media (max-width: 639px) { .nav-vol { display: none !important; } }
       `}</style>
-      <div className="w-full" style={{ borderBottom: '2px solid #34383C', backgroundColor: '#1D2125' }}>
+      <div className="w-full" style={{ borderBottom: '2px solid #34383C', background: 'var(--deposit-gradient-bg)' }}>
         <div className="mx-auto w-full max-w-[1280px] flex items-center justify-between px-4 safe-x h-12 min-h-12 sm:h-[65px] sm:min-h-[65px] lg:h-16 lg:min-h-16 overflow-visible">
           {/* Left (Logo + Desktop Nav) */}
           <div className="flex items-center gap-2 lg:gap-4">
@@ -1348,7 +1350,7 @@ export default function Navbar() {
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart h-5 w-5 xs:hidden md:block lg:hidden text-white"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
                 </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none px-3 h-8 sm:h-9 min-w-24" style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)' }} onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }} onClick={() => setShowWalletModal(true)}>
                   <p className="text-sm text-white font-bold">${beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                 </button>
                 {/* <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative bg-orange-500 text-base text-white font-bold hover:bg-orange-600 select-none px-3 h-8 sm:h-9 min-w-24" onClick={() => setShowWalletModal(true)}>
@@ -1449,7 +1451,7 @@ export default function Navbar() {
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowLogin(true)}>
                   <p className="text-sm">{t('login')}</p>
                 </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none px-6 h-8 sm:h-9 w-24" onClick={() => setShowRegister(true)}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative select-none px-6 h-8 sm:h-9 w-24" style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)' }} onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }} onClick={() => setShowRegister(true)}>
                   <p className="text-sm">{t('register')}</p>
                 </button>
               </div>
@@ -1489,7 +1491,10 @@ export default function Navbar() {
                   </button>
                 </div>
                 <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 select-none px-3 h-8 xs:h-9 min-w-20"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative select-none px-3 h-8 xs:h-9 min-w-20"
+                  style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                   onClick={() => setShowWalletModal(true)}
                 >
                   <p className="text-sm text-white font-bold">${beanDisplay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
@@ -1632,7 +1637,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ backgroundColor: '#1D2125' }}>
+        <div className="flex lg:hidden flex-col fixed left-0 right-0 top-12 bottom-0" style={{ background: 'var(--deposit-gradient-bg)' }}>
           {isAuthenticated ? (
             <div className="flex flex-col rounded-lg m-4 mb-6 mt-6" style={{ backgroundColor: '#22272B' }}>
               <div className="flex gap-4 p-4 cursor-pointer" style={{ borderBottom: '1px solid #34383C' }} onClick={() => { setIsMenuOpen(false); router.push('/account'); }}>
@@ -1687,11 +1692,11 @@ export default function Navbar() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ backgroundColor: '#1D2125' }}>
+            <div className="flex flex-col gap-3 border border-gray-700 m-4 rounded-lg mb-6 px-10 py-6 mt-6" style={{ background: 'var(--deposit-gradient-bg)' }}>
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-gray-600 text-base text-white font-bold hover:bg-gray-500 disabled:text-gray-400 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowLogin(true); }}>
                 <p className="text-lg text-white font-bold">{t('login')}</p>
               </button>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative bg-blue-400 text-base text-white font-bold hover:bg-blue-500 disabled:text-blue-600 select-none h-10 px-6" onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative select-none h-10 px-6" style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)' }} onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }} onClick={() => { setIsMenuOpen(false); setShowRegister(true); }}>
                 <p className="text-lg text-white font-bold">{t('register')}</p>
               </button>
             </div>
@@ -1738,7 +1743,7 @@ export default function Navbar() {
           role="dialog"
           aria-modal="true"
           className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 sm:rounded-lg"
-          style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
+          style={{ background: 'var(--deposit-gradient-bg)', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
         >
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
             <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("registerTitle")}</h2>
@@ -1797,15 +1802,17 @@ export default function Navbar() {
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.8 : 1 }}
+                style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.8 : 1 }}
                 disabled={isSubmitting}
+                onMouseEnter={(e) => { if (!isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
               >
                 {isSubmitting ? t("registering") : t("registerBtn")}
               </button>
             </form>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>{t("alreadyHaveAccount")}</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
+              <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={() => {
                 setShowRegister(false);
                 setShowLogin(true);
                 // 清空注册表单
@@ -1820,7 +1827,7 @@ export default function Navbar() {
 
       {/* Login Modal 内容 */}
       {showLogin && (
-        <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
+        <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ background: 'var(--deposit-gradient-bg)', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
             <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("loginTitle")}</h2>
             <p className="text-md" style={{ color: '#9CA3AF' }}>{t("loginSubtitle")}</p>
@@ -1847,16 +1854,18 @@ export default function Navbar() {
               </div>
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={loginRemember} onChange={(e) => setLoginRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#60A5FA' }} />
+                  <input type="checkbox" checked={loginRemember} onChange={(e) => setLoginRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#254EB1' }} />
                   <span className="text-base" style={{ color: '#FFFFFF' }}>{t("keepLoggedIn")}</span>
                 </label>
-                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>{t("forgotPassword")}</span>
+                <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={() => { setShowLogin(false); setShowForgot(true); }}>{t("forgotPassword")}</span>
               </div>
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }}
+                style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: (loginCanSubmit && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (loginCanSubmit && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!loginCanSubmit || isSubmitting}
+                onMouseEnter={(e) => { if (loginCanSubmit && !isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
               >
                 {isSubmitting ? t("loggingIn") : t("loginBtn")}
               </button>
@@ -1864,14 +1873,14 @@ export default function Navbar() {
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
             <p className="text-base" style={{ color: '#FFFFFF' }}>{t("noAccount")}</p>
-            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowLogin(false); setShowRegister(true); }}>{t("registerBtn")}</span>
+            <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={() => { setShowLogin(false); setShowRegister(true); }}>{t("registerBtn")}</span>
           </div>
         </div>
       )}
 
       {/* Forgot Password 内容 */}
       {showForgot && (
-        <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
+        <div role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg" style={{ background: 'var(--deposit-gradient-bg)', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}>
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
             <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("forgotTitle")}</h2>
             <p className="text-md" style={{ color: '#9CA3AF' }}>{t("forgotSubtitle")}</p>
@@ -1888,8 +1897,10 @@ export default function Navbar() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-2"
-                  style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (forgotEmailValid && forgotCountdown === 0) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCountdown === 0) ? 1 : 0.8 }}
+                  style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: (forgotEmailValid && forgotCountdown === 0) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCountdown === 0) ? 1 : 0.8 }}
                   disabled={!forgotEmailValid || forgotCountdown > 0}
+                  onMouseEnter={(e) => { if (forgotEmailValid && forgotCountdown === 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                   onClick={handleSendForgotEmail}
                 >
                   {forgotCountdown > 0 ? t("resendWithCountdown").replace("{s}", String(forgotCountdown)) : t("resend")}
@@ -1902,8 +1913,10 @@ export default function Navbar() {
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-2"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 1 : 0.8 }}
+                style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) ? 1 : 0.8 }}
                 disabled={!forgotEmailValid || !forgotCodeValid || !forgotPassValid || isSubmitting}
+                onMouseEnter={(e) => { if (forgotEmailValid && forgotCodeValid && forgotPassValid && !isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
               >
                 {isSubmitting ? t("resetting") : t("resetPassword")}
               </button>
@@ -1911,7 +1924,7 @@ export default function Navbar() {
           </div>
           <div className="flex flex-row justify-center py-2 gap-1">
             <p className="text-base" style={{ color: '#FFFFFF' }}>{t("noAccount")}</p>
-            <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>{t("registerBtn")}</span>
+            <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={() => { setShowForgot(false); setShowRegister(true); }}>{t("registerBtn")}</span>
           </div>
         </div>
       )}
@@ -1922,7 +1935,7 @@ export default function Navbar() {
           role="dialog"
           aria-modal="true"
           className="fixed left-1/2 top-1/2 z-60 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 sm:rounded-lg"
-          style={{ backgroundColor: '#1D2125', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
+          style={{ background: 'var(--deposit-gradient-bg)', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'modalZoomIn 180ms ease' }}
         >
           <div className="flex flex-col justify-center items-center pt-2 pb-1">
             <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{t("verifyEmailTitle")}</h2>
@@ -1959,8 +1972,10 @@ export default function Navbar() {
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none h-10 px-6 mt-6"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }}
+                style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: (verifyCode.trim().length > 0 && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (verifyCode.trim().length > 0 && !isSubmitting) ? 1 : 0.8 }}
                 disabled={verifyCode.trim().length === 0 || isSubmitting}
+                onMouseEnter={(e) => { if (verifyCode.trim().length > 0 && !isSubmitting) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
               >
                 {isSubmitting ? t("verifying") : t("verifyAction")}
               </button>
@@ -1972,14 +1987,14 @@ export default function Navbar() {
                   {t("resendWithCountdown").replace("{s}", String(resendCountdown))}
                 </span>
               ) : (
-                <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={handleResendCode}>
+                <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={handleResendCode}>
                   {t("resend")}
                 </span>
               )}
             </div>
             <div className="flex flex-row justify-center py-2 gap-1">
               <p className="text-base" style={{ color: '#FFFFFF' }}>{t("alreadyHaveAccount")}</p>
-              <span className="text-base cursor-pointer" style={{ color: '#4299E1' }} onClick={() => {
+              <span className="text-base cursor-pointer" style={{ color: '#254EB1' }} onClick={() => {
                 setShowVerifyCode(false);
                 setVerifyCode('');
                 setVerifyEmail('');
@@ -3568,11 +3583,17 @@ export default function Navbar() {
                   type="button"
                   className="w-full sm:w-[138px] h-[48px] rounded-[6px] flex items-center justify-center flex-none border-0"
                   style={{
-                    background: 'linear-gradient(137deg, #3236BB 0%, #254EB1 100%)',
+                    background: 'var(--deposit-btn-bg)',
                     cursor: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 'not-allowed' : 'pointer',
                     opacity: (selectedChannel?.id === 2 ? cdkPayMutation.isPending : rechargeMutation.isPending) ? 0.7 : 1,
                   }}
                   disabled={selectedChannel?.id === 2 ? (!cdkValue.trim() || cdkPayMutation.isPending) : rechargeMutation.isPending}
+                  onMouseEnter={(e) => {
+                    if (selectedChannel?.id === 2 ? (cdkValue.trim() && !cdkPayMutation.isPending) : !rechargeMutation.isPending) {
+                      (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)';
+                    }
+                  }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                   onClick={() => {
                     if (selectedChannel?.id === 2) {
                       if (!cdkValue.trim() || cdkPayMutation.isPending) return;
@@ -4478,7 +4499,9 @@ export default function Navbar() {
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-10 px-6"
                 onClick={handleRealNameConfirm}
                 disabled={rechargeMutation.isPending}
-                style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
+                style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: rechargeMutation.isPending ? 'not-allowed' : 'pointer' }}
+                onMouseEnter={(e) => { if (!rechargeMutation.isPending) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
               >
                 {rechargeMutation.isPending ? t('submitting') : t('confirm')}
               </button>

@@ -538,7 +538,7 @@ export default function ReferralsPage() {
                         onChange={(e) => setEditingCode(e.target.value)}
                         className="flex h-10 w-full rounded-md border px-3 py-2 mr-2 text-base text-center disabled:cursor-not-allowed disabled:opacity-50"
                         style={{ 
-                          backgroundColor: '#1D2125', 
+                          background: 'var(--deposit-gradient-bg)', 
                           color: '#FFFFFF', 
                           borderColor: '#4B5563',
                           borderWidth: '1px'
@@ -702,7 +702,7 @@ export default function ReferralsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-lg overflow-hidden" style={{ backgroundColor: '#1D2125', border: '1px solid #2E3134' }}>
+              <div className="mt-4 rounded-lg overflow-hidden" style={{ background: 'var(--deposit-gradient-bg)', border: '1px solid #2E3134' }}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ backgroundColor: '#161A1D' }}>
@@ -851,7 +851,7 @@ export default function ReferralsPage() {
                                 onChange={(e) => setNewCdkAmount(e.target.value.replace(/[^\d]/g, ''))}
                                 className="flex h-10 w-full max-w-[260px] rounded-md border px-3 py-2 text-base text-center disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 style={{
-                                  backgroundColor: '#1D2125',
+                                  background: 'var(--deposit-gradient-bg)',
                                   color: '#FFFFFF',
                                   borderColor: cdkAmountError ? '#EB4B4B' : '#4B5563',
                                   borderWidth: '1px',
@@ -936,7 +936,7 @@ export default function ReferralsPage() {
                           {cdkAmountError}
                         </div>
                       ) : null}
-                    <div className="mt-3 rounded-lg overflow-hidden" style={{ backgroundColor: '#1D2125', border: '1px solid #2E3134' }}>
+                    <div className="mt-3 rounded-lg overflow-hidden" style={{ background: 'var(--deposit-gradient-bg)', border: '1px solid #2E3134' }}>
                       <div className="w-full min-w-0 max-w-full overflow-x-auto exchange-scroll" style={{ overscrollBehaviorX: 'contain' }}>
                         <table className="w-full text-base" style={{ minWidth: 1120 }}>
                           <thead>

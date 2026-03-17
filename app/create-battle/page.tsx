@@ -552,10 +552,10 @@ function CreateBattleContent() {
                       }}
                       style={{
                         backgroundColor:
-                          Number(playersCount) === n ? "#60A5FA" : "#22272B",
+                          Number(playersCount) === n ? "#254EB1" : "#22272B",
                         color: "#FFFFFF",
                         borderColor:
-                          Number(playersCount) === n ? "#60A5FA" : "#34383C",
+                          Number(playersCount) === n ? "#254EB1" : "#34383C",
                       }}
                     >
                       {n}
@@ -573,10 +573,10 @@ function CreateBattleContent() {
                       }}
                       style={{
                         backgroundColor:
-                          teamStructure === ts ? "#60A5FA" : "#22272B",
+                          teamStructure === ts ? "#254EB1" : "#22272B",
                         color: "#FFFFFF",
                         borderColor:
-                          teamStructure === ts ? "#60A5FA" : "#34383C",
+                          teamStructure === ts ? "#254EB1" : "#34383C",
                         minWidth: "4rem",
                       }}
                     >
@@ -606,7 +606,7 @@ function CreateBattleContent() {
                 className="rounded-xl border bg-gray-700 text-card-foreground shadow-sm cursor-pointer overflow-hidden"
                 style={{
                   borderColor:
-                    selectedMode === "classic" ? "#4299E1" : "#34383C",
+                    selectedMode === "classic" ? "var(--deposit-btn-bg)" : "#34383C",
                   backgroundColor: "#22272B",
                 }}
                 role="button"
@@ -644,7 +644,7 @@ function CreateBattleContent() {
                   </div>
                   <div
                     className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
-                    style={{ backgroundColor: "#1D2125" }}
+                    style={{ background: "var(--deposit-gradient-bg)" }}
                   >
                     <img
                       src={MODE_ILLUSTRATIONS.classic}
@@ -667,7 +667,7 @@ function CreateBattleContent() {
                 <div
                   className="rounded-xl border bg-gray-700 border-gray-600 text-card-foreground shadow-sm cursor-pointer overflow-hidden"
                   style={{
-                    borderColor: selectedMode === "share" ? "#4299E1" : "#34383C",
+                    borderColor: selectedMode === "share" ? "#254EB1" : "#34383C",
                     backgroundColor: "#22272B",
                   }}
                   role="button"
@@ -702,7 +702,7 @@ function CreateBattleContent() {
                     </div>
                     <div
                       className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
-                      style={{ backgroundColor: "#1D2125" }}
+                      style={{ background: "var(--deposit-gradient-bg)" }}
                     >
                     <img
                       src={MODE_ILLUSTRATIONS.share}
@@ -726,7 +726,7 @@ function CreateBattleContent() {
                     className="rounded-xl border bg-gray-700 border-gray-600 text-card-foreground shadow-sm cursor-pointer overflow-hidden"
                     style={{
                       borderColor:
-                        selectedMode === "sprint" ? "#4299E1" : "#34383C",
+                        selectedMode === "sprint" ? "var(--deposit-btn-bg)" : "#34383C",
                       backgroundColor: "#22272B",
                     }}
                     role="button"
@@ -759,7 +759,7 @@ function CreateBattleContent() {
                       </div>
                       <div
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
-                        style={{ backgroundColor: "#1D2125" }}
+                        style={{ background: "var(--deposit-gradient-bg)" }}
                       >
                         <img
                           src={MODE_ILLUSTRATIONS.sprint}
@@ -782,7 +782,7 @@ function CreateBattleContent() {
                     className="rounded-xl border bg-gray-700 border-gray-600 text-card-foreground shadow-sm cursor-pointer overflow-hidden"
                     style={{
                       borderColor:
-                        selectedMode === "jackpot" ? "#4299E1" : "#34383C",
+                        selectedMode === "jackpot" ? "var(--deposit-btn-bg)" : "#34383C",
                       backgroundColor: "#22272B",
                     }}
                     role="button"
@@ -814,7 +814,7 @@ function CreateBattleContent() {
                       </div>
                       <div
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
-                        style={{ backgroundColor: "#1D2125" }}
+                        style={{ background: "var(--deposit-gradient-bg)" }}
                       >
                         <img
                           src={MODE_ILLUSTRATIONS.jackpot}
@@ -837,7 +837,7 @@ function CreateBattleContent() {
                     className="rounded-xl border bg-gray-700 border-gray-600 text-card-foreground shadow-sm cursor-pointer overflow-hidden"
                     style={{
                       borderColor:
-                        selectedMode === "elimination" ? "#4299E1" : "#34383C",
+                        selectedMode === "elimination" ? "var(--deposit-btn-bg)" : "#34383C",
                       backgroundColor: "#22272B",
                     }}
                     role="button"
@@ -871,7 +871,7 @@ function CreateBattleContent() {
                       </div>
                       <div
                         className="relative hidden md:block h-40 w-full rounded-xl rounded-b-none overflow-hidden"
-                        style={{ backgroundColor: "#1D2125" }}
+                        style={{ background: "var(--deposit-gradient-bg)" }}
                       >
                       <img
                         src={MODE_ILLUSTRATIONS.elimination}
@@ -971,9 +971,9 @@ function CreateBattleContent() {
                             className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer"
                             style={{
                               backgroundColor: optFastBattle
-                                ? "#4299E1"
+                                ? "var(--deposit-btn-bg)"
                                 : "#292F34",
-                              border: `1px solid ${optFastBattle ? "#4299E1" : "#303539"
+                              border: `1px solid ${optFastBattle ? "var(--deposit-btn-bg)" : "#303539"
                                 }`,
                             }}
                           >
@@ -1057,9 +1057,9 @@ function CreateBattleContent() {
                             className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
                               backgroundColor: optLastChance
-                                ? "#4299E1"
+                                ? "var(--deposit-btn-bg)"
                                 : "#292F34",
-                              border: `1px solid ${optLastChance ? "#4299E1" : "#303539"
+                              border: `1px solid ${optLastChance ? "var(--deposit-btn-bg)" : "#303539"
                                 }`,
                             }}
                           >
@@ -1141,9 +1141,9 @@ function CreateBattleContent() {
                             className="inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
                               backgroundColor: optInverted
-                                ? "#4299E1"
+                                ? "var(--deposit-btn-bg)"
                                 : "#292F34",
-                              border: `1px solid ${optInverted ? "#4299E1" : "#303539"
+                              border: `1px solid ${optInverted ? "var(--deposit-btn-bg)" : "#303539"
                                 }`,
                             }}
                           >
@@ -1256,7 +1256,7 @@ function CreateBattleContent() {
             />
 
             {/* 对战摘要 */}
-            <div className="w-full" style={{ backgroundColor: "#1D2125" }}>
+            <div className="w-full" style={{ background: "var(--deposit-gradient-bg)" }}>
               <div className="max-w-screen-xl mx-auto w-full space-y-4 py-4">
                 <p className="font-semibold text-xl" style={{ color: "#7A8084" }}>
                   {t("battleSummary")}

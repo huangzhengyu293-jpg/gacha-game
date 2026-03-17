@@ -380,7 +380,7 @@ export default function BattleHeader({
                 <button
                   onClick={onShareClick}
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-sm font-bold select-none h-7 py-1 px-2"
-                  style={{ backgroundColor: "#1D2125", color: "#E1E7EF", cursor: 'pointer' }}
+                  style={{ background: "var(--deposit-gradient-bg)", color: "#E1E7EF", cursor: 'pointer' }}
                 >
                   <div className="size-4 mb-0.5">
                     <svg
@@ -459,7 +459,7 @@ export default function BattleHeader({
                 <button
                   onClick={onShareClick}
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none size-6 min-h-6 min-w-6 max-h-6 max-w-6 rounded-[4px]"
-                  style={{ backgroundColor: "#1D2125", color: "#E1E7EF", cursor: 'pointer' }}
+                  style={{ background: "var(--deposit-gradient-bg)", color: "#E1E7EF", cursor: 'pointer' }}
                 >
                   <div className="text-white size-2.5">
                     <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">

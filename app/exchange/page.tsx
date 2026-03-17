@@ -644,7 +644,9 @@ const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
           <button
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors relative text-base font-bold select-none h-10 px-6 w-full rounded-lg"
             disabled={!canExchange || exchangeMutation.isPending}
-            style={{ backgroundColor: '#4299e1', color: canExchange ? '#FFFFFF' : '#2b6cb0', cursor: canExchange ? 'pointer' : 'not-allowed' }}
+            style={{ background: 'var(--deposit-btn-bg)', color: canExchange ? 'var(--deposit-btn-color)' : '#2b6cb0', cursor: canExchange ? 'pointer' : 'not-allowed' }}
+            onMouseEnter={(e) => { if (canExchange) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
             onClick={() => {
               if (!canExchange || exchangeMutation.isPending) return;
               exchangeMutation.mutate();
@@ -827,7 +829,7 @@ const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
           )}
         </div>
 
-        <div className="sticky bottom-0 left-0 right-0 z-10 mt-3 px-4 pb-4" style={{ backgroundColor: '#1d2125' }}>
+        <div className="sticky bottom-0 left-0 right-0 z-10 mt-3 px-4 pb-4" style={{ background: 'var(--deposit-gradient-bg)' }}>
           <div className="flex items-center justify-center h-16 rounded-lg mb-2" style={{ backgroundColor: '#161a1d' }}>
             <p className="font-semibold text-sm text-center space-x-2" style={{ color: '#7A8084' }}>
               <span>{exchangeLabel}</span>
@@ -847,15 +849,14 @@ const [receiveSort, setReceiveSort] = useState<SortOrder>('asc');
             </button>
             <button
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors relative text-base font-bold select-none px-6 h-12 w-full cursor-pointer flex-shrink"
-              style={{ backgroundColor: '#4299e1', color: canExchange ? '#FFFFFF' : '#2b6cb0' }}
+              style={{ background: 'var(--deposit-btn-bg)', color: canExchange ? '#FFFFFF' : '#2b6cb0' }}
               disabled={!canExchange || exchangeMutation.isPending}
               onMouseEnter={(e) => {
                 if (!canExchange) return;
-                e.currentTarget.style.backgroundColor = '#5aa8ea';
+                e.currentTarget.style.background = 'var(--deposit-btn-bg-hover)';
               }}
               onMouseLeave={(e) => {
-                if (!canExchange) return;
-                e.currentTarget.style.backgroundColor = '#4299e1';
+                e.currentTarget.style.background = 'var(--deposit-btn-bg)';
               }}
               onClick={() => {
                 if (!canExchange || exchangeMutation.isPending) return;

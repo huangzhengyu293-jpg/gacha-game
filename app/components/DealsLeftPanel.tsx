@@ -164,7 +164,7 @@ export default function DealsLeftPanel({
             <div className="rounded-tl rounded-bl px-4 text-sm font-bold flex items-center" style={{ backgroundColor: '#34383C', color: disabled ? '#7A8084' : '#FFFFFF' }}>$</div>
             <input
               className="flex h-10 w-full rounded-md border-gray-600 focus:border-gray-600 px-3 py-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 rounded-tl-none rounded-bl-none font-black text-lg border-0"
-              style={{ backgroundColor: '#1D2125', color: '#7A8084' }}
+              style={{ background: 'var(--deposit-gradient-bg)', color: '#7A8084' }}
               inputMode="decimal"
               placeholder="0.00"
               step={priceStep}
@@ -194,7 +194,7 @@ export default function DealsLeftPanel({
                 <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>{t('resultLabel')}</label>
                 <label className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-extrabold" style={{ color: disabled ? '#7A8084' : '#FFFFFF' }}>{inactive ? '0.00%' : selectedPercent.toFixed(2) + '%'}</label>
               </div>
-              <div className="w-full px-1 rounded-md flex items-center" style={{ backgroundColor: '#1D2125' }}>
+              <div className="w-full px-1 rounded-md flex items-center" style={{ background: 'var(--deposit-gradient-bg)' }}>
                 <input
                   aria-label="Price Slider"
                   className="w-full h-10 appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-sm [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-sm [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-md [&::-webkit-slider-thumb]:bg-[var(--thumb-bg)] [&::-webkit-slider-thumb]:border-[var(--thumb-border)] [&::-webkit-slider-thumb:hover]:bg-[var(--thumb-hover)] [&::-webkit-slider-thumb:active]:bg-[var(--thumb-active)] [&::-webkit-slider-thumb]:translate-y-[0px] [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:translate-y-[0px]"

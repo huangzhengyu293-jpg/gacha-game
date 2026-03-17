@@ -1383,7 +1383,7 @@ export default function DrawExtraComponent() {
                   <div className="flip-card w-full h-full" style={{ overflow: 'visible' }}>
                     <div className={`flip-inner`} style={{ transform: `rotateY(${cardBack[idx] ? 180 : 0}deg)`, transition: suppressFlipTransition ? 'none' as any : undefined }}>
                       {/* 正面 */}
-                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (frontRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '#161A1D' : (frontRound[idx] === null ? '#161a1d' : '#1d2125' )) }}>
+                      <div className="flip-face" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (frontRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', background: ((faceLockOverrideFront[idx] ?? selectedLocked[idx]) ? '#161A1D' : (frontRound[idx] === null ? '#161a1d' : 'var(--deposit-gradient-bg)' )) }}>
                         <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const fr = frontRound[idx];
@@ -1407,7 +1407,7 @@ export default function DrawExtraComponent() {
                               <div 
                                 data-component="ProductDisplayCard" 
                                 className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4"
-                                style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
+                                style={{ background: isLocked ? '#161A1D' : (isHovered ? '#22272b' : 'var(--deposit-gradient-bg)'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
                                 onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
                                 onMouseLeave={() => { handleCardMouseLeave(idx); }}
                                 onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
@@ -1451,7 +1451,7 @@ export default function DrawExtraComponent() {
                         </div>
                       </div>
                       {/* 背面（结果样式，类似产品卡简化） */}
-                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (backRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '#161A1D' : (backRound[idx] === null ? '#161a1d' : '#1d2125')) }}>
+                      <div className="flip-face flip-back" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '2px solid #34383C' : (backRound[idx] === null ? '2px solid #34383C' : '2px solid #7a8084')), borderRadius: '0.5rem', overflow: 'hidden', background: ((faceLockOverrideBack[idx] ?? selectedLocked[idx]) ? '#161A1D' : (backRound[idx] === null ? '#161a1d' : 'var(--deposit-gradient-bg)')) }}>
                         <div className="flex flex-col items-center justify-center gap-2 w-full h-full">
                           {(() => {
                             const br = backRound[idx];
@@ -1475,7 +1475,7 @@ export default function DrawExtraComponent() {
                               <div 
                                 data-component="ProductDisplayCard" 
                                 className="relative group transition-colors duration-200 ease-in-out rounded-lg overflow-hidden w-full h-full flex flex-col items-center justify-between gap-1.5 py-1 px-2 sm:gap-2 sm:py-1.5 md:py-2 sm:px-4"
-                                style={{ backgroundColor: isLocked ? '#161A1D' : (isHovered ? '#22272b' : '#1d2125'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
+                                style={{ background: isLocked ? '#161A1D' : (isHovered ? '#22272b' : 'var(--deposit-gradient-bg)'), cursor: (isLocked || !canSelect) ? 'default' : (isWon ? 'pointer' : 'default') }}
                                 onMouseEnter={() => { if (!isLocked) handleCardMouseEnter(idx); }}
                                 onMouseLeave={() => { handleCardMouseLeave(idx); }}
                                 onClick={() => { if (canSelect && !isLocked && isWon) handleLockWinningCard(idx); }}
@@ -1651,9 +1651,9 @@ export default function DrawExtraComponent() {
               <button
                 type="button"
                 className="h-14 px-8 text-base font-bold rounded-md"
-                style={{ backgroundColor: '#60A5FA', color: '#FFFFFF', cursor: (isFlipping || drawRoundMutation.isPending) ? 'default' : 'pointer', opacity: (isFlipping || drawRoundMutation.isPending) ? 0.9 : 1 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3B82F6'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#60A5FA'; }}
+                style={{ background: 'var(--deposit-btn-bg)', color: '#FFFFFF', cursor: (isFlipping || drawRoundMutation.isPending) ? 'default' : 'pointer', opacity: (isFlipping || drawRoundMutation.isPending) ? 0.9 : 1 }}
+                onMouseEnter={(e) => { if (!isFlipping && !drawRoundMutation.isPending) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                 onClick={() => {
                   if (isFlipping || drawRoundMutation.isPending) return;
                   const infoData: any = drawInfoResponse?.data;
@@ -1777,7 +1777,7 @@ export default function DrawExtraComponent() {
                   className="grid grid-cols-3 gap-0 text-sm"
                   style={{
                     borderBottom: idx === arr.length - 1 ? '0 none' : '1px solid #374151',
-                    backgroundColor: row.y ? '#2A2521' : '#1D2125',
+                    background: row.y ? '#2A2521' : 'var(--deposit-gradient-bg)',
                   }}
                 >
                   <div className="p-3 text-center font-bold" style={{ color: row.y ? '#D69E2E' : '#7A8084', borderRight: '1px solid #4B5563', fontFamily: 'Urbanist, sans-serif' }}>{row.m}</div>

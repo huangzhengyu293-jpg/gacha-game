@@ -132,8 +132,8 @@ export default function BattlesPage() {
                         buttonColors={
                           isWaiting
                             ? {
-                                default: "#4299e1",
-                                hover: "#5ab0ff",
+                                default: "var(--deposit-btn-bg)",
+                                hover: "#254EB1",
                               }
                             : undefined
                         }

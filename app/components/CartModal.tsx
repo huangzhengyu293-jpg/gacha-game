@@ -564,7 +564,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                 {!isShopMode && (
                   <button
                     className="inline-flex flex-1 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-2 font-semibold text-xs sm:h-10 sm:px-3 sm:text-sm"
-                    style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                    style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#254EB1' : '#45484A'}`, cursor: 'pointer' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
                     onClick={handleToggleClaimable}
@@ -585,7 +585,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     <div
                       className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
                       style={{
-                        backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
+                        backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? 'var(--deposit-btn-bg)' : '#22272B',
                         borderColor: '#5A5E62',
                         borderWidth: 1,
                       }}
@@ -649,10 +649,10 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               <div className="flex gap-3 w-full sm:w-auto">
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                  style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                  style={{ background: selectedCount === 0 ? '#34383C' : 'var(--deposit-btn-bg)', color: selectedCount === 0 ? '#2B6CB0' : 'var(--deposit-btn-color)', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
                   disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                   onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
                 >
                   {t('sell')}
@@ -719,7 +719,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             <div
               className="flex-1 overflow-y-auto min-h-0 rounded-lg"
               style={{
-                backgroundColor: '#1D2125',
+                background: 'var(--deposit-gradient-bg)',
                 // ✅ 空态也要“撑起来”：给父容器一个自适应高度
                 // - 下限：避免被压扁
                 // - 中值：跟随视口高度（dvh 优先，vh 兜底）
@@ -771,10 +771,10 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               <div className="flex gap-3 w-full sm:w-auto">
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                  style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                  style={{ background: selectedCount === 0 ? '#34383C' : 'var(--deposit-btn-bg)', color: selectedCount === 0 ? '#2B6CB0' : 'var(--deposit-btn-color)', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
                   disabled={selectedCount === 0}
-                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                  onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                   onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
                 >
                   {t('sell')}
@@ -830,10 +830,10 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
             <div className="flex gap-3 w-full sm:w-auto">
               <button
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative select-none h-10 px-4 w-full sm:min-w-28 font-bold"
-                style={{ backgroundColor: selectedCount === 0 ? '#34383C' : '#4299E1', color: selectedCount === 0 ? '#2B6CB0' : '#FFFFFF', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
+                style={{ background: selectedCount === 0 ? '#34383C' : 'var(--deposit-btn-bg)', color: selectedCount === 0 ? '#2B6CB0' : 'var(--deposit-btn-color)', cursor: selectedCount === 0 ? 'default' : 'pointer' }}
                 disabled={selectedCount === 0}
-                onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-                onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                onMouseEnter={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                onMouseLeave={(e) => { if (selectedCount > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                 onClick={() => { if (selectedCount > 0) openConfirmForSelected(); }}
               >
                 {t('sell')}
@@ -860,7 +860,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               {/* “商城”按钮：按需求在所有端统一隐藏 */}
             </div>
           </div>
-          <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ backgroundColor: '#1D2125' }}>
+          <div className="bg-gray-800 rounded-lg overflow-y-auto p-4 self-stretch flex-1 min-h-0" style={{ background: 'var(--deposit-gradient-bg)' }}>
             {shouldShowWarehouseLoading ? (
               <div className="flex h-full sm:h-[150px] items-center justify-center font-semibold" style={{ color: '#7A8084' }}>{t('warehouseLoadingText')}</div>
             ) : selectedCount === 0 ? (
@@ -913,7 +913,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               {!isShopMode && (
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:h-10"
-                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#254EB1' : '#45484A'}`, cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
                     onClick={handleToggleClaimable}
@@ -950,7 +950,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
               {!isShopMode && (
                 <button
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative h-9 px-3 font-semibold text-sm sm:hidden shrink-0"
-                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#4299E1' : '#45484A'}`, cursor: 'pointer' }}
+                  style={{ backgroundColor: '#161A1D', color: '#FFFFFF', border: `1px solid ${claimableActive ? '#254EB1' : '#45484A'}`, cursor: 'pointer' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3C4044'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#161A1D'; }}
                   onClick={handleToggleClaimable}
@@ -969,7 +969,7 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                   <div
                     className="size-5 shrink-0 rounded border flex items-center justify-center transition-all"
                     style={{
-                      backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? '#4299E1' : '#22272B',
+                      backgroundColor: (selectedItems.size === defaultItems.length && defaultItems.length > 0) ? 'var(--deposit-btn-bg)' : '#22272B',
                       borderColor: '#5A5E62',
                       borderWidth: 1,
                     }}
@@ -1077,7 +1077,9 @@ export default function CartModal({ isOpen, onClose, totalPrice: _totalPrice = 1
                     }
                   }}
                   disabled={confirmSellMutation.isPending || confirmPayload.length === 0}
-                  style={{ backgroundColor: '#4299E1', color: '#FFFFFF', cursor: 'pointer' }}
+                  style={{ background: 'var(--deposit-btn-bg)', color: 'var(--deposit-btn-color)', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { if (!confirmSellMutation.isPending && confirmPayload.length > 0) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg)'; }}
                 >
                   {t('continueAction')}
                 </button>
@@ -1254,7 +1256,7 @@ function CartItemCard({
   };
 
   return (
-    <div className="relative rounded-lg border" data-component="CartItemCard" style={{ backgroundColor: '#22272B', borderColor: isSelected ? '#4299E1' : '#22272B', borderWidth: 1, cursor: 'default' }}
+    <div className="relative rounded-lg border" data-component="CartItemCard" style={{ backgroundColor: '#22272B', borderColor: isSelected ? '#254EB1' : '#22272B', borderWidth: 1, cursor: 'default' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
       onClick={handleCardClick}
@@ -1270,9 +1272,9 @@ function CartItemCard({
             className="peer shrink-0 rounded border size-5"
             aria-label="Select item"
             onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.cursor = 'pointer'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#4299E1'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? '#4299E1' : '#5A5E62'; }}
-            style={{ border: '1px solid ' + (isSelected ? '#4299E1' : (hovered ? '#4299E1' : '#5A5E62')), backgroundColor: isSelected ? '#4299E1' : 'transparent' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.cursor = 'pointer'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#254EB1'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? '#254EB1' : '#5A5E62'; }}
+            style={{ border: '1px solid ' + (isSelected ? '#254EB1' : (hovered ? '#254EB1' : '#5A5E62')), background: isSelected ? 'var(--deposit-btn-bg)' : 'transparent' }}
           >
             <span data-state={isSelected ? 'checked' : 'unchecked'} className="flex items-center justify-center text-current" style={{ pointerEvents: 'none' }}>
               {isSelected && (

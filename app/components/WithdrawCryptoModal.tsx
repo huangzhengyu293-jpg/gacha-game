@@ -220,12 +220,12 @@ export default function WithdrawCryptoModal({
                 onRequestWithdraw?.({ assetId: selectedAssetId, address: address.trim() });
               }}
               style={{
-                backgroundColor: canRequest ? '#4299E1' : '#34383C',
+                background: canRequest ? 'var(--deposit-btn-bg)' : '#34383C',
                 color: canRequest ? '#FFFFFF' : '#2B6CB0',
                 cursor: canRequest ? 'pointer' : 'default',
               }}
-              onMouseEnter={(e) => { if (canRequest) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9'; }}
-              onMouseLeave={(e) => { if (canRequest) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+              onMouseEnter={(e) => { if (canRequest) (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-btn-bg-hover)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = canRequest ? 'var(--deposit-btn-bg)' : '#34383C'; }}
             >
               {isSubmitting ? t('loadingText') : t('requestWithdraw')}
             </button>

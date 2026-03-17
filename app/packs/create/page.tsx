@@ -65,7 +65,7 @@ export default function CreatePackPage() {
   const selectedItems = useMemo(() => selectedIds.map(id => itemMap.get(id)).filter(Boolean) as { id: string; name: string; description?: string; image: string; price: number; dropProbability: number; qualityId: string }[], [selectedIds, itemMap]);
   const totalProb = useMemo(() => selectedIds.reduce((acc, id) => acc + (probMap[id] ?? 0), 0), [selectedIds, probMap]);
   const detailsItem = detailsItemId ? itemMap.get(detailsItemId) ?? null : null;
-  const barColor = totalProb < 100 ? '#4299E1' : (totalProb === 100 ? '#68D391' : '#E53E3E');
+  const barColor = totalProb < 100 ? '#254EB1' : (totalProb === 100 ? '#68D391' : '#E53E3E');
 
   // Calibrate a pricing ratio from the given example:
   // $550,000 item at 1% probability => pack price $6,145.26
@@ -176,7 +176,7 @@ export default function CreatePackPage() {
                         enterKeyHint="search"
                         value={query}
                         onChange={(e) => { setPageIndex(0); setQuery(e.target.value); }}
-                        style={{ backgroundColor: '#1D2125', color: '#FAFAFA', caretColor: '#FAFAFA' }}
+                        style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA', caretColor: '#FAFAFA' }}
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center"></div>
                     </div>
@@ -192,7 +192,7 @@ export default function CreatePackPage() {
                         className="flex h-10 w-full border-gray-600 focus:border-gray-600 px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 border-0 font-semibold pr-32 rounded-md"
                         value={`$${formatCurrency(lteValue)}`}
                         readOnly
-                        style={{ backgroundColor: '#1D2125', color: '#FAFAFA', caretColor: '#FAFAFA' }}
+                        style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA', caretColor: '#FAFAFA' }}
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         <button onClick={setMinLte} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus relative text-sm !rounded-md font-bold px-2 h-7 cursor-pointer bg-[#34383C] text-white hover:bg-[#5A5E62]">最小</button>
@@ -367,7 +367,7 @@ export default function CreatePackPage() {
                             </div>
                           </button>
                         </div>
-                        <input className="flex h-10 rounded-md border-gray-600 focus:border-gray-600 px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 w-full font-bold text-center border-0" min={0.0001} max={99.9999} step={0.0001} type="number" value={formatPercent(probMap[item.id] ?? 1.0)} onChange={(e)=>setProbFromInput(item.id, e.target.value)} style={{ backgroundColor: '#1D2125', color: '#FAFAFA', caretColor: '#FAFAFA' }} />
+                        <input className="flex h-10 rounded-md border-gray-600 focus:border-gray-600 px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-700 interactive-focus !-outline-offset-1 w-full font-bold text-center border-0" min={0.0001} max={99.9999} step={0.0001} type="number" value={formatPercent(probMap[item.id] ?? 1.0)} onChange={(e)=>setProbFromInput(item.id, e.target.value)} style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA', caretColor: '#FAFAFA' }} />
                         <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
                           <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base text-white font-bold select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8 cursor-pointer bg-[#34383C] hover:bg-[#5A5E62]" aria-label="Increment" onClick={()=>incProb(item.id)}>
                             <div className="size-3 flex justify-center">
@@ -429,7 +429,7 @@ export default function CreatePackPage() {
                       value={packName}
                       onChange={(e)=>setPackName(e.target.value)}
                       className="flex h-10 w-full rounded-md px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium interactive-focus !-outline-offset-1 border-0"
-                      style={{ backgroundColor: '#1D2125', color: '#FAFAFA', caretColor: '#FAFAFA', borderColor: '#34383C' }}
+                      style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA', caretColor: '#FAFAFA', borderColor: '#34383C' }}
                     />
                   </div>
                   <span className="text-sm font-bold" style={{ color: '#7A8084' }}>您的礼包名称不能包含特殊字符、淫秽内容或冒犯性内容。</span>
@@ -457,23 +457,23 @@ export default function CreatePackPage() {
                         aria-expanded={commissionOpen}
                         aria-controls="commission-listbox"
                         className="flex h-10 w-full items-center justify-between rounded-md px-3 py-2 text-sm interactive-focus !-outline-offset-1 cursor-pointer"
-                        style={{ backgroundColor: '#1D2125', color: '#FAFAFA', border: '1px solid #34383C' }}
+                        style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA', border: '1px solid #34383C' }}
                         onClick={()=>setCommissionOpen(o=>!o)}
                       >
                         <span style={{ pointerEvents: 'none' }}>{commissionPct.toFixed(1)}%</span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-50" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
                       </button>
                       {commissionOpen && (
-                        <div id="commission-listbox" className="absolute left-0 right-0 mt-1 z-50 rounded-md shadow-lg border" style={{ backgroundColor: '#1D2125', borderColor: '#34383C' }}>
+                        <div id="commission-listbox" className="absolute left-0 right-0 mt-1 z-50 rounded-md shadow-lg border" style={{ background: 'var(--deposit-gradient-bg)', borderColor: '#34383C' }}>
                           <ul className="max-h-60 overflow-auto no-scrollbar py-0">
                             {commissionOptions.map((v) => (
                               <li key={v} className="">
                                 <button
                                   type="button"
                                   className={`w-full text-left px-3 py-2 text-sm cursor-pointer ${commissionPct === v ? 'font-bold' : ''}`}
-                                  style={{ backgroundColor: '#1D2125', color: '#FAFAFA' }}
+                                  style={{ background: 'var(--deposit-gradient-bg)', color: '#FAFAFA' }}
                                   onMouseEnter={(e)=>{ (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; }}
-                                  onMouseLeave={(e)=>{ (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1D2125'; }}
+                                  onMouseLeave={(e)=>{ (e.currentTarget as HTMLButtonElement).style.background = 'var(--deposit-gradient-bg)'; }}
                                   onClick={()=>{ setCommissionPct(v); setCommissionOpen(false); }}
                                 >
                                   {v.toFixed(1)}%
@@ -530,7 +530,7 @@ export default function CreatePackPage() {
                       <button
                         key={url}
                         className="rounded-md relative aspect-[339/515] h-full w-[calc(50%-8px)] sm:w-[100px] border-2 border-solid"
-                        style={{ borderColor: isSelected ? '#FFFFFF' : '#1D2125', backgroundColor: '#22272B' }}
+                        style={{ borderColor: isSelected ? '#FFFFFF' : '#22282E', backgroundColor: '#22272B' }}
                         tabIndex={0}
                         onClick={() => setSelectedPackImageUrl(url)}
                       >
@@ -553,7 +553,8 @@ export default function CreatePackPage() {
             {/* 创建礼包按钮 */}
             <div className="flex justify-center mt-6">
               <button
-                className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-14 px-8 cursor-pointer bg-[#4299E1] hover:bg-[#3182ce] text-white"
+                className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none interactive-focus relative text-base font-bold select-none h-14 px-8 cursor-pointer text-white"
+                style={{ background: 'var(--deposit-btn-bg)' }}
                 onClick={async () => {
                   try {
                     if (packPriceUsd > 10000) {

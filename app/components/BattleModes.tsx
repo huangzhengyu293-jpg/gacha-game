@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "./I18nProvider";
+import { useIsMdOrLarger } from "@/app/hooks/useMediaQuery";
 import { buildBattleListCards } from "@/app/battles/battleListSource";
 import BattleListCardItem from "@/app/battles/components/BattleListCardItem";
 import type { RawBattleListItem } from "@/app/components/bettlesListData";
@@ -13,11 +14,13 @@ type BattleModesProps = {
   sortValue?: "priceDesc" | "latest";
   useBestRecord?: boolean; // 使用对战亮点接口
   enablePolling?: boolean; // 是否轮询，默认 true
+  compactGrid?: boolean; // 对战列表页：3列网格 + 小屏紧凑样式
 };
 
-export default function BattleModes({ sortValue = "latest", useBestRecord = false, enablePolling = true }: BattleModesProps = {}) {
+export default function BattleModes({ sortValue = "latest", useBestRecord = false, enablePolling = true, compactGrid = false }: BattleModesProps = {}) {
   const router = useRouter();
   const { t } = useI18n();
+  const isMdOrLarger = useIsMdOrLarger();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [useBestRecord ? "fightBestRecord" : "battleList"],
@@ -70,10 +73,11 @@ export default function BattleModes({ sortValue = "latest", useBestRecord = fals
  
 
   return (
-    <div className="flex flex-col items-stretch gap-4">
+    <div className={compactGrid ? "flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-4" : "flex flex-col items-stretch gap-4"}>
       {sortedCards.map((card) => (
         <BattleListCardItem
           key={card.id}
+          compact={compactGrid && isMdOrLarger}
           // 对战亮点（best record）不会存在“进行中”语义：status=2 直接按“已开启”展示
           card={useBestRecord && Number(card.status) === 2 ? { ...card, status: 3 } : card}
           labels={{
