@@ -57,6 +57,7 @@ const dict: Dict = {
   addPack: { zh: "添加礼包", en: "Add pack", ko: "팩 추가", ja: "パックを追加" },
   itemsLabel: { zh: "个物品", en: "items", ko: "개 아이템", ja: "個のアイテム" },
   productDetailsTitle: { zh: "产品详情", en: "Product Details", ko: "제품 상세", ja: "製品詳細" },
+  outcome: { zh: "Outcome", en: "Outcome", ko: "결과", ja: "Outcome" },
   productDescFallback: { zh: "暂无", en: "N/A", ko: "없음", ja: "なし" },
   streamerLabel: { zh: "主播", en: "Streamer", ko: "스트리머", ja: "配信者" },
   close: { zh: "关闭", en: "Close", ko: "닫기", ja: "閉じる" },
