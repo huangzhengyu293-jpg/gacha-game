@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, memo } from "react";
 import InlineSelect from "./InlineSelect";
-import { useI18n } from "./I18nProvider";
+import { useI18n, type Lang } from "./I18nProvider";
 import { LogoIcon } from "./icons/Logo";
 import { useAuth } from "../hooks/useAuth";
 
@@ -66,6 +66,16 @@ const MobileAccordionBase = ({ title, defaultOpen, children }: { title: string; 
 };
 
 const MobileAccordionMemo = memo(MobileAccordionBase, (prev, next) => prev.title === next.title && prev.defaultOpen === next.defaultOpen);
+
+const FOOTER_LANG_OPTIONS: { label: string; value: Lang }[] = [
+  { label: "中文", value: "zh" },
+  { label: "English", value: "en" },
+  { label: "한국어", value: "ko" },
+  { label: "日本語", value: "ja" },
+  { label: "Русский", value: "ru" },
+  { label: "Español", value: "es" },
+  { label: "Tiếng Việt", value: "vi" },
+];
 
 export default function Footer() {
   const { lang, setLang, t } = useI18n();
@@ -142,14 +152,10 @@ export default function Footer() {
             <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
             <div className="w-auto min-w-52">
               <InlineSelect
+                dropUp
                 value={lang}
-                onChange={(v) => setLang(v as any)}
-                options={[
-                  { label: '中文', value: 'zh' },
-                  { label: 'English', value: 'en' },
-                  { label: '한국어', value: 'ko' },
-                  { label: '日本語', value: 'ja' },
-                ]}
+                onChange={(v) => setLang(v as Lang)}
+                options={FOOTER_LANG_OPTIONS}
               />
             </div>
           </div>
@@ -204,14 +210,10 @@ export default function Footer() {
               <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
               <div className="w-auto min-w-52">
                 <InlineSelect
+                  dropUp
                   value={lang}
-                  onChange={(v) => setLang(v as any)}
-                  options={[
-                    { label: '中文', value: 'zh' },
-                    { label: 'English', value: 'en' },
-                    { label: '한국어', value: 'ko' },
-                    { label: '日本語', value: 'ja' },
-                  ]}
+                  onChange={(v) => setLang(v as Lang)}
+                  options={FOOTER_LANG_OPTIONS}
                 />
               </div>
             </div>

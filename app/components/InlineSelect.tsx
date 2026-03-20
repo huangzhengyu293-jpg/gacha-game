@@ -14,6 +14,8 @@ export default function InlineSelect({
   fullWidth = false,
   wrapperClassName,
   centerLabel = false,
+  /** 選單在觸發鈕上方（例如頁尾語言選擇）；預設在下方 */
+  dropUp = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -21,6 +23,7 @@ export default function InlineSelect({
   fullWidth?: boolean;
   wrapperClassName?: string;
   centerLabel?: boolean;
+  dropUp?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
@@ -100,7 +103,10 @@ export default function InlineSelect({
       </button>
       {open && (
         <div
-          className="absolute left-0 mt-2 z-50 rounded-lg overflow-hidden shadow-lg w-full"
+          className={[
+            'absolute left-0 z-50 w-full rounded-lg shadow-lg max-h-[min(320px,70vh)] overflow-y-auto overflow-x-hidden',
+            dropUp ? 'bottom-full top-auto mb-2' : 'top-full mt-2',
+          ].join(' ')}
           style={{ backgroundColor: '#22272B' }}
         >
           <div className="flex flex-col p-1">
