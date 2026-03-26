@@ -700,9 +700,12 @@ export const api = {
     return result;
   },
   // ✅ 获取我的CDK列表
-  getMyCdk: async () => {
+  getMyCdk: async (params?: { page?: number }) => {
+    const page = Number(params?.page ?? 1);
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
     const result = await request<ApiResponse>('/api/common/myCdk', {
       method: 'GET',
+      params: { page: safePage },
     });
     return result;
   },

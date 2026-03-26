@@ -76,6 +76,7 @@ export default function ReferralsPage() {
   const [isAddingCdk, setIsAddingCdk] = useState(false);
   const [newCdkAmount, setNewCdkAmount] = useState('');
   const [isCreatingCdk, setIsCreatingCdk] = useState(false);
+  const [cdkPage, setCdkPage] = useState(1);
   
   const queryClient = useQueryClient();
 
@@ -279,16 +280,39 @@ export default function ReferralsPage() {
   
   // 使用useQuery获取CDK列表
   const { data: cdkData } = useQuery({
-    queryKey: ['myCdk', user?.token],
-    queryFn: () => api.getMyCdk(),
+    queryKey: ['myCdk', user?.token, cdkPage],
+    queryFn: () => api.getMyCdk({ page: cdkPage }),
     enabled: Boolean(user?.token && canShowCdk),
     staleTime: 30_000,
   });
-  
+
   const cdkList = useMemo(() => {
-    if (!cdkData?.data?.data) return [];
-    return Array.isArray(cdkData.data.data) ? cdkData.data.data : [];
+    const rows = cdkData?.data?.data;
+    return Array.isArray(rows) ? rows : [];
   }, [cdkData]);
+
+  const cdkPagination = useMemo(() => {
+    const p = cdkData?.data as
+      | {
+          total?: number;
+          per_page?: number;
+          current_page?: number;
+          last_page?: number;
+        }
+      | undefined;
+    const total = Number(p?.total ?? 0);
+    const perPageNum = Number(p?.per_page ?? 0);
+    const perPage = perPageNum > 0 ? perPageNum : cdkList.length > 0 ? cdkList.length : 10;
+    const current = Number(p?.current_page) > 0 ? Number(p?.current_page) : cdkPage;
+    const lastFromApi = Number(p?.last_page ?? 0);
+    const last =
+      lastFromApi > 0 ? lastFromApi : total > 0 && perPage > 0 ? Math.ceil(total / perPage) : 0;
+    const start = total > 0 ? (current - 1) * perPage + 1 : 0;
+    const end = total > 0 ? Math.min(total, (current - 1) * perPage + cdkList.length) : 0;
+    const hasPrev = current > 1;
+    const hasNext = last > 0 ? current < last : cdkList.length >= perPage;
+    return { total, perPage, current, last, start, end, hasPrev, hasNext };
+  }, [cdkData, cdkList.length, cdkPage]);
   
   // CDK金额校验
   const cdkAmountValid = useMemo(() => {
@@ -421,6 +445,7 @@ export default function ReferralsPage() {
       if (result?.code === 100000) {
         setIsAddingCdk(false);
         setNewCdkAmount('');
+        setCdkPage(1);
         showGlobalToast({
           title: t('createSuccess'),
           description: t('cdkCreated'),
@@ -1000,6 +1025,18 @@ export default function ReferralsPage() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                    <div className="mt-3">
+                      <DealsPaginationBar
+                        start={cdkPagination.start}
+                        end={cdkPagination.end}
+                        total={cdkPagination.total}
+                        onPrev={() => cdkPagination.hasPrev && setCdkPage((p) => Math.max(1, p - 1))}
+                        onNext={() => cdkPagination.hasNext && setCdkPage((p) => p + 1)}
+                        disabledPrev={!cdkPagination.hasPrev}
+                        disabledNext={!cdkPagination.hasNext}
+                        hideRangeText
+                      />
                     </div>
                       </div>
                     </div>
