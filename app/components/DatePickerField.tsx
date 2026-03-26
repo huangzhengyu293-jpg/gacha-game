@@ -1,5 +1,6 @@
 "use client";
 
+import type { Middleware, UseFloatingOptions } from "@floating-ui/react";
 import React, { useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
 import { zhCN } from "date-fns/locale/zh-CN";
@@ -29,6 +30,14 @@ type DatePickerFieldProps = {
   minDate?: string;
   /** 最大可选日期：yyyy-MM-dd */
   maxDate?: string;
+  /** 覆盖默认触发器（需配合 forwardRef 接收 ref / value / onClick） */
+  customInput?: React.ReactElement;
+  /** 追加到 floating-ui middleware（须为函数式 middleware，如 offset()） */
+  popperModifiers?: readonly Middleware[];
+  /** 传给 @floating-ui（如 strategy: 'fixed' 利于小屏不被裁切） */
+  popperProps?: Omit<UseFloatingOptions, "middleware">;
+  /** 范围模式下并排展示几个月（时段选择常用 2） */
+  monthsShown?: number;
 };
 
 function parseDateString(dateStr?: string): Date | null {
@@ -87,6 +96,10 @@ export default function DatePickerField({
   wrapperClassName,
   minDate,
   maxDate,
+  customInput: customInputProp,
+  popperModifiers: popperModifiersProp,
+  popperProps: popperPropsProp,
+  monthsShown: monthsShownProp,
 }: DatePickerFieldProps) {
   const isRange = mode === 'range';
   const isControlled = isRange ? startValue !== undefined || endValue !== undefined : value !== undefined;
@@ -118,6 +131,10 @@ export default function DatePickerField({
   const selected = isControlled ? controlledDate : uncontrolledSelected;
   const rangeSelected = isControlled ? [controlledStart, controlledEnd] : uncontrolledRange;
 
+  const inputControl = customInputProp
+    ? React.cloneElement(customInputProp, { id, placeholder } as Record<string, unknown>)
+    : React.createElement(CustomInput, { id, placeholder });
+
   return (
     <div className={wrapperClassName ? `relative w-full ${wrapperClassName}` : "relative w-full max-w-[540px]"}>
       <style>{`
@@ -142,6 +159,7 @@ export default function DatePickerField({
         .react-datepicker__triangle::after,
         .react-datepicker-popper[data-placement^="bottom"] .react-datepicker__triangle,
         .react-datepicker-popper[data-placement^="top"] .react-datepicker__triangle { display: none !important; border: 0 !important; }
+        .react-datepicker-popper { z-index: 10050 !important; }
         .dp-dark-cal .react-datepicker__today-button { background-color: #34383C; color: #FFFFFF; border-top: 1px solid #292F34; }
         .dp-dark-cal .react-datepicker__today-button:hover { background-color: #3C4044; }
         .dp-dark-cal .react-datepicker__month-select,
@@ -167,12 +185,17 @@ export default function DatePickerField({
         .dp-dark-cal .react-datepicker__navigation--previous,
         .dp-dark-cal .react-datepicker__navigation--next,
         .dp-dark-cal .react-datepicker__navigation-icon::before { display: none; }
+        .dp-cal-two-months .react-datepicker__month-container { flex-shrink: 0; }
+        @media (max-width: 640px) {
+          .dp-cal-two-months.react-datepicker { display: flex; flex-direction: column; flex-wrap: nowrap; max-width: min(100vw - 24px, 362px); }
+        }
       `}</style>
       {isRange ? (
         <DatePicker
           startDate={rangeSelected[0]}
           endDate={rangeSelected[1]}
-          selectsRange={true}
+          selectsRange
+          monthsShown={monthsShownProp}
           onChange={(d) => {
             const raw = Array.isArray(d) ? d : [null, null];
             const start = raw[0] instanceof Date && !Number.isNaN(raw[0].getTime()) ? raw[0] : null;
@@ -224,12 +247,17 @@ export default function DatePickerField({
             );
           }}
           popperPlacement="bottom-start"
-          calendarClassName="dp-dark-cal"
+          calendarClassName={
+            monthsShownProp != null && monthsShownProp > 1 ? "dp-dark-cal dp-cal-two-months" : "dp-dark-cal"
+          }
           todayButton="今天"
           minDate={minDateObj ?? undefined}
           maxDate={maxDateObj ?? undefined}
           wrapperClassName="w-full"
-          customInput={<CustomInput id={id} placeholder={placeholder} />}
+          placeholderText={placeholder}
+          popperModifiers={popperModifiersProp ? [...popperModifiersProp] : undefined}
+          popperProps={popperPropsProp}
+          customInput={inputControl}
         />
       ) : (
         <DatePicker
@@ -288,7 +316,10 @@ export default function DatePickerField({
           minDate={minDateObj ?? undefined}
           maxDate={maxDateObj ?? undefined}
           wrapperClassName="w-full"
-          customInput={<CustomInput id={id} placeholder={placeholder} />}
+          placeholderText={placeholder}
+          popperModifiers={popperModifiersProp ? [...popperModifiersProp] : undefined}
+          popperProps={popperPropsProp}
+          customInput={inputControl}
         />
       )}
       
