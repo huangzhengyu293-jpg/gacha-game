@@ -71,7 +71,7 @@ export default function WithdrawCryptoModal({
 
   const selectedAsset = safeAssets.find((a) => a.id === selectedAssetId) ?? safeAssets.find((a) => a?.status === 1) ?? safeAssets[0];
   const normalizedAmountUsd = Number.isFinite(amountUsd) ? amountUsd : 0;
-  const calculatedFeeUsd = selectedAssetId === '1' ? 2.5 : estimatedFeeUsd;
+  const calculatedFeeUsd = selectedAssetId === '1' ? 3 : estimatedFeeUsd;
   const normalizedFeeUsd = Number.isFinite(calculatedFeeUsd) ? calculatedFeeUsd : 0;
   const receiveUsd = Math.max(0, normalizedAmountUsd - normalizedFeeUsd);
 

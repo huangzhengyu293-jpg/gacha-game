@@ -11,6 +11,7 @@ interface InfoTooltipProps {
   triggerTag?: 'button' | 'span';
   buttonClassName?: string;
   tooltipClassName?: string;
+  tooltipStyle?: React.CSSProperties;
   showArrow?: boolean;
   usePortal?: boolean;
   sideOffsetPx?: number;
@@ -26,6 +27,7 @@ export default function InfoTooltip({
   triggerTag = 'button',
   buttonClassName,
   tooltipClassName,
+  tooltipStyle,
   showArrow = true,
   usePortal = false,
   sideOffsetPx = 8,
@@ -245,7 +247,8 @@ export default function InfoTooltip({
                 borderColor: tooltipClassName ? undefined : '#34383C',
                 borderWidth: tooltipClassName ? undefined : '1px',
                 borderStyle: tooltipClassName ? undefined : 'solid',
-                color: tooltipClassName ? undefined : '#FFFFFF'
+                color: tooltipClassName ? undefined : '#FFFFFF',
+                ...(tooltipStyle ?? {}),
               }}
               role="tooltip"
             >

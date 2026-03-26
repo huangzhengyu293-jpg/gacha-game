@@ -10,6 +10,7 @@ import ToastProvider from "./components/ToastProvider";
 import AuthProvider from "./providers/AuthProvider";
 import Providers from "./providers";
 import ChaportLiveChat from "./components/ChaportLiveChat";
+import MainContentPadding from "./components/MainContentPadding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,9 +78,7 @@ export default function RootLayout({
                   <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
                     <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
                       <Navbar />
-                      <div className="flex-1 pt-8">
-                        {children}
-                      </div>
+                      <MainContentPadding>{children}</MainContentPadding>
                       <Footer />
                     </div>
                   </LiveFeedProvider>

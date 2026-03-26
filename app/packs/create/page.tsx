@@ -401,6 +401,7 @@ export default function CreatePackPage() {
                   image={detailsItem.image}
                   price={detailsItem.price}
                   description={detailsItem.description}
+                  probability={detailsItem.dropProbability}
                 />
               )}
             </div>

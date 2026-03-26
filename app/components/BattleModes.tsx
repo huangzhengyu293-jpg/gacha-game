@@ -97,6 +97,8 @@ export default function BattleModes({
   );
 
   const sortedCards = useMemo(() => {
+    // 对战亮点（首页）：使用接口默认排序，不做额外排序
+    if (useBestRecord) return cards;
     const list = [...cards];
     if (sortValue === "latest") {
       // 重要：加上稳定的 tie-breaker，避免 createdAt 相同/解析失败时每次轮询造成顺序抖动，
@@ -110,17 +112,9 @@ export default function BattleModes({
         return String(b.id).localeCompare(String(a.id));
       });
     }
-    return list.sort((a, b) => {
-      const primary = b.entryCost - a.entryCost;
-      if (primary) return primary;
-      const secondary = b.createdAt - a.createdAt;
-      if (secondary) return secondary;
-      const idA = Number(a.id);
-      const idB = Number(b.id);
-      if (Number.isFinite(idA) && Number.isFinite(idB)) return idB - idA;
-      return String(b.id).localeCompare(String(a.id));
-    });
-  }, [cards, sortValue]);
+
+    return list.sort((a, b) => b.entryCost - a.entryCost);
+  }, [cards, sortValue, useBestRecord]);
 
   // 关键：列表永远只渲染固定数量（后端固定条数），更新时用 diff 决定哪个消失/哪个插入。
   // 退出动画使用 absolute overlay，不让 DOM 临时变成 N+1，避免“右侧滚动条闪一下/空位闪一下”。

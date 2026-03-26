@@ -114,6 +114,7 @@ export default function ProductCard({ prod, compact = false }: { prod: DisplayPr
         image={prod.image}
         price={prod.price}
         description={(prod as any).description}
+        probabilityDisplay={(((prod.probability ?? 0) * 100)).toFixed(4)}
       />
     </div>
   );

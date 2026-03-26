@@ -10,11 +10,21 @@ import HorizontalSlotMachineClient from './HorizontalSlotMachineClient';
 import { LogoIcon } from '../../components/icons/Logo';
 import { useI18n } from '../../components/I18nProvider';
 
+// 解析機率：支援 bili、drop_probability、dropProbability、probability、rate 等欄位；若值 > 1 視為百分比並除以 100
+function parseDropProbability(item: any, award: any): number {
+  const raw = item?.bili ?? item?.drop_probability ?? item?.dropProbability ?? item?.probability ??
+    award?.bili ?? award?.drop_probability ?? award?.dropProbability ?? award?.probability ??
+    item?.rate ?? award?.rate ?? 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return n > 1 ? n / 100 : n; // 若 > 1 則視為百分比
+}
+
 // 统一的数据映射函数
 function mapBoxDetailToPackData(rawPack: any) {
   const allAwards = rawPack.awards || [];
   const items = allAwards.map((item: any) => {
-    const award = item.awards || item;
+    const award = item.awards || item.award || item;
     const lv = item.lv || award.lv;
     const quality = getQualityFromLv(lv);
 
@@ -25,7 +35,7 @@ function mapBoxDetailToPackData(rawPack: any) {
       price: Number(award.bean || award.price || 0),
       qualityId: quality.qualityId,
       description: award.description || '',
-      dropProbability: Number(item.bili||award.drop_probability || award.bili || award.dropProbability|| 0),
+      dropProbability: parseDropProbability(item, award),
       backlightColor: quality.color,
     };
   });

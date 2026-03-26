@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import BestLiveSidebar from '../components/BestLiveSidebar';
+import { useAuthContext } from '../providers/AuthProvider';
 
 type RaceType = 'weekly' | 'monthly';
 
@@ -122,9 +123,11 @@ const RaceCountdownCard = memo(function RaceCountdownCard({
 
 export default function EventsPage() {
   const { t } = useI18n();
+  const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState<'raceWeekly' | 'raceMonthly'>('raceWeekly');
+  // 登入狀態變化時重新調用接口（登入後會返回 my_week_consume / my_month_consume）
   const { data: consumeData } = useQuery({
-    queryKey: ['consumeData'],
+    queryKey: ['consumeData', !!user?.token],
     queryFn: () => api.getConsume(),
     staleTime: 30_000,
   });
@@ -153,6 +156,25 @@ export default function EventsPage() {
     const idx = rank - 1;
     const list = raceType === 'weekly' ? WEEKLY_PRIZES : MONTHLY_PRIZES;
     return formatPrize(list[idx]);
+  };
+
+  // 根據當前登入用戶是否在前 20 名中，返回對應的獎勵金額與實際名次（否則獎勵為 $0.00，名次為 undefined）
+  const getMyPrizeAndRankFromRanking = (
+    raw: any,
+    raceType: 'weekly' | 'monthly',
+    currentUserId?: string | number,
+  ): { prize: string; rank?: number } => {
+    if (currentUserId === undefined || currentUserId === null) return { prize: '$0.00', rank: undefined };
+    const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+    const idStr = String(currentUserId);
+    const idx = list.findIndex((item) => {
+      const u = item?.user || {};
+      const uid = u.id ?? item.user_id ?? item.id;
+      return uid !== undefined && String(uid) === idStr;
+    });
+    if (idx === -1 || idx >= 20) return { prize: '$0.00', rank: undefined };
+    const rank = idx + 1;
+    return { prize: getPrizeByRank(raceType, rank), rank };
   };
 
   const mapRanking = (
@@ -190,8 +212,59 @@ export default function EventsPage() {
     return { topThree, tableData };
   };
 
-  const rankingMonth = mapRanking(consumeData?.data?.ranking_month, 'monthly');
-  const rankingWeek = mapRanking(consumeData?.data?.ranking_week, 'weekly');
+  const rawRankingMonth = mapRanking(consumeData?.data?.ranking_month, 'monthly');
+  const rawRankingWeek = mapRanking(consumeData?.data?.ranking_week, 'weekly');
+
+  // 登入狀態下，接口會返回 my_week_consume / my_month_consume，在排行榜最後加一行當前用戶
+  const rankingMonth = useMemo(() => {
+    const { topThree, tableData } = rawRankingMonth;
+    const data = consumeData?.data;
+    const hasMyConsume = data && 'my_month_consume' in data;
+    if (!user?.token || !hasMyConsume) return { topThree, tableData };
+    const currentUserId = user?.userInfo?.id ?? user?.id;
+    const { prize: myPrize, rank: myRank } = getMyPrizeAndRankFromRanking(
+      consumeData?.data?.ranking_month,
+      'monthly',
+      currentUserId,
+    );
+    const myConsume = data.my_month_consume;
+    const meRow: TablePlayer = {
+      // 如果在前 20 名中，顯示實際名次；否則顯示 #
+      rank: typeof myRank === 'number' ? myRank : '#',
+      name: user?.userInfo?.name ?? user?.userInfo?.email ?? '--',
+      tickets: formatMoney(myConsume),
+      prize: myPrize,
+      avatar: 'me-row-monthly',
+      avatarImage: typeof user?.userInfo?.avatar === 'string' ? user.userInfo.avatar : undefined,
+      isMeRow: true,
+    };
+    return { topThree, tableData: [...tableData, meRow] };
+  }, [rawRankingMonth, consumeData?.data?.my_month_consume, user]);
+
+  const rankingWeek = useMemo(() => {
+    const { topThree, tableData } = rawRankingWeek;
+    const data = consumeData?.data;
+    const hasMyConsume = data && 'my_week_consume' in data;
+    if (!user?.token || !hasMyConsume) return { topThree, tableData };
+    const currentUserId = user?.userInfo?.id ?? user?.id;
+    const { prize: myPrize, rank: myRank } = getMyPrizeAndRankFromRanking(
+      consumeData?.data?.ranking_week,
+      'weekly',
+      currentUserId,
+    );
+    const myConsume = data.my_week_consume;
+    const meRow: TablePlayer = {
+      // 如果在前 20 名中，顯示實際名次；否則顯示 #
+      rank: typeof myRank === 'number' ? myRank : '#',
+      name: user?.userInfo?.name ?? user?.userInfo?.email ?? '--',
+      tickets: formatMoney(myConsume),
+      prize: myPrize,
+      avatar: 'me-row-weekly',
+      avatarImage: typeof user?.userInfo?.avatar === 'string' ? user.userInfo.avatar : undefined,
+      isMeRow: true,
+    };
+    return { topThree, tableData: [...tableData, meRow] };
+  }, [rawRankingWeek, consumeData?.data?.my_week_consume, user]);
 
   // 比赛排行榜组件（周赛/月赛共用）
   type TopThreePlayer = {
@@ -205,12 +278,13 @@ export default function EventsPage() {
   };
 
   type TablePlayer = {
-    rank: number;
+    rank: number | string; // 正常為數字，當前用戶行用 "#"
     name: string;
     tickets: string; // 展示已开启金额
     prize: string;
     avatar: string;
     avatarImage?: string;
+    isMeRow?: boolean; // 當前登入用戶的數據行
   };
 
   const RaceLeaderboard = ({ 
@@ -321,7 +395,7 @@ export default function EventsPage() {
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
               {tableData.map((row) => (
-                <tr key={row.rank} className="border-b transition-colors hover:bg-[#111417] data-[state=selected]:bg-gray-600">
+                <tr key={row.isMeRow ? row.avatar : row.rank} className="border-b transition-colors hover:bg-[#111417] data-[state=selected]:bg-gray-600">
                   <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-extrabold" style={{ color: '#7A8084' }}>{row.rank}</td>
                   <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
                     <div className="flex gap-2 items-center">

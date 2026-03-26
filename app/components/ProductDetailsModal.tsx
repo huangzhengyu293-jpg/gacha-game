@@ -10,8 +10,9 @@ export default function ProductDetailsModal({
   image,
   price,
   description,
+  probability,
+  probabilityDisplay,
   animateIn,
-  showFallbackDescription,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,16 +20,20 @@ export default function ProductDetailsModal({
   image: string;
   price: number;
   description?: string;
+  probability?: number;
+  probabilityDisplay?: string;
   animateIn?: boolean;
-  showFallbackDescription?: boolean;
 }) {
   const { t } = useI18n();
   if (!open) return null;
   const showAnim = animateIn ?? true;
-  const showFallback = showFallbackDescription ?? true;
   const safeName = name?.trim?.() ? name : '--';
   const priceNum = Number(price);
   const showPrice = Number.isFinite(priceNum) && priceNum > 0;
+  const hasDescription = typeof description === 'string' && description.trim().length > 0;
+  const outcomePercent = probabilityDisplay ?? (typeof probability === 'number' && Number.isFinite(probability)
+    ? ((probability * 100)).toFixed(4)
+    : null);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -38,7 +43,7 @@ export default function ProductDetailsModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg sm:max-w-3xl rounded-lg shadow-lg overflow-hidden grid gap-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg sm:max-w-3xl rounded-lg shadow-lg overflow-hidden flex flex-col max-h-[90vh]"
         style={{
           backgroundColor: '#22272B',
           transform: showAnim ? 'scale(1)' : 'scale(0.95)',
@@ -47,10 +52,17 @@ export default function ProductDetailsModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col gap-1.5 text-center sm:text-left">
+        <div className="flex items-center justify-between shrink-0 p-4 sm:p-6 pb-4">
           <h2 className="text-xl font-bold leading-none tracking-tight text-left" style={{ color: '#FFFFFF' }}>{t('productDetailsTitle')}</h2>
+          <button type="button" className="rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer shrink-0" onClick={onClose} style={{ color: '#9CA3AF' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6">
+              <path d="M18 6 6 18"></path>
+              <path d="m6 6 12 12"></path>
+            </svg>
+            <span className="sr-only">{t('close')}</span>
+          </button>
         </div>
-        <div>
+        <div className="flex-1 min-h-0 overflow-y-auto exchange-scroll p-4 sm:p-6 pt-0">
           <div className="rounded-lg" style={{ backgroundColor: '#34383C', padding: 24 }}>
             <div className="h-[250px] flex justify-center">
               {image ? (
@@ -75,17 +87,20 @@ export default function ProductDetailsModal({
                 </p>
               ) : null}
             </div>
-            <div className="flex w-full" style={{ backgroundColor: '#4B5563', height: 1 }}></div>
-            <p style={{ color: '#7A8084' }}>{description || (showFallback ? t('productDescFallback') : '')}</p>
+            {hasDescription ? (
+              <>
+                <div className="flex w-full bg-gray-600 h-[1px]" />
+                <p className="text-base" style={{ color: '#FFFFFF' }}>{description}</p>
+              </>
+            ) : null}
+            {outcomePercent != null && outcomePercent !== '' ? (
+              <div>
+                <p className="font-bold" style={{ color: '#FFFFFF' }}>Outcome</p>
+                <p className="text-base" style={{ color: '#FFFFFF' }}>{outcomePercent}%</p>
+              </div>
+            ) : null}
           </div>
         </div>
-        <button type="button" className="absolute right-5 top-[18px] rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer" onClick={onClose} style={{ color: '#9CA3AF' }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x min-w-6 min-h-6 size-6">
-            <path d="M18 6 6 18"></path>
-            <path d="m6 6 12 12"></path>
-          </svg>
-          <span className="sr-only">{t('close')}</span>
-        </button>
       </div>
     </div>
   );

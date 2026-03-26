@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback, useMemo, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useI18n } from './I18nProvider';
@@ -16,6 +17,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { pxToRem } from '../lib/rem';
 import { LogoIcon } from './icons/Logo';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
+import InfoTooltip from './InfoTooltip';
 
 type PromoCodeFormProps = {
   value: string;
@@ -276,6 +278,8 @@ export default function Navbar() {
   const [editingAgent, setEditingAgent] = useState<any | null>(null);
   const [editingAgentDraft, setEditingAgentDraft] = useState<{ name: string; contact: string; intro: string } | null>(null);
   const [editingAgentField, setEditingAgentField] = useState<'name' | 'contact' | 'intro' | null>(null);
+  const mobileContactInputRef = useRef<HTMLInputElement>(null);
+  const mobileIntroTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [editedAgents, setEditedAgents] = useState<Record<number, { name: string; contact: string; intro: string }>>({});
   const [agentIntroPopover, setAgentIntroPopover] = useState<{ id: string | number; intro: string; x: number; y: number } | null>(null);
   const [agentAmountModal, setAgentAmountModal] = useState<{ mode: 'pay' | 'return'; amount: string } | null>(null);
@@ -332,10 +336,11 @@ export default function Navbar() {
 
   const merchantList = useMemo(() => {
     const d: any = merchantListData?.data;
-    if (Array.isArray(d)) return d;
-    if (Array.isArray(d?.data)) return d.data;
-    if (Array.isArray(d?.list)) return d.list;
-    return [];
+    let arr: any[] = [];
+    if (Array.isArray(d)) arr = d;
+    else if (Array.isArray(d?.data)) arr = d.data;
+    else if (Array.isArray(d?.list)) arr = d.list;
+    return arr.slice().sort((a, b) => Number(b?.deposit ?? 0) - Number(a?.deposit ?? 0));
   }, [merchantListData?.data]);
 
   useEffect(() => {
@@ -364,6 +369,15 @@ export default function Navbar() {
       setRealPhone('');
     }
   }, [showWalletModal]);
+
+  useEffect(() => {
+    if (!isMobile || !editingAgentField) return;
+    const t = setTimeout(() => {
+      if (editingAgentField === 'contact') mobileContactInputRef.current?.focus();
+      else if (editingAgentField === 'intro') mobileIntroTextareaRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [isMobile, editingAgentField]);
 
   const closePayQrModal = useCallback(() => {
     setShowPayQrModal(false);
@@ -1173,7 +1187,7 @@ export default function Navbar() {
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
-
+    { key: 'fission', labelKey: 'fission', icon: 'fission', href: '/fission' },
     { key: 'rewards', labelKey: 'rewards', icon: 'rewards', href: '/rewards' },
   ];
 
@@ -1223,6 +1237,17 @@ export default function Navbar() {
           <path d="M12 8V21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
           <path d="M19 12V19C19 19.5304 18.7893 20.0391 18.4142 20.4142C18.0391 20.7893 17.5304 21 17 21H7C6.46957 21 5.96086 20.7893 5.58579 20.4142C5.21071 20.0391 5 19.5304 5 19V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
           <path d="M7.5 8.00001C6.83696 8.00001 6.20107 7.73662 5.73223 7.26778C5.26339 6.79894 5 6.16305 5 5.50001C5 4.83697 5.26339 4.20108 5.73223 3.73224C6.20107 3.26340 6.83696 3.00001 7.5 3.00001C8.46469 2.98320 9.41003 3.45127 10.2127 4.34317C11.0154 5.23507 11.6383 6.50941 12 8.00001C12.3617 6.50941 12.9846 5.23507 13.7873 4.34317C14.5900 3.45127 15.5353 2.98320 16.5 3.00001C17.1630 3.00001 17.7989 3.26340 18.2678 3.73224C18.7366 4.20108 19 4.83697 19 5.50001C19 6.16305 18.7366 6.79894 18.2678 7.26778C17.7989 7.73662 17.1630 8.00001 16.5 8.00001" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
+        </svg>
+      ),
+      fission: (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M12 3v4M12 17v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M3 12h4M17 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.8" />
         </svg>
       ),
     };
@@ -2100,20 +2125,53 @@ export default function Navbar() {
                     setEditingAgent(null);
                   }}
                 >
-                  <span
-                    style={{
-                      height: pxToRem(20),
-                      fontFamily: 'PingFangSC, PingFang SC',
-                      fontWeight: 500,
-                      fontSize: pxToRem(14),
-                      color: '#FFFFFF',
-                      lineHeight: pxToRem(20),
-                      textAlign: 'center',
-                      fontStyle: 'normal',
-                    }}
-                  >
-                    代理商
-                  </span>
+                  <div className="flex items-center" style={{ gap: pxToRem(8) }}>
+                    <span
+                      style={{
+                        height: pxToRem(20),
+                        fontFamily: 'PingFangSC, PingFang SC',
+                        fontWeight: 500,
+                        fontSize: pxToRem(14),
+                        color: '#FFFFFF',
+                        lineHeight: pxToRem(20),
+                        textAlign: 'center',
+                        fontStyle: 'normal',
+                      }}
+                    >
+                      {t("merchantTabLabel")}
+                    </span>
+                  <InfoTooltip
+                    content={t("merchantAgentTip")}
+                    triggerTag="span"
+                    triggerMode="click"
+                    stopPropagationOnClick
+                    usePortal
+                    portalWidthMode="max-content"
+                    showArrow={false}
+                    tooltipStyle={{ maxWidth: pxToRem(200), whiteSpace: 'normal' }}
+                    wrapperClassName="inline-flex items-center"
+                    buttonClassName="inline-flex items-center justify-center p-0 border-0 bg-transparent hover:bg-transparent"
+                    trigger={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width={pxToRem(16)}
+                        height={pxToRem(16)}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-circle-alert"
+                        style={{ color: '#FFFFFF', cursor: 'pointer' }}
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" x2="12" y1="8" y2="12"></line>
+                        <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                      </svg>
+                    }
+                  />
+                  </div>
                 </button>
               </div>
               {walletTab === 'payment' && (
@@ -2138,7 +2196,7 @@ export default function Navbar() {
                         const channelIcon =
                           channelId === 16 ? '/images/ustd.png'
                             : channelId === 2 ? '/images/cdk.png'
-                              : channelId === 22 ? '/images/alipay.png'
+                              : (channelId === 19 || channelId === 22) ? '/images/alipay.png'
                                 : '';
                         return (
                           <button
@@ -2556,6 +2614,7 @@ export default function Navbar() {
                       >
                         {editingAgentField === 'contact' ? (
                           <input
+                            ref={mobileContactInputRef}
                             type="text"
                             value={editingAgentDraft?.contact ?? ''}
                             onChange={(e) =>
@@ -2650,6 +2709,7 @@ export default function Navbar() {
                       >
                         {editingAgentField === 'intro' ? (
                           <textarea
+                            ref={mobileIntroTextareaRef}
                             value={editingAgentDraft?.intro ?? ''}
                             onChange={(e) =>
                               setEditingAgentDraft((prev) => ({
@@ -3042,12 +3102,13 @@ export default function Navbar() {
                 </>
               )}
             </motion.div>
-            {agentAmountModal && editingAgent && (
+            {agentAmountModal && editingAgent && typeof document !== 'undefined' && createPortal(
               <div
                 className="fixed inset-0 z-[60] flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
                 onClick={() => setAgentAmountModal(null)}
               >
-                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0" aria-hidden />
                 <div
                   className="relative flex flex-col"
                   onClick={(e) => e.stopPropagation()}
@@ -3181,7 +3242,8 @@ export default function Navbar() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </motion.div>
         </AnimatePresence>
@@ -3292,20 +3354,52 @@ export default function Navbar() {
                   setEditingAgent(null);
                 }}
               >
-                <span
-                  style={{
-                    height: '16px',
-                    fontFamily: 'PingFangSC, PingFang SC',
-                    fontWeight: 500,
-                    fontSize: '16px',
-                    color: '#FFFFFF',
-                    lineHeight: '16px',
-                    textAlign: 'center',
-                    fontStyle: 'normal',
-                  }}
-                >
-                  代理商
-                </span>
+                <div className="flex items-center" style={{ gap: 8 }}>
+                  <span
+                    style={{
+                      height: '16px',
+                      fontFamily: 'PingFangSC, PingFang SC',
+                      fontWeight: 500,
+                      fontSize: '16px',
+                      color: '#FFFFFF',
+                      lineHeight: '16px',
+                      textAlign: 'center',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    {t("merchantTabLabel")}
+                  </span>
+                  <InfoTooltip
+                    content={t("merchantAgentTip")}
+                    triggerTag="span"
+                    triggerMode="hover"
+                    usePortal
+                    portalWidthMode="max-content"
+                    showArrow={false}
+                    tooltipStyle={{ maxWidth: 200, whiteSpace: 'normal' }}
+                    wrapperClassName="inline-flex items-center"
+                    buttonClassName="inline-flex items-center justify-center p-0 border-0 bg-transparent hover:bg-transparent"
+                  trigger={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="lucide lucide-circle-alert"
+                      style={{ color: '#FFFFFF', cursor: 'pointer' }}
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" x2="12" y1="8" y2="12"></line>
+                      <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                    </svg>
+                  }
+                />
+                </div>
               </button>
             </div>
 
@@ -3321,7 +3415,7 @@ export default function Navbar() {
                           ? '/images/ustd.png'
                           : channelId === 2
                             ? '/images/cdk.png'
-                            : channelId === 22
+                            : (channelId === 19 || channelId === 22)
                               ? '/images/alipay.png'
                               : '';
                       return (
@@ -3622,7 +3716,24 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  <div className="mt-[8px]">
+                  <div
+                    className="mt-[8px]"
+                    onClick={(e) => {
+                      if (editingAgentField && !(e.target as HTMLElement).closest('input') && !(e.target as HTMLElement).closest('textarea') && !(e.target as HTMLElement).closest('button')) {
+                        if (editingAgent && editingAgentDraft) {
+                          setEditedAgents((prev) => ({
+                            ...prev,
+                            [editingAgent.id]: {
+                              name: editingAgentDraft.name ?? editingAgent.name,
+                              contact: editingAgentDraft.contact ?? '',
+                              intro: editingAgentDraft.intro ?? '',
+                            },
+                          }));
+                        }
+                        setEditingAgentField(null);
+                      }
+                    }}
+                  >
                     <div className="h-[92px] border-b border-white/10 flex items-center justify-between">
                       <div className="flex flex-col min-w-0 flex-1">
                         <span
@@ -3660,8 +3771,8 @@ export default function Navbar() {
                       </div>
                     </div>
 
-                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
-                      <div className="flex flex-col min-w-0 flex-1">
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between" style={{ gap: 20 }}>
+                      <div className="flex flex-col min-w-0 flex-1" style={{ maxWidth: 'calc(100% - 74px - 20px)' }}>
                         <span
                           style={{
                             height: '16px',
@@ -3677,26 +3788,48 @@ export default function Navbar() {
                         >
                           {t("merchantContact")}
                         </span>
-                        <div className="mt-[14px] h-[36px] min-w-0 overflow-hidden flex-shrink-0">
-                          <textarea
-                            readOnly={editingAgentField !== 'contact'}
-                            value={editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
-                            onChange={(e) => editingAgentField === 'contact' && setEditingAgentDraft((prev) => (prev ? { ...prev, contact: e.target.value } : { name: editingAgent.name, contact: e.target.value, intro: editingAgent.intro }))}
-                            className="w-full h-full bg-transparent border-0 p-0 m-0 resize-none focus:outline-none focus:ring-0 box-border text-inherit block"
-                            style={{
-                              fontFamily: 'PingFangSC, PingFang SC',
-                              fontWeight: 400,
-                              fontSize: '14px',
-                              color: 'rgba(255,255,255,0.5)',
-                              lineHeight: '18px',
-                              letterSpacing: '1px',
-                              textAlign: 'left',
-                              fontStyle: 'normal',
-                              minHeight: '36px',
-                              height: '36px',
-                              cursor: editingAgentField === 'contact' ? 'text' : 'default',
-                            }}
-                          />
+                        <div className="mt-[14px] min-w-0 flex-1">
+                          {editingAgentField === 'contact' ? (
+                            <input
+                              type="text"
+                              value={editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
+                              onChange={(e) => setEditingAgentDraft((prev) => (prev ? { ...prev, contact: e.target.value } : { name: editingAgent.name, contact: e.target.value, intro: editingAgent.intro }))}
+                              className="w-full outline-none bg-transparent"
+                              style={{
+                                width: '100%',
+                                height: 40,
+                                background: 'rgba(216,216,216,0.05)',
+                                border: '1px solid #535353',
+                                borderRadius: 8,
+                                paddingLeft: 12,
+                                paddingRight: 12,
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: '#FFFFFF',
+                                lineHeight: '18px',
+                                letterSpacing: '1px',
+                                textAlign: 'left',
+                                fontStyle: 'normal',
+                              }}
+                            />
+                          ) : (
+                            <span
+                              className="block truncate"
+                              style={{
+                                height: '36px',
+                                lineHeight: '18px',
+                                fontFamily: 'PingFangSC, PingFang SC',
+                                fontWeight: 400,
+                                fontSize: '14px',
+                                color: 'rgba(255,255,255,0.5)',
+                                letterSpacing: '1px',
+                                fontStyle: 'normal',
+                              }}
+                            >
+                              {editingAgentDraft?.contact ?? editingAgent.contact ?? ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
@@ -3716,8 +3849,8 @@ export default function Navbar() {
                       </button>
                     </div>
 
-                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between">
-                      <div className="flex flex-col min-w-0 flex-1">
+                    <div className="min-h-[110px] border-b border-white/10 flex items-center justify-between" style={{ gap: 20 }}>
+                      <div className="flex flex-col min-w-0 flex-1" style={{ maxWidth: 'calc(100% - 74px - 20px)' }}>
                         <span
                           style={{
                             height: '16px',
@@ -3733,17 +3866,23 @@ export default function Navbar() {
                         >
                           {t("merchantIntro")}
                         </span>
-                        <div className="mt-[14px] h-[36px] flex items-center min-w-0">
+                        <div className="mt-[14px] min-w-0 flex-1">
                           {editingAgentField === 'intro' ? (
                             <textarea
                               value={editingAgentDraft?.intro ?? ''}
                               onChange={(e) => setEditingAgentDraft((prev) => ({ name: prev?.name ?? editingAgent.name, contact: prev?.contact ?? editingAgent.contact, intro: e.target.value }))}
-                              className="w-full h-full bg-transparent border-0 p-0 m-0 text-inherit resize-none focus:outline-none focus:ring-0 box-border exchange-scroll"
+                              className="w-full outline-none bg-transparent resize-none exchange-scroll"
                               style={{
+                                width: '100%',
+                                minHeight: 80,
+                                background: 'rgba(216,216,216,0.05)',
+                                border: '1px solid #535353',
+                                borderRadius: 8,
+                                padding: 12,
                                 fontFamily: 'PingFangSC, PingFang SC',
                                 fontWeight: 400,
                                 fontSize: '14px',
-                                color: 'rgba(255,255,255,0.5)',
+                                color: '#FFFFFF',
                                 lineHeight: '18px',
                                 letterSpacing: '1px',
                                 textAlign: 'left',
@@ -4070,15 +4209,16 @@ export default function Navbar() {
               )
             ) : null}
           </div>
-          {agentAmountModal && editingAgent && (
+          {agentAmountModal && editingAgent && typeof document !== 'undefined' && createPortal(
             <div
               className="fixed inset-0 z-[60] flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
               onClick={(e) => {
                 e.stopPropagation();
                 setAgentAmountModal(null);
               }}
             >
-              <div className="absolute inset-0" />
+              <div className="absolute inset-0" aria-hidden />
               <div
                 className="relative flex flex-col"
                 onClick={(e) => e.stopPropagation()}
@@ -4241,7 +4381,8 @@ export default function Navbar() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       )}
