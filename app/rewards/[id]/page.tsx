@@ -175,7 +175,7 @@ export default function RewardPackDetailPage() {
       <div className="w-full rounded-xl relative" style={{ background: 'var(--deposit-gradient-bg)' }}>
         <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none z-10">
           <LogoIcon width={20} height={20} className="w-5 h-5" color="#FFFFFF" aria-hidden />
-          <p className="text-white text-lg font-black">FlameDraw</p>
+          <p className="text-white text-lg font-black">Kawaguchicases</p>
         </div>
         {pack && (
           <HorizontalSlotMachineClient

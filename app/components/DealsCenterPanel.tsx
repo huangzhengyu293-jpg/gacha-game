@@ -575,7 +575,7 @@ export default function DealsCenterPanel({ percent = 35.04, onPercentChange, onD
     <div className={`${urbanist.className} col-span-1 flex flex-col items-center order-0 lg:order-1 overflow-hidden min-w-0 rounded-md p-4 pb-6 lg:px-8 h-full`} style={{ backgroundColor: '#22272B' }}>
       <div className="flex justify-center items-center gap-1">
         <LogoIcon width={20} height={20} color="#FFFFFF" className="mr-1 w-5 h-5" aria-hidden />
-        <p className="text-white text-lg font-black">FlameDraw</p>
+        <p className="text-white text-lg font-black">Kawaguchicases</p>
       </div>
 
       <p className="text-xl select-none font-extrabold mb-0 lg:hidden text-white">{percent.toFixed(2)}%</p>

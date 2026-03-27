@@ -6,9 +6,9 @@ type Lang = "zh" | "en" | "ko" | "ja";
 type Dict = Record<string, Record<Lang, string>>;
 
 const dict: Dict = {
-  brand: { zh: "FlameDraw", en: "FlameDraw", ko: "FlameDraw", ja: "FlameDraw" },
+  brand: { zh: "Kawaguchicases", en: "Kawaguchicases", ko: "Kawaguchicases", ja: "Kawaguchicases" },
   slogan: { zh: "开启礼包并争夺稀有和贵重产品。", en: "Open packs and compete for rare and premium items.", ko: "팩을 열고 희귀하고 고급 아이템을 획득하세요.", ja: "パックを開けて、レアで高級なアイテムを手に入れよう。" },
-  welcome: { zh: "欢迎来到 FlameDraw", en: "Welcome to FlameDraw", ko: "FlameDraw에 오신 것을 환영합니다", ja: "FlameDrawへようこそ" },
+  welcome: { zh: "欢迎来到 Kawaguchicases", en: "Welcome to Kawaguchicases", ko: "Kawaguchicases에 오신 것을 환영합니다", ja: "Kawaguchicasesへようこそ" },
   games: { zh: "游戏", en: "Games", ko: "게임", ja: "ゲーム" },
   packs: { zh: "礼包", en: "Packs", ko: "팩", ja: "パック" },
   battles: { zh: "对战", en: "Battles", ko: "배틀", ja: "バトル" },
@@ -29,9 +29,9 @@ const dict: Dict = {
   activityIntro: { zh: "活动介绍", en: "Event info", ko: "이벤트 안내", ja: "イベント案内" },
   favorite: { zh: "最喜欢", en: "Favorite", ko: "즐겨찾기", ja: "お気に入り" },
   support: { zh: "支持", en: "Support", ko: "サポート", ja: "サポート" },
-  email: { zh: "support@flamedraw.com", en: "support@flamedraw.com", ko: "support@flamedraw.com", ja: "support@flamedraw.com" },
+  email: { zh: "support@Kawaguchicases.com", en: "support@Kawaguchicases.com", ko: "support@Kawaguchicases.com", ja: "support@Kawaguchicases.com" },
   chooseLanguage: { zh: "选择语言", en: "Choose Language", ko: "언어 선택", ja: "言語を選択" },
-  copyright: { zh: "版权所有 © FlameDraw 2025", en: "Copyright © FlameDraw 2025", ko: "저작권 © FlameDraw 2025", ja: "著作権 © FlameDraw 2025" },
+  copyright: { zh: "版权所有 © Kawaguchicases 2025", en: "Copyright © Kawaguchicases 2025", ko: "저작권 © Kawaguchicases 2025", ja: "著作権 © Kawaguchicases 2025" },
   // New UI strings
   viewAll: { zh: "查看全部", en: "View All", ko: "전체 보기", ja: "すべて表示" },
   newPacks: { zh: "新礼包", en: "New Packs", ko: "신규 팩", ja: "新しいパック" },
@@ -475,33 +475,33 @@ const dict: Dict = {
     ko: "원치 않는 아이템은 판매하고 현금화하거나 배송을 기다리세요!",
     ja: "不要なアイテムは売却してキャッシュアウト、または配送を待とう！",
   },
-  faqWhatIsQ: { zh: "什么是 FlameDraw", en: "What is FlameDraw", ko: "FlameDraw란?", ja: "FlameDrawとは？" },
+  faqWhatIsQ: { zh: "什么是 Kawaguchicases", en: "What is Kawaguchicases", ko: "Kawaguchicases란?", ja: "Kawaguchicasesとは？" },
   faqWhatIsA: {
-    zh: "FlameDraw 通过其游戏化的购物方式革新了在线购物，提供包含您熟悉和喜爱的顶级品牌多样化产品的数字礼包。所有礼包在开启前都会显示价格、产品范围和获胜机会，确保安全、透明和令人兴奋的购物体验。",
-    en: "FlameDraw gamifies shopping with digital packs featuring products from top brands you know. Each pack shows price, range, and odds before you open, keeping the experience safe, transparent, and exciting.",
-    ko: "FlameDraw는 익숙한 톱 브랜드 상품이 담긴 디지털 팩으로 쇼핑을 게임화합니다. 모든 팩은 열기 전에 가격, 구성, 확률을 보여 안전하고 투명하며 짜릿한 경험을 제공합니다.",
-    ja: "FlameDrawは、馴染みのトップブランド商品を含むデジタルパックでショッピングをゲーム化します。開封前に価格・内容・確率を表示し、安全で透明かつワクワクする体験を提供します。",
+    zh: "Kawaguchicases 通过其游戏化的购物方式革新了在线购物，提供包含您熟悉和喜爱的顶级品牌多样化产品的数字礼包。所有礼包在开启前都会显示价格、产品范围和获胜机会，确保安全、透明和令人兴奋的购物体验。",
+    en: "Kawaguchicases gamifies shopping with digital packs featuring products from top brands you know. Each pack shows price, range, and odds before you open, keeping the experience safe, transparent, and exciting.",
+    ko: "Kawaguchicases는 익숙한 톱 브랜드 상품이 담긴 디지털 팩으로 쇼핑을 게임화합니다. 모든 팩은 열기 전에 가격, 구성, 확률을 보여 안전하고 투명하며 짜릿한 경험을 제공합니다.",
+    ja: "Kawaguchicasesは、馴染みのトップブランド商品を含むデジタルパックでショッピングをゲーム化します。開封前に価格・内容・確率を表示し、安全で透明かつワクワクする体験を提供します。",
   },
-  faqIsSafeQ: { zh: "FlameDraw 安全公平吗？", en: "Is FlameDraw safe and fair?", ko: "FlameDraw는 안전하고 공정한가요?", ja: "FlameDrawは安全で公平ですか？" },
+  faqIsSafeQ: { zh: "Kawaguchicases 安全公平吗？", en: "Is Kawaguchicases safe and fair?", ko: "Kawaguchicases는 안전하고 공정한가요?", ja: "Kawaguchicasesは安全で公平ですか？" },
   faqIsSafeA: {
-    zh: "当然！FlameDraw 成立于 2022 年，旨在树立诚信新标准，并使用 EOS 区块链技术确保安全性。我们坚持透明与诚信，为所有用户提供公平、愉快的体验。想了解我们对公平性的承诺及算法原理，请访问 https://flamedraw.com/fairness。",
-    en: "Yes. Founded in 2022, FlameDraw uses EOS blockchain tech for security and sets a new bar for integrity. We stay transparent and fair for every user. Learn more at https://flamedraw.com/fairness.",
-    ko: "네. 2022년에 설립된 FlameDraw는 EOS 블록체인 기술로 보안을 강화하고 투명성과 정직성을 지향합니다. 자세한 내용은 https://flamedraw.com/fairness 에서 확인하세요.",
-    ja: "はい。2022年設立のFlameDrawはEOSブロックチェーン技術で安全性を高め、透明性と公正性を重視しています。詳しくは https://flamedraw.com/fairness をご覧ください。",
+    zh: "当然！Kawaguchicases 成立于 2022 年，旨在树立诚信新标准，并使用 EOS 区块链技术确保安全性。我们坚持透明与诚信，为所有用户提供公平、愉快的体验。想了解我们对公平性的承诺及算法原理，请访问 https://Kawaguchicases.com/fairness。",
+    en: "Yes. Founded in 2022, Kawaguchicases uses EOS blockchain tech for security and sets a new bar for integrity. We stay transparent and fair for every user. Learn more at https://Kawaguchicases.com/fairness.",
+    ko: "네. 2022년에 설립된 Kawaguchicases는 EOS 블록체인 기술로 보안을 강화하고 투명성과 정직성을 지향합니다. 자세한 내용은 https://Kawaguchicases.com/fairness 에서 확인하세요.",
+    ja: "はい。2022年設立のKawaguchicasesはEOSブロックチェーン技術で安全性を高め、透明性と公正性を重視しています。詳しくは https://Kawaguchicases.com/fairness をご覧ください。",
   },
-  faqTrustQ: { zh: "FlameDraw 值得信赖吗？", en: "Can I trust FlameDraw?", ko: "FlameDraw를 신뢰할 수 있나요?", ja: "FlameDrawは信頼できますか？" },
+  faqTrustQ: { zh: "Kawaguchicases 值得信赖吗？", en: "Can I trust Kawaguchicases?", ko: "Kawaguchicases를 신뢰할 수 있나요?", ja: "Kawaguchicasesは信頼できますか？" },
   faqTrustA: {
-    zh: "当然。信任与安全是 FlameDraw 的核心。我们充满活力的社区、实时的客服响应以及严密的风控体系，都展示了我们打造安全可靠平台的承诺。您可以放心在 FlameDraw 获得值得信赖的体验。",
-    en: "Yes. Trust and safety are core to FlameDraw. Our active community, fast support, and strong risk controls reflect our commitment to a reliable platform you can count on.",
-    ko: "네. 신뢰와 안전은 FlameDraw의 핵심입니다. 활발한 커뮤니티, 신속한 지원, 견고한 리스크 관리로 신뢰할 수 있는 플랫폼을 제공합니다.",
-    ja: "はい。信頼と安全はFlameDrawの核です。活発なコミュニティ、迅速なサポート、強固なリスク管理で安心してご利用いただけます。",
+    zh: "当然。信任与安全是 Kawaguchicases 的核心。我们充满活力的社区、实时的客服响应以及严密的风控体系，都展示了我们打造安全可靠平台的承诺。您可以放心在 Kawaguchicases 获得值得信赖的体验。",
+    en: "Yes. Trust and safety are core to Kawaguchicases. Our active community, fast support, and strong risk controls reflect our commitment to a reliable platform you can count on.",
+    ko: "네. 신뢰와 안전은 Kawaguchicases의 핵심입니다. 활발한 커뮤니티, 신속한 지원, 견고한 리스크 관리로 신뢰할 수 있는 플랫폼을 제공합니다.",
+    ja: "はい。信頼と安全はKawaguchicasesの核です。活発なコミュニティ、迅速なサポート、強固なリスク管理で安心してご利用いただけます。",
   },
   faqHowOpenQ: { zh: "如何开启礼包？", en: "How do I open packs?", ko: "팩은 어떻게 열나요?", ja: "パックはどう開けますか？" },
   faqHowOpenA: {
-    zh: "在页面顶部的“礼包”标签下浏览全部礼包。每个礼包都会展示独特设计、主题、包含的产品及其概率。找到心仪礼包并确保余额充足后，点击“开启”即可欣赏动画并揭晓奖励。如果转轴落在金色的 FlameDraw 符号上，就能赢得大奖！",
-    en: "Browse all packs under the Packs tab. Each shows design, theme, contents, and odds. Pick one, ensure balance, click Open to see the reveal. Landing on the gold FlameDraw symbol wins the jackpot!",
-    ko: "상단 ‘팩’ 탭에서 모든 팩을 둘러보세요. 디자인, 테마, 구성, 확률을 확인한 뒤 잔액을 준비하고 ‘열기’를 누르면 결과가 공개됩니다. 황금 FlameDraw 심볼이 나오면 잭팟입니다!",
-    ja: "上部の「パック」タブで全パックを確認できます。デザイン・テーマ・内容・確率を見て、残高を用意し「開封」を押せば結果がわかります。金色のFlameDrawシンボルが出ればジャックポット！",
+    zh: "在页面顶部的“礼包”标签下浏览全部礼包。每个礼包都会展示独特设计、主题、包含的产品及其概率。找到心仪礼包并确保余额充足后，点击“开启”即可欣赏动画并揭晓奖励。如果转轴落在金色的 Kawaguchicases 符号上，就能赢得大奖！",
+    en: "Browse all packs under the Packs tab. Each shows design, theme, contents, and odds. Pick one, ensure balance, click Open to see the reveal. Landing on the gold Kawaguchicases symbol wins the jackpot!",
+    ko: "상단 ‘팩’ 탭에서 모든 팩을 둘러보세요. 디자인, 테마, 구성, 확률을 확인한 뒤 잔액을 준비하고 ‘열기’를 누르면 결과가 공개됩니다. 황금 Kawaguchicases 심볼이 나오면 잭팟입니다!",
+    ja: "上部の「パック」タブで全パックを確認できます。デザイン・テーマ・内容・確率を見て、残高を用意し「開封」を押せば結果がわかります。金色のKawaguchicasesシンボルが出ればジャックポット！",
   },
   faqHowDepositQ: { zh: "如何存款？", en: "How do I deposit?", ko: "입금은 어떻게 하나요?", ja: "入金方法は？" },
   faqHowDepositA: {
@@ -512,10 +512,10 @@ const dict: Dict = {
   },
   faqCryptoPendingQ: { zh: "加密货币存款未到账？", en: "Crypto deposit pending?", ko: "암호화폐 입금이 안 들어왔나요?", ja: "暗号資産の入金が反映されない？" },
   faqCryptoPendingA: {
-    zh: "如果加密货币存款尚未入账，请保持冷静：先查看您外部钱包的交易历史，找到转入 FlameDraw 的记录并复制交易哈希（txid）。部分钱包会提供到 etherscan.io 等区块浏览器的链接，便于查看详情。准备好交易哈希（txid）与 FlameDraw 账户 ID 后，发送邮件至 support@flamedraw.com 联系客服，我们会尽快帮您入账。",
-    en: "If a crypto deposit is missing, check your wallet history and copy the txid (often linked to a block explorer like etherscan.io). Then email support@flamedraw.com with the txid and your FlameDraw ID—we'll help credit it.",
-    ko: "암호화폐 입금이 미반영이면 지갑 거래내역에서 txid를 확인하세요(etherscan 등 탐색기 링크 활용). txid와 FlameDraw ID를 support@flamedraw.com 으로 보내주시면 처리해드립니다.",
-    ja: "暗号資産入金が反映されない場合、ウォレット履歴でtxidを確認し（etherscan等のリンクあり）、txidとFlameDraw IDを support@flamedraw.com までメールください。対応します。",
+    zh: "如果加密货币存款尚未入账，请保持冷静：先查看您外部钱包的交易历史，找到转入 Kawaguchicases 的记录并复制交易哈希（txid）。部分钱包会提供到 etherscan.io 等区块浏览器的链接，便于查看详情。准备好交易哈希（txid）与 Kawaguchicases 账户 ID 后，发送邮件至 support@Kawaguchicases.com 联系客服，我们会尽快帮您入账。",
+    en: "If a crypto deposit is missing, check your wallet history and copy the txid (often linked to a block explorer like etherscan.io). Then email support@Kawaguchicases.com with the txid and your Kawaguchicases ID—we'll help credit it.",
+    ko: "암호화폐 입금이 미반영이면 지갑 거래내역에서 txid를 확인하세요(etherscan 등 탐색기 링크 활용). txid와 Kawaguchicases ID를 support@Kawaguchicases.com 으로 보내주시면 처리해드립니다.",
+    ja: "暗号資産入金が反映されない場合、ウォレット履歴でtxidを確認し（etherscan等のリンクあり）、txidとKawaguchicases IDを support@Kawaguchicases.com までメールください。対応します。",
   },
   faqWhatBattleQ: { zh: "什么是对战？", en: "What are battles?", ko: "배틀이란?", ja: "バトルとは？" },
   faqWhatBattleA: {
@@ -526,10 +526,10 @@ const dict: Dict = {
   },
   faqGetSupportQ: { zh: "如何获得支持？", en: "How do I get support?", ko: "지원은 어떻게 받나요?", ja: "サポートを受けるには？" },
   faqGetSupportA: {
-    zh: "如需更多帮助，欢迎随时联系支持团队。您可通过 support@flamedraw.com 将问题与账户信息发送给我们，我们会尽快回复并协助解决任何疑问。",
-    en: "Need help? Email support@flamedraw.com with your question and account info. We'll respond quickly and help you out.",
-    ko: "도움이 필요하면 support@flamedraw.com 으로 문의와 계정 정보를 보내주세요. 신속히 도와드리겠습니다.",
-    ja: "サポートが必要な場合は support@flamedraw.com へ質問とアカウント情報をお送りください。迅速に対応します。",
+    zh: "如需更多帮助，欢迎随时联系支持团队。您可通过 support@Kawaguchicases.com 将问题与账户信息发送给我们，我们会尽快回复并协助解决任何疑问。",
+    en: "Need help? Email support@Kawaguchicases.com with your question and account info. We'll respond quickly and help you out.",
+    ko: "도움이 필요하면 support@Kawaguchicases.com 으로 문의와 계정 정보를 보내주세요. 신속히 도와드리겠습니다.",
+    ja: "サポートが必要な場合は support@Kawaguchicases.com へ質問とアカウント情報をお送りください。迅速に対応します。",
   },
   // Toasts / actions
   success: { zh: "成功", en: "Success", ko: "성공", ja: "成功" },
@@ -634,7 +634,7 @@ const dict: Dict = {
   welcomeBack: { zh: "欢迎回来！", en: "Welcome back!", ko: "다시 오신 것을 환영합니다!", ja: "お帰りなさい！" },
   welcomeBackUser: { zh: "欢迎回来，{name}！", en: "Welcome back, {name}!", ko: "{name}님, 환영합니다!", ja: "{name}さん、お帰りなさい！" },
   // Auth modals
-  registerTitle: { zh: "欢迎来到 FlameDraw", en: "Welcome to FlameDraw", ko: "FlameDraw에 오신 것을 환영합니다", ja: "FlameDrawへようこそ" },
+  registerTitle: { zh: "欢迎来到 Kawaguchicases", en: "Welcome to Kawaguchicases", ko: "Kawaguchicases에 오신 것을 환영합니다", ja: "Kawaguchicasesへようこそ" },
   registerSubtitle: { zh: "注册以开始", en: "Sign up to start", ko: "시작하려면 가입하세요", ja: "始めるには登録してください" },
   usernameLabel: { zh: "用户名", en: "Username", ko: "사용자명", ja: "ユーザー名" },
   emailLabel: { zh: "电子邮件地址", en: "Email address", ko: "이메일 주소", ja: "メールアドレス" },
@@ -826,10 +826,10 @@ const dict: Dict = {
   lowRisk: { zh: "低风险", en: "Low Risk", ko: "낮은 위험", ja: "低リスク" },
   highRisk: { zh: "高风险", en: "High Risk", ko: "높은 위험", ja: "高リスク" },
   legalBrandNote: {
-    zh: "FlameDraw 是 FlameDraw Group 的品牌，该集团由 FlameDraw Limited（一家根据塞浦路斯法律注册的公司，公司编号 HE 445177，注册地址：Iakovou Patatsou 4a, Agios Dometios, 2362 尼科西亚，塞浦路斯）和 FlameDraw US, LLC（一家根据美利坚合众国法律注册的公司，注册编号 7571319，注册地址：108 West 13th Street Wilmington, Delaware 19801，美国）组成。",
-    en: "FlameDraw is a brand of the FlameDraw Group, which consists of FlameDraw Limited (a company registered under the laws of Cyprus, company number HE 445177, registered address: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus) and FlameDraw US, LLC (a company registered under the laws of the United States, registration number 7571319, registered address: 108 West 13th Street, Wilmington, Delaware 19801, USA).",
-    ko: "FlameDraw FlameDraw Group의 브랜드로, FlameDraw Limited(키프로스 법에 따라 등록된 회사, 회사 번호 HE 445177, 등록 주소: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus)와 FlameDraw US, LLC(미국 법에 따라 등록된 회사, 등록 번호 7571319, 등록 주소: 108 West 13th Street, Wilmington, Delaware 19801, USA)로 구성됩니다.",
-    ja: "FlameDraw は FlameDraw Group のブランドであり、FlameDraw Limited（キプロス法に基づき登録された会社、会社番号 HE 445177、登録住所：Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus）および FlameDraw US, LLC（米国法に基づき登録された会社、登録番号 7571319、登録住所：108 West 13th Street, Wilmington, Delaware 19801, USA）で構成されています。"
+    zh: "Kawaguchicases 是 Kawaguchicases Group 的品牌，该集团由 Kawaguchicases Limited（一家根据塞浦路斯法律注册的公司，公司编号 HE 445177，注册地址：Iakovou Patatsou 4a, Agios Dometios, 2362 尼科西亚，塞浦路斯）和 Kawaguchicases US, LLC（一家根据美利坚合众国法律注册的公司，注册编号 7571319，注册地址：108 West 13th Street Wilmington, Delaware 19801，美国）组成。",
+    en: "Kawaguchicases is a brand of the Kawaguchicases Group, which consists of Kawaguchicases Limited (a company registered under the laws of Cyprus, company number HE 445177, registered address: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus) and Kawaguchicases US, LLC (a company registered under the laws of the United States, registration number 7571319, registered address: 108 West 13th Street, Wilmington, Delaware 19801, USA).",
+    ko: "Kawaguchicases Kawaguchicases Group의 브랜드로, Kawaguchicases Limited(키프로스 법에 따라 등록된 회사, 회사 번호 HE 445177, 등록 주소: Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus)와 Kawaguchicases US, LLC(미국 법에 따라 등록된 회사, 등록 번호 7571319, 등록 주소: 108 West 13th Street, Wilmington, Delaware 19801, USA)로 구성됩니다.",
+    ja: "Kawaguchicases は Kawaguchicases Group のブランドであり、Kawaguchicases Limited（キプロス法に基づき登録された会社、会社番号 HE 445177、登録住所：Iakovou Patatsou 4a, Agios Dometios, 2362 Nicosia, Cyprus）および Kawaguchicases US, LLC（米国法に基づき登録された会社、登録番号 7571319、登録住所：108 West 13th Street, Wilmington, Delaware 19801, USA）で構成されています。"
   },
 };
 

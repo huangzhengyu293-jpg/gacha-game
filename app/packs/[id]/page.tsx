@@ -166,7 +166,7 @@ export default function PackDetailPage() {
           </a>
           <div className="flex justify-center items-center gap-1">
             <LogoIcon width={20} height={20} className="mr-1 w-5 h-5" color="#FFFFFF" aria-hidden />
-            <p className="text-white text-lg font-black">FlameDraw</p>
+            <p className="text-white text-lg font-black">Kawaguchicases</p>
           </div>
           <div className="flex gap-2 w-[113.5px]"></div>
         </div>

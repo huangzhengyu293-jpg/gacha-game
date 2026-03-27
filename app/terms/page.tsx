@@ -18,8 +18,8 @@ export default function TermsOfServicePage() {
             INTRODUCTION
           </h2>
           <p>
-            Flamedraw.com is operated by PD Operations B.V. (hereinafter
-            “Flamedraw”, “Company”, “We” or “Us”), a company duly incorporated
+            Kawaguchicases.com is operated by PD Operations B.V. (hereinafter
+            “Kawaguchicases”, “Company”, “We” or “Us”), a company duly incorporated
             under the laws of Curaçao with company number 171219 and registered
             office at Korporaalweg 10.
           </p>
@@ -28,8 +28,8 @@ export default function TermsOfServicePage() {
             ACCEPTANCE
           </h2>
           <p>
-            By registering an account at <span className="underline">www.Flamedraw.com</span> (the “Website”), you enter into
-            an agreement with Flamedraw, and agree to be bound by these Terms of
+            By registering an account at <span className="underline">www.Kawaguchicases.com</span> (the “Website”), you enter into
+            an agreement with Kawaguchicases, and agree to be bound by these Terms of
             Service (the “Agreement”) and by the terms governing our products as
             referenced in this Agreement.
           </p>
@@ -51,7 +51,7 @@ export default function TermsOfServicePage() {
           <ul className={LIST_CLASS}>
             <li>
               <span className="font-bold">Account or User Account:</span> refers
-              to your user account created on Flamedraw.com.
+              to your user account created on Kawaguchicases.com.
             </li>
             <li>
               <span className="font-bold">Product:</span> refers to any service
@@ -75,10 +75,10 @@ export default function TermsOfServicePage() {
               <span className="font-bold">You, User or Customer:</span> refers
               to each natural individual that has an Account at{' '}
               <Link
-                href="https://Flamedraw.com"
+                href="https://Kawaguchicases.com"
                 className="text-blue-400 underline"
               >
-                Flamedraw.com
+                Kawaguchicases.com
               </Link>
               .
             </li>
@@ -111,8 +111,8 @@ export default function TermsOfServicePage() {
           <p>
             When registering, a username will be automatically assigned to you.
             You may change your username afterward as long as it is not
-            offensive or targeted toward specific groups, Flamedraw, or its
-            staff. Flamedraw reserves the right to reject registrations or
+            offensive or targeted toward specific groups, Kawaguchicases, or its
+            staff. Kawaguchicases reserves the right to reject registrations or
             username changes at its sole discretion and may change your username
             if needed.
           </p>
@@ -228,7 +228,7 @@ export default function TermsOfServicePage() {
           </h3>
           <ul className={LIST_CLASS}>
             <li>
-              Your Flamedraw account is not a bank account or investment product.
+              Your Kawaguchicases account is not a bank account or investment product.
             </li>
             <li>
               You will not engage in fraudulent, collusive, or unlawful activity
@@ -251,7 +251,7 @@ export default function TermsOfServicePage() {
           <h3 className="text-sm font-bold mt-6 text-white">Others</h3>
           <ul className={LIST_CLASS}>
             <li>
-              You will comply with court orders and will not link to Flamedraw in
+              You will comply with court orders and will not link to Kawaguchicases in
               ways that are illegal, unfair, or damaging to our reputation.
             </li>
             <li>You will not access other users’ accounts or impersonate them.</li>
@@ -278,10 +278,10 @@ export default function TermsOfServicePage() {
             may cancel or void prizes and may close your account at any time at
             our discretion. You may terminate your account by contacting{' '}
             <Link
-              href="mailto:Support@Flamedraw.com"
+              href="mailto:Support@Kawaguchicases.com"
               className="text-blue-400 underline"
             >
-              Support@Flamedraw.com
+              Support@Kawaguchicases.com
             </Link>
             ; any unclaimed prizes will be forfeited upon closure.
           </p>
@@ -293,7 +293,7 @@ export default function TermsOfServicePage() {
             Account Balance
           </h3>
           <p>
-            To purchase packs or use Flamedraw products, add balance through
+            To purchase packs or use Kawaguchicases products, add balance through
             payment methods available on the Website. Only payment methods owned
             by you may be used. Credits are generally processed immediately,
             though payment provider delays and bank fees are outside our control.
@@ -436,10 +436,10 @@ export default function TermsOfServicePage() {
           <p>
             If items are lost during delivery, email{' '}
             <Link
-              href="mailto:support@Flamedraw.com"
+              href="mailto:support@Kawaguchicases.com"
               className="text-blue-400 underline"
             >
-              support@Flamedraw.com
+              support@Kawaguchicases.com
             </Link>{' '}
             with proof of non-shipment. For damaged or faulty items, email{' '}
             <Link
@@ -485,7 +485,7 @@ export default function TermsOfServicePage() {
             as permitted by law.
           </p>
           <p>
-            You do not own the software; it remains the property of Flamedraw or
+            You do not own the software; it remains the property of Kawaguchicases or
             the software provider and is protected by copyright law. The
             software is provided “as is” without warranties. We are not liable
             for system errors, interruptions, or viruses, and we may remove
@@ -524,7 +524,7 @@ export default function TermsOfServicePage() {
           <p>
             We comply with requests from authorities or courts regarding users
             violating these Terms, per our privacy policies and applicable laws.
-            If your activity causes Flamedraw to incur legal expenses to comply
+            If your activity causes Kawaguchicases to incur legal expenses to comply
             with orders, you agree to reimburse those expenses upon request.
           </p>
 
@@ -542,12 +542,12 @@ export default function TermsOfServicePage() {
             INDEMNIFICATION
           </h2>
           <p>
-            You agree to defend, indemnify, and hold Flamedraw, its affiliates,
+            You agree to defend, indemnify, and hold Kawaguchicases, its affiliates,
             officers, directors, employees, contractors, and agents harmless
             from any claims, actions, losses, liabilities, expenses, and costs
             arising from your actions or those of anyone using your Account,
             including government claims and damages resulting from use or misuse
-            of Flamedraw.
+            of Kawaguchicases.
           </p>
 
           <h2 className="text-base font-bold mt-8 mb-2 text-white">
@@ -557,19 +557,19 @@ export default function TermsOfServicePage() {
             We are not liable for user-generated materials, offensive conduct,
             personal injury, property damage, unauthorized access, service
             interruptions, malicious code, incompatibilities, or claims related
-            to identification from provided content. You release Flamedraw and
-            its affiliates from all claims arising from your use of Flamedraw.
+            to identification from provided content. You release Kawaguchicases and
+            its affiliates from all claims arising from your use of Kawaguchicases.
           </p>
 
           <h2 className="text-base font-bold mt-8 mb-2 text-white">
             INTELLECTUAL PROPERTY
           </h2>
           <p>
-            Flamedraw and related marks are proprietary trademarks. Product and
+            Kawaguchicases and related marks are proprietary trademarks. Product and
             service names of other manufacturers may be trademarks of their
             respective owners. You may not use our marks without written
             consent. Except for user-generated materials, all materials on
-            Flamedraw are our proprietary information protected by copyright law.
+            Kawaguchicases are our proprietary information protected by copyright law.
           </p>
 
           <h2 className="text-base font-bold mt-8 mb-2 text-white">
@@ -589,7 +589,7 @@ export default function TermsOfServicePage() {
           </h3>
           <p>
             These Terms, along with legally binding notices or agreements on the
-            Website, constitute the entire agreement between you and Flamedraw.
+            Website, constitute the entire agreement between you and Kawaguchicases.
           </p>
 
           <h3 className="text-sm font-bold mt-6 text-white">
@@ -626,7 +626,7 @@ export default function TermsOfServicePage() {
 
           <h3 className="text-sm font-bold mt-6 text-white">Force Majeure</h3>
           <p>
-            Flamedraw is not liable for failure to fulfill obligations due to
+            Kawaguchicases is not liable for failure to fulfill obligations due to
             circumstances beyond our control, including natural disasters, war,
             strikes, infrastructure failures, or unlawful acts by third parties.
           </p>

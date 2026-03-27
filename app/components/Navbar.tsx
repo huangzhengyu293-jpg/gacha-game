@@ -1270,7 +1270,7 @@ export default function Navbar() {
               <div className="w-6 h-6 mr-2 text-white shrink-0 block">
                 <LogoIcon width={24} height={24} />
               </div>
-              <h1 className="text-xl text-white font-black whitespace-nowrap">FlameDraw</h1>
+              <h1 className="text-xl text-white font-black whitespace-nowrap">Kawaguchicases</h1>
             </Link>
 
             {/* Desktop Navigation */}

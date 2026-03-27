@@ -1393,7 +1393,7 @@ export default function DrawExtraComponent() {
                                   <div className="flex w-10 h-10 md:w-12 md:h-12">
                                     <LogoIcon width={45} height={45} color="#474A4D" className="w-full h-full" aria-hidden />
                                   </div>
-                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>FlameDraw</p>
+                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>Kawaguchicases</p>
                                 </div>
                               );
                             }
@@ -1461,7 +1461,7 @@ export default function DrawExtraComponent() {
                                   <div className="flex w-10 h-10 md:w-12 md:h-12">
                                     <LogoIcon width={45} height={45} color="#474A4D" className="w-full h-full" aria-hidden />
                                   </div>
-                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>FlameDraw</p>
+                                  <p className="font-black text-xs sm:text-sm md:text-lg" style={{ color: '#474A4D', fontFamily: 'Urbanist, sans-serif' }}>Kawaguchicases</p>
                                 </div>
                               );
                             }
