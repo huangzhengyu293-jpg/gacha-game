@@ -298,7 +298,7 @@ export default function Home() {
               />
               
               <div className="mt-4">
-                <BattleModes useBestRecord enablePolling={false} />
+                <BattleModes useBestRecord enablePolling={false} collapseInitialCount={3} />
               </div>
               {/* Trade Highlights replicated block */}
               
