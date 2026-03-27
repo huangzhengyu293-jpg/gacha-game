@@ -1185,6 +1185,7 @@ export default function Navbar() {
   const navigationItems = [
     { key: 'packs', labelKey: 'packs', icon: 'packs', href: '/packs' },
     { key: 'battles', labelKey: 'battles', icon: 'battles', href: '/battles' },
+    { key: 'draw', labelKey: 'draw', icon: 'draw', href: '/draw' },
     { key: 'deals', labelKey: 'deals', icon: 'deals', href: '/deals' },
     { key: 'events', labelKey: 'events', icon: 'events', href: '/events' },
     { key: 'fission', labelKey: 'fission', icon: 'fission', href: '/fission' },
