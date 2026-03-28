@@ -532,14 +532,14 @@ export default function ParticipantsWithPrizes({
                         <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
                       </div>
                     )}
-                    {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+                    {/* 主播徽标：压在头像底边上（约一半在头像内）；手机在头像右下重叠 */}
                     {isStreamer && (
                       <div
                         className={
-                          "pointer-events-none absolute " +
-                          (isLargeScreen 
-                            ? "-bottom-4 left-1/2 -translate-x-1/2" 
-                            : "left-full bottom-0")
+                          "pointer-events-none absolute z-10 " +
+                          (isLargeScreen
+                            ? "left-1/2 top-full -translate-x-1/2 -translate-y-[42%]"
+                            : "left-full bottom-0 -translate-x-1/2 -translate-y-[42%]")
                         }
                       >
                         <StreamerBadge size="xs" />
@@ -682,14 +682,14 @@ export default function ParticipantsWithPrizes({
                   <span className="text-xxs font-bold leading-none text-white">{member.vipLevel}</span>
                 </div>
               )}
-              {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+              {/* 主播徽标：压在头像底边上（约一半在头像内）；手机在头像右下重叠 */}
               {isStreamer && (
                 <div
                   className={
-                    "pointer-events-none absolute " +
-                    (isLargeScreen 
-                      ? "-bottom-4 left-1/2 -translate-x-1/2" 
-                      : "left-full bottom-0")
+                    "pointer-events-none absolute z-10 " +
+                    (isLargeScreen
+                      ? "left-1/2 top-full -translate-x-1/2 -translate-y-[42%]"
+                      : "left-full bottom-0 -translate-x-1/2 -translate-y-[42%]")
                   }
                 >
                   <StreamerBadge size="xs" />
@@ -971,14 +971,14 @@ export default function ParticipantsWithPrizes({
                               <span className="text-xxs font-bold leading-none text-white">{participant.vipLevel}</span>
                             </div>
                           )}
-                          {/* 主播徽标：PC端覆盖在头像底部（bottom负值）；手机端左边贴着头像右边，底部对齐 */}
+                          {/* 主播徽标：压在头像底边上（约一半在头像内）；手机在头像右下重叠 */}
                           {isStreamer && (
                             <div
                               className={
-                                "pointer-events-none absolute " +
-                                (isLargeScreen 
-                                  ? "-bottom-4 left-1/2 -translate-x-1/2" 
-                                  : "left-full bottom-0")
+                                "pointer-events-none absolute z-10 " +
+                                (isLargeScreen
+                                  ? "left-1/2 top-full -translate-x-1/2 -translate-y-[42%]"
+                                  : "left-full bottom-0 -translate-x-1/2 -translate-y-[42%]")
                               }
                             >
                               <StreamerBadge size="xs" />

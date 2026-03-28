@@ -1,33 +1,32 @@
 import React from "react";
-import { useI18n } from "@/app/components/I18nProvider";
 
 type StreamerBadgeProps = {
   size?: "xs" | "sm";
   className?: string;
 };
 
-export default function StreamerBadge({ size = "sm", className }: StreamerBadgeProps) {
-  const { t } = useI18n();
-  const sizing =
-    size === "xs"
-      ? "h-4 px-1.5 text-[10px]"
-      : "h-[18px] px-2 text-xxs sm:text-xs";
+const SIZE_PX = {
+  xs: 18,
+  sm: 22,
+} as const;
 
+/** 主播标识：使用麦克风图标，替代原文案「主播」 */
+export default function StreamerBadge({ size = "sm", className }: StreamerBadgeProps) {
+  const h = SIZE_PX[size];
   return (
     <span
-      className={[
-        "inline-flex items-center justify-center whitespace-nowrap rounded-full",
-        "border border-[#2B2F33] bg-[#1D2125] text-[#E1E7EF]",
-        "font-bold leading-none",
-        sizing,
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={["inline-flex items-center justify-center leading-none", className].filter(Boolean).join(" ")}
     >
-      {t("streamerLabel")}
+      {/* eslint-disable-next-line @next/next/no-img-element -- 小图标静态资源 */}
+      <img
+        src="/images/zhubo.png"
+        alt=""
+        width={h}
+        height={h}
+        className="object-contain object-bottom select-none"
+        style={{ height: h, width: "auto", maxWidth: h + 4 }}
+        draggable={false}
+      />
     </span>
   );
 }
-
-

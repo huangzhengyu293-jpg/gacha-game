@@ -57,7 +57,7 @@ function FaqAccordion({ items }: { items: FaqItem[] }) {
             >
               <div
                 ref={(el) => { contentRefs.current[idx] = el; }}
-                className="pb-3 pr-2"
+                className="pb-3 pr-2 leading-relaxed"
                 style={{ color: '#FFFFFF' }}
               >
                 {it.a || ''}
@@ -79,11 +79,15 @@ export default function HowItWorks() {
     { q: t("faqHowOpenQ"), a: t("faqHowOpenA") },
     { q: t("faqGetSupportQ"), a: t("faqGetSupportA") },
   ]), [t]);
-  const faqRight: FaqItem[] = useMemo(() => ([
-    { q: t("faqHowDepositQ"), a: t("faqHowDepositA") },
-    { q: t("faqCryptoPendingQ"), a: t("faqCryptoPendingA") },
-    { q: t("faqWhatBattleQ"), a: t("faqWhatBattleA") },
-  ]), [t]);
+  const faqRight: FaqItem[] = useMemo(
+    () => [
+      { q: t("faqHowDepositQ"), a: t("faqHowDepositA") },
+      { q: t("faqCryptoPendingQ"), a: t("faqCryptoPendingA") },
+      { q: t("faqWhatBattleQ"), a: t("faqWhatBattleA") },
+      { q: t("homeAfterWinItemQ"), a: t("homeAfterWinItemA") },
+    ],
+    [t],
+  );
 
   return (
     <div className="flex flex-col items-stretch gap-4">
@@ -101,7 +105,7 @@ export default function HowItWorks() {
       </div>
 
       <div data-orientation="vertical">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+        <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
           <FaqAccordion items={faqLeft} />
           <FaqAccordion items={faqRight} />
         </div>

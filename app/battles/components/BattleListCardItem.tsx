@@ -285,7 +285,7 @@ export default function BattleListCardItem({
                     <div key={member.id || `member-${memberIdx}`} className="flex relative items-center justify-center">
                       <Avatar src={member.avatar} alt={member.name} />
                       {Number(member.promotion) === 1 && Number(member.robot) !== 1 && (
-                        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-4">
+                        <div className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 -translate-y-[42%]">
                           <StreamerBadge size="xs" />
                         </div>
                       )}
@@ -322,7 +322,7 @@ export default function BattleListCardItem({
               <div className="flex relative items-center justify-center">
                 <Avatar src={participant.avatar} alt={participant.name} />
                 {Number(participant.promotion) === 1 && Number(participant.robot) !== 1 && (
-                  <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-4">
+                  <div className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 -translate-y-[42%]">
                     <StreamerBadge size="xs" />
                   </div>
                 )}
