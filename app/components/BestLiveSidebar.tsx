@@ -1,12 +1,12 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import LiveFeedElement from './LiveFeedElement';
 import LiveFeedTicker from './LiveFeedTicker';
 import { getGlowColorFromProbability } from '../lib/catalogV2';
-import { useLiveFeed } from './live-feed/LiveFeedProvider';
+import { useLiveFeed, type FeedItem } from './live-feed/LiveFeedProvider';
 import { useI18n } from './I18nProvider';
 
 type BestOpenItem = {
@@ -56,6 +56,50 @@ const defaultCircleIcon = (
   </svg>
 );
 
+function recordStableId(item: any, idx: number): string {
+  return String(item?.id ?? item?.record_id ?? `record-${idx}-${Date.now()}`);
+}
+
+function mapRawRecordToLivePayload(item: any): Omit<FeedItem, 'id'> {
+  const priceNum = Number(item?.bean ?? item?.price ?? 0);
+  const priceLabel =
+    priceNum > 0
+      ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '$0.00';
+  const coverFromAward = item?.awards?.cover ?? item?.awards?.image ?? item?.cover ?? item?.icon;
+  const packCover = item?.box?.cover ?? item?.box_cover ?? item?.pack_image ?? '';
+  const title = item?.awards?.name ?? item?.name ?? item?.title ?? item?.goods_name ?? '';
+  const lv = Number(item?.awards?.lv ?? item?.lv);
+  const glowColor = lv
+    ? (() => {
+        switch (lv) {
+          case 1:
+            return '#E4AE33';
+          case 2:
+            return '#EB4B4B';
+          case 3:
+            return '#8847FF';
+          case 4:
+            return '#4B69FF';
+          case 5:
+            return '#829DBB';
+          default:
+            return undefined;
+        }
+      })()
+    : getGlowColorFromProbability(item?.probability ?? item?.dropProbability);
+
+  return {
+    href: item?.box_id ? `/packs/${item.box_id}` : '/packs',
+    avatarUrl: item?.user?.avatar ?? item?.avatar ?? '',
+    productImageUrl: coverFromAward ?? '',
+    packImageUrl: packCover ?? '',
+    title: title ?? '',
+    priceLabel,
+    glowColor,
+  };
+}
+
 export default function BestLiveSidebar({
   bestOpens = [],
   liveTickerMaxItems = 9,
@@ -74,6 +118,13 @@ export default function BestLiveSidebar({
   const { push, setInitialItems } = useLiveFeed();
   const latestIdsRef = useRef<Set<string>>(new Set());
   const hydratedRef = useRef(false);
+  const liveIncomingQueueRef = useRef<Omit<FeedItem, 'id'>[]>([]);
+  const liveDrainAwaitingFinishRef = useRef(false);
+  const [liveDrainTick, setLiveDrainTick] = useState(0);
+
+  const kickLiveDrain = useCallback(() => {
+    setLiveDrainTick((n) => n + 1);
+  }, []);
 
   const { data: bestRecordResp } = useQuery({
     queryKey: ['boxBestRecord'],
@@ -129,104 +180,64 @@ export default function BestLiveSidebar({
 
   const finalBestOpens = remoteBestOpens.length > 0 ? remoteBestOpens : safeBestOpens;
 
-  // 将 /api/box/record2 的新增记录推送到 LiveFeedProvider，保留动画效果
+  useEffect(() => {
+    const onFinish = () => {
+      liveDrainAwaitingFinishRef.current = false;
+      if (liveIncomingQueueRef.current.length > 0) {
+        kickLiveDrain();
+      }
+    };
+    window.addEventListener('livefeed:enter-finish', onFinish as EventListener);
+    return () => window.removeEventListener('livefeed:enter-finish', onFinish as EventListener);
+  }, [kickLiveDrain]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (liveDrainAwaitingFinishRef.current) return;
+    const q = liveIncomingQueueRef.current;
+    if (!q.length) return;
+    const next = q.shift();
+    if (!next) return;
+    liveDrainAwaitingFinishRef.current = true;
+    push(next);
+  }, [push, liveDrainTick]);
+
+  // /api/box/record2：首轮直接铺满；之后每次轮询的新增项进入 FIFO，由上方 effect 逐条 push（跟进入动画节奏）
   useEffect(() => {
     const list = Array.isArray(liveRecordResp?.data) ? liveRecordResp?.data : [];
     if (!list.length) return;
 
-    // 初始化：首屏直接塞入（最多20条，不触发弹出）
     if (!hydratedRef.current) {
       const initialItems = list.slice(0, 20).map((item: any, idx: number) => {
-        const id = String(item?.id ?? item?.record_id ?? `record-${idx}-${Date.now()}`);
-        // 实时记录金额：优先外层 bean，不再兜底 awards.bean
-        const priceNum = Number(item?.bean ?? item?.price ?? 0);
-        const priceLabel = priceNum > 0
-          ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '$0.00';
-        const coverFromAward = item?.awards?.cover ?? item?.awards?.image ?? item?.cover ?? item?.icon;
-        const packCover = item?.box?.cover ?? item?.box_cover ?? item?.pack_image ?? '';
-        const title = item?.awards?.name ?? item?.name ?? item?.title ?? item?.goods_name ?? '';
-        const lv = Number(item?.awards?.lv ?? item?.lv);
-        const glowColor = lv
-          ? (() => {
-              switch (lv) {
-                case 1: return '#E4AE33';
-                case 2: return '#EB4B4B';
-                case 3: return '#8847FF';
-                case 4: return '#4B69FF';
-                case 5: return '#829DBB';
-                default: return undefined;
-              }
-            })()
-          : getGlowColorFromProbability(item?.probability ?? item?.dropProbability);
-
-        return {
-          id,
-          href: item?.box_id ? `/packs/${item.box_id}` : '/packs',
-          avatarUrl: item?.user?.avatar ?? item?.avatar ?? '',
-          productImageUrl: coverFromAward ?? '',
-          packImageUrl: packCover ?? '',
-          title: title ?? '',
-          priceLabel,
-          glowColor,
-        };
+        const id = recordStableId(item, idx);
+        return { id, ...mapRawRecordToLivePayload(item) };
       });
       setInitialItems(initialItems);
-      latestIdsRef.current = new Set(initialItems.map((it: { id?: string }) => it.id || ''));
+      latestIdsRef.current = new Set(initialItems.map((it: FeedItem) => it.id || ''));
       hydratedRef.current = true;
       return;
     }
 
     const nextIds = new Set<string>();
-    const newItems: any[] = [];
+    const newRows: any[] = [];
 
     list.forEach((item: any, idx: number) => {
-      const id = String(item?.id ?? item?.record_id ?? `record-${idx}-${Date.now()}`);
+      const id = recordStableId(item, idx);
       nextIds.add(id);
       if (!latestIdsRef.current.has(id)) {
-        newItems.push({ item, id });
+        newRows.push(item);
       }
     });
 
-    // 更新已知 id 集合，防止重复推送
     latestIdsRef.current = nextIds;
 
-    if (!newItems.length) return;
+    if (!newRows.length) return;
 
-    newItems.forEach(({ item }) => {
-      // 实时新增记录金额：优先外层 bean，不再兜底 awards.bean
-      const priceNum = Number(item?.bean ?? item?.price ?? 0);
-      const priceLabel = priceNum > 0
-        ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        : '$0.00';
-      const coverFromAward = item?.awards?.cover ?? item?.awards?.image ?? item?.cover ?? item?.icon;
-      const packCover = item?.box?.cover ?? item?.box_cover ?? item?.pack_image ?? '';
-      const title = item?.awards?.name ?? item?.name ?? item?.title ?? item?.goods_name ?? '';
-      const lv = Number(item?.awards?.lv ?? item?.lv);
-      const glowColor = lv
-        ? (() => {
-            switch (lv) {
-              case 1: return '#E4AE33';
-              case 2: return '#EB4B4B';
-              case 3: return '#8847FF';
-              case 4: return '#4B69FF';
-              case 5: return '#829DBB';
-              default: return undefined;
-            }
-          })()
-        : getGlowColorFromProbability(item?.probability ?? item?.dropProbability);
-
-      push({
-        href: item?.box_id ? `/packs/${item.box_id}` : '/packs',
-        avatarUrl: item?.user?.avatar ?? item?.avatar ?? '',
-        productImageUrl: coverFromAward ?? '',
-        packImageUrl: packCover ?? '',
-        title: title ?? '',
-        priceLabel,
-        glowColor,
-      });
-    });
-  }, [liveRecordResp?.data, push]);
+    for (const item of newRows) {
+      liveIncomingQueueRef.current.push(mapRawRecordToLivePayload(item));
+    }
+    kickLiveDrain();
+  }, [liveRecordResp?.data, kickLiveDrain, setInitialItems]);
 
   return (
     <div className={`hidden lg:block flex-shrink-0 ${className}`} style={{ width }}>
