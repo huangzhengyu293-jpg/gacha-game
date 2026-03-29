@@ -260,6 +260,7 @@ export default function BestLiveSidebar({
               title={item.title || ''}
               priceLabel={item.priceLabel || ''}
               glowColor={item.glowColor}
+              panelBackgroundSrc="/images/jin.png"
             />
           ))}
         </div>

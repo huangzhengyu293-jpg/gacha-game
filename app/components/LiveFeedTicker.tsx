@@ -90,6 +90,7 @@ export default function LiveFeedTicker({ maxItems = 9, intervalMs = 2000 }: Live
               title={it.title}
               priceLabel={it.priceLabel}
               glowColor={it.glowColor}
+              panelBackgroundSrc="/images/yin.png"
             />
           </motion.div>
         ))}

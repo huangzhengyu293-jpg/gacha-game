@@ -11,6 +11,8 @@ interface LiveFeedElementProps {
   title: string;
   priceLabel: string; // 已格式化的价格文案（例如 "$65,000.00"）
   glowColor?: string; // 背景光晕颜色
+  /** 卡片整面背景图（如侧边栏最佳开启 / 直播开启） */
+  panelBackgroundSrc?: string;
   className?: string;
 }
 
@@ -23,13 +25,24 @@ export default function LiveFeedElement({
   title,
   priceLabel,
   glowColor = "#FACC15",
+  panelBackgroundSrc,
   className = ""
 }: LiveFeedElementProps) {
   const content = (
     <div
       data-component={`LiveFeedElement-${index}`}
       className={`group lf-card relative overflow-hidden rounded-lg w-[224px] h-[180px] min-h-[180px] cursor-pointer transition-colors duration-200 ease-in-out ${className}`}
-      style={{ backgroundColor: '#22272B' }}
+      style={
+        panelBackgroundSrc
+          ? {
+              backgroundColor: '#22272B',
+              backgroundImage: `url(${panelBackgroundSrc})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }
+          : { backgroundColor: '#22272B' }
+      }
     >
       {/* 顶层内容：头像 + 文案 + 发光 + 主内容图（整体随 hover 下移隐藏） */}
       <div className="lf-top absolute inset-0">
