@@ -101,6 +101,10 @@ function formatCurrency(num: number) {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** 抽奖翻牌 rotateY 动画时长（须与 flipRound / 手动翻牌结算 delay 一致） */
+const DRAW_FLIP_TRANSITION_MS = 1000;
+const DRAW_FLIP_SETTLE_MS = DRAW_FLIP_TRANSITION_MS + 120;
+
 export default function DrawExtraComponent() {
   const { isAuthenticated, user, fetchUserBean } = useAuth();
   const isAuthed = isAuthenticated;
@@ -1031,7 +1035,7 @@ export default function DrawExtraComponent() {
       setHasFlipped(true);
       setIsFlipping(false);
       // 首轮后仍保持不可选，需点击"抽奖"进入下一轮后可选择
-    }, 650);
+    }, DRAW_FLIP_SETTLE_MS);
   };
 
   const flipRound = (glowIdxForRound: number, serverCards?: CardServerPayload[]) => {
@@ -1157,7 +1161,7 @@ export default function DrawExtraComponent() {
       setCanSelect(true);
       setCardServerStatus(newServerStatus);
       setSelectedLocked(newSelectedLocked);
-    }, 650);
+    }, DRAW_FLIP_SETTLE_MS);
   };
 
   return (
@@ -1175,7 +1179,7 @@ export default function DrawExtraComponent() {
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         /* 翻牌 */
         .flip-card { perspective: 1000px; -webkit-perspective: 1000px; }
-        .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; transition: transform 600ms ease; will-change: transform; }
+        .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; transition: transform ${DRAW_FLIP_TRANSITION_MS}ms ease; will-change: transform; }
         .flip-inner.flipped { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
         .flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform, opacity; }
         .flip-back { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
