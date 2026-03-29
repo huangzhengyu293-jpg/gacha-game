@@ -104,7 +104,7 @@ export default function BestLiveSidebar({
   bestOpens = [],
   liveTickerMaxItems = 9,
   liveTickerIntervalMs = 2000,
-  livePollMs = 10_000,
+  livePollMs = 2_000,
   bestOpensTitle,
   liveTitle,
   bestOpensIcon = defaultStarIcon,
