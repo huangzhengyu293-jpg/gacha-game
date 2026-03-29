@@ -15,6 +15,7 @@ import DatePickerField from "@/app/components/DatePickerField";
 import DealsPaginationBar from "@/app/components/DealsPaginationBar";
 import { getUserInviter, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
 import { sanitizeMoneyInput, useCommonWithdrawalMutation } from "@/app/hooks/useCommonWithdrawalMutation";
+import { REFERRAL_INVITE_LINK_BASE } from "@/app/lib/referralInviteHash";
 
 export default function ReferralsPage() {
   const { t } = useI18n();
@@ -24,6 +25,10 @@ export default function ReferralsPage() {
   const referralCode = useMemo(() => {
     return (user?.userInfo as any)?.invite_code || '';
   }, [user?.userInfo]);
+
+  const referralInviteUrl = useMemo(() => {
+    return referralCode ? `${REFERRAL_INVITE_LINK_BASE}${referralCode}` : '';
+  }, [referralCode]);
 
   // 获取用户类型
   const userType = useMemo(() => {
@@ -349,6 +354,26 @@ export default function ReferralsPage() {
     }
   }, [referralCode, t]);
 
+  const copyReferralInviteLink = useCallback(async () => {
+    if (!referralInviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(referralInviteUrl);
+      showGlobalToast({
+        title: t('copySuccess'),
+        description: t('referralLinkCopiedToClipboard'),
+        variant: 'success',
+        durationMs: 2000,
+      });
+    } catch {
+      showGlobalToast({
+        title: t('copyFailed'),
+        description: t('pleaseCopyReferralLinkManually'),
+        variant: 'error',
+        durationMs: 2000,
+      });
+    }
+  }, [referralInviteUrl, t]);
+
   const handleEditCode = useCallback(() => {
     setEditingCode(referralCode);
     setIsEditingCode(true);
@@ -551,6 +576,33 @@ export default function ReferralsPage() {
           </div>
 
           <div className="flex flex-col gap-6 items-stretch self-stretch pb-6">
+            <div className="rounded-lg p-4 w-full min-w-0 self-stretch" style={{ backgroundColor: '#22272B' }}>
+              <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('referralLinkLabel')}</dt>
+              <dd className="mt-0 text-white text-sm font-semibold leading-6 sm:text-base sm:leading-7 md:text-2xl md:leading-9 md:font-extrabold">
+                <div className="min-h-10 sm:min-h-11 md:h-[44px] flex items-center gap-2 w-full min-w-0">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <span className="block truncate text-left" title={referralInviteUrl || undefined}>
+                      {referralInviteUrl || '—'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyReferralInviteLink}
+                    disabled={!referralInviteUrl}
+                    aria-label={t('copyReferralLinkButton')}
+                    title={t('copyReferralLinkButton')}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50 interactive-focus relative shrink-0 text-base font-bold select-none size-8 min-h-8 min-w-8"
+                    style={{ backgroundColor: '#34383C', color: '#FFFFFF', cursor: referralInviteUrl ? 'pointer' : 'not-allowed' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5 text-white" aria-hidden>
+                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                      <path d="M4 16c-1.1 0 0 0 0 0" />
+                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                    </svg>
+                  </button>
+                </div>
+              </dd>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="rounded-lg p-4" style={{ backgroundColor: '#22272B' }}>
                 <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('referralCodeLabel')}</dt>

@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { pxToRem } from '../lib/rem';
+import { parseInviteCodeFromHash } from '../lib/referralInviteHash';
 import { LogoIcon } from './icons/Logo';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
 import InfoTooltip from './InfoTooltip';
@@ -142,6 +143,30 @@ export default function Navbar() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [regPass, setRegPass] = useState('');
   const [regInvite, setRegInvite] = useState('');
+  const [inviteLockedFromReferralLink, setInviteLockedFromReferralLink] = useState(false);
+  const inviteLockedFromReferralRef = useRef(false);
+
+  const syncInviteFromHash = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const code = parseInviteCodeFromHash(window.location.hash);
+    if (code) {
+      inviteLockedFromReferralRef.current = true;
+      setRegInvite(code);
+      setInviteLockedFromReferralLink(true);
+      return;
+    }
+    if (inviteLockedFromReferralRef.current) {
+      setRegInvite('');
+    }
+    inviteLockedFromReferralRef.current = false;
+    setInviteLockedFromReferralLink(false);
+  }, []);
+
+  useEffect(() => {
+    syncInviteFromHash();
+    window.addEventListener('hashchange', syncInviteFromHash);
+    return () => window.removeEventListener('hashchange', syncInviteFromHash);
+  }, [syncInviteFromHash]);
   const [showStrength, setShowStrength] = useState(false);
   const [regUsername, setRegUsername] = useState(''); // 用户名
   const [regEmail, setRegEmail] = useState('');
@@ -770,6 +795,8 @@ export default function Navbar() {
       setRegEmail('');
       setRegPass('');
       setRegInvite('');
+      inviteLockedFromReferralRef.current = false;
+      setInviteLockedFromReferralLink(false);
       setAgreed(false);
 
       if (ENABLE_REGISTER_EMAIL_VERIFICATION) {
@@ -1777,9 +1804,20 @@ export default function Navbar() {
                     type="text"
                     autoComplete="off"
                     value={regInvite}
-                    onChange={(e) => setRegInvite(e.target.value)}
+                    readOnly={inviteLockedFromReferralLink}
+                    aria-readonly={inviteLockedFromReferralLink}
+                    onChange={(e) => {
+                      if (inviteLockedFromReferralLink) return;
+                      setRegInvite(e.target.value);
+                    }}
                     className="flex h-10 w-full rounded-md px-3 py-2 text-base"
-                    style={{ backgroundColor: '#3B4248', color: '#FFFFFF', border: 0 }}
+                    style={{
+                      backgroundColor: '#3B4248',
+                      color: '#FFFFFF',
+                      border: 0,
+                      cursor: inviteLockedFromReferralLink ? 'not-allowed' : undefined,
+                      opacity: inviteLockedFromReferralLink ? 0.92 : 1,
+                    }}
                     placeholder={t("invitePlaceholderOptional")}
                   />
                 </div>
