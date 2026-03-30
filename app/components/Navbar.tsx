@@ -21,6 +21,7 @@ import { MainNavGameIcon } from './MainNavGameIcon';
 import { MAIN_NAV_GAMES } from '@/app/lib/mainNavGames';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
 import InfoTooltip from './InfoTooltip';
+import LiveFeedNavStrip from './LiveFeedNavStrip';
 
 type PromoCodeFormProps = {
   value: string;
@@ -1170,7 +1171,7 @@ export default function Navbar() {
   // const integralDisplay = (user?.bean as any)?.integral || 0;
 
   return (
-    <div className="sticky top-0 z-20 flex w-full flex-col">
+    <div className="relative z-20 flex w-full flex-col">
       <style>{`
         @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes modalZoomIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
@@ -1189,6 +1190,7 @@ export default function Navbar() {
         vipLevel={Number(user?.userInfo?.vip_info?.vip_id ?? 0)}
         xpProgressPercent={0}
       />
+      <LiveFeedNavStrip />
 
       {/* Mobile Menu */}
       {isMenuOpen && (
