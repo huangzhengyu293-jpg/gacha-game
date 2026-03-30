@@ -16,6 +16,7 @@ import DealsPaginationBar from "@/app/components/DealsPaginationBar";
 import { getUserInviter, type ReferralDownlineRange, type ReferralDownlineRow } from "@/api/referrals";
 import { sanitizeMoneyInput, useCommonWithdrawalMutation } from "@/app/hooks/useCommonWithdrawalMutation";
 import { REFERRAL_INVITE_LINK_BASE } from "@/app/lib/referralInviteHash";
+import ReferralPromoLevelsBanner from "@/app/components/ReferralPromoLevelsBanner";
 
 export default function ReferralsPage() {
   const { t } = useI18n();
@@ -526,8 +527,13 @@ export default function ReferralsPage() {
 
         {/* 右侧内容 */}
         <div className="flex flex-col items-start w-full lg:flex-1 min-w-0 gap-2">
-          <div className="flex justify-between items-center self-stretch pb-1 pt-4 lg:pt-0 min-w-0 gap-2">
+          <div className="w-full min-w-0 pt-4 pb-1 lg:hidden">
             <AccountMobileMenu />
+          </div>
+          <div className="w-full min-w-0">
+            <ReferralPromoLevelsBanner />
+          </div>
+          <div className="flex justify-between items-center self-stretch pb-1 pt-2 min-w-0 gap-2">
             <div className="flex lg:hidden items-center gap-2 flex-1 min-w-0">
               <div className="min-w-0 w-full max-w-[270px]">
                 <DatePickerField
@@ -576,7 +582,7 @@ export default function ReferralsPage() {
           </div>
 
           <div className="flex flex-col gap-6 items-stretch self-stretch pb-6">
-            <div className="rounded-lg p-4 w-full min-w-0 self-stretch" style={{ backgroundColor: '#22272B' }}>
+            <div id="referral-share-block" className="rounded-lg p-4 w-full min-w-0 self-stretch scroll-mt-24" style={{ backgroundColor: '#22272B' }}>
               <dt className="text-sm" style={{ color: '#FFFFFF' }}>{t('referralLinkLabel')}</dt>
               <dd className="mt-0 text-white text-sm font-semibold leading-6 sm:text-base sm:leading-7 md:text-2xl md:leading-9 md:font-extrabold">
                 <div className="min-h-10 sm:min-h-11 md:h-[44px] flex items-center gap-2 w-full min-w-0">

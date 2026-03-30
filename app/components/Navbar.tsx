@@ -735,6 +735,20 @@ export default function Navbar() {
     return () => window.removeEventListener('auth:show-login', handleShowLogin);
   }, [showLogin]);
 
+  useEffect(() => {
+    const handleShowRegister = () => {
+      setShowForgot(false);
+      setShowVerifyCode(false);
+      setShowUserMenu(false);
+      setShowMidMenu(false);
+      setIsMenuOpen(false);
+      setShowLogin(false);
+      setShowRegister(true);
+    };
+    window.addEventListener('auth:show-register', handleShowRegister);
+    return () => window.removeEventListener('auth:show-register', handleShowRegister);
+  }, []);
+
   // 重新发送验证码倒计时
   useEffect(() => {
     if (resendCountdown > 0) {

@@ -77,7 +77,7 @@ export default function RootLayout({
                   <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
                     <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
                       <Navbar />
-                      <div className="flex-1 pt-8">
+                      <div className="flex-1 pt-0 lg:pt-8">
                         {children}
                       </div>
                       <Footer />
