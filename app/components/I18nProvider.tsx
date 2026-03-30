@@ -259,7 +259,7 @@ const dict: Dict = {
   packHistory: { zh: "礼包历史", en: "Packs history", ko: "팩 기록", ja: "パック履歴", ru: "История наборов", es: "Historial de paquetes", vi: "Lịch sử gói" },
   transactionHistory: { zh: "交易历史", en: "Transaction history", ko: "거래 내역", ja: "取引履歴", ru: "История операций", es: "Historial de transacciones", vi: "Lịch sử giao dịch" },
   drawHistory: { zh: "抽奖历史", en: "Draw history", ko: "추첨 기록", ja: "抽選履歴", ru: "История жеребьевки", es: "Historial de sorteos", vi: "Lịch sử rút thăm" },
-  referrals: { zh: "推荐", en: "Referrals", ko: "추천", ja: "リファラル", ru: "Рефералы", es: "Referidos", vi: "Giới thiệu" },
+  referrals: { zh: "联盟", en: "Affiliate", ko: "제휴", ja: "アフィリエイト", ru: "Партнёры", es: "Afiliación", vi: "Liên minh" },
   fairness: { zh: "公平性", en: "Fairness", ko: "공정성", ja: "公平性", ru: "Справедливость", es: "Equidad", vi: "Công bằng" },
   security: { zh: "安全", en: "Security", ko: "보안", ja: "セキュリティ", ru: "Безопасность", es: "Seguridad", vi: "Tính an toàn" },
   profileTitle: { zh: "个人资料", en: "Profile", ko: "프로필", ja: "プロフィール", ru: "Профиль", es: "Perfil", vi: "Hồ sơ" },

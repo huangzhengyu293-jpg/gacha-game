@@ -93,7 +93,7 @@ export default function ReferralPromoLevelsBanner() {
               >
                 {levelBadge(row.level)}
               </div>
-              <div className="ml-2 text-[10px] font-medium shrink-0" style={{ color: '#E4AE33' }}>
+              <div className="ml-2 text-xs font-medium shrink-0" style={{ color: '#E4AE33' }}>
                 ${row.thresholdUsd.toLocaleString('en-US')}
               </div>
               <div className="ml-auto text-xs font-semibold" style={{ color: '#F3F4F6' }}>
