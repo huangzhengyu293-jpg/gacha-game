@@ -66,7 +66,7 @@ export default function LiveFeedElement({
           </div>
         </div>
 
-        <div data-component="BaseProductCard" className="flex flex-col w-full h-full items-center justify-between p-4">
+        <div data-component="BaseProductCard" className="flex flex-col w-full h-full items-center justify-between pt-4 px-4 pb-[11px]">
           <p className="font-semibold text-gray-400 h-6 text-base" />
 
           <div className="relative flex-1 flex w-full justify-center">
