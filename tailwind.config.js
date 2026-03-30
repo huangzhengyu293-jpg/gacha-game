@@ -16,8 +16,9 @@ module.exports = {
       colors: {
         navy: {
           200: '#B6BBCE',
+          250: '#9AA0B4',
           300: '#8B92A8',
-          400: '#6B7289',
+          400: '#858DAD',
           500: '#4C5268',
           600: '#23232D',
           700: '#1F1F227',
@@ -26,6 +27,7 @@ module.exports = {
         },
         gold: {
           DEFAULT: '#D4AF37',
+          400: '#D4B85A',
           800: '#332918',
         },
         lime: {
@@ -42,6 +44,10 @@ module.exports = {
         'battlePack': '3 / 4',
         'battlePackSm': '3 / 4',
         'battlePackMd': '3 / 4',
+      },
+      backgroundImage: {
+        'play-responsibly':
+          'linear-gradient(90deg, #0e115b 12.8%, #3d1ec1 138.4%)',
       },
     },
   },

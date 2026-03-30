@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* 间距刻度：数字类（gap-8、py-4 等）= 档数 × 本条；1 档 = 3.5px @ 16px 根字号；默认 Tailwind 为 0.25rem≈4px */
+@theme {
+  --spacing: 0.21875rem;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -30,6 +35,11 @@
 
 /* Reset default page margins to avoid unintended left gap */
 html, body { margin: 0; padding: 0; }
+
+/* 页脚：避免受 body text-align 等影响；具体颜色由组件 Tailwind 类控制 */
+[data-testid="main-page-footer-div"] {
+  text-align: start;
+}
 
 body {
   background: var(--background);

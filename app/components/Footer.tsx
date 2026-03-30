@@ -1,242 +1,523 @@
 "use client";
+
 import Link from "next/link";
-import { useEffect, useRef, useState, memo } from "react";
-import InlineSelect from "./InlineSelect";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useI18n, type Lang } from "./I18nProvider";
 import { LogoIcon } from "./icons/Logo";
-import { useAuth } from "../hooks/useAuth";
+import { keyDropPoppins } from "./KeyDropPoppins";
 
-// Hoisted accordion to avoid remounts on Footer re-renders
-const MobileAccordionBase = ({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode; }) => {
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const [open, setOpen] = useState(defaultOpen);
-  const [contentHeight, setContentHeight] = useState(0);
-  const [hasCalculated, setHasCalculated] = useState(false);
-  const [animate, setAnimate] = useState(false);
+const KD_IMG = "https://key-drop.com/web/KD/static/images/footer";
 
-  useEffect(() => {
-    const calc = () => {
-      if (contentRef.current) {
-        setContentHeight(contentRef.current.scrollHeight);
-        setHasCalculated(true);
+/** 页脚正文档：14px / 10.5px（独立于 Tailwind 默认 text-base、text-xs） */
+const FB = "text-[14px]";
+const FX = "text-[10.5px]";
+
+/** 法律摘要与 SEO 段：固定英文，不参与 i18n */
+const FOOTER_RIGHTS_LINE_EN = "All rights reserved.";
+const FOOTER_COPYRIGHT_LINE_EN = "Copyright © 2026 FlameDraw. All rights reserved.";
+const FOOTER_REGISTRY_EN =
+  "Registration and disclosures: see Terms and Privacy Policy. Corporate entities including FlameDraw Limited are described in the legal notice.";
+const FOOTER_SEO_BODY_EN = `FlameDraw is a digital pack and entertainment platform. You can explore packs, join battles, exchange items, and try draws—with transparent rules and a focus on account security.
+
+Packs show contents and odds before you open. Battles let players compete under shared rules. Exchange helps you swap items; draws offer multiplier-style play with visible risk cues.
+
+We publish provably fair tooling and policies explaining how outcomes are generated. Contact live support or our support email for help with your account, deposits, or withdrawals.
+
+Play responsibly: spend only what you can afford, keep entertainment balanced with daily life, and review our Terms and Privacy Policy regularly.`;
+
+const FOOTER_STAT_VALUES = {
+  online: 8_331,
+  users: 13_931_429,
+  opened: 553_324_193,
+  upgrades: 171_799_329,
+  battles: 53_848_188,
+} as const;
+
+function statLocale(lang: Lang): string {
+  const map: Record<string, string> = {
+    zh: "zh-CN",
+    en: "en-US",
+    ko: "ko-KR",
+    ja: "ja-JP",
+    ru: "ru-RU",
+    es: "es-ES",
+    vi: "vi-VN",
+  };
+  return map[lang as string] ?? "en-US";
+}
+
+function formatFooterStat(n: number, lang: Lang): string {
+  return n.toLocaleString(statLocale(lang));
+}
+
+function tryOpenLiveChat() {
+  if (typeof document === "undefined") return;
+  document.querySelector<HTMLElement>(".chaport-launcher-button")?.click();
+}
+
+const REGISTRY_CANVAS_CSS_W = 324;
+const REGISTRY_FONT_SIZE_PX = 10.5;
+const REGISTRY_LINE_HEIGHT_PX = Math.round(REGISTRY_FONT_SIZE_PX * 1.35);
+
+function wrapRegistryLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const words = normalized.split(" ");
+  const lines: string[] = [];
+  let line = "";
+
+  const breakLongWord = (word: string): string => {
+    let part = "";
+    for (const ch of word) {
+      const next = part + ch;
+      if (ctx.measureText(next).width <= maxW) part = next;
+      else {
+        if (part) lines.push(part);
+        part = ch;
       }
-    };
-    if (open && !hasCalculated) setTimeout(calc, 0);
-    window.addEventListener('resize', calc);
-    return () => window.removeEventListener('resize', calc);
-  }, [open, hasCalculated]);
-
-  useEffect(() => { if (!open) setHasCalculated(false); }, [open]);
-
-  const handleToggle = () => {
-    setAnimate(true);
-    setTimeout(() => setAnimate(false), 360);
-    setOpen(v => !v);
-    setTimeout(() => setAnimate(false), 400);
+    }
+    return part;
   };
 
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxW) {
+      line = candidate;
+    } else {
+      if (line) lines.push(line);
+      if (ctx.measureText(word).width <= maxW) {
+        line = word;
+      } else {
+        line = breakLongWord(word);
+      }
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** KeyDrop 同款 canvas：多行自动换行，不截断、无省略号 */
+function FooterRegistryCanvas({ text }: { text: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useLayoutEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const cssW = REGISTRY_CANVAS_CSS_W;
+    const maxW = cssW;
+    const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+
+    const draw = () => {
+      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px Poppins, sans-serif`;
+      const lines = wrapRegistryLines(ctx, text, maxW);
+      const cssH = Math.max(REGISTRY_LINE_HEIGHT_PX, lines.length * REGISTRY_LINE_HEIGHT_PX + 4);
+
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      ctx.fillStyle = "#6B7289";
+      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px Poppins, sans-serif`;
+      ctx.textBaseline = "top";
+
+      let y = 2;
+      for (const line of lines) {
+        ctx.fillText(line, 0, y);
+        y += REGISTRY_LINE_HEIGHT_PX;
+      }
+    };
+
+    draw();
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      void document.fonts.ready.then(draw);
+    }
+  }, [text]);
+
   return (
-    <div className="rounded-lg px-0 bg-black">
-      <h3 className="flex">
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={handleToggle}
-          className={`flex flex-1 items-center justify-between transition-all text-left font-extrabold text-base py-2`}
-          style={{ color: '#FFFFFF' }}
-        >
-          {title}
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide lucide-chevron-down h-4 w-4 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} style={{ color: '#FFFFFF' }}><path d="m6 9 6 6 6-6"></path></svg>
-        </button>
-      </h3>
-      <div
-        style={{ maxHeight: open ? `${contentHeight}px` : '0px', transition: animate ? 'max-height 300ms ease' : 'none', willChange: 'max-height' }}
-        className="overflow-hidden"
-      >
-        <div
-          ref={contentRef}
-          style={{ opacity: open ? 1 : 0, transition: animate ? 'opacity 250ms ease 50ms' : 'none' }}
-          className="pt-0"
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const MobileAccordionMemo = memo(MobileAccordionBase, (prev, next) => prev.title === next.title && prev.defaultOpen === next.defaultOpen);
-
-const FOOTER_LANG_OPTIONS: { label: string; value: Lang }[] = [
-  { label: "中文", value: "zh" },
-  { label: "English", value: "en" },
-  { label: "한국어", value: "ko" },
-  { label: "日本語", value: "ja" },
-  { label: "Русский", value: "ru" },
-  { label: "Español", value: "es" },
-  { label: "Tiếng Việt", value: "vi" },
-];
-
-export default function Footer() {
-  const { lang, setLang, t } = useI18n();
-  useAuth();
-  // 保留初始展开偏好，具体开合由子组件自管理，避免父级重渲染干扰动画
-  const gamesDefaultOpen = true;
-  const legalDefaultOpen = false;
-  
-  // MobileAccordion hoisted at module scope (see top of file)
-  
-  const communityBtnBase = { backgroundColor: '#2A2D35', color: '#FFFFFF', cursor: 'pointer' as const };
-  const onEnter = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#34383C'; };
-  const onLeave = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2A2D35'; };
-
-  // language options handled by InlineSelect
-
-  // (language dropdown now uses InlineSelect; no global click handler needed)
-
-  // no-op: accordion is self-controlled; no parent toggles required
-
-  return (
-    <div className="flex flex-col w-full items-center bg-black">
-      <div className="flex flex-col md:flex-row gap-4 w-full mx-auto max-w-[1280px] py-6 md:py-8 px-4">
-        <div className="flex flex-1 flex-col gap-2 max-w-[560px]">
-          <div className="flex items-center">
-            <LogoIcon width={24} height={24} color="#FFFFFF" className="mr-3 w-6 h-6" aria-hidden />
-            <h1 className="text-xl font-black" style={{ color: '#FFFFFF' }}>{t("brand")}</h1>
-          </div>
-          <h3 className="text-base max-w-72 my-2" style={{ color: '#7A8084' }}>{t("slogan")}</h3>
-        </div>
-
-        {/* Mobile accordion */}
-        <div className="flex flex-col gap-3 md:hidden">
-          <MobileAccordionMemo title={t("games")} defaultOpen={gamesDefaultOpen}>
-            <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
-              <a href="/packs" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("packs")}</a>
-              <a href="/battles" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
-              <a href="/deals" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
-              <a href="/events" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-              <a href="/rewards" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
-            </div>
-          </MobileAccordionMemo>
-
-          <MobileAccordionMemo title={t("legal")} defaultOpen={legalDefaultOpen}>
-            <div className="flex flex-col min-w-44 gap-1 py-0 pb-1">
-              <Link href="/privacy-policy" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
-                {t("privacy")}
-              </Link>
-              <Link href="/terms" className="text-base font-semibold cursor-pointer" style={{ color: '#7A8084' }}>
-                {t("terms")}
-              </Link>
-            </div>
-          </MobileAccordionMemo>
-
-          {/* 社区部分已注释 */}
-          {/* <div className="flex flex-col gap-2">
-            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
-            <div className="flex gap-3">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                <div className="size-5" style={{ color: '#FFFFFF' }}>
-                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.9025 1.90625H13.97L9.45313 7.06875L14.7669 14.0938H10.6063L7.3475 9.83312L3.61875 14.0938H1.55L6.38125 8.57188L1.28375 1.90625H5.55L8.49563 5.80062L11.9025 1.90625ZM11.1769 12.8563H12.3225L4.9275 3.07875H3.69813L11.1769 12.8563Z" fill="currentColor"></path></svg>
-                </div>
-              </button>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-instagram size-5" style={{ color: '#FFFFFF' }}><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
-              </button>
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-youtube size-5" style={{ color: '#FFFFFF' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"></path><path d="m10 15 5-3-5-3z"></path></svg>
-              </button>
-            </div>
-          </div> */}
-
-          <div className="flex flex-col gap-2 mt-2">
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
-            <div className="w-auto min-w-52">
-              <InlineSelect
-                dropUp
-                value={lang}
-                onChange={(v) => setLang(v as Lang)}
-                options={FOOTER_LANG_OPTIONS}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col mt-2">
-            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("support")}</p>
-            <p className="text-base" style={{ color: '#7A8084' }}>{t("email")}</p>
-          </div>
-          <div className="flex flex-col mt-2">
-            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
-          </div>
-        </div>
-
-        {/* Desktop columns */}
-        <div className="hidden md:flex flex-1 flex-wrap justify-between gap-4">
-          <div className="flex flex-col min-w-44 gap-1">
-            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("games")}</p>
-            <a href="/packs" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("packs")}</a>
-            <a href="/battles" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("battles")}</a>
-            <a href="/deals" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("deals")}</a>
-            <a href="/events" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("events")}</a>
-            <a href="/rewards" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>{t("rewards")}</a>
-          </div>
-          <div className="flex flex-col min-w-44 gap-1">
-            <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("legal")}</p>
-            <Link href="/privacy-policy" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
-              {t("privacy")}
-            </Link>
-            <Link href="/terms" className="text-base cursor-pointer" style={{ color: '#7A8084' }}>
-              {t("terms")}
-            </Link>
-            {/* 社区部分已注释 */}
-            {/* <div className="flex flex-col gap-2 mt-3">
-              <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("community")}</p>
-              <div className="flex gap-3">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                  <div className="size-5" style={{ color: '#FFFFFF' }}>
-                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.9025 1.90625H13.97L9.45313 7.06875L14.7669 14.0938H10.6063L7.3475 9.83312L3.61875 14.0938H1.55L6.38125 8.57188L1.28375 1.90625H5.55L8.49563 5.80062L11.9025 1.90625ZM11.1769 12.8563H12.3225L4.9275 3.07875H3.69813L11.1769 12.8563Z" fill="currentColor"></path></svg>
-                  </div>
-                </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-instagram size-5" style={{ color: '#FFFFFF' }}><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
-                </button>
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-colors interactive-focus select-none size-8 min-h-8 min-w-8 max-h-8 max-w-8" style={communityBtnBase} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-youtube size-5" style={{ color: '#FFFFFF' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"></path><path d="m10 15 5-3-5-3z"></path></svg>
-                </button>
-              </div>
-            </div> */}
-          </div>
-          <div className="flex flex-col min-w-44 gap-6">
-            <div className="flex flex-col">
-              <p className="text-base" style={{ color: '#7A8084' }}>{t("chooseLanguage")}</p>
-              <div className="w-auto min-w-52">
-                <InlineSelect
-                  dropUp
-                  value={lang}
-                  onChange={(v) => setLang(v as Lang)}
-                  options={FOOTER_LANG_OPTIONS}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("support")}</p>
-              <p className="text-base" style={{ color: '#7A8084' }}>{t("email")}</p>
-            </div>
-            <div className="flex flex-col">
-              <p className="text-base font-bold" style={{ color: '#FFFFFF' }}>{t("businessCooperation")}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex w-full" style={{ backgroundColor: '#374151', height: 1 }}></div>
-      <div className="flex flex-col md:flex-row gap-4 w-full mx-auto max-w-[1248px] py-4 px-4">
-        <p className="text-xs" style={{ color: '#7A8084' }}>
-          <span>{t("copyright")}</span>
-          <span> </span>
-          <span style={{ color: '#5A5E62' }}>{t("legalBrandNote")}</span>
-        </p>
-      </div>
-    </div>
+    <canvas
+      ref={ref}
+      aria-label={text}
+      role="img"
+      className=""
+      width={648}
+      height={60}
+    />
   );
 }
 
+export default function Footer() {
+  const { lang, t } = useI18n();
+  const [seoExpanded, setSeoExpanded] = useState(false);
 
+  const openChat = useCallback(() => {
+    tryOpenLiveChat();
+  }, []);
+
+  const stats: {
+    icon: string;
+    value: string;
+    label: string;
+    wideHidden?: boolean;
+  }[] = [
+    { icon: "footer-online.svg", value: formatFooterStat(FOOTER_STAT_VALUES.online, lang), label: t("footerStatOnline") },
+    { icon: "footer-user.svg", value: formatFooterStat(FOOTER_STAT_VALUES.users, lang), label: t("footerStatUsers") },
+    { icon: "footer-key.svg", value: formatFooterStat(FOOTER_STAT_VALUES.opened, lang), label: t("footerStatOpenedPacks") },
+    {
+      icon: "footer-upgrade.svg",
+      value: formatFooterStat(FOOTER_STAT_VALUES.upgrades, lang),
+      label: t("footerStatUpgrades"),
+      wideHidden: true,
+    },
+    {
+      icon: "footer-sword.svg",
+      value: formatFooterStat(FOOTER_STAT_VALUES.battles, lang),
+      label: t("footerStatBattles"),
+      wideHidden: true,
+    },
+  ];
+
+  const seoParagraphs = FOOTER_SEO_BODY_EN.split("\n\n");
+
+  return (
+    <footer
+      data-testid="main-page-footer-div"
+      className={`${keyDropPoppins.className} mt-9 w-full bg-navy-900 px-[17.5px]`}
+    >
+      <div className="flex w-full flex-col items-center gap-6 pb-7 pt-9 lg:flex-row lg:items-center lg:justify-between">
+        <Link
+          href="/terms"
+          className="group relative flex h-[72px] w-[288px] shrink-0 items-center overflow-hidden rounded-md bg-play-responsibly transition-all hover:shadow-lg"
+        >
+          <img
+            src={`${KD_IMG}/banner-deco-left.png?v=232`}
+            alt=""
+            className="pointer-events-none absolute -left-[30px] -top-[10px] w-[154px] rotate-[20deg] opacity-40"
+          />
+          <img
+            src={`${KD_IMG}/banner-deco-right.png?v=232`}
+            alt=""
+            className="pointer-events-none absolute -right-[20px] -top-[60px] w-[147px] -rotate-[13deg] opacity-30"
+          />
+          <div className="absolute inset-0 flex items-center gap-3 pl-4 pr-2.5">
+            <div className="shrink-0 -rotate-[12deg]">
+              <img
+                src={`${KD_IMG}/banner-app-icon.png?v=232`}
+                alt=""
+                className="h-[51px] w-[47px] rounded-xl object-cover"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5 uppercase">
+              <span className={`${FB} font-bold leading-none text-gold-400`}>{t("footerPlayResponsiblyTitle")}</span>
+              <span className={`${FX} font-semibold leading-none text-white`}>{t("footerPlayResponsiblySub")}</span>
+            </div>
+            <div className="ml-auto shrink-0">
+              <img
+                src={`${KD_IMG}/arrow-right.svg?v=232`}
+                alt=""
+                className="h-6 w-6 transition-transform group-hover:translate-x-0.5"
+              />
+            </div>
+          </div>
+        </Link>
+
+        <div className="flex flex-wrap items-center justify-center gap-4 lg:flex-nowrap lg:gap-10">
+          {stats.map((row, i) => (
+            <div
+              key={row.icon}
+              className={`flex items-center gap-1 ${row.wideHidden ? "hidden md:flex" : ""}`}
+            >
+              <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center">
+                <img
+                  src={`${KD_IMG}/${row.icon}?v=232`}
+                  alt=""
+                  className={`h-[18px] w-[18px] object-contain ${i === 0 ? "!h-[15px] !w-[15px]" : ""}`}
+                />
+              </div>
+              <div className="flex flex-col gap-[5px]">
+                <span className={`whitespace-nowrap ${FB} font-semibold leading-none text-white`}>{row.value}</span>
+                <span className={`whitespace-nowrap ${FX} font-medium leading-none text-navy-400`}>{row.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex w-full flex-col gap-8 py-8 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex shrink-0 flex-col items-center gap-6 lg:items-start">
+          <div className="flex h-[49px] min-h-[49px] w-full min-w-0 max-w-xl justify-center lg:justify-start">
+            <Link
+              href="/"
+              aria-label={t("footerLogoAria")}
+              className="flex h-full min-w-0 max-w-full items-end gap-3"
+            >
+              <LogoIcon
+                className="h-full max-h-[49px] w-auto shrink-0 text-navy-400"
+                color="currentColor"
+                aria-hidden
+              />
+              <span className="min-w-0 truncate text-[38px] font-bold leading-[38px] text-navy-400">
+                {t("brand")}
+              </span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3 lg:gap-[19px]">
+            <a
+              href="https://twitter.com/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="X"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-x.svg?v=232`} alt="X" className="h-full w-full object-contain" />
+            </a>
+            <a
+              href="https://instagram.com/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="Instagram"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-ig.svg?v=232`} alt="Instagram" className="h-full w-full object-contain" />
+            </a>
+            <a
+              href="https://facebook.com/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="Facebook"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-fb.svg?v=232`} alt="Facebook" className="h-full w-full object-contain" />
+            </a>
+            <a
+              href="https://discord.com/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="Discord"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-dc.svg?v=232`} alt="Discord" className="h-full w-full object-contain" />
+            </a>
+            <a
+              href="https://t.me/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="Telegram"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center rounded-sm bg-navy-700 transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-tg.svg?v=232`} alt="Telegram" className="h-6 w-6 object-contain" />
+            </a>
+            <a
+              href="https://youtube.com/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              aria-label="YouTube"
+              className="flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center rounded-sm bg-navy-700 transition-opacity hover:opacity-80"
+            >
+              <img src={`${KD_IMG}/social-yt.svg?v=232`} alt="YouTube" className="h-6 w-6 object-contain" />
+            </a>
+          </div>
+
+          <p className={`text-center ${FX} font-normal leading-normal text-navy-400 lg:text-left`}>
+            {FOOTER_RIGHTS_LINE_EN}
+            <br />
+            {FOOTER_COPYRIGHT_LINE_EN}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-8 lg:justify-end lg:gap-10">
+          <div className="flex flex-col gap-[11px]">
+            <span className={`${FX} font-semibold leading-6 text-white`}>{t("footerColCustomer")}</span>
+            <ul className={`list-disc ${FX} font-normal text-navy-250`}>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/fairness" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("footerProvablyFair")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/terms" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("terms")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/privacy-policy" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("footerAmlPolicy")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/privacy-policy" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("privacy")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <button
+                  type="button"
+                  onClick={openChat}
+                  className="cursor-pointer text-left text-navy-250 transition-colors duration-150 hover:text-white"
+                >
+                  {t("support")}
+                </button>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/fairness" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("footerFaq")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-[11px]">
+            <span className={`${FX} font-semibold leading-6 text-white`}>{t("footerColAccount")}</span>
+            <ul className={`list-disc ${FX} font-normal text-navy-250`}>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/account" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("kdMenuMyAccount")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/account/referrals" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("kdMenuAffiliate")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-[11px]">
+            <span className={`${FX} font-semibold leading-6 text-white`}>{t("brand")}</span>
+            <ul className={`list-disc ${FX} font-normal text-navy-250`}>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/packs" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("packs")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/battles" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("battles")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/exchange" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("exchangeItems")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-[11px]">
+            <span className={`${FX} font-semibold leading-6 text-white opacity-0 select-none`} aria-hidden>
+              {t("brand")}
+            </span>
+            <ul className={`list-disc ${FX} font-normal text-navy-250`}>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/draw" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("drawGameTitle")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/account/claims" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("claims")}
+                </Link>
+              </li>
+              <li className="ms-[18px] leading-[25px]">
+                <Link href="/events" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                  {t("events")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full">
+        <div className="flex gap-0.5 overflow-hidden rounded-lg bg-navy-800">
+          {[
+            ["pay-visa.svg", "Visa"],
+            ["pay-mastercard.svg", "Mastercard"],
+            ["pay-sofort.svg", "Sofort"],
+            ["pay-trustly.svg", "Trustly"],
+            ["pay-paypal.svg", "PayPal"],
+          ].map(([file, alt], idx) => (
+            <div
+              key={file}
+              className={`flex h-[70px] flex-1 items-center justify-center bg-navy-700 ${
+                idx === 2 ? "hidden md:flex" : ""
+              } ${idx === 3 ? "hidden md:flex" : ""} ${idx === 4 ? "hidden lg:flex" : ""}`}
+            >
+              <img
+                className="block h-full w-full max-h-[28px] max-w-[100px] object-contain opacity-80"
+                loading="lazy"
+                src={`${KD_IMG}/${file}?v=232`}
+                alt={alt}
+              />
+            </div>
+          ))}
+          <div className="flex h-[70px] flex-1 items-center justify-center bg-navy-700">
+            <span className={`whitespace-nowrap text-center ${FX} font-semibold text-navy-400`}>{t("footerMorePayments")}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full pb-4 pt-8">
+        <div className={`flex flex-col items-center gap-4 ${FX} font-normal leading-normal text-navy-400 lg:flex-row lg:items-start lg:justify-between`}>
+          <div className="text-center lg:max-w-[580px] lg:text-left">
+            <p className="uppercase">
+              {FOOTER_RIGHTS_LINE_EN}
+              <br />
+              {FOOTER_COPYRIGHT_LINE_EN}
+            </p>
+          </div>
+          <div className="flex justify-end text-center lg:max-w-[526px] lg:text-right">
+            <FooterRegistryCanvas text={FOOTER_REGISTRY_EN} />
+          </div>
+        </div>
+
+        <div className="mt-5 hidden sm:block">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={seoExpanded}
+            aria-label={t("footerExpandSeoAria")}
+            className="cursor-pointer transition-opacity hover:opacity-80 focus:outline-none"
+            onClick={() => setSeoExpanded((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSeoExpanded((v) => !v);
+              }
+            }}
+          >
+            <div
+              className="relative overflow-hidden"
+              style={{
+                maskImage: seoExpanded ? undefined : "linear-gradient(black 60%, transparent 100%)",
+                maxHeight: seoExpanded ? "none" : 120,
+                height: "auto",
+              }}
+            >
+              <div className={`text-left ${FX} font-normal leading-normal text-navy-400`}>
+                {seoParagraphs.map((para, i) => (
+                  <span key={i}>
+                    {i > 0 ? (
+                      <>
+                        <br />
+                        <br />
+                      </>
+                    ) : null}
+                    {para}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
