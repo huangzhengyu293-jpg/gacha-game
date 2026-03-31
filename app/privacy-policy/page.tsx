@@ -20,10 +20,10 @@ export default function PrivacyPolicyPage() {
             INTRODUCTION
           </h2>
           <p>
-            This Privacy Policy sets out how Kawaguchicases will manage your personal data,
+            This Privacy Policy sets out how KawaguchiDraw will manage your personal data,
             which will be collected as a result of your use of our services and the website
-            or any other pages under the Kawaguchicases brand including any electrical device
-            or app that are owned and/or operated by us. Kawaguchicases is committed to
+            or any other pages under the KawaguchiDraw brand including any electrical device
+            or app that are owned and/or operated by us. KawaguchiDraw is committed to
             ensuring that the personal data we collect about you is protected and is
             used, stored and disclosed in accordance with the applicable regulation.
             For your information, your personal data will be collected by:
@@ -38,10 +38,10 @@ export default function PrivacyPolicyPage() {
             CONSENT
           </h2>
           <p>
-            By accessing <span className="underline">www.Kawaguchicases.com</span> or
-            registering an account at the website, you consent for Kawaguchicases to collect,
+            By accessing <span className="underline">www.KawaguchiDraw.com</span> or
+            registering an account at the website, you consent for KawaguchiDraw to collect,
             use, process and disclose your personal information with third party
-            providers and other entities of Kawaguchicases’s group, as long as such
+            providers and other entities of KawaguchiDraw’s group, as long as such
             information is essential for the provision of the services that you are
             using on the website.
           </p>
@@ -142,7 +142,7 @@ export default function PrivacyPolicyPage() {
           </h2>
           <p>
             If you have given your consent, we will use your personal data to inform you about
-            our products, services, campaigns, promotions and other Kawaguchicases activities that
+            our products, services, campaigns, promotions and other KawaguchiDraw activities that
             might benefit you. If you no longer wish to receive marketing communications, please
             contact our Support Team or press the “unsubscribe” button on the marketing e-mails.
           </p>
@@ -201,8 +201,8 @@ export default function PrivacyPolicyPage() {
            <h2 className="text-base font-bold mt-8 mb-2 text-white">CONTACTS</h2>
           <p>
             If you have any questions regarding this policy, please contact us via email at{' '}
-            <Link href="mailto:support@Kawaguchicases.com" className="text-blue-400 underline">
-              support@Kawaguchicases.com
+            <Link href="mailto:support@KawaguchiDraw.com" className="text-blue-400 underline">
+              support@KawaguchiDraw.com
             </Link>.
           </p>
 
@@ -210,7 +210,7 @@ export default function PrivacyPolicyPage() {
             APPROVAL &amp; REVIEW
           </h2>
           <p>
-            This Policy was reviewed and approved by the Executive Committee of Kawaguchicases.
+            This Policy was reviewed and approved by the Executive Committee of KawaguchiDraw.
             It will be reviewed on an annual basis or whenever regulatory or internal
             procedure changes impact the same.
           </p>

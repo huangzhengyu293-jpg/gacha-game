@@ -29,11 +29,11 @@ const urbanist = Urbanist({
 
 export const metadata: Metadata = {
   title: {
-    default: "Kawaguchicases",
-    template: "%s | Kawaguchicases",
+    default: "KawaguchiDraw",
+    template: "%s | KawaguchiDraw",
   },
-  applicationName: "Kawaguchicases",
-  description: "Kawaguchicases",
+  applicationName: "KawaguchiDraw",
+  description: "KawaguchiDraw",
   icons: {
     icon: [
       { url: "/logo-black.svg", media: "(prefers-color-scheme: light)" },
@@ -41,10 +41,10 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "Kawaguchicases",
+    title: "KawaguchiDraw",
   },
   twitter: {
-    title: "Kawaguchicases",
+    title: "KawaguchiDraw",
   },
 };
 

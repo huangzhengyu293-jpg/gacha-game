@@ -1,6 +1,6 @@
 // 服务端请求工具（用于 Server Components 和 API Routes）
 
-const BASE_URL = 'https://test-api.flamedraw.com';
+const BASE_URL = 'https://api.kawaguchidraw.com';
 
 interface FetchOptions extends RequestInit {
   token?: string;
