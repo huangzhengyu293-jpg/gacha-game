@@ -71,6 +71,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "kawaguchidraw.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "flamedraw.com",
         pathname: "/**",
       },
