@@ -61,6 +61,16 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "api.kawaguchidraw.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "www.kawaguchidraw.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "flamedraw.com",
         pathname: "/**",
       },
