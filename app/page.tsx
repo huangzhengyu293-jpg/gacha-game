@@ -15,6 +15,7 @@ import TradeHighlights from './components/TradeHighlights';
 import HowItWorks from './components/HowItWorks';
 import BestLiveSidebar from './components/BestLiveSidebar';
 import { useAuthContext } from './providers/AuthProvider';
+import { BATTLE_LIST_PATH } from './lib/battleRoutes';
 
 export default function Home() {
   const { t } = useI18n();
@@ -69,7 +70,7 @@ export default function Home() {
   const battleBannerHref =
     bestBattleRecord && bestBattleRecord.id !== undefined && bestBattleRecord.id !== null
       ? `/battles/${bestBattleRecord.id}`
-      : '/battles';
+      : BATTLE_LIST_PATH;
 
   const bestPackRecord = useMemo<PackRecordData | undefined>(() => {
     const normalize = (item: any): PackRecordData => ({
@@ -292,7 +293,7 @@ export default function Home() {
                     <path d="M3.99998 18.2222L5.77776 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"></path>
                   </svg>
                 }
-                onViewAll={() => router.push('/battles')}
+                onViewAll={() => router.push(BATTLE_LIST_PATH)}
                 viewAllText={t('viewAll')}
                 className="mt-12 mb-3"
               />

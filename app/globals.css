@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
-/* 间距刻度：数字类（gap-8、py-4 等）= 档数 × 本条；1 档 = 3.5px @ 16px 根字号；默认 Tailwind 为 0.25rem≈4px */
+/* Tailwind v4：数字间距刻度仅认此处 --spacing；字号/字重等在 tailwind.config.js */
 @theme {
   --spacing: 0.21875rem;
 }
@@ -22,7 +22,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -44,7 +44,10 @@ html, body { margin: 0; padding: 0; }
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-urbanist), var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-poppins), sans-serif;
+  /* 默认亚像素抗锯齿：比 Tailwind `antialiased`（灰度）更“实”、更接近多数生产站观感 */
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
 }
 
 /* Mobile-friendly viewport height & text rendering */
@@ -311,4 +314,92 @@ html { overflow-x: hidden; }
 .exchange-scroll {
   scrollbar-color: #9f9f9f #2c2c2c;
   scrollbar-width: thin;
+}
+
+/*
+ * Case battle 列表：设计 1477 = 84+544+167+402+280。
+ * 回合 / 价值 / 状态：固定 84 / 167 / 280 px。
+ * ≥1280：只缩宝盒 width=max(0,100%−933)，玩家固定 402（933=84+167+402+280）。
+ * <1280：无宝盒；只缩玩家 calc(100%−531)。
+ * <1280：首行宝盒列折叠；第二行 `colSpan=5`；表 `border-spacing-y:0`；同条主行与礼包行用 `-mt-px` 消除亚像素缝；条与条之间用 `case-battle-list-entry-gap` 间隔行（2px）。
+ * <768：整行表头（thead）隐藏。
+ */
+.case-battle-list-table {
+  table-layout: fixed;
+  width: 100%;
+  /* 与组件礼包卡一致：py-[0.625rem]×2 + w60×aspect(270/375) + pb-2(0.5rem) */
+  --cb-list-pack-row-height: calc(0.625rem + 0.625rem + (60px * 375 / 270) + 0.5rem);
+}
+
+/* 不用 visibility:collapse + th display:none，否则少一格会整表错列 */
+.case-battle-list-table col.cb-c-packs {
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  padding: 0;
+}
+
+.case-battle-list-table col.cb-c-round {
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+}
+.case-battle-list-table col.cb-c-value {
+  width: 167px;
+  min-width: 167px;
+  max-width: 167px;
+}
+.case-battle-list-table col.cb-c-status {
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+}
+
+/* 默认（<1280，宝盒折叠）：玩家为唯一弹性列 */
+.case-battle-list-table col.cb-c-players {
+  width: calc(100% - 531px);
+  min-width: 0;
+  max-width: none;
+}
+
+@media (max-width: 1279.98px) {
+  .case-battle-list-table th.cb-c-packs {
+    padding: 0;
+    overflow: hidden;
+  }
+  /*
+   * 首行与 xl 一致：礼包列折叠但保留与单行礼包列相同的占位高度（60×375/270 ≈ 83.33 + 与组件 py-[0.625rem] 合计 ≈103px）
+   */
+  .case-battle-list-table td.cb-c-packs {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    overflow: hidden;
+    min-height: var(--cb-list-pack-row-height);
+    vertical-align: middle;
+  }
+  .case-battle-list-table th.cb-c-packs .case-battle-list-packs-cell-inner,
+  .case-battle-list-table td.cb-c-packs .case-battle-list-packs-cell-inner {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .case-battle-list-table col.cb-c-packs {
+    width: max(0px, calc(100% - 933px));
+    min-width: 0;
+    max-width: none;
+  }
+  .case-battle-list-table col.cb-c-players {
+    width: 402px;
+    min-width: 402px;
+    max-width: 402px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .case-battle-list-table thead {
+    display: none;
+  }
 }

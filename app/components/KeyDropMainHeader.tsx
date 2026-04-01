@@ -103,7 +103,7 @@ export function KeyDropMainHeader({
           height={32}
           className="block h-auto max-h-[24px] w-auto max-w-full shrink-0 object-contain md:max-h-[32px]"
         />
-        <span className="whitespace-nowrap text-left text-[11px] font-bold leading-tight text-white md:text-xs min-[1600px]:text-[13px] min-[2560px]:text-sm">
+        <span className="whitespace-nowrap text-left text-[11px] font-bold leading-tight text-white md:text-xs lg:text-[20px] lg:leading-[20px]">
           {t('brand')}
         </span>
       </Link>

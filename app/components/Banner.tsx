@@ -31,7 +31,7 @@ export default function Banner({
           <div className="size-10" style={{ color: '#7A8084' }}>
             {icon}
           </div>
-          <p className="text-gray-300 font-urbanist font-extrabold uppercase leading-[1.2] flex flex-col z-10 w-28">
+          <p className="text-gray-300 font-sans font-extrabold uppercase leading-[1.2] flex flex-col z-10 w-28">
             {title}
           </p>
         </div>

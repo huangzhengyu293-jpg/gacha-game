@@ -1,3 +1,5 @@
+import { BATTLE_LIST_PATH } from "./battleRoutes";
+
 /** 主导航游戏区（抽奖已下线，不包含 Draw） */
 export type MainNavGameKey = 'packs' | 'battles' | 'deals' | 'events' | 'rewards';
 
@@ -10,7 +12,7 @@ export type MainNavGameItem = {
 
 export const MAIN_NAV_GAMES: MainNavGameItem[] = [
   { key: 'packs', label: 'Packs', href: '/packs' },
-  { key: 'battles', label: 'Battles', href: '/battles' },
+  { key: 'battles', label: 'Battles', href: BATTLE_LIST_PATH },
   { key: 'deals', label: 'Deals', href: '/deals' },
   { key: 'events', label: 'Events', href: '/events' },
   { key: 'rewards', label: 'Rewards', href: '/rewards' },

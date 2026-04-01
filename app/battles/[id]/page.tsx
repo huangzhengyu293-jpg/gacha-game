@@ -17,6 +17,7 @@ import FireworkArea, { FireworkAreaHandle } from '@/app/components/FireworkArea'
 import HorizontalLuckySlotMachine, { type SlotSymbol as HorizontalSlotSymbol } from '@/app/components/SlotMachine/HorizontalLuckySlotMachine';
 import LoadingSpinnerIcon from '@/app/components/icons/LoadingSpinner';
 import { api, type CreateBattlePayload } from '@/app/lib/api';
+import { BATTLE_LIST_PATH } from '@/app/lib/battleRoutes';
 import { useAuth } from '@/app/hooks/useAuth';
 import { buildBattleDataFromRaw, buildBattlePayloadFromRaw, type BattleSpecialOptions } from './battleDetailBuilder';
 import { allocateJackpotPercentageBps } from './utils';
@@ -1090,7 +1091,7 @@ export default function BattleDetailPage() {
 
   useEffect(() => {
     if (!routeBattleId) {
-      router.push('/battles');
+      router.push(BATTLE_LIST_PATH);
     }
   }, [routeBattleId, router]);
 

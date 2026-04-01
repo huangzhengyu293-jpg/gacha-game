@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Urbanist } from "next/font/google";
 import "./globals.css";
+import { keyDropPoppins } from "./components/KeyDropPoppins";
 import { I18nProvider } from "./components/I18nProvider";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -9,8 +10,6 @@ import QueryProvider from "./components/QueryProvider";
 import ToastProvider from "./components/ToastProvider";
 import AuthProvider from "./providers/AuthProvider";
 import Providers from "./providers";
-import ChaportLiveChat from "./components/ChaportLiveChat";
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -61,7 +60,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh" data-theme="dark">
-      <body className={`${urbanist.className} ${urbanist.variable} ${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-y-auto flex flex-col`} style={{ backgroundColor: '#1D2125' }}>
+      <body
+        className={`${keyDropPoppins.className} ${keyDropPoppins.variable} ${urbanist.variable} ${geistSans.variable} ${geistMono.variable} min-h-screen flex flex-col`}
+        style={{ backgroundColor: '#1D2125' }}
+      >
         <style>{`
           html,
           body {
@@ -75,11 +77,12 @@ export default function RootLayout({
                 <AuthProvider>
                   {/* LiveFeedProvider: 将 socketEnabled 改为 true 并提供 socketUrl 即可接入后端 WebSocket */}
                   <LiveFeedProvider socketEnabled={false} socketUrl={process.env.NEXT_PUBLIC_LIVE_FEED_WS}>
-                    <div className="flex flex-col min-h-mobile" style={{ overflowX: 'hidden' }}>
+                    <div
+                      className="flex min-h-mobile flex-col max-md:pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
+                      style={{ overflowX: 'hidden' }}
+                    >
                       <Navbar />
-                      <div className="flex-1 pt-8">
                         {children}
-                      </div>
                       <Footer />
                     </div>
                   </LiveFeedProvider>
@@ -88,7 +91,6 @@ export default function RootLayout({
             </QueryProvider>
           </Providers>
         </I18nProvider>
-        <ChaportLiveChat />
       </body>
     </html>
   );

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useI18n, type Lang } from "./I18nProvider";
 import { LogoIcon } from "./icons/Logo";
 import { keyDropPoppins } from "./KeyDropPoppins";
+import { BATTLE_LIST_PATH } from "@/app/lib/battleRoutes";
 
 const KD_IMG = "https://key-drop.com/web/KD/static/images/footer";
 
@@ -48,11 +49,6 @@ function statLocale(lang: Lang): string {
 
 function formatFooterStat(n: number, lang: Lang): string {
   return n.toLocaleString(statLocale(lang));
-}
-
-function tryOpenLiveChat() {
-  if (typeof document === "undefined") return;
-  document.querySelector<HTMLElement>(".chaport-launcher-button")?.click();
 }
 
 const REGISTRY_CANVAS_CSS_W = 324;
@@ -112,7 +108,7 @@ function FooterRegistryCanvas({ text }: { text: string }) {
     const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
 
     const draw = () => {
-      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px Poppins, sans-serif`;
+      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px ${keyDropPoppins.style.fontFamily}`;
       const lines = wrapRegistryLines(ctx, text, maxW);
       const cssH = Math.max(REGISTRY_LINE_HEIGHT_PX, lines.length * REGISTRY_LINE_HEIGHT_PX + 4);
 
@@ -124,7 +120,7 @@ function FooterRegistryCanvas({ text }: { text: string }) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       ctx.fillStyle = "#6B7289";
-      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px Poppins, sans-serif`;
+      ctx.font = `400 ${REGISTRY_FONT_SIZE_PX}px ${keyDropPoppins.style.fontFamily}`;
       ctx.textBaseline = "top";
 
       let y = 2;
@@ -155,10 +151,6 @@ function FooterRegistryCanvas({ text }: { text: string }) {
 export default function Footer() {
   const { lang, t } = useI18n();
   const [seoExpanded, setSeoExpanded] = useState(false);
-
-  const openChat = useCallback(() => {
-    tryOpenLiveChat();
-  }, []);
 
   const stats: {
     icon: string;
@@ -357,13 +349,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li className="ms-[18px] leading-[25px]">
-                <button
-                  type="button"
-                  onClick={openChat}
-                  className="cursor-pointer text-left text-navy-250 transition-colors duration-150 hover:text-white"
+                <Link
+                  href="mailto:support@flamedraw.com"
+                  className="text-navy-250 transition-colors duration-150 hover:text-white"
                 >
                   {t("support")}
-                </button>
+                </Link>
               </li>
               <li className="ms-[18px] leading-[25px]">
                 <Link href="/fairness" className="text-navy-250 transition-colors duration-150 hover:text-white">
@@ -398,7 +389,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li className="ms-[18px] leading-[25px]">
-                <Link href="/battles" className="text-navy-250 transition-colors duration-150 hover:text-white">
+                <Link href={BATTLE_LIST_PATH} className="text-navy-250 transition-colors duration-150 hover:text-white">
                   {t("battles")}
                 </Link>
               </li>

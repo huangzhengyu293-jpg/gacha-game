@@ -22,6 +22,7 @@ import { MAIN_NAV_GAMES } from '@/app/lib/mainNavGames';
 import LoadingSpinnerIcon from './icons/LoadingSpinner';
 import InfoTooltip from './InfoTooltip';
 import LiveFeedNavStrip from './LiveFeedNavStrip';
+import { MobileBottomNav } from './MobileBottomNav';
 
 type PromoCodeFormProps = {
   value: string;
@@ -1191,6 +1192,7 @@ export default function Navbar() {
         xpProgressPercent={0}
       />
       <LiveFeedNavStrip />
+      <MobileBottomNav />
 
       {/* Mobile Menu */}
       {isMenuOpen && (

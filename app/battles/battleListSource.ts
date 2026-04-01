@@ -11,6 +11,17 @@ export type ParticipantPreview = {
   robot?: number;
 };
 
+/** 列表行：按礼包 ID 合并重复槽位（数量 + 单价便于算礼包总价） */
+export type PackAggregateRow = {
+  boxId: string;
+  quantity: number;
+  imageSrc: string;
+  imageAlt: string;
+  name: string;
+  /** 来自 boxs_cover 等后端字段；缺失则靠礼包 catalog 补 */
+  unitPrice: number | null;
+};
+
 export type BattleListCard = {
   id: string;
   title: string;
@@ -26,6 +37,8 @@ export type BattleListCard = {
   totalOpenedValue: number;
   packImages: Array<{ src: string; alt: string }>;
   packCount: number;
+  /** 去重后的礼包展示行（与 packImages 顺序无关，按战场出现顺序） */
+  packAggregates: PackAggregateRow[];
   totalRounds?: number;
   currentRound?: number; // 1-based, derived from time
   createdAt: number;
@@ -248,6 +261,109 @@ function buildPackImages(entry: RawBattleListItem) {
   });
 }
 
+function extractBoxMetaFromCover(
+  coverSource: ReturnType<typeof parseCoverSource>,
+  boxId: number | string,
+  firstIndex: number,
+): { name: string | null; unitPrice: number | null } {
+  const tryRecord = (rec: unknown): { name: string | null; unitPrice: number | null } => {
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec)) return { name: null, unitPrice: null };
+    const r = rec as Record<string, unknown>;
+    const nameRaw = r.name ?? r.title ?? r.box_name ?? r.goods_name;
+    const name = typeof nameRaw === 'string' && nameRaw.trim() ? nameRaw.trim() : null;
+    const rawBean = r.bean ?? r.price ?? r.box_bean;
+    let unitPrice: number | null = null;
+    if (rawBean !== undefined && rawBean !== null) {
+      const n = typeof rawBean === 'number' ? rawBean : Number(rawBean);
+      if (Number.isFinite(n)) unitPrice = n;
+    }
+    return { name, unitPrice };
+  };
+
+  const idKey = String(boxId);
+  if (!coverSource) return { name: null, unitPrice: null };
+
+  if (Array.isArray(coverSource)) {
+    for (const item of coverSource) {
+      if (item && typeof item === 'object') {
+        const e = item as Record<string, unknown>;
+        const bid = e.box_id ?? e.id ?? e.boxId;
+        if (bid !== undefined && String(bid) === idKey) {
+          return tryRecord(item);
+        }
+      }
+    }
+    return tryRecord(coverSource[firstIndex]);
+  }
+
+  if (typeof coverSource === 'object') {
+    const o = coverSource as Record<string, unknown>;
+    const direct = o[idKey];
+    if (direct) return tryRecord(direct);
+    return tryRecord(o[String(firstIndex)]);
+  }
+
+  return { name: null, unitPrice: null };
+}
+
+export function buildPackAggregateRows(entry: RawBattleListItem): PackAggregateRow[] {
+  if (!Array.isArray(entry.boxs) || entry.boxs.length === 0) {
+    return [];
+  }
+  const coverSource = parseCoverSource(entry.boxs_cover);
+  const order: string[] = [];
+  const counts = new Map<string, number>();
+  const firstIndex = new Map<string, number>();
+
+  entry.boxs.forEach((rawId, idx) => {
+    const boxId = String(rawId);
+    if (!counts.has(boxId)) {
+      order.push(boxId);
+      firstIndex.set(boxId, idx);
+    }
+    counts.set(boxId, (counts.get(boxId) ?? 0) + 1);
+  });
+
+  return order.map((boxId) => {
+    const idx = firstIndex.get(boxId)!;
+    const numId = Number(boxId);
+    const imageSrc =
+      resolveBoxCover(coverSource, Number.isFinite(numId) ? numId : boxId, idx) ?? BOX_PLACEHOLDER_IMAGE;
+    const meta = extractBoxMetaFromCover(coverSource, boxId, idx);
+    const name = meta.name ?? `Pack ${boxId}`;
+    return {
+      boxId,
+      quantity: counts.get(boxId)!,
+      imageSrc,
+      imageAlt: name,
+      name,
+      unitPrice: meta.unitPrice,
+    };
+  });
+}
+
+/** 礼包总价：单价 × 数量；单价优先行内 unitPrice，否则 catalog；仍无则退回 entryCost（bean） */
+export function computeScenarioPackTotalUsd(
+  card: BattleListCard,
+  catalogBeanById: Map<string, number>,
+): number {
+  if (!card.packAggregates.length) {
+    return card.entryCost;
+  }
+  let sum = 0;
+  for (const row of card.packAggregates) {
+    const unit =
+      row.unitPrice !== null && row.unitPrice !== undefined && Number.isFinite(row.unitPrice)
+        ? row.unitPrice
+        : catalogBeanById.get(row.boxId);
+    if (typeof unit !== 'number' || !Number.isFinite(unit)) {
+      return card.entryCost;
+    }
+    sum += unit * row.quantity;
+  }
+  return sum;
+}
+
 function clampSlotIndex(value: number, totalSlots: number) {
   if (!Number.isFinite(value)) return 0;
   if (totalSlots <= 0) return 0;
@@ -357,6 +473,7 @@ export function buildBattleListCards(
       entry.updated_at_time ?? (Date.parse(entry.updated_at ?? '') || 0);
 
     const packImages = buildPackImages(entry);
+    const packAggregates = buildPackAggregateRows(entry);
     const roundsTotal = packImages.length > 0 ? packImages.length : entry.boxs_num || entry.boxs?.length || 0;
     const isFast = Number(entry.fast) === 1;
     const roundDuration = isFast ? 1 : 6;
@@ -390,6 +507,7 @@ export function buildBattleListCards(
       // 已开启金额：使用后端字段 sum_bean（兼容旧字段 win_bean）
       totalOpenedValue: formatNumber((entry as any).sum_bean ?? entry.win_bean),
       packImages,
+      packAggregates,
       packCount: Array.isArray(entry.boxs) ? entry.boxs.length : 0,
       totalRounds,
       currentRound,

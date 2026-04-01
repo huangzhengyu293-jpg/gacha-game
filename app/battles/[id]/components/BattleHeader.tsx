@@ -6,6 +6,7 @@ import PackContentsModal from "@/app/components/PackContentsModal";
 import { getModeVisual, getSpecialOptionLabels } from "@/app/battles/modeVisuals";
 import { useI18n } from "@/app/components/I18nProvider";
 import InfoTooltip from "@/app/components/InfoTooltip";
+import { BATTLE_LIST_PATH } from "@/app/lib/battleRoutes";
 
 export interface PackImage {
   src: string;
@@ -221,7 +222,7 @@ export default function BattleHeader({
           <div className="flex flex-1 justify-between pt-2 pb-3  min-h-32">
             {/* Left Column */}
             <div className="flex flex-1 flex-col justify-between px-4">
-              <Link href="/battles">
+              <Link href={BATTLE_LIST_PATH}>
                 <div className="flex cursor-pointer items-center">
                   <div className="size-5 text-[#FAFAFA]">
                     <svg

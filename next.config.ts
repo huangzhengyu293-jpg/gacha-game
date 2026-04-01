@@ -1,7 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: "/case-battle/list",
+        destination: "/battles",
+        permanent: true,
+      },
+      {
+        source: "/case-battle/list/:path*",
+        destination: "/battles",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
