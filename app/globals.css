@@ -272,6 +272,11 @@ html { overflow-x: hidden; }
   background-image: radial-gradient(circle at top center, #3A4249 0, transparent 50%);
 }
 
+/* 预留滚动条槽位，避免出现时挤压内容宽度 */
+.custom-scrollbar {
+  scrollbar-gutter: stable;
+}
+
 /* 自定义滚动条样式 - WebKit浏览器 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

@@ -65,7 +65,14 @@ module.exports = {
         semibold: '600',
         bold: '700',
       },
+      fontFamily: {
+        goldman: ['var(--font-goldman)', 'sans-serif'],
+      },
       colors: {
+        'dark-navy': {
+          300: '#2E3244',
+          500: '#22272B',
+        },
         navy: {
           200: '#B6BBCE',
           250: '#9AA0B4',
@@ -105,6 +112,12 @@ module.exports = {
       },
       boxShadow: {
         lg: '0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a',
+        // 列表底部渐隐（叠在滚动区上方、不随内容滚动）；略减不透明度避免衔接按钮区死黑
+        'case-list': 'inset 0px -210px 73px -110px rgba(0,0,0,0.72)',
+        'case-hover': '0 0 22px rgba(255, 203, 119, 0.28)',
+      },
+      spacing: {
+        25: '6.25rem',
       },
       width: {
         20: '5rem',

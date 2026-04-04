@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Urbanist } from "next/font/google";
+import { Geist, Geist_Mono, Goldman, Urbanist } from "next/font/google";
 import "./globals.css";
 import { keyDropPoppins } from "./components/KeyDropPoppins";
 import { I18nProvider } from "./components/I18nProvider";
@@ -24,6 +24,12 @@ const urbanist = Urbanist({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-urbanist",
+});
+
+const goldman = Goldman({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-goldman",
 });
 
 export const metadata: Metadata = {
@@ -61,7 +67,7 @@ export default function RootLayout({
   return (
     <html lang="zh" data-theme="dark">
       <body
-        className={`${keyDropPoppins.className} ${keyDropPoppins.variable} ${urbanist.variable} ${geistSans.variable} ${geistMono.variable} min-h-screen flex flex-col`}
+        className={`${keyDropPoppins.className} ${keyDropPoppins.variable} ${urbanist.variable} ${goldman.variable} ${geistSans.variable} ${geistMono.variable} min-h-screen flex flex-col`}
         style={{ backgroundColor: '#1D2125' }}
       >
         <style>{`
